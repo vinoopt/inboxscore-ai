@@ -102,7 +102,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .modal .btn-outline:hover { border-color: var(--red); color: var(--red); }
 
 /* Loading */
-.loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
+.loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Toast */
 .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 13px; z-index: 200; opacity: 0; transform: translateY(20px); transition: all 0.3s; pointer-events: none; }
@@ -195,7 +197,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </div>
 
     <!-- Alert List -->
-    <div id="alerts-loading" class="loading">Loading alerts...</div>
+    <div id="alerts-loading" class="loading"><div class="loading-spinner"></div>Loading alerts...</div>
     <div id="alerts-list" class="alert-list" style="display:none"></div>
     <div id="alerts-empty" class="empty-state" style="display:none">
       <div class="empty-icon">🔔</div>
@@ -245,7 +247,7 @@ function logout() {
 // ─── Load Alerts ─────────────────────────────
 async function loadAlerts() {
   try {
-    const res = await fetch(API + '/api/user/alerts?limit=100', { headers });
+    const res = await fetch('/api/user/alerts?limit=100', { headers });
     if (!res.ok) throw new Error('Failed to load alerts');
     const data = await res.json();
     allAlerts = data.alerts || [];
@@ -255,7 +257,10 @@ async function loadAlerts() {
   } catch (e) {
     console.error('Error loading alerts:', e);
     document.getElementById('alerts-loading').style.display = 'none';
-    showToast('Failed to load alerts', 'error');
+    document.getElementById('alerts-list').style.display = 'none';
+    const empty = document.getElementById('alerts-empty');
+    empty.style.display = 'block';
+    empty.innerHTML = '<div class="empty-icon">⚠️</div><h3>Could not load alerts</h3><p>Something went wrong. Please try again.</p><button onclick="loadAlerts()" style="margin-top:12px;padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Retry</button>';
   }
 }
 
@@ -349,7 +354,7 @@ function setFilter(filter) {
 // ─── Actions ─────────────────────────────
 async function markRead(alertId) {
   try {
-    const res = await fetch(API + '/api/alerts/' + alertId + '/read', {
+    const res = await fetch('/api/alerts/' + alertId + '/read', {
       method: 'PUT', headers
     });
     if (res.ok) {
@@ -366,7 +371,7 @@ async function markRead(alertId) {
 
 async function markAllRead() {
   try {
-    const res = await fetch(API + '/api/user/alerts/read-all', {
+    const res = await fetch('/api/user/alerts/read-all', {
       method: 'PUT', headers
     });
     if (res.ok) {
@@ -383,7 +388,7 @@ async function markAllRead() {
 
 async function deleteAlert(alertId) {
   try {
-    const res = await fetch(API + '/api/alerts/' + alertId, {
+    const res = await fetch('/api/alerts/' + alertId, {
       method: 'DELETE', headers
     });
     if (res.ok) {

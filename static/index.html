@@ -494,6 +494,10 @@ function shareResults(domain) {
   });
 }
 
+function getToken() {
+  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+}
+
 async function downloadPdfReport() {
   const data = window.currentScanData;
   if (!data) { showToast('No scan data available'); return; }
@@ -509,14 +513,14 @@ async function downloadPdfReport() {
     let response;
 
     if (data.scan_id && token) {
-      response = await fetch(API + '/api/scans/' + data.scan_id + '/pdf', {
+      response = await fetch('/api/scans/' + data.scan_id + '/pdf', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
     }
 
     // Fall back to unauthenticated POST endpoint
     if (!response || !response.ok) {
-      response = await fetch(API + '/api/report/pdf', {
+      response = await fetch('/api/report/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)

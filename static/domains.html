@@ -144,7 +144,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .empty-state p { color: var(--text-muted); font-size: 14px; }
 
 /* Loading */
-.loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
+.loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Toast */
 .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 100; animation: slideIn 0.3s ease; }
@@ -205,7 +207,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       </div>
 
       <div id="domains-container">
-        <div class="loading">Loading your domains...</div>
+        <div class="loading"><div class="loading-spinner"></div>Loading your domains...</div>
       </div>
     </div>
 
@@ -248,7 +250,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         <h3 style="font-size:16px;font-weight:600;">Scan History</h3>
       </div>
       <div id="scans-container">
-        <div class="loading">Loading scans...</div>
+        <div class="loading"><div class="loading-spinner"></div>Loading scans...</div>
       </div>
     </div>
   </main>
@@ -314,7 +316,7 @@ async function loadDomains() {
     renderDomains(allDomains);
   } catch (e) {
     document.getElementById('domains-container').innerHTML =
-      '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load domains</h3><p>Please try refreshing the page.</p></div>';
+      '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load domains</h3><p>Something went wrong. Please try again.</p><button onclick="loadDomains()" style="margin-top:12px;padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Retry</button></div>';
   }
 }
 
@@ -419,7 +421,7 @@ async function showDomainDetail(domain) {
   document.getElementById('detail-view').classList.add('active');
   document.getElementById('detail-domain').textContent = domain;
   document.getElementById('detail-score').innerHTML = '<span class="loading">Loading...</span>';
-  document.getElementById('scans-container').innerHTML = '<div class="loading">Loading scans...</div>';
+  document.getElementById('scans-container').innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading scans...</div>';
 
   history.pushState(null, '', '/domains/' + domain);
 
@@ -439,7 +441,7 @@ async function showDomainDetail(domain) {
     renderDomainDetail(domain, data.scans);
   } catch (e) {
     document.getElementById('scans-container').innerHTML =
-      '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load scans</h3></div>';
+      '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load scans</h3><p>Something went wrong. Please try again.</p><button onclick="showDomainDetail(\'' + domain + '\')" style="margin-top:12px;padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Retry</button></div>';
   }
 }
 
