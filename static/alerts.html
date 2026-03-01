@@ -223,54 +223,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <div class="toast" id="toast"></div>
 
 <script>
-const API = '';
 let allAlerts = [];
 let currentFilter = 'all';
 let currentModalAlert = null;
+let headers = {};
 
 function getToken() {
   return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-}
-
-let token = getToken();
-
-// ─── Auth Check ─────────────────────────────
-async function checkAuth() {
-  if (!token) { window.location.href = '/login'; return; }
-  try {
-    const res = await fetch(API + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
-    if (!res.ok) {
-      // Try refresh
-      const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
-      if (refreshToken) {
-        const rr = await fetch(API + '/api/auth/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken })
-        });
-        if (rr.ok) {
-          const rd = await rr.json();
-          const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
-          token = rd.access_token;
-          storage.setItem('access_token', token);
-          if (rd.refresh_token) storage.setItem('refresh_token', rd.refresh_token);
-        } else {
-          window.location.href = '/login';
-          return;
-        }
-      } else {
-        window.location.href = '/login';
-        return;
-      }
-    }
-    const data = await res.json();
-    if (data.user) {
-      const name = data.user.name || data.user.email.split('@')[0];
-      document.getElementById('user-name').textContent = name;
-    }
-  } catch (e) {
-    window.location.href = '/login';
-  }
 }
 
 function logout() {
@@ -286,9 +245,7 @@ function logout() {
 // ─── Load Alerts ─────────────────────────────
 async function loadAlerts() {
   try {
-    const res = await fetch(API + '/api/user/alerts?limit=100', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
+    const res = await fetch(API + '/api/user/alerts?limit=100', { headers });
     if (!res.ok) throw new Error('Failed to load alerts');
     const data = await res.json();
     allAlerts = data.alerts || [];
@@ -393,8 +350,7 @@ function setFilter(filter) {
 async function markRead(alertId) {
   try {
     const res = await fetch(API + '/api/alerts/' + alertId + '/read', {
-      method: 'PUT',
-      headers: { 'Authorization': 'Bearer ' + token }
+      method: 'PUT', headers
     });
     if (res.ok) {
       const alert = allAlerts.find(a => a.id === alertId);
@@ -411,8 +367,7 @@ async function markRead(alertId) {
 async function markAllRead() {
   try {
     const res = await fetch(API + '/api/user/alerts/read-all', {
-      method: 'PUT',
-      headers: { 'Authorization': 'Bearer ' + token }
+      method: 'PUT', headers
     });
     if (res.ok) {
       allAlerts.forEach(a => a.is_read = true);
@@ -429,8 +384,7 @@ async function markAllRead() {
 async function deleteAlert(alertId) {
   try {
     const res = await fetch(API + '/api/alerts/' + alertId, {
-      method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + token }
+      method: 'DELETE', headers
     });
     if (res.ok) {
       allAlerts = allAlerts.filter(a => a.id !== alertId);
@@ -524,18 +478,61 @@ function showToast(msg, type = 'success') {
   setTimeout(() => { toast.className = 'toast'; }, 3000);
 }
 
-// ─── Init ─────────────────────────────
-async function init() {
-  await checkAuth();
-  await loadAlerts();
-}
-
 // Keyboard: Escape closes modal
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
 
-init();
+// ─── Init (same pattern as domains.html) ─────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const token = getToken();
+  if (!token) { window.location.href = '/login'; return; }
+
+  headers = { 'Authorization': 'Bearer ' + token };
+
+  // Verify user
+  fetch('/api/auth/me', { headers }).then(r => {
+    if (!r.ok) throw new Error();
+    return r.json();
+  }).then(userData => {
+    const name = userData.user.name || userData.user.email.split('@')[0];
+    document.getElementById('user-name').textContent = name;
+  }).catch(() => {
+    const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+    if (refresh) {
+      fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refresh })
+      }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
+        .then(data => {
+          const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+          storage.setItem('access_token', data.access_token);
+          storage.setItem('refresh_token', data.refresh_token);
+          location.reload();
+        }).catch(() => logout());
+    } else { logout(); }
+  });
+
+  // Load alerts
+  loadAlerts();
+
+  // Load alert badge count
+  fetch('/api/user/alerts/count', { headers })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data && data.unread_count > 0) {
+        const badge = document.getElementById('sidebar-badge');
+        badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+        badge.style.display = 'inline';
+      }
+    }).catch(() => {});
+
+  // Close sidebar on mobile
+  document.querySelector('.main').addEventListener('click', () => {
+    document.querySelector('.sidebar').classList.remove('open');
+  });
+});
 </script>
 </body>
 </html>
