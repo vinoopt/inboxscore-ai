@@ -1893,7 +1893,20 @@ async def _run_scan(request: ScanRequest, req: Request):
 
     start_time = time.time()
 
-    # Run all checks (some in parallel using thread pool)
+    # Run all checks in parallel — each check is individually wrapped so
+    # one timeout or crash never kills the entire scan
+    def safe_result(future, name, title, category, timeout_sec):
+        """Collect a check result; return a safe fallback if it crashes."""
+        try:
+            return future.result(timeout=timeout_sec)
+        except Exception as e:
+            print(f"[SCAN] Check '{name}' failed for {domain}: {e}")
+            return CheckResult(
+                name=name, category=category, status="warn", title=title,
+                detail=f"Could not complete this check (timeout or service error)",
+                points=0, max_points=0,
+            )
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         future_mx = executor.submit(check_mx_records, domain)
         future_spf = executor.submit(check_spf, domain)
@@ -1903,30 +1916,26 @@ async def _run_scan(request: ScanRequest, req: Request):
         future_tls = executor.submit(check_tls, domain)
         future_rdns = executor.submit(check_reverse_dns, domain)
         future_bimi = executor.submit(check_bimi, domain)
-        # Phase 2 enhanced checks
         future_mta_sts = executor.submit(check_mta_sts, domain)
         future_tls_rpt = executor.submit(check_tls_rpt, domain)
         future_senders = executor.submit(check_sender_detection, domain)
         future_age = executor.submit(check_domain_age, domain)
-        # Phase 5: IP reputation
         future_ip_rep = executor.submit(check_ip_reputation, domain)
 
         checks = [
-            future_mx.result(timeout=20),
-            future_spf.result(timeout=20),
-            future_dkim.result(timeout=20),
-            future_dmarc.result(timeout=20),
-            future_blacklists.result(timeout=25),
-            future_tls.result(timeout=15),
-            future_rdns.result(timeout=10),
-            future_bimi.result(timeout=10),
-            # Phase 2
-            future_mta_sts.result(timeout=12),
-            future_tls_rpt.result(timeout=10),
-            future_senders.result(timeout=10),
-            future_age.result(timeout=12),
-            # Phase 5
-            future_ip_rep.result(timeout=15),
+            safe_result(future_mx, "mx_records", "MX Records", "infrastructure", 20),
+            safe_result(future_spf, "spf", "SPF Record", "authentication", 20),
+            safe_result(future_dkim, "dkim", "DKIM", "authentication", 20),
+            safe_result(future_dmarc, "dmarc", "DMARC Policy", "authentication", 20),
+            safe_result(future_blacklists, "blacklists", "Blacklist Check", "reputation", 30),
+            safe_result(future_tls, "tls", "TLS Encryption", "infrastructure", 20),
+            safe_result(future_rdns, "reverse_dns", "Reverse DNS", "infrastructure", 15),
+            safe_result(future_bimi, "bimi", "BIMI Record", "authentication", 15),
+            safe_result(future_mta_sts, "mta_sts", "MTA-STS Policy", "infrastructure", 15),
+            safe_result(future_tls_rpt, "tls_rpt", "TLS Reporting", "infrastructure", 15),
+            safe_result(future_senders, "sender_detection", "Email Provider", "infrastructure", 15),
+            safe_result(future_age, "domain_age", "Domain Age", "reputation", 15),
+            safe_result(future_ip_rep, "ip_reputation", "IP Reputation", "reputation", 20),
         ]
 
     # Calculate total score
