@@ -1831,6 +1831,17 @@ def save_subscriber_local(email: str, domain: str, score: int):
 @app.post("/api/scan")
 async def scan_domain(request: ScanRequest, req: Request):
     """Run a complete deliverability scan on a domain"""
+    try:
+        return await _run_scan(request, req)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[SCAN ERROR] Unhandled exception scanning {request.domain}: {e}")
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
+
+async def _run_scan(request: ScanRequest, req: Request):
+    """Internal scan logic — wrapped by scan_domain for error handling"""
     domain = request.domain.strip().lower()
 
     # Basic domain validation

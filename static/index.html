@@ -410,8 +410,9 @@ async function startScan() {
     });
 
     if (!response.ok) {
-      const err = await response.json();
-      if (response.status === 429) {
+      let err;
+      try { err = await response.json(); } catch (_) { err = null; }
+      if (response.status === 429 && err) {
         const detail = err.detail || {};
         const msg = typeof detail === 'string' ? detail : detail.message;
         const plan = typeof detail === 'object' ? detail.plan : 'anonymous';
@@ -420,7 +421,8 @@ async function startScan() {
         showRateLimitModal(msg, plan);
         return;
       }
-      throw new Error(typeof err.detail === 'string' ? err.detail : err.detail?.message || 'Scan failed');
+      const msg = err ? (typeof err.detail === 'string' ? err.detail : err.detail?.message) : null;
+      throw new Error(msg || 'Scan failed — please try again');
     }
 
     const data = await response.json();
