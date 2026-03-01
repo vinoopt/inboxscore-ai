@@ -120,6 +120,125 @@ def get_user_scan_stats(user_id: str) -> dict:
         return {"total_scans": 0, "unique_domains": 0, "avg_score": 0}
 
 
+# ─── DOMAIN OPERATIONS ───────────────────────────────────────────
+
+def add_user_domain(user_id: str, domain: str) -> dict:
+    """Add a domain to user's monitored list"""
+    sb = get_supabase()
+    if not sb:
+        return None
+
+    try:
+        # Check if domain already exists for this user
+        existing = sb.table("domains").select("*").eq(
+            "user_id", user_id
+        ).eq("domain", domain).execute()
+
+        if existing.data:
+            return existing.data[0]  # Already exists, return it
+
+        # Get latest scan score for this domain (if any)
+        latest_scan = sb.table("scans").select("id, score").eq(
+            "domain", domain
+        ).order("created_at", desc=True).limit(1).execute()
+
+        data = {
+            "user_id": user_id,
+            "domain": domain,
+            "is_monitored": False,
+            "alert_threshold": 70,
+        }
+
+        if latest_scan.data:
+            data["latest_score"] = latest_scan.data[0]["score"]
+            data["latest_scan_id"] = latest_scan.data[0]["id"]
+
+        result = sb.table("domains").insert(data).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error adding domain: {e}")
+        return None
+
+
+def get_user_domains(user_id: str) -> list:
+    """Get all domains for a user"""
+    sb = get_supabase()
+    if not sb:
+        return []
+
+    try:
+        result = sb.table("domains").select("*").eq(
+            "user_id", user_id
+        ).order("created_at", desc=True).execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error fetching domains: {e}")
+        return []
+
+
+def remove_user_domain(user_id: str, domain_id: str) -> bool:
+    """Remove a domain from user's list"""
+    sb = get_supabase()
+    if not sb:
+        return False
+
+    try:
+        sb.table("domains").delete().eq(
+            "id", domain_id
+        ).eq("user_id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Error removing domain: {e}")
+        return False
+
+
+def get_domain_scans(domain: str, user_id: str = None, limit: int = 50) -> list:
+    """Get scan history for a specific domain"""
+    sb = get_supabase()
+    if not sb:
+        return []
+
+    try:
+        query = sb.table("scans").select("id, domain, score, created_at, scan_type").eq(
+            "domain", domain
+        ).order("created_at", desc=True).limit(limit)
+
+        result = query.execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error fetching domain scans: {e}")
+        return []
+
+
+def get_scan_detail(scan_id: str) -> dict:
+    """Get full scan details by ID"""
+    sb = get_supabase()
+    if not sb:
+        return None
+
+    try:
+        result = sb.table("scans").select("*").eq("id", scan_id).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error fetching scan detail: {e}")
+        return None
+
+
+def update_domain_score(domain: str, score: int, scan_id: str):
+    """Update the latest score on a domain record after a new scan"""
+    sb = get_supabase()
+    if not sb:
+        return
+
+    try:
+        sb.table("domains").update({
+            "latest_score": score,
+            "latest_scan_id": scan_id,
+        }).eq("domain", domain).execute()
+    except Exception as e:
+        print(f"Error updating domain score: {e}")
+
+
 # ─── SUBSCRIBER OPERATIONS ────────────────────────────────────────
 
 def save_subscriber(email: str, domain: str = None, score: int = None, source: str = "scan_results"):

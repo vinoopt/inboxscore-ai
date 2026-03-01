@@ -21,7 +21,12 @@ from pydantic import BaseModel
 import concurrent.futures
 
 # Database
-from db import is_db_available, save_scan, save_subscriber as db_save_subscriber, check_rate_limit, get_user_scans, get_user_scan_stats
+from db import (
+    is_db_available, save_scan, save_subscriber as db_save_subscriber,
+    check_rate_limit, get_user_scans, get_user_scan_stats,
+    add_user_domain, get_user_domains, remove_user_domain,
+    get_domain_scans, get_scan_detail, update_domain_score
+)
 
 # Auth
 from auth import (
@@ -29,7 +34,7 @@ from auth import (
     get_user_from_token, refresh_session
 )
 
-app = FastAPI(title="InboxScore API", version="1.4.0")
+app = FastAPI(title="InboxScore API", version="1.5.0")
 
 # CORS for local development
 app.add_middleware(
@@ -1090,6 +1095,12 @@ async def scan_domain(request: ScanRequest, req: Request):
             )
             if saved:
                 response_data["scan_id"] = saved["id"]
+                # Update domain score if user has this domain saved
+                if scan_user_id:
+                    try:
+                        update_domain_score(domain, score, saved["id"])
+                    except Exception:
+                        pass
         except Exception as e:
             print(f"Failed to save scan to DB: {e}")
 
@@ -1239,11 +1250,119 @@ async def api_user_stats(req: Request):
     return stats
 
 
+# ─── DOMAIN API ENDPOINTS ─────────────────────────────────────────
+
+@app.get("/api/user/domains")
+async def api_get_domains(req: Request):
+    """Get all domains for authenticated user"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    domains = get_user_domains(user_id)
+    return {"domains": domains}
+
+
+class AddDomainRequest(BaseModel):
+    domain: str
+
+
+@app.post("/api/user/domains")
+async def api_add_domain(req: Request, body: AddDomainRequest):
+    """Add a domain to user's list"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+
+    # Clean domain
+    domain = body.domain.strip().lower()
+    domain = re.sub(r'^https?://', '', domain)
+    domain = re.sub(r'^www\.', '', domain)
+    domain = domain.split('/')[0]
+
+    if not domain or '.' not in domain:
+        raise HTTPException(status_code=400, detail="Invalid domain")
+
+    result = add_user_domain(user_id, domain)
+    if result:
+        return {"domain": result}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to add domain")
+
+
+@app.delete("/api/user/domains/{domain_id}")
+async def api_remove_domain(req: Request, domain_id: str):
+    """Remove a domain from user's list"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    success = remove_user_domain(user_id, domain_id)
+    if success:
+        return {"ok": True}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to remove domain")
+
+
+@app.get("/api/domains/{domain}/scans")
+async def api_domain_scans(req: Request, domain: str, limit: int = 50):
+    """Get scan history for a specific domain"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    scans = get_domain_scans(domain, limit=min(limit, 100))
+    return {"scans": scans}
+
+
+@app.get("/api/scans/{scan_id}")
+async def api_scan_detail(req: Request, scan_id: str):
+    """Get full scan details"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    scan = get_scan_detail(scan_id)
+    if scan:
+        return {"scan": scan}
+    else:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+
 @app.get("/api/health")
 async def health_check():
     return {
         "status": "ok",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "database": "connected" if is_db_available() else "not configured",
         "auth": "enabled" if is_auth_available() else "not configured"
     }
@@ -1306,6 +1425,16 @@ async def serve_forgot_password():
 @app.get("/dashboard")
 async def serve_dashboard():
     return FileResponse("static/dashboard.html")
+
+
+@app.get("/domains")
+async def serve_domains():
+    return FileResponse("static/domains.html")
+
+
+@app.get("/domains/{domain}")
+async def serve_domain_detail(domain: str):
+    return FileResponse("static/domains.html")
 
 
 if __name__ == "__main__":

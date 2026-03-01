@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Domains — InboxScore</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26; --border: #2a2a3a;
+  --text: #e4e4ef; --text-muted: #8888a0; --accent: #6366f1; --accent-glow: rgba(99,102,241,0.3);
+  --green: #22c55e; --red: #ef4444; --yellow: #eab308;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* Top Nav */
+.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 10; }
+.logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+.logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.user-name { font-size: 13px; color: var(--text-muted); }
+.logout-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+
+/* Layout */
+.layout { display: flex; flex: 1; }
+
+/* Sidebar */
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
+.sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
+.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); }
+.sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
+
+/* Main */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
+.page-title { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
+
+/* Add Domain */
+.add-domain { display: flex; max-width: 560px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; transition: border-color 0.3s; margin-bottom: 32px; }
+.add-domain:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.add-domain input { flex: 1; padding: 12px 16px; background: transparent; border: none; color: var(--text); font-size: 14px; outline: none; }
+.add-domain input::placeholder { color: var(--text-muted); }
+.add-domain button { padding: 12px 20px; background: var(--accent); color: white; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.add-domain button:hover { background: #5558e6; }
+.add-domain button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Domain Cards */
+.domain-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.domain-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; position: relative; }
+.domain-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.domain-card .domain-name { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+.domain-card .domain-score { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+.domain-card .domain-meta { font-size: 12px; color: var(--text-muted); }
+.domain-card .remove-btn { position: absolute; top: 12px; right: 12px; background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 4px; opacity: 0; transition: all 0.2s; }
+.domain-card:hover .remove-btn { opacity: 1; }
+.domain-card .remove-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+
+.score-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+.score-badge.good { background: rgba(34,197,94,0.15); color: var(--green); }
+.score-badge.moderate { background: rgba(234,179,8,0.15); color: var(--yellow); }
+.score-badge.danger { background: rgba(239,68,68,0.15); color: var(--red); }
+.good { color: var(--green); }
+.moderate { color: var(--yellow); }
+.danger { color: var(--red); }
+
+/* Domain Detail View */
+.detail-view { display: none; }
+.detail-view.active { display: block; }
+.list-view.hidden { display: none; }
+
+.back-btn { background: none; border: none; color: var(--accent); font-size: 14px; cursor: pointer; padding: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
+.back-btn:hover { text-decoration: underline; }
+
+.detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+.detail-header h2 { font-size: 22px; font-weight: 700; }
+.detail-actions { display: flex; gap: 8px; }
+.detail-actions button { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.scan-now-btn { background: var(--accent); color: white; border: none; }
+.scan-now-btn:hover { background: #5558e6; }
+.scan-now-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Chart container */
+.chart-container { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+.chart-container h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.chart-wrap { position: relative; height: 250px; }
+
+/* Scan history table */
+.scans-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.scans-table th { text-align: left; padding: 12px 16px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-weight: 500; }
+.scans-table td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
+.scans-table tr:last-child td { border-bottom: none; }
+.scans-table tr:hover td { background: var(--surface-2); }
+.scans-table .view-link { color: var(--accent); text-decoration: none; font-weight: 500; cursor: pointer; }
+.scans-table .view-link:hover { text-decoration: underline; }
+
+/* Empty State */
+.empty-state { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 48px; text-align: center; }
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state h3 { font-size: 16px; margin-bottom: 6px; }
+.empty-state p { color: var(--text-muted); font-size: 14px; }
+
+/* Loading */
+.loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 100; animation: slideIn 0.3s ease; }
+.toast.success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: var(--green); }
+.toast.error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: var(--red); }
+@keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar.open { left: 0; }
+  .mobile-toggle { display: block; }
+  .main { padding: 24px 16px; }
+  .domain-grid { grid-template-columns: 1fr; }
+  .scans-table { font-size: 13px; }
+  .scans-table th, .scans-table td { padding: 10px 12px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+    <a href="/dashboard" class="logo">
+      <div class="logo-icon">📨</div>
+      InboxScore
+    </a>
+  </div>
+  <div class="nav-right">
+    <span class="user-name" id="user-name"></span>
+    <button class="logout-btn" onclick="logout()">Log Out</button>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="/dashboard"><span class="nav-icon">📊</span> Overview</a></li>
+      <li><a href="/domains" class="active"><span class="nav-icon">🌐</span> Domains</a></li>
+      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">🔔</span> Alerts <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
+      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">📄</span> Reports <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
+    </ul>
+    <div class="sidebar-section">Account</div>
+    <ul class="sidebar-nav">
+      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">⚙️</span> Settings <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
+    </ul>
+  </aside>
+
+  <main class="main">
+    <!-- LIST VIEW -->
+    <div id="list-view" class="list-view">
+      <h1 class="page-title">Domains</h1>
+
+      <div class="add-domain">
+        <input type="text" id="domain-input" placeholder="Add a domain to monitor (e.g. acme.com)" onkeypress="if(event.key==='Enter') addDomain()">
+        <button id="add-btn" onclick="addDomain()">Add Domain</button>
+      </div>
+
+      <div id="domains-container">
+        <div class="loading">Loading your domains...</div>
+      </div>
+    </div>
+
+    <!-- DETAIL VIEW -->
+    <div id="detail-view" class="detail-view">
+      <button class="back-btn" onclick="showListView()">← Back to Domains</button>
+
+      <div class="detail-header">
+        <div>
+          <h2 id="detail-domain"></h2>
+          <span id="detail-score"></span>
+        </div>
+        <div class="detail-actions">
+          <button class="scan-now-btn" id="scan-now-btn" onclick="scanDomain()">Scan Now</button>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <h3>Score History</h3>
+        <div class="chart-wrap">
+          <canvas id="score-chart"></canvas>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <h3 style="font-size:16px;font-weight:600;">Scan History</h3>
+      </div>
+      <div id="scans-container">
+        <div class="loading">Loading scans...</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let currentDomain = null;
+let scoreChart = null;
+let headers = {};
+
+function getToken() {
+  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+}
+
+function logout() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  sessionStorage.removeItem('access_token');
+  sessionStorage.removeItem('refresh_token');
+  sessionStorage.removeItem('user');
+  window.location.href = '/login';
+}
+
+function scoreColor(score) {
+  if (score >= 80) return 'good';
+  if (score >= 50) return 'moderate';
+  return 'danger';
+}
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return days + 'd ago';
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function showToast(message, type = 'success') {
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ─── DOMAIN LIST ────────────────────────────────────────
+
+async function loadDomains() {
+  try {
+    const res = await fetch('/api/user/domains', { headers });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    renderDomains(data.domains);
+  } catch (e) {
+    document.getElementById('domains-container').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load domains</h3><p>Please try refreshing the page.</p></div>';
+  }
+}
+
+function renderDomains(domains) {
+  const container = document.getElementById('domains-container');
+  if (!domains || domains.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🌐</div>
+        <h3>No domains yet</h3>
+        <p>Add your first domain above to start tracking its deliverability score.</p>
+      </div>`;
+    return;
+  }
+
+  let html = '<div class="domain-grid">';
+  domains.forEach(d => {
+    const score = d.latest_score != null ? d.latest_score : '—';
+    const color = d.latest_score != null ? scoreColor(d.latest_score) : '';
+    html += `
+      <div class="domain-card" onclick="showDomainDetail('${d.domain}')">
+        <button class="remove-btn" onclick="event.stopPropagation(); removeDomain('${d.id}', '${d.domain}')" title="Remove domain">✕</button>
+        <div class="domain-name">${d.domain}</div>
+        <div class="domain-score ${color}">${score !== '—' ? score + '/100' : '—'}</div>
+        <div class="domain-meta">Added ${timeAgo(d.created_at)}</div>
+      </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+async function addDomain() {
+  const input = document.getElementById('domain-input');
+  const btn = document.getElementById('add-btn');
+  const domain = input.value.trim();
+  if (!domain) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Adding...';
+
+  try {
+    const res = await fetch('/api/user/domains', {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to add domain');
+
+    input.value = '';
+    showToast('Domain added successfully');
+    loadDomains();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add Domain';
+  }
+}
+
+async function removeDomain(domainId, domainName) {
+  if (!confirm('Remove ' + domainName + ' from your domains?')) return;
+
+  try {
+    const res = await fetch('/api/user/domains/' + domainId, {
+      method: 'DELETE',
+      headers
+    });
+    if (!res.ok) throw new Error();
+    showToast('Domain removed');
+    loadDomains();
+  } catch (e) {
+    showToast('Failed to remove domain', 'error');
+  }
+}
+
+// ─── DOMAIN DETAIL ──────────────────────────────────────
+
+function showListView() {
+  document.getElementById('list-view').classList.remove('hidden');
+  document.getElementById('detail-view').classList.remove('active');
+  currentDomain = null;
+  history.pushState(null, '', '/domains');
+}
+
+async function showDomainDetail(domain) {
+  currentDomain = domain;
+  document.getElementById('list-view').classList.add('hidden');
+  document.getElementById('detail-view').classList.add('active');
+  document.getElementById('detail-domain').textContent = domain;
+  document.getElementById('detail-score').innerHTML = '<span class="loading">Loading...</span>';
+  document.getElementById('scans-container').innerHTML = '<div class="loading">Loading scans...</div>';
+
+  history.pushState(null, '', '/domains/' + domain);
+
+  try {
+    const res = await fetch('/api/domains/' + domain + '/scans?limit=50', { headers });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    renderDomainDetail(domain, data.scans);
+  } catch (e) {
+    document.getElementById('scans-container').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load scans</h3></div>';
+  }
+}
+
+function renderDomainDetail(domain, scans) {
+  // Update current score
+  if (scans.length > 0) {
+    const latest = scans[0];
+    const color = scoreColor(latest.score);
+    document.getElementById('detail-score').innerHTML =
+      `<span class="score-badge ${color}">${latest.score}/100</span> <span style="color:var(--text-muted);font-size:13px;margin-left:8px;">Last scanned ${timeAgo(latest.created_at)}</span>`;
+  } else {
+    document.getElementById('detail-score').innerHTML =
+      '<span style="color:var(--text-muted);font-size:14px;">No scans yet — click "Scan Now" to get started</span>';
+  }
+
+  // Render chart
+  renderScoreChart(scans);
+
+  // Render scans table
+  renderScansTable(scans);
+}
+
+function renderScoreChart(scans) {
+  if (scoreChart) {
+    scoreChart.destroy();
+    scoreChart = null;
+  }
+
+  if (scans.length < 2) {
+    document.querySelector('.chart-container').style.display = scans.length === 0 ? 'none' : 'block';
+    if (scans.length === 1) {
+      // Just show a single point
+    }
+  } else {
+    document.querySelector('.chart-container').style.display = 'block';
+  }
+
+  // Reverse for chronological order (oldest first)
+  const chartData = [...scans].reverse();
+
+  const ctx = document.getElementById('score-chart').getContext('2d');
+  scoreChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: chartData.map(s => formatDate(s.created_at)),
+      datasets: [{
+        label: 'Score',
+        data: chartData.map(s => s.score),
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99,102,241,0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: chartData.map(s => {
+          if (s.score >= 80) return '#22c55e';
+          if (s.score >= 50) return '#eab308';
+          return '#ef4444';
+        }),
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a26',
+          borderColor: '#2a2a3a',
+          borderWidth: 1,
+          titleColor: '#e4e4ef',
+          bodyColor: '#e4e4ef',
+          callbacks: {
+            label: function(ctx) {
+              return 'Score: ' + ctx.parsed.y + '/100';
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: { color: '#8888a0', stepSize: 20 },
+          grid: { color: 'rgba(42,42,58,0.5)' }
+        },
+        x: {
+          ticks: { color: '#8888a0', maxTicksLimit: 8 },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+function renderScansTable(scans) {
+  const container = document.getElementById('scans-container');
+  if (!scans || scans.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📊</div>
+        <h3>No scans yet</h3>
+        <p>Click "Scan Now" to run your first scan for this domain.</p>
+      </div>`;
+    return;
+  }
+
+  let html = `<table class="scans-table">
+    <thead><tr><th>Score</th><th>Type</th><th>When</th><th></th></tr></thead>
+    <tbody>`;
+
+  scans.forEach(s => {
+    const color = scoreColor(s.score);
+    html += `<tr>
+      <td><span class="score-badge ${color}">${s.score}/100</span></td>
+      <td style="color:var(--text-muted);text-transform:capitalize">${s.scan_type || 'manual'}</td>
+      <td style="color:var(--text-muted)">${timeAgo(s.created_at)}</td>
+      <td><a href="/scan/${currentDomain}" class="view-link">View Details →</a></td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+// ─── SCAN NOW ───────────────────────────────────────────
+
+async function scanDomain() {
+  if (!currentDomain) return;
+  const btn = document.getElementById('scan-now-btn');
+  btn.disabled = true;
+  btn.textContent = 'Scanning...';
+
+  try {
+    const res = await fetch('/api/scan', {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain: currentDomain })
+    });
+    if (!res.ok) throw new Error();
+
+    showToast('Scan complete!');
+    // Reload the domain detail
+    showDomainDetail(currentDomain);
+  } catch (e) {
+    showToast('Scan failed — please try again', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Scan Now';
+  }
+}
+
+// ─── INIT ───────────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', () => {
+  const token = getToken();
+  if (!token) { window.location.href = '/login'; return; }
+
+  headers = { 'Authorization': 'Bearer ' + token };
+
+  // Verify user
+  fetch('/api/auth/me', { headers }).then(r => {
+    if (!r.ok) throw new Error();
+    return r.json();
+  }).then(userData => {
+    const name = userData.user.name || userData.user.email.split('@')[0];
+    document.getElementById('user-name').textContent = name;
+  }).catch(() => {
+    // Try refresh
+    const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+    if (refresh) {
+      fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refresh })
+      }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
+        .then(data => {
+          const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+          storage.setItem('access_token', data.access_token);
+          storage.setItem('refresh_token', data.refresh_token);
+          location.reload();
+        }).catch(() => logout());
+    } else { logout(); }
+  });
+
+  // Check if URL has a domain path (e.g. /domains/example.com)
+  const path = window.location.pathname;
+  const match = path.match(/^\/domains\/(.+)$/);
+  if (match) {
+    const domain = match[1];
+    showDomainDetail(domain);
+  } else {
+    loadDomains();
+  }
+
+  // Close sidebar on mobile when clicking outside
+  document.querySelector('.main').addEventListener('click', () => {
+    document.querySelector('.sidebar').classList.remove('open');
+  });
+
+  // Handle back/forward navigation
+  window.addEventListener('popstate', () => {
+    const path = window.location.pathname;
+    const match = path.match(/^\/domains\/(.+)$/);
+    if (match) {
+      showDomainDetail(match[1]);
+    } else {
+      showListView();
+      loadDomains();
+    }
+  });
+});
+</script>
+</body>
+</html>
