@@ -86,47 +86,29 @@ async def shutdown_event():
         print(f"[Scheduler] Shutdown error: {e}")
 
 # ─── BLACKLISTS TO CHECK ───────────────────────────────────────────
+# Trimmed to the 20 most reliable/authoritative blacklists for speed
+# (removed slow/redundant/niche lists — these 20 cover all major providers)
 BLACKLISTS = [
-    "zen.spamhaus.org",
-    "b.barracudacentral.org",
-    "bl.spamcop.net",
-    "dnsbl.sorbs.net",
-    "spam.dnsbl.sorbs.net",
-    "dul.dnsbl.sorbs.net",
-    "smtp.dnsbl.sorbs.net",
-    "new.spam.dnsbl.sorbs.net",
-    "cbl.abuseat.org",
-    "dnsbl-1.uceprotect.net",
-    "dnsbl-2.uceprotect.net",
-    "dnsbl-3.uceprotect.net",
-    "db.wpbl.info",
-    "bl.mailspike.net",
-    "dyna.spamrats.com",
-    "noptr.spamrats.com",
-    "spam.spamrats.com",
-    "combined.abuse.ch",
-    "drone.abuse.ch",
-    "httpbl.abuse.ch",
-    "spam.abuse.ch",
-    "psbl.surriel.com",
-    "ubl.unsubscore.com",
-    "rbl.interserver.net",
-    "bl.spameatingmonkey.net",
-    "backscatter.spameatingmonkey.net",
-    "netbl.spameatingmonkey.net",
-    "ix.dnsbl.manitu.net",
-    "tor.dan.me.uk",
-    "torexit.dan.me.uk",
-    "truncate.gbudb.net",
-    "dnsbl.dronebl.org",
-    "access.redhawk.org",
-    "rbl.megarbl.net",
-    "bl.blocklist.de",
-    "all.s5h.net",
-    "dnsbl.spfbl.net",
-    "bogons.cymru.com",
-    "bl.nordspam.com",
-    "combined.mail.abusix.zone",
+    "zen.spamhaus.org",          # Most authoritative — covers SBL, XBL, PBL
+    "b.barracudacentral.org",    # Widely used by enterprises
+    "bl.spamcop.net",            # Auto-expiring, complaint-based
+    "cbl.abuseat.org",           # Composite Blocking List
+    "dnsbl.sorbs.net",           # Combined SORBS
+    "dnsbl-1.uceprotect.net",    # Level 1 — single IP
+    "psbl.surriel.com",          # Passive Spam Block List
+    "bl.mailspike.net",          # Mailspike
+    "dyna.spamrats.com",         # Dynamic IP detection
+    "spam.spamrats.com",         # Known spam sources
+    "bl.blocklist.de",           # Attack detection
+    "dnsbl.dronebl.org",         # Drone/botnet detection
+    "ix.dnsbl.manitu.net",       # German blocklist
+    "truncate.gbudb.net",        # Global Blacklist UDP
+    "all.s5h.net",               # Comprehensive
+    "combined.abuse.ch",         # Malware/spam combined
+    "rbl.interserver.net",       # Hosting provider list
+    "bl.nordspam.com",           # Nordic spam list
+    "combined.mail.abusix.zone", # Abusix combined
+    "bogons.cymru.com",          # Bogon/unallocated IPs
 ]
 
 # Common DKIM selectors to check
@@ -353,44 +335,54 @@ def check_spf(domain: str) -> CheckResult:
 
 
 def check_dkim(domain: str) -> CheckResult:
-    """Check DKIM by testing common selectors"""
+    """Check DKIM by testing common selectors — parallelized for speed"""
     found_selectors = []
 
-    for selector in DKIM_SELECTORS:
+    def _probe_selector(selector):
+        """Check one selector for DKIM TXT or CNAME — returns dict or None"""
         dkim_domain = f"{selector}._domainkey.{domain}"
-        result = safe_dns_query(dkim_domain, "TXT", timeout=3)
+        # Try TXT first
+        result = safe_dns_query(dkim_domain, "TXT", timeout=2)
         if result:
             for record in result:
                 cleaned = record.strip('"')
                 if "v=DKIM1" in cleaned or "p=" in cleaned:
                     key_length = "unknown"
-                    # Try to determine key length from p= tag
                     p_match = re.search(r'p=([A-Za-z0-9+/=]+)', cleaned)
                     if p_match:
                         key_b64 = p_match.group(1)
-                        key_bits = len(key_b64) * 6  # rough estimate
+                        key_bits = len(key_b64) * 6
                         if key_bits > 2000:
                             key_length = "2048-bit"
                         elif key_bits > 1000:
                             key_length = "1024-bit"
                         else:
                             key_length = f"~{key_bits}-bit"
-
-                    found_selectors.append({
+                    return {
                         "selector": selector,
                         "key_length": key_length,
                         "record_preview": cleaned[:100]
-                    })
-                    break
-        # Also check CNAME (some providers use CNAME for DKIM)
-        if not found_selectors or found_selectors[-1]["selector"] != selector:
-            cname_result = safe_dns_query(dkim_domain, "CNAME", timeout=3)
-            if cname_result:
-                found_selectors.append({
-                    "selector": selector,
-                    "key_length": "CNAME redirect",
-                    "record_preview": f"CNAME -> {cname_result[0]}"
-                })
+                    }
+        # Fallback: check CNAME
+        cname_result = safe_dns_query(dkim_domain, "CNAME", timeout=2)
+        if cname_result:
+            return {
+                "selector": selector,
+                "key_length": "CNAME redirect",
+                "record_preview": f"CNAME -> {cname_result[0]}"
+            }
+        return None
+
+    # Probe all selectors in parallel (each is a single DNS query)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=17) as executor:
+        future_map = {executor.submit(_probe_selector, s): s for s in DKIM_SELECTORS}
+        for future in concurrent.futures.as_completed(future_map, timeout=5):
+            try:
+                hit = future.result()
+                if hit:
+                    found_selectors.append(hit)
+            except Exception:
+                pass
 
     if found_selectors:
         selector_names = [s["selector"] for s in found_selectors]
@@ -601,21 +593,21 @@ def check_blacklists(domain: str) -> CheckResult:
         query = f"{reversed_ip}.{bl}"
         try:
             resolver = dns.resolver.Resolver()
-            resolver.timeout = 3
-            resolver.lifetime = 3
+            resolver.timeout = 2
+            resolver.lifetime = 2
             resolver.resolve(query, "A")
             return {"blacklist": bl, "ip": ip, "source": ", ".join(ip_sources.get(ip, ["unknown"]))}
         except:
             return None
 
     # Use thread pool for parallel blacklist checks
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
         futures = []
-        for ip in ips[:3]:  # Check up to 3 IPs
+        for ip in ips[:2]:  # Check up to 2 IPs (primary MX + A record)
             for bl in BLACKLISTS:
                 futures.append(executor.submit(check_single_bl, ip, bl))
 
-        for future in concurrent.futures.as_completed(futures, timeout=15):
+        for future in concurrent.futures.as_completed(futures, timeout=8):
             checked += 1
             try:
                 result = future.result()
@@ -740,9 +732,9 @@ def check_tls(domain: str) -> CheckResult:
     mx_hosts = [mx.split()[-1].rstrip(".") for mx in mx_records]
     last_error = None
 
-    for mx_host in mx_hosts[:5]:  # Try up to 5 MX hosts
+    for mx_host in mx_hosts[:3]:  # Try up to 3 MX hosts
         try:
-            sock = socket.create_connection((mx_host, 25), timeout=5)
+            sock = socket.create_connection((mx_host, 25), timeout=4)
             banner = sock.recv(1024).decode("utf-8", errors="ignore")
 
             # Send EHLO
@@ -1317,42 +1309,39 @@ def check_domain_age(domain: str) -> CheckResult:
         creation_date = None
         lookup_method = None
 
-        # Method 1: python-whois (preferred — returns current registrar's
-        # creation date, which is accurate for transferred/re-registered domains)
+        # Method 1: RDAP (fast HTTP call, preferred for speed)
         try:
-            w = whois.whois(domain)
-            if w and w.creation_date:
-                cd = w.creation_date
-                # whois sometimes returns a list of dates
-                if isinstance(cd, list):
-                    cd = cd[0]
-                if cd:
-                    if cd.tzinfo is None:
-                        from datetime import timezone
-                        cd = cd.replace(tzinfo=timezone.utc)
-                    creation_date = cd
-                    lookup_method = "WHOIS"
+            rdap_url = f"https://rdap.org/domain/{domain}"
+            with httpx.Client(timeout=5, follow_redirects=True) as client:
+                resp = client.get(rdap_url, headers={"Accept": "application/rdap+json"})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    events = data.get("events", [])
+                    for event in events:
+                        if event.get("eventAction") == "registration":
+                            date_str = event.get("eventDate", "")
+                            if date_str:
+                                creation_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                                lookup_method = "RDAP"
+                                break
         except Exception:
             pass
 
-        # Method 2: RDAP fallback (for exotic TLDs where WHOIS may not work)
-        # Note: RDAP can return the *original* creation date for domains that
-        # were previously owned by someone else, so WHOIS is preferred.
+        # Method 2: python-whois fallback (slower — can take 5-10s)
         if not creation_date:
             try:
-                rdap_url = f"https://rdap.org/domain/{domain}"
-                with httpx.Client(timeout=8, follow_redirects=True) as client:
-                    resp = client.get(rdap_url, headers={"Accept": "application/rdap+json"})
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        events = data.get("events", [])
-                        for event in events:
-                            if event.get("eventAction") == "registration":
-                                date_str = event.get("eventDate", "")
-                                if date_str:
-                                    creation_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-                                    lookup_method = "RDAP"
-                                    break
+                w = whois.whois(domain)
+                if w and w.creation_date:
+                    cd = w.creation_date
+                    # whois sometimes returns a list of dates
+                    if isinstance(cd, list):
+                        cd = cd[0]
+                    if cd:
+                        if cd.tzinfo is None:
+                            from datetime import timezone
+                            cd = cd.replace(tzinfo=timezone.utc)
+                        creation_date = cd
+                        lookup_method = "WHOIS"
             except Exception:
                 pass
 
@@ -1471,8 +1460,8 @@ def _cymru_asn_lookup(ip: str) -> dict:
         reversed_ip = ".".join(reversed(ip.split(".")))
         query = f"{reversed_ip}.origin.asn.cymru.com"
         resolver = dns.resolver.Resolver()
-        resolver.timeout = 4
-        resolver.lifetime = 4
+        resolver.timeout = 3
+        resolver.lifetime = 3
         answers = resolver.resolve(query, "TXT")
         for rdata in answers:
             txt = rdata.to_text().strip('"')
@@ -1530,8 +1519,8 @@ def _sender_score_lookup(ip: str) -> Optional[int]:
         reversed_ip = ".".join(reversed(ip.split(".")))
         query = f"{reversed_ip}.score.senderscore.com"
         resolver = dns.resolver.Resolver()
-        resolver.timeout = 4
-        resolver.lifetime = 4
+        resolver.timeout = 3
+        resolver.lifetime = 3
         answers = resolver.resolve(query, "A")
         for rdata in answers:
             # Response is 127.0.0.X where X is the score (0-100)
@@ -1596,13 +1585,13 @@ def check_ip_reputation(domain: str) -> CheckResult:
 
         # Collect ASN result
         try:
-            asn_info = future_asn.result(timeout=8) or {}
+            asn_info = future_asn.result(timeout=5) or {}
         except Exception:
             pass
 
         # Collect Sender Score result
         try:
-            sender_score = future_ss.result(timeout=8)
+            sender_score = future_ss.result(timeout=5)
         except Exception:
             pass
 
@@ -1897,17 +1886,23 @@ async def _run_scan(request: ScanRequest, req: Request):
     # one timeout or crash never kills the entire scan
     def safe_result(future, name, title, category, timeout_sec):
         """Collect a check result; return a safe fallback if it crashes."""
+        check_start = time.time()
         try:
-            return future.result(timeout=timeout_sec)
+            result = future.result(timeout=timeout_sec)
+            elapsed = round(time.time() - check_start, 2)
+            if elapsed > 3:
+                print(f"[SCAN] Check '{name}' for {domain} took {elapsed}s (slow)")
+            return result
         except Exception as e:
-            print(f"[SCAN] Check '{name}' failed for {domain}: {e}")
+            elapsed = round(time.time() - check_start, 2)
+            print(f"[SCAN] Check '{name}' failed for {domain} after {elapsed}s: {e}")
             return CheckResult(
                 name=name, category=category, status="warn", title=title,
                 detail=f"Could not complete this check (timeout or service error)",
                 points=0, max_points=0,
             )
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=13) as executor:
         future_mx = executor.submit(check_mx_records, domain)
         future_spf = executor.submit(check_spf, domain)
         future_dkim = executor.submit(check_dkim, domain)
@@ -1922,20 +1917,21 @@ async def _run_scan(request: ScanRequest, req: Request):
         future_age = executor.submit(check_domain_age, domain)
         future_ip_rep = executor.submit(check_ip_reputation, domain)
 
+        # Timeouts: DNS-only checks get 8s, network-heavy checks get 12s
         checks = [
-            safe_result(future_mx, "mx_records", "MX Records", "infrastructure", 20),
-            safe_result(future_spf, "spf", "SPF Record", "authentication", 20),
-            safe_result(future_dkim, "dkim", "DKIM", "authentication", 20),
-            safe_result(future_dmarc, "dmarc", "DMARC Policy", "authentication", 20),
-            safe_result(future_blacklists, "blacklists", "Blacklist Check", "reputation", 30),
-            safe_result(future_tls, "tls", "TLS Encryption", "infrastructure", 20),
-            safe_result(future_rdns, "reverse_dns", "Reverse DNS", "infrastructure", 15),
-            safe_result(future_bimi, "bimi", "BIMI Record", "authentication", 15),
-            safe_result(future_mta_sts, "mta_sts", "MTA-STS Policy", "infrastructure", 15),
-            safe_result(future_tls_rpt, "tls_rpt", "TLS Reporting", "infrastructure", 15),
-            safe_result(future_senders, "sender_detection", "Email Provider", "infrastructure", 15),
-            safe_result(future_age, "domain_age", "Domain Age", "reputation", 15),
-            safe_result(future_ip_rep, "ip_reputation", "IP Reputation", "reputation", 20),
+            safe_result(future_mx, "mx_records", "MX Records", "infrastructure", 8),
+            safe_result(future_spf, "spf", "SPF Record", "authentication", 8),
+            safe_result(future_dkim, "dkim", "DKIM", "authentication", 8),
+            safe_result(future_dmarc, "dmarc", "DMARC Policy", "authentication", 8),
+            safe_result(future_blacklists, "blacklists", "Blacklist Check", "reputation", 12),
+            safe_result(future_tls, "tls", "TLS Encryption", "infrastructure", 10),
+            safe_result(future_rdns, "reverse_dns", "Reverse DNS", "infrastructure", 8),
+            safe_result(future_bimi, "bimi", "BIMI Record", "authentication", 8),
+            safe_result(future_mta_sts, "mta_sts", "MTA-STS Policy", "infrastructure", 8),
+            safe_result(future_tls_rpt, "tls_rpt", "TLS Reporting", "infrastructure", 8),
+            safe_result(future_senders, "sender_detection", "Email Provider", "infrastructure", 8),
+            safe_result(future_age, "domain_age", "Domain Age", "reputation", 10),
+            safe_result(future_ip_rep, "ip_reputation", "IP Reputation", "reputation", 10),
         ]
 
     # Calculate total score
