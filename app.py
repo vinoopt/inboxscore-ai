@@ -31,7 +31,8 @@ from db import (
     get_full_user_profile, update_user_profile, update_user_preferences,
     export_user_data, delete_user_data,
     get_user_alerts, get_unread_alert_count, mark_alert_read,
-    mark_all_alerts_read, delete_alert
+    mark_all_alerts_read, delete_alert,
+    update_domain_monitoring, get_monitored_domains, get_monitoring_logs
 )
 
 # Auth
@@ -40,7 +41,7 @@ from auth import (
     get_user_from_token, refresh_session
 )
 
-app = FastAPI(title="InboxScore API", version="1.9.0")
+app = FastAPI(title="InboxScore API", version="1.10.0")
 
 # CORS for local development
 app.add_middleware(
@@ -50,6 +51,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── BACKGROUND MONITORING SCHEDULER ─────────────────────────────
+from apscheduler.schedulers.background import BackgroundScheduler
+from monitor import run_monitoring_cycle
+
+scheduler = BackgroundScheduler()
+# Run monitoring check every 15 minutes to find domains due for their scan
+scheduler.add_job(run_monitoring_cycle, 'interval', minutes=15, id='monitoring_cycle',
+                  max_instances=1, replace_existing=True)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Start the background monitoring scheduler"""
+    try:
+        scheduler.start()
+        print("[Scheduler] Monitoring scheduler started (every 15 min)")
+    except Exception as e:
+        print(f"[Scheduler] Failed to start: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Gracefully stop the scheduler"""
+    try:
+        scheduler.shutdown(wait=False)
+        print("[Scheduler] Monitoring scheduler stopped")
+    except Exception as e:
+        print(f"[Scheduler] Shutdown error: {e}")
 
 # ─── BLACKLISTS TO CHECK ───────────────────────────────────────────
 BLACKLISTS = [
@@ -2040,6 +2070,93 @@ async def api_remove_domain(req: Request, domain_id: str):
         raise HTTPException(status_code=500, detail="Failed to remove domain")
 
 
+# ─── MONITORING API ENDPOINTS ─────────────────────────────────────
+
+
+class UpdateMonitoringRequest(BaseModel):
+    is_monitored: bool
+    monitor_interval: Optional[int] = 24
+    alert_threshold: Optional[int] = 70
+
+
+@app.put("/api/user/domains/{domain_id}/monitoring")
+async def api_update_monitoring(req: Request, domain_id: str, body: UpdateMonitoringRequest):
+    """Enable or disable monitoring for a domain"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+
+    # Validate interval (must be 6, 12, or 24 hours)
+    if body.monitor_interval not in (6, 12, 24):
+        raise HTTPException(status_code=400, detail="Monitor interval must be 6, 12, or 24 hours")
+
+    # Validate threshold (10-100)
+    if body.alert_threshold < 10 or body.alert_threshold > 100:
+        raise HTTPException(status_code=400, detail="Alert threshold must be between 10 and 100")
+
+    result = update_domain_monitoring(
+        user_id=user_id,
+        domain_id=domain_id,
+        is_monitored=body.is_monitored,
+        monitor_interval=body.monitor_interval,
+        alert_threshold=body.alert_threshold,
+    )
+
+    if result:
+        action = "enabled" if body.is_monitored else "disabled"
+        return {"ok": True, "message": f"Monitoring {action}", "domain": result}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to update monitoring")
+
+
+@app.get("/api/user/domains/{domain_id}/monitoring-logs")
+async def api_monitoring_logs(req: Request, domain_id: str, limit: int = 20):
+    """Get monitoring scan logs for a domain"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    logs = get_monitoring_logs(domain_id, limit=min(limit, 100))
+    return {"logs": logs}
+
+
+@app.get("/api/monitoring/status")
+async def api_monitoring_status(req: Request):
+    """Get monitoring status overview for authenticated user"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    all_monitored = get_monitored_domains()
+
+    # Filter to only this user's domains
+    user_monitored = [d for d in all_monitored if d["user_id"] == user_id]
+
+    return {
+        "monitored_count": len(user_monitored),
+        "domains": user_monitored,
+        "scheduler_running": scheduler.running,
+    }
+
+
 @app.get("/api/domains/{domain}/scans")
 async def api_domain_scans(req: Request, domain: str, limit: int = 50):
     """Get scan history for a specific domain"""
@@ -2079,9 +2196,10 @@ async def api_scan_detail(req: Request, scan_id: str):
 async def health_check():
     return {
         "status": "ok",
-        "version": "1.7.0",
+        "version": "1.10.0",
         "database": "connected" if is_db_available() else "not configured",
-        "auth": "enabled" if is_auth_available() else "not configured"
+        "auth": "enabled" if is_auth_available() else "not configured",
+        "monitoring": "running" if scheduler.running else "stopped"
     }
 
 

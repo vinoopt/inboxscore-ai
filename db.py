@@ -4,6 +4,7 @@ Handles all database operations via Supabase
 """
 
 import os
+import json
 from datetime import datetime, date
 from supabase import create_client, Client
 
@@ -513,6 +514,146 @@ def delete_alert(user_id: str, alert_id: str) -> bool:
     except Exception as e:
         print(f"Error deleting alert: {e}")
         return False
+
+
+# ─── MONITORING OPERATIONS ────────────────────────────────────────
+
+def get_monitored_domains() -> list:
+    """Get all domains with monitoring enabled (for background scheduler)"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        result = sb.table("domains").select(
+            "id, user_id, domain, latest_score, monitor_interval, last_monitored_at, previous_score, alert_threshold, is_monitored"
+        ).eq("is_monitored", True).execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error fetching monitored domains: {e}")
+        return []
+
+
+def get_domains_due_for_scan() -> list:
+    """Get monitored domains that are due for their next scan based on interval"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        # Get all monitored domains
+        domains = get_monitored_domains()
+        if not domains:
+            return []
+
+        now = datetime.utcnow()
+        due = []
+        for d in domains:
+            interval_hours = d.get("monitor_interval") or 24
+            last_monitored = d.get("last_monitored_at")
+
+            if not last_monitored:
+                # Never scanned via monitor — due immediately
+                due.append(d)
+            else:
+                # Parse the timestamp
+                if isinstance(last_monitored, str):
+                    # Handle ISO format with timezone
+                    last_monitored = last_monitored.replace("Z", "+00:00")
+                    from datetime import timezone
+                    last_dt = datetime.fromisoformat(last_monitored).replace(tzinfo=None)
+                else:
+                    last_dt = last_monitored
+
+                hours_since = (now - last_dt).total_seconds() / 3600
+                if hours_since >= interval_hours:
+                    due.append(d)
+
+        return due
+    except Exception as e:
+        print(f"Error getting domains due for scan: {e}")
+        return []
+
+
+def update_domain_monitoring(user_id: str, domain_id: str, is_monitored: bool,
+                             monitor_interval: int = 24, alert_threshold: int = 70) -> dict:
+    """Enable or disable monitoring for a domain"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        data = {
+            "is_monitored": is_monitored,
+            "monitor_interval": monitor_interval,
+            "alert_threshold": alert_threshold,
+        }
+        result = sb.table("domains").update(data).eq(
+            "id", domain_id
+        ).eq("user_id", user_id).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error updating domain monitoring: {e}")
+        return None
+
+
+def update_domain_after_monitor_scan(domain_id: str, new_score: int, scan_id: str):
+    """Update domain record after a monitoring scan completes"""
+    sb = get_supabase()
+    if not sb:
+        return
+    try:
+        # First get current score to save as previous
+        current = sb.table("domains").select("latest_score").eq("id", domain_id).execute()
+        previous_score = current.data[0]["latest_score"] if current.data and current.data[0].get("latest_score") else None
+
+        update_data = {
+            "latest_score": new_score,
+            "latest_scan_id": scan_id,
+            "last_monitored_at": datetime.utcnow().isoformat(),
+            "previous_score": previous_score,
+        }
+        sb.table("domains").update(update_data).eq("id", domain_id).execute()
+    except Exception as e:
+        print(f"Error updating domain after monitor scan: {e}")
+
+
+def save_monitoring_log(domain_id: str, user_id: str, domain: str,
+                        old_score: int, new_score: int, scan_id: str,
+                        changes_detected: list = None, alerts_created: int = 0) -> dict:
+    """Log a monitoring scan run"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        data = {
+            "domain_id": domain_id,
+            "user_id": user_id,
+            "domain": domain,
+            "old_score": old_score,
+            "new_score": new_score,
+            "score_change": (new_score - old_score) if old_score is not None and new_score is not None else 0,
+            "changes_detected": json.dumps(changes_detected or []),
+            "alerts_created": alerts_created,
+            "scan_id": scan_id,
+        }
+        result = sb.table("monitoring_logs").insert(data).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error saving monitoring log: {e}")
+        return None
+
+
+def get_monitoring_logs(domain_id: str, limit: int = 20) -> list:
+    """Get monitoring logs for a domain"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        result = sb.table("monitoring_logs").select("*").eq(
+            "domain_id", domain_id
+        ).order("created_at", desc=True).limit(limit).execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error fetching monitoring logs: {e}")
+        return []
 
 
 # ─── RATE LIMITING ────────────────────────────────────────────────
