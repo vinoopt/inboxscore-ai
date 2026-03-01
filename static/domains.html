@@ -505,10 +505,18 @@ async function scanDomain() {
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ domain: currentDomain })
     });
+    if (res.status === 429) {
+      const err = await res.json();
+      const detail = err.detail || {};
+      const msg = typeof detail === 'string' ? detail : detail.message || 'Daily scan limit reached.';
+      showToast(msg, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Scan Now';
+      return;
+    }
     if (!res.ok) throw new Error();
 
     showToast('Scan complete!');
-    // Reload the domain detail
     showDomainDetail(currentDomain);
   } catch (e) {
     showToast('Scan failed — please try again', 'error');

@@ -268,24 +268,75 @@ def save_subscriber(email: str, domain: str = None, score: int = None, source: s
         return False
 
 
+# ─── USER PLAN ────────────────────────────────────────────────────
+
+# Plan limits: scans per day
+PLAN_LIMITS = {
+    "free": 5,
+    "pro": -1,        # unlimited
+    "growth": -1,      # unlimited
+    "enterprise": -1,  # unlimited
+}
+
+ANONYMOUS_LIMIT = 3
+
+
+def get_user_profile(user_id: str) -> dict:
+    """Get user profile including plan info"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("profiles").select("id,name,company,plan").eq(
+            "id", user_id
+        ).execute()
+        if result.data:
+            return result.data[0]
+        return None
+    except Exception as e:
+        print(f"Error getting user profile: {e}")
+        return None
+
+
+def get_user_plan(user_id: str) -> str:
+    """Get user's current plan. Returns 'free' if not found."""
+    profile = get_user_profile(user_id)
+    if profile:
+        return profile.get("plan", "free")
+    return "free"
+
+
 # ─── RATE LIMITING ────────────────────────────────────────────────
 
-def check_rate_limit(ip_address: str, max_scans: int = 3) -> dict:
+def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -> dict:
     """
-    Check and increment rate limit for an IP address.
-    Returns: {"allowed": bool, "scans_used": int, "max_scans": int}
+    Check and increment rate limit.
+    For logged-in users: tracks by user_id with plan-based limits.
+    For anonymous users: tracks by IP address with default limit (3/day).
+    Returns: {"allowed": bool, "scans_used": int, "max_scans": int, "plan": str}
     """
     sb = get_supabase()
     if not sb:
-        # If DB unavailable, allow the scan (graceful degradation)
-        return {"allowed": True, "scans_used": 0, "max_scans": max_scans}
+        return {"allowed": True, "scans_used": 0, "max_scans": max_scans, "plan": "free"}
 
     today = date.today().isoformat()
 
+    # Determine plan and limits
+    plan = "anonymous"
+    if user_id:
+        plan = get_user_plan(user_id)
+        limit = PLAN_LIMITS.get(plan, 5)
+        if limit == -1:
+            # Unlimited — no need to check/track
+            return {"allowed": True, "scans_used": 0, "max_scans": -1, "plan": plan}
+        max_scans = limit
+
     try:
-        # Check current count
+        # Use user_id as key for logged-in users, IP for anonymous
+        lookup_key = user_id if user_id else ip_address
+
         result = sb.table("rate_limits").select("*").eq(
-            "ip_address", ip_address
+            "ip_address", lookup_key
         ).eq("date", today).execute()
 
         if result.data:
@@ -294,23 +345,25 @@ def check_rate_limit(ip_address: str, max_scans: int = 3) -> dict:
                 return {
                     "allowed": False,
                     "scans_used": current_count,
-                    "max_scans": max_scans
+                    "max_scans": max_scans,
+                    "plan": plan
                 }
 
             # Increment count
             sb.table("rate_limits").update(
                 {"scan_count": current_count + 1}
-            ).eq("ip_address", ip_address).eq("date", today).execute()
+            ).eq("ip_address", lookup_key).eq("date", today).execute()
 
             return {
                 "allowed": True,
                 "scans_used": current_count + 1,
-                "max_scans": max_scans
+                "max_scans": max_scans,
+                "plan": plan
             }
         else:
             # First scan today — insert new record
             sb.table("rate_limits").insert({
-                "ip_address": ip_address,
+                "ip_address": lookup_key,
                 "scan_count": 1,
                 "date": today,
             }).execute()
@@ -318,9 +371,9 @@ def check_rate_limit(ip_address: str, max_scans: int = 3) -> dict:
             return {
                 "allowed": True,
                 "scans_used": 1,
-                "max_scans": max_scans
+                "max_scans": max_scans,
+                "plan": plan
             }
     except Exception as e:
         print(f"Rate limit check error: {e}")
-        # On error, allow the scan (graceful degradation)
-        return {"allowed": True, "scans_used": 0, "max_scans": max_scans}
+        return {"allowed": True, "scans_used": 0, "max_scans": max_scans, "plan": plan}

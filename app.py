@@ -11,6 +11,7 @@ import json
 import time
 import re
 import os
+import httpx
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Request
@@ -25,7 +26,8 @@ from db import (
     is_db_available, save_scan, save_subscriber as db_save_subscriber,
     check_rate_limit, get_user_scans, get_user_scan_stats,
     add_user_domain, get_user_domains, remove_user_domain,
-    get_domain_scans, get_scan_detail, update_domain_score
+    get_domain_scans, get_scan_detail, update_domain_score,
+    get_user_profile, get_user_plan, PLAN_LIMITS, ANONYMOUS_LIMIT
 )
 
 # Auth
@@ -34,7 +36,7 @@ from auth import (
     get_user_from_token, refresh_session
 )
 
-app = FastAPI(title="InboxScore API", version="1.5.0")
+app = FastAPI(title="InboxScore API", version="1.7.0")
 
 # CORS for local development
 app.add_middleware(
@@ -908,6 +910,402 @@ def check_bimi(domain: str) -> CheckResult:
     )
 
 
+# ─── ENHANCED CHECKS (Phase 2) ─────────────────────────────────────
+
+def check_mta_sts(domain: str) -> CheckResult:
+    """Check MTA-STS policy (DNS record + /.well-known/mta-sts.txt)"""
+    try:
+        # Step 1: Check DNS record _mta-sts.{domain} TXT
+        sts_domain = f"_mta-sts.{domain}"
+        txt_records = safe_dns_query(sts_domain, "TXT")
+
+        dns_found = False
+        sts_record = None
+        if txt_records:
+            for record in txt_records:
+                cleaned = record.strip('"')
+                if cleaned.startswith("v=STSv1"):
+                    dns_found = True
+                    sts_record = cleaned
+                    break
+
+        if not dns_found:
+            return CheckResult(
+                name="mta_sts",
+                category="infrastructure",
+                status="warn",
+                title="MTA-STS (Strict Transport Security)",
+                detail="No MTA-STS DNS record found — emails may be vulnerable to downgrade attacks",
+                points=0,
+                max_points=5,
+                fix_steps=[
+                    "MTA-STS enforces TLS encryption for incoming emails, preventing man-in-the-middle attacks",
+                    "Add a TXT record at _mta-sts.yourdomain.com with: v=STSv1; id=20240101",
+                    "Host a policy file at https://mta-sts.yourdomain.com/.well-known/mta-sts.txt",
+                    "Policy file should contain: version: STSv1, mode: enforce, mx: *.yourdomain.com, max_age: 86400"
+                ]
+            )
+
+        # Step 2: Fetch the policy file
+        policy_url = f"https://mta-sts.{domain}/.well-known/mta-sts.txt"
+        policy_content = None
+        policy_ok = False
+        try:
+            with httpx.Client(timeout=8, follow_redirects=True) as client:
+                resp = client.get(policy_url)
+                if resp.status_code == 200:
+                    policy_content = resp.text.strip()
+                    policy_ok = True
+        except Exception:
+            pass
+
+        if not policy_ok:
+            return CheckResult(
+                name="mta_sts",
+                category="infrastructure",
+                status="warn",
+                title="MTA-STS (Strict Transport Security)",
+                detail=f"MTA-STS DNS record found but policy file not accessible at {policy_url}",
+                raw_data={"dns_record": sts_record},
+                points=2,
+                max_points=5,
+                fix_steps=[
+                    "Your DNS record is set up, but the policy file is missing or unreachable",
+                    f"Host a text file at {policy_url}",
+                    "Content should include: version: STSv1\\nmode: enforce\\nmx: mail.yourdomain.com\\nmax_age: 86400",
+                    "The file must be served over HTTPS with a valid certificate"
+                ]
+            )
+
+        # Step 3: Validate policy content
+        mode = "unknown"
+        if "mode:" in policy_content:
+            for line in policy_content.split("\n"):
+                if line.strip().startswith("mode:"):
+                    mode = line.split(":", 1)[1].strip().lower()
+
+        if mode == "enforce":
+            return CheckResult(
+                name="mta_sts",
+                category="infrastructure",
+                status="pass",
+                title="MTA-STS (Strict Transport Security)",
+                detail="MTA-STS is fully configured with enforce mode — excellent protection against downgrade attacks",
+                raw_data={"dns_record": sts_record, "policy_mode": mode},
+                points=5,
+                max_points=5
+            )
+        elif mode == "testing":
+            return CheckResult(
+                name="mta_sts",
+                category="infrastructure",
+                status="pass",
+                title="MTA-STS (Strict Transport Security)",
+                detail="MTA-STS configured in testing mode — switch to enforce mode when ready for full protection",
+                raw_data={"dns_record": sts_record, "policy_mode": mode},
+                points=4,
+                max_points=5
+            )
+        else:
+            return CheckResult(
+                name="mta_sts",
+                category="infrastructure",
+                status="warn",
+                title="MTA-STS (Strict Transport Security)",
+                detail=f"MTA-STS policy found but mode is '{mode}' — use 'enforce' or 'testing'",
+                raw_data={"dns_record": sts_record, "policy_mode": mode},
+                points=2,
+                max_points=5,
+                fix_steps=["Update the mode line in your policy file to: mode: enforce"]
+            )
+
+    except Exception as e:
+        return CheckResult(
+            name="mta_sts",
+            category="infrastructure",
+            status="info",
+            title="MTA-STS (Strict Transport Security)",
+            detail="Could not complete MTA-STS check",
+            points=0,
+            max_points=5
+        )
+
+
+def check_tls_rpt(domain: str) -> CheckResult:
+    """Check TLS-RPT (TLS Reporting) record"""
+    try:
+        rpt_domain = f"_smtp._tls.{domain}"
+        txt_records = safe_dns_query(rpt_domain, "TXT")
+
+        if txt_records:
+            for record in txt_records:
+                cleaned = record.strip('"')
+                if "v=TLSRPTv1" in cleaned:
+                    # Parse reporting URI
+                    rua = ""
+                    if "rua=" in cleaned:
+                        rua = cleaned.split("rua=", 1)[1].strip().rstrip(";")
+
+                    return CheckResult(
+                        name="tls_rpt",
+                        category="infrastructure",
+                        status="pass",
+                        title="TLS-RPT (TLS Reporting)",
+                        detail=f"TLS-RPT configured — reports sent to {rua[:60]}{'...' if len(rua) > 60 else ''}" if rua else "TLS-RPT record found",
+                        raw_data={"record": cleaned, "rua": rua},
+                        points=3,
+                        max_points=3
+                    )
+
+        return CheckResult(
+            name="tls_rpt",
+            category="infrastructure",
+            status="warn",
+            title="TLS-RPT (TLS Reporting)",
+            detail="No TLS-RPT record found — you won't receive reports about TLS delivery failures",
+            points=0,
+            max_points=3,
+            fix_steps=[
+                "TLS-RPT lets you receive reports when emails can't be delivered securely",
+                "Add a TXT record at _smtp._tls.yourdomain.com",
+                "Example: v=TLSRPTv1; rua=mailto:tls-reports@yourdomain.com",
+                "Works best alongside MTA-STS to monitor TLS enforcement"
+            ]
+        )
+
+    except Exception:
+        return CheckResult(
+            name="tls_rpt",
+            category="infrastructure",
+            status="info",
+            title="TLS-RPT (TLS Reporting)",
+            detail="Could not complete TLS-RPT check",
+            points=0,
+            max_points=3
+        )
+
+
+# Known third-party email senders mapped by SPF include pattern
+KNOWN_SENDERS = {
+    "_spf.google.com": "Google Workspace",
+    "spf.protection.outlook.com": "Microsoft 365",
+    "amazonses.com": "Amazon SES",
+    "sendgrid.net": "SendGrid",
+    "servers.mcsv.net": "Mailchimp",
+    "mandrillapp.com": "Mandrill (Mailchimp)",
+    "spf.sendinblue.com": "Brevo (Sendinblue)",
+    "spf.brevo.com": "Brevo",
+    "mail.zendesk.com": "Zendesk",
+    "mktomail.com": "Marketo",
+    "spf.mailjet.com": "Mailjet",
+    "hubspot.com": "HubSpot",
+    "spf1.hubspot.com": "HubSpot",
+    "postmarkapp.com": "Postmark",
+    "mailgun.org": "Mailgun",
+    "freshdesk.com": "Freshdesk",
+    "intercom.io": "Intercom",
+    "helpscoutemail.com": "Help Scout",
+    "sparkpostmail.com": "SparkPost",
+    "zoho.com": "Zoho Mail",
+    "zoho.eu": "Zoho Mail (EU)",
+    "mailercloud.com": "Mailercloud",
+    "cust-spf.exacttarget.com": "Salesforce Marketing Cloud",
+    "pphosted.com": "Proofpoint",
+    "mimecast.com": "Mimecast",
+    "calendly.com": "Calendly",
+    "outreach.io": "Outreach",
+    "salesloft.com": "SalesLoft",
+    "constantcontact.com": "Constant Contact",
+    "getresponse.com": "GetResponse",
+    "activecampaign.com": "ActiveCampaign",
+    "klaviyo.com": "Klaviyo",
+    "convertkit.com": "ConvertKit",
+    "aweber.com": "AWeber",
+}
+
+
+def check_sender_detection(domain: str) -> CheckResult:
+    """Detect third-party email senders from SPF includes"""
+    try:
+        txt_records = safe_dns_query(domain, "TXT")
+        if not txt_records:
+            return CheckResult(
+                name="senders",
+                category="infrastructure",
+                status="info",
+                title="Third-Party Senders",
+                detail="No SPF record found — cannot detect authorized senders",
+                points=0,
+                max_points=0
+            )
+
+        spf_record = None
+        for record in txt_records:
+            cleaned = record.strip('"')
+            if cleaned.startswith("v=spf1"):
+                spf_record = cleaned
+                break
+
+        if not spf_record:
+            return CheckResult(
+                name="senders",
+                category="infrastructure",
+                status="info",
+                title="Third-Party Senders",
+                detail="No SPF record — cannot detect authorized senders",
+                points=0,
+                max_points=0
+            )
+
+        # Extract includes from SPF
+        includes = re.findall(r'include:([^\s]+)', spf_record)
+
+        detected = []
+        unknown_includes = []
+
+        for inc in includes:
+            matched = False
+            for pattern, name in KNOWN_SENDERS.items():
+                if pattern in inc:
+                    detected.append({"include": inc, "sender": name})
+                    matched = True
+                    break
+            if not matched:
+                unknown_includes.append(inc)
+
+        sender_names = [d["sender"] for d in detected]
+
+        if detected:
+            detail = f"Detected {len(detected)} authorized sender{'s' if len(detected) != 1 else ''}: {', '.join(sender_names)}"
+            if unknown_includes:
+                detail += f" (+{len(unknown_includes)} custom)"
+        else:
+            detail = "No known third-party email senders detected in SPF record"
+            if unknown_includes:
+                detail += f" — {len(unknown_includes)} custom include{'s' if len(unknown_includes) != 1 else ''} found"
+
+        return CheckResult(
+            name="senders",
+            category="infrastructure",
+            status="info",
+            title="Third-Party Senders",
+            detail=detail,
+            raw_data={
+                "detected_senders": detected,
+                "unknown_includes": unknown_includes,
+                "total_includes": len(includes)
+            },
+            points=0,  # Informational — doesn't affect score
+            max_points=0
+        )
+
+    except Exception:
+        return CheckResult(
+            name="senders",
+            category="infrastructure",
+            status="info",
+            title="Third-Party Senders",
+            detail="Could not analyze third-party senders",
+            points=0,
+            max_points=0
+        )
+
+
+def check_domain_age(domain: str) -> CheckResult:
+    """Check domain age via RDAP/WHOIS — newer domains have lower reputation"""
+    try:
+        # Use RDAP (modern replacement for WHOIS) via rdap.org
+        rdap_url = f"https://rdap.org/domain/{domain}"
+        creation_date = None
+
+        try:
+            with httpx.Client(timeout=8, follow_redirects=True) as client:
+                resp = client.get(rdap_url, headers={"Accept": "application/rdap+json"})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    events = data.get("events", [])
+                    for event in events:
+                        if event.get("eventAction") == "registration":
+                            date_str = event.get("eventDate", "")
+                            if date_str:
+                                # Parse ISO format date
+                                creation_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                                break
+        except Exception:
+            pass
+
+        if not creation_date:
+            return CheckResult(
+                name="domain_age",
+                category="reputation",
+                status="info",
+                title="Domain Age",
+                detail="Could not determine domain registration date — RDAP lookup unavailable for this TLD",
+                points=0,
+                max_points=0
+            )
+
+        # Calculate age
+        now = datetime.now(creation_date.tzinfo) if creation_date.tzinfo else datetime.utcnow()
+        age_days = (now - creation_date).days
+        age_years = age_days / 365.25
+
+        created_str = creation_date.strftime("%B %d, %Y")
+
+        if age_years >= 5:
+            detail = f"Domain registered on {created_str} ({age_years:.1f} years) — well-established, strong age signal"
+            status = "pass"
+            points = 5
+        elif age_years >= 2:
+            detail = f"Domain registered on {created_str} ({age_years:.1f} years) — good domain age"
+            status = "pass"
+            points = 4
+        elif age_years >= 1:
+            detail = f"Domain registered on {created_str} ({age_years:.1f} years) — moderately established"
+            status = "pass"
+            points = 3
+        elif age_days >= 90:
+            detail = f"Domain registered on {created_str} ({age_days} days ago) — relatively new, reputation still building"
+            status = "warn"
+            points = 2
+        elif age_days >= 30:
+            detail = f"Domain registered on {created_str} ({age_days} days ago) — very new domain, may face deliverability challenges"
+            status = "warn"
+            points = 1
+        else:
+            detail = f"Domain registered on {created_str} ({age_days} days ago) — brand new domains often face spam filtering"
+            status = "fail"
+            points = 0
+
+        return CheckResult(
+            name="domain_age",
+            category="reputation",
+            status=status,
+            title="Domain Age",
+            detail=detail,
+            raw_data={"created": created_str, "age_days": age_days, "age_years": round(age_years, 1)},
+            points=points,
+            max_points=5,
+            fix_steps=[
+                "Newer domains have lower sender reputation by default",
+                "Warm up your domain gradually — start with low volume to trusted recipients",
+                "Set up all authentication records (SPF, DKIM, DMARC) immediately",
+                "Avoid sending bulk emails until domain is at least 30 days old"
+            ] if age_days < 90 else None
+        )
+
+    except Exception:
+        return CheckResult(
+            name="domain_age",
+            category="reputation",
+            status="info",
+            title="Domain Age",
+            detail="Could not determine domain age",
+            points=0,
+            max_points=0
+        )
+
+
 # ─── GENERATE AI SUMMARY ───────────────────────────────────────────
 
 def generate_summary(domain: str, score: int, checks: list) -> dict:
@@ -1017,23 +1415,45 @@ async def scan_domain(request: ScanRequest, req: Request):
     if "," in client_ip:
         client_ip = client_ip.split(",")[0].strip()
 
-    # Rate limit check (3 scans/day for anonymous users)
+    # Check if user is authenticated (needed for plan-based rate limiting)
+    scan_user_id = None
+    auth_header = req.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.replace("Bearer ", "")
+        user_result = get_user_from_token(token)
+        if user_result["success"]:
+            scan_user_id = user_result["user"]["id"]
+
+    # Rate limit check — plan-aware
     if is_db_available():
-        rate_check = check_rate_limit(client_ip, max_scans=3)
+        rate_check = check_rate_limit(
+            ip_address=client_ip,
+            max_scans=ANONYMOUS_LIMIT,
+            user_id=scan_user_id
+        )
         if not rate_check["allowed"]:
+            plan = rate_check.get("plan", "anonymous")
+            if plan == "anonymous":
+                message = "You've used your 3 free scans today. Create a free account for 5 scans/day, or upgrade to Pro for unlimited scans."
+            elif plan == "free":
+                message = "You've used your 5 free scans today. Upgrade to Pro for unlimited scans and advanced monitoring."
+            else:
+                message = "Daily scan limit reached."
+
             raise HTTPException(
                 status_code=429,
                 detail={
-                    "message": "Daily scan limit reached. Sign up for a free account to get more scans.",
+                    "message": message,
                     "scans_used": rate_check["scans_used"],
-                    "max_scans": rate_check["max_scans"]
+                    "max_scans": rate_check["max_scans"],
+                    "plan": plan
                 }
             )
 
     start_time = time.time()
 
     # Run all checks (some in parallel using thread pool)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         future_mx = executor.submit(check_mx_records, domain)
         future_spf = executor.submit(check_spf, domain)
         future_dkim = executor.submit(check_dkim, domain)
@@ -1042,6 +1462,11 @@ async def scan_domain(request: ScanRequest, req: Request):
         future_tls = executor.submit(check_tls, domain)
         future_rdns = executor.submit(check_reverse_dns, domain)
         future_bimi = executor.submit(check_bimi, domain)
+        # Phase 2 enhanced checks
+        future_mta_sts = executor.submit(check_mta_sts, domain)
+        future_tls_rpt = executor.submit(check_tls_rpt, domain)
+        future_senders = executor.submit(check_sender_detection, domain)
+        future_age = executor.submit(check_domain_age, domain)
 
         checks = [
             future_mx.result(timeout=20),
@@ -1052,6 +1477,11 @@ async def scan_domain(request: ScanRequest, req: Request):
             future_tls.result(timeout=15),
             future_rdns.result(timeout=10),
             future_bimi.result(timeout=10),
+            # Phase 2
+            future_mta_sts.result(timeout=12),
+            future_tls_rpt.result(timeout=10),
+            future_senders.result(timeout=10),
+            future_age.result(timeout=12),
         ]
 
     # Calculate total score
@@ -1073,15 +1503,6 @@ async def scan_domain(request: ScanRequest, req: Request):
         "scan_time": scan_time,
         "scanned_at": datetime.utcnow().isoformat()
     }
-
-    # Check if user is authenticated (optional — scans work without login)
-    scan_user_id = None
-    auth_header = req.headers.get("authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header.replace("Bearer ", "")
-        user_result = get_user_from_token(token)
-        if user_result["success"]:
-            scan_user_id = user_result["user"]["id"]
 
     # Store scan in database (async-safe, non-blocking to the response)
     if is_db_available():
@@ -1250,6 +1671,54 @@ async def api_user_stats(req: Request):
     return stats
 
 
+@app.get("/api/user/plan")
+async def api_user_plan(req: Request):
+    """Get user plan info and scan usage"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    profile = get_user_profile(user_id)
+    plan = profile.get("plan", "free") if profile else "free"
+    limit = PLAN_LIMITS.get(plan, 5)
+
+    # Get today's scan count
+    scans_today = 0
+    if is_db_available() and limit != -1:
+        from db import get_supabase
+        from datetime import date as date_type
+        sb = get_supabase()
+        if sb:
+            try:
+                today = date_type.today().isoformat()
+                result = sb.table("rate_limits").select("scan_count").eq(
+                    "ip_address", user_id
+                ).eq("date", today).execute()
+                if result.data:
+                    scans_today = result.data[0]["scan_count"]
+            except Exception:
+                pass
+
+    return {
+        "plan": plan,
+        "name": profile.get("name") if profile else None,
+        "scans_today": scans_today,
+        "scans_limit": limit,  # -1 = unlimited
+        "features": {
+            "unlimited_scans": limit == -1,
+            "monitoring": plan in ("pro", "growth", "enterprise"),
+            "api_access": plan in ("growth", "enterprise"),
+            "white_label": plan == "enterprise",
+        }
+    }
+
+
 # ─── DOMAIN API ENDPOINTS ─────────────────────────────────────────
 
 @app.get("/api/user/domains")
@@ -1362,7 +1831,7 @@ async def api_scan_detail(req: Request, scan_id: str):
 async def health_check():
     return {
         "status": "ok",
-        "version": "1.5.0",
+        "version": "1.7.0",
         "database": "connected" if is_db_available() else "not configured",
         "auth": "enabled" if is_auth_available() else "not configured"
     }

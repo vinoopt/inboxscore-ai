@@ -394,7 +394,16 @@ async function startScan() {
 
     if (!response.ok) {
       const err = await response.json();
-      throw new Error(err.detail || 'Scan failed');
+      if (response.status === 429) {
+        const detail = err.detail || {};
+        const msg = typeof detail === 'string' ? detail : detail.message;
+        const plan = typeof detail === 'object' ? detail.plan : 'anonymous';
+        clearInterval(interval);
+        showView('home');
+        showRateLimitModal(msg, plan);
+        return;
+      }
+      throw new Error(typeof err.detail === 'string' ? err.detail : err.detail?.message || 'Scan failed');
     }
 
     const data = await response.json();
@@ -489,6 +498,45 @@ function showToast(message) {
   setTimeout(() => {
     toast.remove();
   }, 3000);
+}
+
+function showRateLimitModal(message, plan) {
+  // Remove existing modal if any
+  const existing = document.getElementById('rate-limit-modal');
+  if (existing) existing.remove();
+
+  const isAnon = plan === 'anonymous';
+  const isFree = plan === 'free';
+
+  let ctaHtml = '';
+  if (isAnon) {
+    ctaHtml = `
+      <a href="/signup" style="display:inline-block;padding:12px 28px;background:#6366f1;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">Create Free Account (5 scans/day)</a>
+      <div style="margin-top:12px;font-size:13px;color:#8888a0;">Or <a href="/login" style="color:#6366f1;">log in</a> if you already have an account</div>
+    `;
+  } else if (isFree) {
+    ctaHtml = `
+      <div style="display:inline-block;padding:12px 28px;background:#6366f1;color:white;border-radius:8px;font-weight:600;font-size:15px;opacity:0.7;cursor:default;">Upgrade to Pro — Coming Soon</div>
+      <div style="margin-top:12px;font-size:13px;color:#8888a0;">Unlimited scans, monitoring, alerts & more</div>
+    `;
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'rate-limit-modal';
+  modal.innerHTML = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)this.remove()">
+      <div style="background:#12121a;border:1px solid #2a2a3a;border-radius:16px;padding:32px;max-width:440px;width:100%;text-align:center;">
+        <div style="font-size:40px;margin-bottom:12px;">⚡</div>
+        <h2 style="font-size:20px;font-weight:700;margin-bottom:12px;color:#e4e4ef;">Scan Limit Reached</h2>
+        <p style="font-size:14px;color:#8888a0;line-height:1.6;margin-bottom:24px;">${message || 'You have reached your daily scan limit.'}</p>
+        ${ctaHtml}
+        <div style="margin-top:16px;">
+          <button onclick="document.getElementById('rate-limit-modal').remove()" style="background:none;border:none;color:#8888a0;font-size:13px;cursor:pointer;padding:8px;">Dismiss</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
 }
 
 // Check for shareable URL on page load + auth state
