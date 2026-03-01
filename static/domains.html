@@ -99,6 +99,44 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .scans-table .view-link { color: var(--accent); text-decoration: none; font-weight: 500; cursor: pointer; }
 .scans-table .view-link:hover { text-decoration: underline; }
 
+/* Monitoring Toggle */
+.monitor-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.monitor-label { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+.monitor-label .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.monitor-label .status-dot.active { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+.monitor-label .status-dot.inactive { background: var(--text-muted); }
+.toggle-switch { position: relative; width: 36px; height: 20px; cursor: pointer; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: 20px; transition: all 0.3s; }
+.toggle-slider::before { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--text-muted); top: 2px; left: 2px; transition: all 0.3s; }
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { background: white; transform: translateX(16px); }
+.monitor-settings-btn { background: none; border: none; color: var(--text-muted); font-size: 14px; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: all 0.2s; }
+.monitor-settings-btn:hover { color: var(--accent); background: rgba(99,102,241,0.1); }
+
+/* Monitoring detail bar */
+.monitor-bar { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; margin-bottom: 24px; flex-wrap: wrap; }
+.monitor-bar .monitor-stat { font-size: 12px; color: var(--text-muted); }
+.monitor-bar .monitor-stat strong { color: var(--text); font-weight: 600; }
+.monitor-bar .monitor-toggle-detail { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* Modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; width: 420px; max-width: 90vw; }
+.modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.modal .modal-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+.modal .form-group { margin-bottom: 16px; }
+.modal .form-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+.modal .form-group select, .modal .form-group input { width: 100%; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; outline: none; }
+.modal .form-group select:focus, .modal .form-group input:focus { border-color: var(--accent); }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.modal-actions .btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+.modal-actions .btn-cancel { background: var(--surface-2); color: var(--text-muted); }
+.modal-actions .btn-cancel:hover { color: var(--text); }
+.modal-actions .btn-primary { background: var(--accent); color: white; }
+.modal-actions .btn-primary:hover { background: #5558e6; }
+
 /* Empty State */
 .empty-state { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 48px; text-align: center; }
 .empty-icon { font-size: 40px; margin-bottom: 12px; }
@@ -185,6 +223,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         </div>
       </div>
 
+      <div id="monitor-bar" class="monitor-bar" style="display:none;">
+        <span class="monitor-stat">Status: <strong id="mb-status">Off</strong></span>
+        <span class="monitor-stat">Interval: <strong id="mb-interval">—</strong></span>
+        <span class="monitor-stat">Threshold: <strong id="mb-threshold">—</strong></span>
+        <span class="monitor-stat">Last checked: <strong id="mb-last">—</strong></span>
+        <div class="monitor-toggle-detail">
+          <button class="monitor-settings-btn" id="mb-settings-btn" style="font-size:13px;" title="Monitoring settings">⚙ Settings</button>
+          <label class="toggle-switch" onclick="event.stopPropagation()">
+            <input type="checkbox" id="mb-toggle" onchange="toggleMonitoringDetail(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
       <div class="chart-container">
         <h3>Score History</h3>
         <div class="chart-wrap">
@@ -258,7 +310,8 @@ async function loadDomains() {
     const res = await fetch('/api/user/domains', { headers });
     if (!res.ok) throw new Error();
     const data = await res.json();
-    renderDomains(data.domains);
+    allDomains = data.domains || [];
+    renderDomains(allDomains);
   } catch (e) {
     document.getElementById('domains-container').innerHTML =
       '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load domains</h3><p>Please try refreshing the page.</p></div>';
@@ -281,12 +334,25 @@ function renderDomains(domains) {
   domains.forEach(d => {
     const score = d.latest_score != null ? d.latest_score : '—';
     const color = d.latest_score != null ? scoreColor(d.latest_score) : '';
+    const monitored = d.is_monitored || false;
+    const dotClass = monitored ? 'active' : 'inactive';
+    const monLabel = monitored ? 'Monitoring on' : 'Monitoring off';
     html += `
       <div class="domain-card" onclick="showDomainDetail('${d.domain}')">
         <button class="remove-btn" onclick="event.stopPropagation(); removeDomain('${d.id}', '${d.domain}')" title="Remove domain">✕</button>
         <div class="domain-name">${d.domain}</div>
         <div class="domain-score ${color}">${score !== '—' ? score + '/100' : '—'}</div>
         <div class="domain-meta">Added ${timeAgo(d.created_at)}</div>
+        <div class="monitor-row" onclick="event.stopPropagation()">
+          <span class="monitor-label"><span class="status-dot ${dotClass}"></span>${monLabel}</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button class="monitor-settings-btn" onclick="event.stopPropagation(); openMonitorSettings('${d.id}', '${d.domain}', ${d.monitor_interval || 24}, ${d.alert_threshold || 70}, ${monitored})" title="Monitoring settings">⚙</button>
+            <label class="toggle-switch" onclick="event.stopPropagation()">
+              <input type="checkbox" ${monitored ? 'checked' : ''} onchange="toggleMonitoring('${d.id}', this.checked, ${d.monitor_interval || 24}, ${d.alert_threshold || 70})">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
       </div>`;
   });
   html += '</div>';
@@ -356,6 +422,15 @@ async function showDomainDetail(domain) {
   document.getElementById('scans-container').innerHTML = '<div class="loading">Loading scans...</div>';
 
   history.pushState(null, '', '/domains/' + domain);
+
+  // Ensure allDomains is loaded for monitor bar
+  if (allDomains.length === 0) {
+    try {
+      const dRes = await fetch('/api/user/domains', { headers });
+      if (dRes.ok) { const dData = await dRes.json(); allDomains = dData.domains || []; }
+    } catch(e) {}
+  }
+  loadMonitorBar();
 
   try {
     const res = await fetch('/api/domains/' + domain + '/scans?limit=50', { headers });
@@ -526,6 +601,90 @@ async function scanDomain() {
   }
 }
 
+// ─── MONITORING ─────────────────────────────────────────
+
+let allDomains = [];  // cached for lookups
+let monitorModal = { domainId: null, domain: null };
+
+async function toggleMonitoring(domainId, enabled, interval, threshold) {
+  try {
+    const res = await fetch('/api/user/domains/' + domainId + '/monitoring', {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_monitored: enabled, monitor_interval: interval || 24, alert_threshold: threshold || 70 })
+    });
+    if (!res.ok) throw new Error();
+    showToast(enabled ? 'Monitoring enabled' : 'Monitoring disabled');
+    loadDomains();
+  } catch (e) {
+    showToast('Failed to update monitoring', 'error');
+    loadDomains();
+  }
+}
+
+async function toggleMonitoringDetail(enabled) {
+  // Find domain ID from allDomains
+  const d = allDomains.find(x => x.domain === currentDomain);
+  if (!d) return;
+  await toggleMonitoring(d.id, enabled, d.monitor_interval || 24, d.alert_threshold || 70);
+  loadMonitorBar();
+}
+
+function openMonitorSettings(domainId, domain, interval, threshold, enabled) {
+  monitorModal = { domainId, domain };
+  document.getElementById('modal-domain-name').textContent = domain;
+  document.getElementById('modal-interval').value = interval || 24;
+  document.getElementById('modal-threshold').value = threshold || 70;
+  document.getElementById('monitor-modal').classList.add('show');
+}
+
+function closeMonitorModal() {
+  document.getElementById('monitor-modal').classList.remove('show');
+}
+
+async function saveMonitorSettings() {
+  const interval = parseInt(document.getElementById('modal-interval').value);
+  const threshold = parseInt(document.getElementById('modal-threshold').value);
+  if (isNaN(threshold) || threshold < 10 || threshold > 100) {
+    showToast('Threshold must be between 10 and 100', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/user/domains/' + monitorModal.domainId + '/monitoring', {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_monitored: true, monitor_interval: interval, alert_threshold: threshold })
+    });
+    if (!res.ok) throw new Error();
+    showToast('Monitoring settings saved');
+    closeMonitorModal();
+    loadDomains();
+    if (currentDomain) loadMonitorBar();
+  } catch (e) {
+    showToast('Failed to save settings', 'error');
+  }
+}
+
+async function loadMonitorBar() {
+  const bar = document.getElementById('monitor-bar');
+  if (!currentDomain || allDomains.length === 0) { bar.style.display = 'none'; return; }
+
+  const d = allDomains.find(x => x.domain === currentDomain);
+  if (!d) { bar.style.display = 'none'; return; }
+
+  bar.style.display = 'flex';
+  document.getElementById('mb-status').textContent = d.is_monitored ? 'Active' : 'Off';
+  document.getElementById('mb-status').style.color = d.is_monitored ? 'var(--green)' : 'var(--text-muted)';
+  document.getElementById('mb-interval').textContent = d.is_monitored ? (d.monitor_interval || 24) + 'h' : '—';
+  document.getElementById('mb-threshold').textContent = d.is_monitored ? (d.alert_threshold || 70) : '—';
+  document.getElementById('mb-last').textContent = d.last_monitored_at ? timeAgo(d.last_monitored_at) : 'Never';
+  document.getElementById('mb-toggle').checked = d.is_monitored || false;
+  document.getElementById('mb-settings-btn').onclick = function() {
+    openMonitorSettings(d.id, d.domain, d.monitor_interval || 24, d.alert_threshold || 70, d.is_monitored);
+  };
+}
+
 // ─── INIT ───────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -598,5 +757,30 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+
+<!-- Monitoring Settings Modal -->
+<div class="modal-overlay" id="monitor-modal" onclick="if(event.target===this) closeMonitorModal()">
+  <div class="modal">
+    <h3>Monitoring Settings</h3>
+    <p class="modal-desc" id="modal-domain-name">domain.com</p>
+    <div class="form-group">
+      <label>Scan Interval</label>
+      <select id="modal-interval">
+        <option value="6">Every 6 hours</option>
+        <option value="12">Every 12 hours</option>
+        <option value="24" selected>Every 24 hours</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Alert Threshold (score below this triggers critical alert)</label>
+      <input type="number" id="modal-threshold" min="10" max="100" value="70" placeholder="70">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeMonitorModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMonitorSettings()">Save & Enable</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

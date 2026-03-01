@@ -41,7 +41,7 @@ from auth import (
     get_user_from_token, refresh_session
 )
 
-app = FastAPI(title="InboxScore API", version="1.10.0")
+app = FastAPI(title="InboxScore API", version="1.11.0")
 
 # CORS for local development
 app.add_middleware(
@@ -2196,7 +2196,7 @@ async def api_scan_detail(req: Request, scan_id: str):
 async def health_check():
     return {
         "status": "ok",
-        "version": "1.10.0",
+        "version": "1.11.0",
         "database": "connected" if is_db_available() else "not configured",
         "auth": "enabled" if is_auth_available() else "not configured",
         "monitoring": "running" if scheduler.running else "stopped"
