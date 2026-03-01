@@ -13,12 +13,15 @@ import re
 import os
 from datetime import datetime
 from typing import Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import concurrent.futures
+
+# Database
+from db import is_db_available, save_scan, save_subscriber as db_save_subscriber, check_rate_limit
 
 app = FastAPI(title="InboxScore API", version="1.0.0")
 
@@ -936,8 +939,8 @@ def generate_summary(domain: str, score: int, checks: list) -> dict:
 
 # ─── HELPERS ────────────────────────────────────────────────────────
 
-def save_subscriber(email: str, domain: str, score: int):
-    """Save subscriber to JSON file for future use"""
+def save_subscriber_local(email: str, domain: str, score: int):
+    """Fallback: Save subscriber to JSON file when DB is unavailable"""
     subscribers_file = os.path.join(os.path.dirname(__file__), 'subscribers.json')
 
     try:
@@ -947,7 +950,6 @@ def save_subscriber(email: str, domain: str, score: int):
         else:
             subscribers = []
 
-        # Check if already exists
         existing = next((s for s in subscribers if s['email'] == email and s['domain'] == domain), None)
         if not existing:
             subscribers.append({
@@ -962,14 +964,14 @@ def save_subscriber(email: str, domain: str, score: int):
 
         return True
     except Exception as e:
-        print(f"Error saving subscriber: {e}")
+        print(f"Error saving subscriber locally: {e}")
         return False
 
 
 # ─── API ENDPOINTS ──────────────────────────────────────────────────
 
 @app.post("/api/scan")
-async def scan_domain(request: ScanRequest):
+async def scan_domain(request: ScanRequest, req: Request):
     """Run a complete deliverability scan on a domain"""
     domain = request.domain.strip().lower()
 
@@ -979,6 +981,24 @@ async def scan_domain(request: ScanRequest):
 
     if not domain or "." not in domain:
         raise HTTPException(status_code=400, detail="Please enter a valid domain name")
+
+    # Get client IP for rate limiting
+    client_ip = req.headers.get("x-forwarded-for", req.client.host if req.client else "0.0.0.0")
+    if "," in client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+
+    # Rate limit check (3 scans/day for anonymous users)
+    if is_db_available():
+        rate_check = check_rate_limit(client_ip, max_scans=3)
+        if not rate_check["allowed"]:
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "message": "Daily scan limit reached. Sign up for a free account to get more scans.",
+                    "scans_used": rate_check["scans_used"],
+                    "max_scans": rate_check["max_scans"]
+                }
+            )
 
     start_time = time.time()
 
@@ -1014,7 +1034,8 @@ async def scan_domain(request: ScanRequest):
 
     scan_time = round(time.time() - start_time, 1)
 
-    return {
+    # Build response
+    response_data = {
         "domain": domain,
         "score": score,
         "summary": summary,
@@ -1023,12 +1044,27 @@ async def scan_domain(request: ScanRequest):
         "scanned_at": datetime.utcnow().isoformat()
     }
 
+    # Store scan in database (async-safe, non-blocking to the response)
+    if is_db_available():
+        try:
+            saved = save_scan(
+                domain=domain,
+                score=score,
+                results=response_data,
+                ip_address=client_ip,
+            )
+            if saved:
+                response_data["scan_id"] = saved["id"]
+        except Exception as e:
+            print(f"Failed to save scan to DB: {e}")
+
+    return response_data
+
 
 @app.post("/api/subscribe")
 async def subscribe(request: SubscribeRequest):
     """Subscribe user to email reports"""
     # Validate email
-    import re
     email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
     if not re.match(email_regex, request.email):
         raise HTTPException(status_code=400, detail="Invalid email address")
@@ -1041,8 +1077,11 @@ async def subscribe(request: SubscribeRequest):
     if not isinstance(request.score, int) or request.score < 0 or request.score > 100:
         raise HTTPException(status_code=400, detail="Invalid score")
 
-    # Save subscriber
-    success = save_subscriber(request.email, request.domain, request.score)
+    # Save subscriber — try Supabase first, fall back to local JSON
+    if is_db_available():
+        success = db_save_subscriber(request.email, request.domain, request.score)
+    else:
+        success = save_subscriber_local(request.email, request.domain, request.score)
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to save subscription")
@@ -1057,7 +1096,11 @@ async def subscribe(request: SubscribeRequest):
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "version": "1.0.0"}
+    return {
+        "status": "ok",
+        "version": "1.1.0",
+        "database": "connected" if is_db_available() else "not configured"
+    }
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
