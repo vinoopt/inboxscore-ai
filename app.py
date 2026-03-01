@@ -10,11 +10,12 @@ import ssl
 import json
 import time
 import re
+import os
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import concurrent.futures
@@ -86,6 +87,12 @@ DKIM_SELECTORS = [
 # ─── MODELS ─────────────────────────────────────────────────────────
 class ScanRequest(BaseModel):
     domain: str
+
+
+class SubscribeRequest(BaseModel):
+    email: str
+    domain: str
+    score: int
 
 
 class CheckResult(BaseModel):
@@ -927,6 +934,38 @@ def generate_summary(domain: str, score: int, checks: list) -> dict:
     }
 
 
+# ─── HELPERS ────────────────────────────────────────────────────────
+
+def save_subscriber(email: str, domain: str, score: int):
+    """Save subscriber to JSON file for future use"""
+    subscribers_file = os.path.join(os.path.dirname(__file__), 'subscribers.json')
+
+    try:
+        if os.path.exists(subscribers_file):
+            with open(subscribers_file, 'r') as f:
+                subscribers = json.load(f)
+        else:
+            subscribers = []
+
+        # Check if already exists
+        existing = next((s for s in subscribers if s['email'] == email and s['domain'] == domain), None)
+        if not existing:
+            subscribers.append({
+                'email': email,
+                'domain': domain,
+                'score': score,
+                'subscribed_at': datetime.utcnow().isoformat()
+            })
+
+        with open(subscribers_file, 'w') as f:
+            json.dump(subscribers, f, indent=2)
+
+        return True
+    except Exception as e:
+        print(f"Error saving subscriber: {e}")
+        return False
+
+
 # ─── API ENDPOINTS ──────────────────────────────────────────────────
 
 @app.post("/api/scan")
@@ -985,9 +1024,65 @@ async def scan_domain(request: ScanRequest):
     }
 
 
+@app.post("/api/subscribe")
+async def subscribe(request: SubscribeRequest):
+    """Subscribe user to email reports"""
+    # Validate email
+    import re
+    email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    if not re.match(email_regex, request.email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    # Validate domain
+    if not request.domain or "." not in request.domain:
+        raise HTTPException(status_code=400, detail="Invalid domain")
+
+    # Validate score
+    if not isinstance(request.score, int) or request.score < 0 or request.score > 100:
+        raise HTTPException(status_code=400, detail="Invalid score")
+
+    # Save subscriber
+    success = save_subscriber(request.email, request.domain, request.score)
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to save subscription")
+
+    return {
+        "status": "success",
+        "message": "Successfully subscribed to email reports",
+        "email": request.email,
+        "domain": request.domain
+    }
+
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok", "version": "1.0.0"}
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt():
+    """Return robots.txt for SEO"""
+    return """User-agent: *
+Allow: /
+Sitemap: https://inboxscore.ai/sitemap.xml
+"""
+
+
+@app.get("/sitemap.xml", response_class=Response)
+async def sitemap_xml():
+    """Return XML sitemap"""
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://inboxscore.ai/</loc>
+    <lastmod>2026-03-01T00:00:00Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
+"""
+    return Response(content=xml, media_type="application/xml")
 
 
 # Serve static files
@@ -995,6 +1090,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def serve_frontend():
+    return FileResponse("static/index.html")
+
+
+@app.get("/scan/{domain}")
+async def serve_scan_page(domain: str):
+    """Serve homepage for shareable scan URLs"""
     return FileResponse("static/index.html")
 
 

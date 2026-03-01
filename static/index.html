@@ -4,6 +4,45 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>InboxScore — Email Deliverability Diagnostic</title>
+
+<!-- SEO Meta Tags -->
+<meta name="description" content="Check your email deliverability in 30 seconds. Get a clear score, find what's broken, and learn exactly how to fix it. SPF, DKIM, DMARC, blacklist monitoring, and more.">
+<meta name="keywords" content="email deliverability, SPF checker, DKIM checker, DMARC checker, email authentication, blacklist check, inbox placement">
+<meta name="author" content="InboxScore">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+
+<!-- Open Graph Tags -->
+<meta property="og:title" content="InboxScore — Email Deliverability Diagnostic">
+<meta property="og:description" content="Check your domain's email deliverability health in 30 seconds. Get a clear score, find what's broken, and learn exactly how to fix it.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://inboxscore.ai">
+<meta property="og:site_name" content="InboxScore">
+<meta property="og:image" content="https://inboxscore.ai/og-image.png">
+
+<!-- Twitter Card Tags -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="InboxScore — Email Deliverability Diagnostic">
+<meta name="twitter:description" content="Check your email deliverability in 30 seconds. SPF, DKIM, DMARC, blacklist scan, and AI recommendations.">
+
+<!-- Canonical URL -->
+<link rel="canonical" href="https://inboxscore.ai">
+
+<!-- Favicon (Inline SVG) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+
+<!-- Google Analytics 4 -->
+<!-- Replace GA_MEASUREMENT_ID with your actual measurement ID (e.g., G-XXXXXXXXXX) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'GA_MEASUREMENT_ID', {
+    'anonymize_ip': true,
+    'allow_google_signals': false
+  });
+</script>
+
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
@@ -107,6 +146,31 @@
   .fix-step { display: flex; gap: 8px; padding: 8px 0; color: var(--text-muted); }
   .fix-step-num { background: var(--accent); color: white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; margin-top: 2px; }
 
+  /* EMAIL CAPTURE */
+  .email-capture { background: linear-gradient(135deg, var(--surface), var(--surface-2)); border: 1px solid var(--border); border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 32px; }
+  .email-capture h3 { font-size: 20px; margin-bottom: 8px; }
+  .email-capture p { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; }
+  .email-capture-form { display: flex; max-width: 450px; margin: 0 auto 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color 0.3s; }
+  .email-capture-form:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .email-capture-form input { flex: 1; padding: 12px 16px; background: transparent; border: none; color: var(--text); font-size: 14px; outline: none; }
+  .email-capture-form input::placeholder { color: var(--text-muted); }
+  .email-capture-btn { padding: 12px 24px; background: var(--accent); color: white; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
+  .email-capture-btn:hover { background: #5558e6; }
+  .email-capture-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .email-capture-note { font-size: 12px; color: var(--text-muted); }
+  .email-capture-success { display: none; color: var(--green); font-size: 14px; margin-bottom: 16px; }
+
+  /* SHARE RESULTS */
+  .share-button { background: var(--surface-2); color: var(--text); padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+  .share-button:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* TOAST NOTIFICATION */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 20px; color: var(--text); font-size: 14px; display: flex; align-items: center; gap: 8px; animation: slideIn 0.3s ease-out, slideOut 0.3s ease-out 2.7s forwards; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .toast.success { border-color: var(--green); }
+  .toast.success::before { content: '✓'; color: var(--green); font-weight: 600; }
+  @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes slideOut { to { transform: translateX(400px); opacity: 0; } }
+
   /* CTA */
   .results-cta { background: linear-gradient(135deg, var(--surface), var(--surface-2)); border: 1px solid var(--border); border-radius: 16px; padding: 32px; text-align: center; }
   .results-cta h3 { font-size: 20px; margin-bottom: 8px; }
@@ -141,6 +205,9 @@
     nav { padding: 12px 20px; }
     .nav-links { gap: 16px; }
     .trust-bar { flex-wrap: wrap; gap: 24px; }
+    .email-capture-form { flex-direction: column; }
+    .email-capture-btn { width: 100%; }
+    .toast { bottom: 16px; right: 16px; left: 16px; }
   }
 </style>
 </head>
@@ -292,6 +359,13 @@ async function startScan() {
   document.getElementById('loading-domain').textContent = domain;
   showView('loading');
 
+  // Track scan start in GA4
+  if (window.gtag) {
+    gtag('event', 'scan_started', {
+      'domain': domain
+    });
+  }
+
   // Animate checklist
   const items = document.querySelectorAll('#check-list .check-item');
   items.forEach(i => { i.classList.remove('done','active'); i.querySelector('.check-dot').textContent = ''; });
@@ -333,6 +407,96 @@ async function startScan() {
   }
 }
 
+async function submitEmail(domain, score) {
+  const emailInput = document.getElementById('email-input');
+  const emailBtn = document.getElementById('email-btn');
+  const successMsg = document.getElementById('email-success');
+  const email = emailInput.value.trim();
+
+  if (!email) {
+    emailInput.focus();
+    return;
+  }
+
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showToast('Please enter a valid email address');
+    return;
+  }
+
+  emailBtn.disabled = true;
+  emailBtn.textContent = 'Sending...';
+
+  try {
+    const response = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, domain, score })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to subscribe');
+    }
+
+    // Track email subscription in GA4
+    if (window.gtag) {
+      gtag('event', 'email_subscribed', {
+        'domain': domain,
+        'score': score
+      });
+    }
+
+    // Show success message
+    emailInput.style.display = 'none';
+    emailBtn.style.display = 'none';
+    successMsg.style.display = 'block';
+    showToast('Report sent to your email!');
+  } catch (err) {
+    showToast('Error sending report. Please try again.');
+  } finally {
+    emailBtn.disabled = false;
+    emailBtn.textContent = 'Send Report';
+  }
+}
+
+function shareResults(domain) {
+  const shareUrl = `${window.location.origin}/scan/${domain}`;
+  navigator.clipboard.writeText(shareUrl).then(() => {
+    showToast('Link copied to clipboard!');
+  }).catch(() => {
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = shareUrl;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('Link copied to clipboard!');
+  });
+}
+
+function showToast(message) {
+  const toast = document.createElement('div');
+  toast.className = 'toast success';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.remove();
+  }, 3000);
+}
+
+// Check for shareable URL on page load
+window.addEventListener('DOMContentLoaded', () => {
+  const pathMatch = window.location.pathname.match(/^\/scan\/([a-z0-9.-]+)$/i);
+  if (pathMatch) {
+    const domain = pathMatch[1];
+    document.getElementById('domain-input').value = domain;
+    // Auto-trigger scan
+    setTimeout(() => startScan(), 500);
+  }
+});
+
 function renderResults(data) {
   const container = document.getElementById('results-container');
   const colorClass = data.summary.color === 'good' ? 'good' : data.summary.color === 'danger' ? 'danger' : 'moderate';
@@ -341,6 +505,10 @@ function renderResults(data) {
   const authChecks = data.checks.filter(c => c.category === 'authentication');
   const reputationChecks = data.checks.filter(c => c.category === 'reputation');
   const infraChecks = data.checks.filter(c => c.category === 'infrastructure');
+
+  // Update URL to shareable format
+  window.history.pushState({ domain: data.domain }, '', `/scan/${data.domain}`);
+  window.currentScanData = data;
 
   container.innerHTML = `
     <div class="results-header">
@@ -361,6 +529,20 @@ function renderResults(data) {
       </div>
     </div>
 
+    <div style="text-align: right; margin-bottom: 32px;">
+      <button class="share-button" onclick="shareResults('${data.domain}')">📋 Share Results</button>
+    </div>
+
+    <div class="email-capture">
+      <h3>Get your full report emailed to you</h3>
+      <div class="email-capture-form">
+        <input type="email" id="email-input" placeholder="Enter your email" required>
+        <button class="email-capture-btn" id="email-btn" onclick="submitEmail('${data.domain}', ${data.score})">Send Report</button>
+      </div>
+      <div class="email-capture-success" id="email-success">✓ Report sent successfully! Check your inbox.</div>
+      <p class="email-capture-note">We'll also alert you if your score changes</p>
+    </div>
+
     ${renderSection('Authentication', authChecks)}
     ${renderSection('Reputation & Blacklists', reputationChecks)}
     ${renderSection('Infrastructure', infraChecks)}
@@ -376,6 +558,15 @@ function renderResults(data) {
   `;
 
   showView('results');
+
+  // Track scan completion in GA4
+  if (window.gtag) {
+    gtag('event', 'scan_completed', {
+      'domain': data.domain,
+      'score': data.score,
+      'verdict': data.summary.verdict
+    });
+  }
 }
 
 function renderSection(title, checks) {
