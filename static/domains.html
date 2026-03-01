@@ -154,6 +154,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .toast.error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: var(--red); }
 @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
+.sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
+.sidebar-backdrop.show { display: block; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
+
 /* Responsive */
 @media (max-width: 768px) {
   .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
@@ -161,8 +165,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   .mobile-toggle { display: block; }
   .main { padding: 24px 16px; }
   .domain-grid { grid-template-columns: 1fr; }
-  .scans-table { font-size: 13px; }
+  .scans-table { font-size: 13px; min-width: 520px; }
   .scans-table th, .scans-table td { padding: 10px 12px; }
+  .add-domain { flex-direction: column; }
+  .add-domain input { border-radius: 10px 10px 0 0; }
+  .add-domain button { border-radius: 0 0 10px 10px; padding: 14px; }
 }
 </style>
 </head>
@@ -170,7 +177,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 <nav class="topnav">
   <div style="display:flex;align-items:center;gap:12px;">
-    <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
     <a href="/dashboard" class="logo">
       <div class="logo-icon">📨</div>
       InboxScore
@@ -181,6 +188,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <button class="logout-btn" onclick="logout()">Log Out</button>
   </div>
 </nav>
+
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
 
 <div class="layout">
   <aside class="sidebar">
@@ -257,6 +266,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 </div>
 
 <script>
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('show');
+}
+
+
 let currentDomain = null;
 let scoreChart = null;
 let headers = {};
@@ -550,7 +565,7 @@ function renderScansTable(scans) {
     return;
   }
 
-  let html = `<table class="scans-table">
+  let html = `<div class="table-wrap"><table class="scans-table">
     <thead><tr><th>Score</th><th>Type</th><th>When</th><th></th></tr></thead>
     <tbody>`;
 
@@ -564,7 +579,7 @@ function renderScansTable(scans) {
     </tr>`;
   });
 
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   container.innerHTML = html;
 }
 

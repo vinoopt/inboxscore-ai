@@ -91,6 +91,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .danger-zone { border-color: rgba(239,68,68,0.3); }
 .danger-zone h2 { color: var(--red); }
 
+/* Sidebar Backdrop */
+.sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
+.sidebar-backdrop.show { display: block; }
+
 /* Responsive */
 @media (max-width: 768px) {
   .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
@@ -106,7 +110,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 <nav class="topnav">
   <div style="display:flex;align-items:center;gap:12px;">
-    <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
     <a href="/dashboard" class="logo">
       <div class="logo-icon">📨</div>
       InboxScore
@@ -117,6 +121,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <button class="logout-btn" onclick="logout()">Log Out</button>
   </div>
 </nav>
+
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
 
 <div class="layout">
   <aside class="sidebar">
@@ -255,6 +261,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <div class="toast" id="toast"></div>
 
 <script>
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('show');
+}
+
 function getToken() {
   return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
 }
@@ -529,6 +540,7 @@ window.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   document.querySelector('.main').addEventListener('click', () => {
     document.querySelector('.sidebar').classList.remove('open');
+    document.getElementById('sidebar-backdrop').classList.remove('show');
   });
 
   // Load alert badge count

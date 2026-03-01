@@ -63,6 +63,7 @@
   .nav-links a { color: var(--text-muted); text-decoration: none; font-size: 14px; transition: color 0.2s; cursor: pointer; }
   .nav-links a:hover { color: var(--text); }
   .nav-cta { background: var(--accent); color: white !important; padding: 8px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; }
+  .mobile-menu-btn { display: none; background: none; border: none; color: var(--text-muted); font-size: 22px; cursor: pointer; padding: 4px; }
 
   /* VIEWS */
   .view { display: none; } .view.active { display: block; }
@@ -199,15 +200,26 @@
   .pricing-btn.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 
   @media (max-width: 768px) {
-    .hero h1 { font-size: 32px; }
+    .hero { padding: 48px 20px 40px; }
+    .hero h1 { font-size: 28px; }
+    .hero p { font-size: 15px; margin-bottom: 28px; }
     .features, .pricing-grid, .checks-grid { grid-template-columns: 1fr; }
     .results-header { flex-direction: column; text-align: center; }
-    nav { padding: 12px 20px; }
-    .nav-links { gap: 16px; }
+    nav { padding: 12px 16px; }
+    .mobile-menu-btn { display: block; }
+    .nav-links { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px; gap: 12px; }
+    .nav-links.open { display: flex; }
+    .nav-links a { padding: 8px 0; }
     .trust-bar { flex-wrap: wrap; gap: 24px; }
+    .scan-box { flex-direction: column; }
+    .scan-box input { border-radius: 12px 12px 0 0; }
+    .scan-box button { border-radius: 0 0 12px 12px; padding: 14px; }
     .email-capture-form { flex-direction: column; }
     .email-capture-btn { width: 100%; }
     .toast { bottom: 16px; right: 16px; left: 16px; }
+    section { padding: 48px 20px; }
+    .score-circle { width: 120px; height: 120px; font-size: 36px; }
+    .check-card { padding: 16px; }
   }
 </style>
 </head>
@@ -218,6 +230,7 @@
     <div class="logo-icon">📨</div>
     InboxScore
   </div>
+  <button class="mobile-menu-btn" onclick="document.getElementById('nav-links').classList.toggle('open')">☰</button>
   <div class="nav-links" id="nav-links">
     <a onclick="showView('home')">Scan</a>
     <a onclick="showView('pricing')">Pricing</a>
