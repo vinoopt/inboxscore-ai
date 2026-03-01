@@ -336,13 +336,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else { logout(); }
   });
 
-  // Handle data load failure gracefully
-  Promise.all([
-    fetch('/api/user/stats', { headers }).then(r => r.ok ? r.json() : null),
-    fetch('/api/user/scans', { headers }).then(r => r.ok ? r.json() : null),
-  ]).catch(() => {
-    document.getElementById('scans-container').innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load data</h3><p>Something went wrong loading your dashboard.</p><button onclick="location.reload()" style="margin-top:12px;padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Retry</button></div>';
-  });
+  // Note: data load error handling is covered in the Promise.all chain above
 
   // Load alert badge count
   fetch('/api/user/alerts/count', { headers: { 'Authorization': 'Bearer ' + token } })
