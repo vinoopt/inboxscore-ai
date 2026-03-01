@@ -41,7 +41,7 @@ from auth import (
     get_user_from_token, refresh_session
 )
 
-app = FastAPI(title="InboxScore API", version="1.11.0")
+app = FastAPI(title="InboxScore API", version="1.12.0")
 
 # CORS for local development
 app.add_middleware(
@@ -1340,6 +1340,312 @@ def check_domain_age(domain: str) -> CheckResult:
         )
 
 
+# ─── PHASE 5: IP REPUTATION CHECK ──────────────────────────────────
+
+# Known ESP/cloud mail networks (ASN → provider name) — INFORMATIONAL ONLY, not scored
+KNOWN_ESP_ASNS = {
+    "15169": "Google (Gmail/Workspace)",
+    "396982": "Google Cloud",
+    "8075": "Microsoft (Outlook/365)",
+    "14618": "Amazon (SES)",
+    "16509": "Amazon AWS",
+    "13335": "Cloudflare",
+    "36351": "SoftLayer (IBM)",
+    "20940": "Akamai",
+    "14061": "DigitalOcean",
+    "16276": "OVH",
+    "24940": "Hetzner",
+    "63949": "Linode (Akamai)",
+    "46606": "Unified Layer",
+    "26496": "GoDaddy",
+    "22612": "Namecheap",
+    "398101": "SendGrid (Twilio)",
+    "46562": "Mailchimp",
+    "394254": "Mailgun",
+    "32244": "Liquid Web",
+    "19551": "Incapsula",
+    "54113": "Fastly",
+    "209242": "Postmark",
+}
+
+# Reputation-focused DNSBLs (beyond the main blacklists already checked)
+REPUTATION_DNSBLS = [
+    {"zone": "reputation-ip.rbl.scrolloutf1.com", "name": "ScrolloutF1 Reputation", "severity": "medium"},
+    {"zone": "wl.mailspike.net", "name": "Mailspike Whitelist", "type": "whitelist"},
+    {"zone": "list.dnswl.org", "name": "DNSWL.org Whitelist", "type": "whitelist"},
+    {"zone": "hostkarma.junkemailfilter.com", "name": "HostKarma", "severity": "medium"},
+]
+
+
+def _cymru_asn_lookup(ip: str) -> dict:
+    """Look up ASN info via Team Cymru DNS (free, no API key needed)"""
+    try:
+        reversed_ip = ".".join(reversed(ip.split(".")))
+        query = f"{reversed_ip}.origin.asn.cymru.com"
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 4
+        resolver.lifetime = 4
+        answers = resolver.resolve(query, "TXT")
+        for rdata in answers:
+            txt = rdata.to_text().strip('"')
+            # Format: "ASN | IP/prefix | CC | registry | date"
+            parts = [p.strip() for p in txt.split("|")]
+            if len(parts) >= 3:
+                asn = parts[0]
+                prefix = parts[1]
+                country = parts[2]
+
+                # Look up ASN name
+                asn_name = KNOWN_ESP_ASNS.get(asn, None)
+                if not asn_name:
+                    try:
+                        name_query = f"AS{asn}.asn.cymru.com"
+                        name_answers = resolver.resolve(name_query, "TXT")
+                        for nr in name_answers:
+                            ntxt = nr.to_text().strip('"')
+                            nparts = [p.strip() for p in ntxt.split("|")]
+                            if len(nparts) >= 5:
+                                asn_name = nparts[4]
+                    except Exception:
+                        asn_name = f"AS{asn}"
+
+                return {
+                    "asn": asn,
+                    "prefix": prefix,
+                    "country": country,
+                    "asn_name": asn_name or f"AS{asn}",
+                    "is_known_esp": asn in KNOWN_ESP_ASNS
+                }
+    except Exception:
+        pass
+    return {}
+
+
+def _check_reputation_dnsbl(ip: str, zone: str) -> bool:
+    """Check a single reputation DNSBL — returns True if listed/found"""
+    reversed_ip = ".".join(reversed(ip.split(".")))
+    query = f"{reversed_ip}.{zone}"
+    try:
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 3
+        resolver.lifetime = 3
+        resolver.resolve(query, "A")
+        return True
+    except Exception:
+        return False
+
+
+def _sender_score_lookup(ip: str) -> Optional[int]:
+    """Attempt Sender Score DNS lookup — returns 0-100 score or None if unavailable.
+    This is informational only (not scored) since the DNS service may be deprecated."""
+    try:
+        reversed_ip = ".".join(reversed(ip.split(".")))
+        query = f"{reversed_ip}.score.senderscore.com"
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 4
+        resolver.lifetime = 4
+        answers = resolver.resolve(query, "A")
+        for rdata in answers:
+            # Response is 127.0.0.X where X is the score (0-100)
+            ip_str = rdata.to_text()
+            if ip_str.startswith("127.0.0."):
+                score = int(ip_str.split(".")[-1])
+                if 0 <= score <= 100:
+                    return score
+    except Exception:
+        pass
+    return None
+
+
+def check_ip_reputation(domain: str) -> CheckResult:
+    """Phase 5: IP reputation — scored on proven behavior (whitelists, reputation flags),
+    with ASN identity and Sender Score shown as informational context only."""
+
+    # Step 1: Resolve MX → IPs
+    ips = set()
+    mx_records = safe_dns_query(domain, "MX")
+    if mx_records:
+        for mx in mx_records:
+            mx_host = mx.split()[-1].rstrip(".")
+            a_records = safe_dns_query(mx_host, "A")
+            if a_records:
+                ips.update(a_records)
+
+    if not ips:
+        a_records = safe_dns_query(domain, "A")
+        if a_records:
+            ips.update(a_records)
+
+    if not ips:
+        return CheckResult(
+            name="ip_reputation",
+            category="reputation",
+            status="info",
+            title="IP Reputation",
+            detail="Could not resolve mail server IPs for reputation check",
+            points=0,
+            max_points=0
+        )
+
+    primary_ip = list(ips)[0]
+
+    # Step 2: Run all lookups in parallel — ASN, whitelists, reputation flags, Sender Score
+    asn_info = {}
+    whitelisted = []
+    reputation_flags = []
+    sender_score = None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        # ASN lookup
+        future_asn = executor.submit(_cymru_asn_lookup, primary_ip)
+        # Sender Score (informational)
+        future_ss = executor.submit(_sender_score_lookup, primary_ip)
+        # Reputation DNSBLs
+        rbl_futures = {}
+        for rbl in REPUTATION_DNSBLS:
+            f = executor.submit(_check_reputation_dnsbl, primary_ip, rbl["zone"])
+            rbl_futures[f] = rbl
+
+        # Collect ASN result
+        try:
+            asn_info = future_asn.result(timeout=8) or {}
+        except Exception:
+            pass
+
+        # Collect Sender Score result
+        try:
+            sender_score = future_ss.result(timeout=8)
+        except Exception:
+            pass
+
+        # Collect reputation DNSBL results
+        for future in concurrent.futures.as_completed(rbl_futures, timeout=10):
+            rbl = rbl_futures[future]
+            try:
+                listed = future.result()
+                if listed and rbl.get("type") == "whitelist":
+                    whitelisted.append(rbl["name"])
+                elif listed and rbl.get("type") != "whitelist":
+                    reputation_flags.append(rbl["name"])
+            except Exception:
+                pass
+
+    # Step 3: Build assessment
+    # ─── Scoring: only whitelist presence and reputation flags matter ───
+    # ASN and Sender Score are INFORMATIONAL ONLY — shown but not scored
+    # Rationale: A known ESP IP (e.g. SendGrid) can still have bad reputation,
+    # and Sender Score DNS may be deprecated anytime. Only earned/proven
+    # signals (whitelists) and negative signals (reputation flags) affect score.
+
+    points = 0
+    max_points = 8
+    details = []
+    status = "pass"
+
+    # ─── Whitelist presence (0-4 points) — earned positive reputation ───
+    if len(whitelisted) >= 2:
+        points += 4
+        details.append(f"Whitelisted on {len(whitelisted)} reputation services ({', '.join(whitelisted)})")
+    elif len(whitelisted) == 1:
+        points += 2
+        details.append(f"Whitelisted on {whitelisted[0]}")
+    else:
+        points += 0
+        details.append("Not found on reputation whitelists — this improves with consistent good sending practices")
+
+    # ─── Reputation flags (0-4 points) — negative reputation signals ───
+    if not reputation_flags:
+        points += 4
+        details.append("No reputation flags detected")
+    elif len(reputation_flags) == 1:
+        points += 1
+        status = "warn"
+        details.append(f"Flagged on {reputation_flags[0]} — monitor your sending practices")
+    else:
+        points += 0
+        status = "fail"
+        details.append(f"Flagged on {len(reputation_flags)} reputation services — review sending practices immediately")
+
+    # ─── ASN info (informational — 0 points) ───
+    asn_name = asn_info.get("asn_name", "Unknown")
+    asn_num = asn_info.get("asn", "")
+    country = asn_info.get("country", "??")
+    is_known_esp = asn_info.get("is_known_esp", False)
+
+    if is_known_esp:
+        details.append(f"Network: {asn_name}")
+    elif asn_info:
+        details.append(f"Network: {asn_name} (AS{asn_num}, {country})")
+    else:
+        details.append(f"Network: could not identify hosting provider")
+
+    # ─── Sender Score (informational — 0 points) ───
+    if sender_score is not None:
+        if sender_score >= 80:
+            details.append(f"Sender Score: {sender_score}/100 — good")
+        elif sender_score >= 50:
+            details.append(f"Sender Score: {sender_score}/100 — moderate, room for improvement")
+        else:
+            details.append(f"Sender Score: {sender_score}/100 — poor, may cause deliverability issues")
+
+    # Build fix steps
+    fix_steps = None
+    if status == "fail":
+        fix_steps = [
+            "Your IP has been flagged by reputation monitoring services — this directly impacts inbox placement",
+            "Check for high bounce rates (>2%) and spam complaints (>0.1%) in your email logs",
+            "Ensure you only email opted-in recipients with valid addresses",
+            "If using shared infrastructure, contact your ESP about the IP's reputation",
+            "Set up feedback loops with Gmail Postmaster Tools and Microsoft SNDS to monitor complaints"
+        ]
+    elif status == "warn":
+        fix_steps = [
+            "Your IP has a minor reputation flag — address it before it escalates",
+            "Review recent sending patterns for any spikes in bounces or complaints",
+            "Warm up your IP gradually if you've recently changed email providers",
+            "Set up feedback loops with major mailbox providers to catch complaints early"
+        ]
+    elif not whitelisted:
+        fix_steps = [
+            "Your IP isn't on any reputation whitelists yet — this builds over time with good sending",
+            "Submit your IP to dnswl.org for whitelist consideration after 30+ days of clean sending",
+            "Maintain low bounce rates (<2%) and spam complaints (<0.1%)",
+            "Use consistent sending patterns — avoid large volume spikes"
+        ]
+
+    # Summary detail — lead with the most important signal
+    if reputation_flags:
+        detail = details[1] if len(details) > 1 else details[0]  # reputation flag detail
+    elif whitelisted:
+        detail = details[0]  # whitelist detail
+    else:
+        detail = f"IP {primary_ip} — no whitelist or reputation flags found"
+    if len(ips) > 1:
+        detail += f" ({len(ips)} IPs detected)"
+
+    raw_data = {
+        "primary_ip": primary_ip,
+        "all_ips": list(ips)[:5],
+        "asn": asn_info,
+        "whitelisted_on": whitelisted,
+        "reputation_flags": reputation_flags,
+        "sender_score": sender_score,
+        "details": details
+    }
+
+    return CheckResult(
+        name="ip_reputation",
+        category="reputation",
+        status=status,
+        title="IP Reputation",
+        detail=detail,
+        raw_data=raw_data,
+        points=min(points, max_points),
+        max_points=max_points,
+        fix_steps=fix_steps
+    )
+
+
 # ─── GENERATE AI SUMMARY ───────────────────────────────────────────
 
 def generate_summary(domain: str, score: int, checks: list) -> dict:
@@ -1377,6 +1683,8 @@ def generate_summary(domain: str, score: int, checks: list) -> dict:
                 issues.append("SPF misconfiguration")
             elif c.name == "dkim":
                 issues.append("missing DKIM")
+            elif c.name == "ip_reputation":
+                issues.append("poor IP reputation")
         summary = f"Your domain has deliverability issues that are likely causing emails to land in spam. "
         if issues:
             summary += f"The main problems are: {', '.join(issues)}. Fix these to significantly improve inbox placement."
@@ -1501,6 +1809,8 @@ async def scan_domain(request: ScanRequest, req: Request):
         future_tls_rpt = executor.submit(check_tls_rpt, domain)
         future_senders = executor.submit(check_sender_detection, domain)
         future_age = executor.submit(check_domain_age, domain)
+        # Phase 5: IP reputation
+        future_ip_rep = executor.submit(check_ip_reputation, domain)
 
         checks = [
             future_mx.result(timeout=20),
@@ -1516,6 +1826,8 @@ async def scan_domain(request: ScanRequest, req: Request):
             future_tls_rpt.result(timeout=10),
             future_senders.result(timeout=10),
             future_age.result(timeout=12),
+            # Phase 5
+            future_ip_rep.result(timeout=15),
         ]
 
     # Calculate total score
@@ -2196,7 +2508,7 @@ async def api_scan_detail(req: Request, scan_id: str):
 async def health_check():
     return {
         "status": "ok",
-        "version": "1.11.0",
+        "version": "1.12.0",
         "database": "connected" if is_db_available() else "not configured",
         "auth": "enabled" if is_auth_available() else "not configured",
         "monitoring": "running" if scheduler.running else "stopped"

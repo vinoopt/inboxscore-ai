@@ -247,6 +247,7 @@
   <div class="features">
     <div class="feature-card"><div class="feature-icon">🔐</div><h3>Authentication Check</h3><p>SPF, DKIM, DMARC, BIMI — verify all email authentication protocols are properly configured.</p></div>
     <div class="feature-card"><div class="feature-icon">🛡️</div><h3>Blacklist Monitor</h3><p>Check 40+ blacklists instantly. Know immediately if your domain or IP is listed.</p></div>
+    <div class="feature-card"><div class="feature-icon">🌐</div><h3>IP Reputation</h3><p>Analyze your mail server's IP reputation, network identity, and whitelist status.</p></div>
     <div class="feature-card"><div class="feature-icon">📊</div><h3>Deliverability Score</h3><p>One clear score combining all signals. Understand your email health at a glance.</p></div>
     <div class="feature-card"><div class="feature-icon">🔒</div><h3>TLS & Encryption</h3><p>Verify your mail server supports modern encryption standards.</p></div>
     <div class="feature-card"><div class="feature-icon">🔄</div><h3>Reverse DNS</h3><p>Check PTR records to ensure your mail server identity is properly verified.</p></div>
@@ -267,6 +268,7 @@
       <div class="check-item" data-check="dmarc"><div class="check-dot"></div>DMARC Policy</div>
       <div class="check-item" data-check="blacklists"><div class="check-dot"></div>Blacklist Scan (40+ lists)</div>
       <div class="check-item" data-check="tls"><div class="check-dot"></div>TLS & Encryption</div>
+      <div class="check-item" data-check="ip_reputation"><div class="check-dot"></div>IP Reputation Analysis</div>
       <div class="check-item" data-check="score"><div class="check-dot"></div>Calculating Score</div>
     </div>
   </div>
@@ -335,7 +337,9 @@
 <script>
 const ICON_MAP = {
   mx_records: '📧', spf: '🔐', dkim: '🔑', dmarc: '📋',
-  blacklists: '🛡️', tls: '🔒', reverse_dns: '🔄', bimi: '🏷️'
+  blacklists: '🛡️', tls: '🔒', reverse_dns: '🔄', bimi: '🏷️',
+  mta_sts: '🔏', tls_rpt: '📩', sender_detection: '📡',
+  domain_age: '📅', ip_reputation: '🌐'
 };
 
 function showView(view) {
@@ -687,14 +691,29 @@ function renderCheckCard(check) {
         <div>${step}</div>
       </div>
     `).join('');
-  } else if (check.status === 'pass') {
-    expandContent = `<p style="color: var(--text-muted)">This check passed. No action needed.</p>`;
+  } else if (check.status === 'pass' || check.status === 'info') {
+    expandContent = `<p style="color: var(--text-muted)">${check.status === 'pass' ? 'This check passed. No action needed.' : 'Informational check — no score impact.'}</p>`;
     if (check.raw_data) {
       if (check.raw_data.records) {
         expandContent += `<p style="color: var(--text-muted); margin-top: 8px;">Records: ${check.raw_data.records.map(r => r.host || r).join(', ')}</p>`;
       }
       if (check.raw_data.selectors) {
         expandContent += `<p style="color: var(--text-muted); margin-top: 8px;">Found selectors: ${check.raw_data.selectors.map(s => s.selector + ' (' + s.key_length + ')').join(', ')}</p>`;
+      }
+      // IP Reputation details
+      if (check.raw_data.details && check.name === 'ip_reputation') {
+        expandContent += check.raw_data.details.map(d => `<p style="color: var(--text-muted); margin-top: 6px;">• ${d}</p>`).join('');
+        if (check.raw_data.primary_ip) {
+          expandContent += `<p style="color: var(--text-muted); margin-top: 8px;"><code>${check.raw_data.primary_ip}</code>`;
+          if (check.raw_data.all_ips && check.raw_data.all_ips.length > 1) {
+            expandContent += ` + ${check.raw_data.all_ips.length - 1} more IP${check.raw_data.all_ips.length > 2 ? 's' : ''}`;
+          }
+          expandContent += `</p>`;
+        }
+      }
+      // Sender detection details
+      if (check.raw_data.senders && check.name === 'sender_detection') {
+        expandContent += `<p style="color: var(--text-muted); margin-top: 8px;">Detected: ${check.raw_data.senders.join(', ')}</p>`;
       }
     }
   }
