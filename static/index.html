@@ -489,6 +489,27 @@ function showToast(message) {
 
 // Check for shareable URL on page load + auth state
 window.addEventListener('DOMContentLoaded', () => {
+  // Handle Supabase auth callback (email verification, password reset, etc.)
+  if (window.location.hash && window.location.hash.includes('access_token=')) {
+    const params = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const type = params.get('type');
+    if (accessToken) {
+      localStorage.setItem('access_token', accessToken);
+      if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
+      // Clear the hash from URL
+      history.replaceState(null, '', window.location.pathname);
+      // Track verification event
+      if (typeof gtag === 'function') {
+        gtag('event', 'email_verified', { method: type || 'email' });
+      }
+      // Redirect to dashboard
+      window.location.href = '/dashboard';
+      return;
+    }
+  }
+
   const pathMatch = window.location.pathname.match(/^\/scan\/([a-z0-9.-]+)$/i);
   if (pathMatch) {
     const domain = pathMatch[1];
