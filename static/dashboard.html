@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — InboxScore</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26; --border: #2a2a3a;
+  --text: #e4e4ef; --text-muted: #8888a0; --accent: #6366f1; --accent-glow: rgba(99,102,241,0.3);
+  --green: #22c55e; --red: #ef4444;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+nav { display: flex; justify-content: space-between; align-items: center; padding: 16px 40px; border-bottom: 1px solid var(--border); background: rgba(10,10,15,0.9); backdrop-filter: blur(12px); }
+.logo { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+.logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.nav-right { display: flex; align-items: center; gap: 20px; }
+.user-name { font-size: 14px; color: var(--text-muted); }
+.logout-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+.dashboard { max-width: 900px; margin: 0 auto; padding: 60px 40px; text-align: center; }
+.dashboard h1 { font-size: 32px; margin-bottom: 12px; }
+.dashboard p { color: var(--text-muted); font-size: 16px; margin-bottom: 40px; line-height: 1.6; }
+
+.quick-scan { display: flex; max-width: 520px; margin: 0 auto 48px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color 0.3s; }
+.quick-scan:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.quick-scan input { flex: 1; padding: 14px 20px; background: transparent; border: none; color: var(--text); font-size: 15px; outline: none; }
+.quick-scan input::placeholder { color: var(--text-muted); }
+.quick-scan button { padding: 14px 24px; background: var(--accent); color: white; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+.quick-scan button:hover { background: #5558e6; }
+
+.empty-state { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 48px; }
+.empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 { font-size: 18px; margin-bottom: 8px; }
+.empty-state p { color: var(--text-muted); font-size: 14px; }
+
+@media (max-width: 768px) {
+  nav { padding: 12px 20px; }
+  .dashboard { padding: 40px 20px; }
+  .dashboard h1 { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/dashboard" class="logo">
+    <div class="logo-icon">📨</div>
+    InboxScore
+  </a>
+  <div class="nav-right">
+    <span class="user-name" id="user-name"></span>
+    <button class="logout-btn" onclick="logout()">Log Out</button>
+  </div>
+</nav>
+
+<div class="dashboard">
+  <h1 id="greeting">Welcome to InboxScore</h1>
+  <p>Monitor your email deliverability, track your score over time, and get alerts when something changes.</p>
+
+  <div class="quick-scan">
+    <input type="text" id="domain-input" placeholder="Scan a domain (e.g. acme.com)" onkeypress="if(event.key==='Enter') quickScan()">
+    <button onclick="quickScan()">Scan</button>
+  </div>
+
+  <div class="empty-state">
+    <div class="empty-icon">📊</div>
+    <h3>No scans yet</h3>
+    <p>Run your first scan above to start monitoring your email deliverability.</p>
+  </div>
+</div>
+
+<script>
+function getToken() {
+  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+}
+
+function getUser() {
+  const u = localStorage.getItem('user') || sessionStorage.getItem('user');
+  return u ? JSON.parse(u) : null;
+}
+
+function logout() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  sessionStorage.removeItem('access_token');
+  sessionStorage.removeItem('refresh_token');
+  sessionStorage.removeItem('user');
+  window.location.href = '/login';
+}
+
+function quickScan() {
+  const domain = document.getElementById('domain-input').value.trim();
+  if (domain) window.location.href = '/scan/' + domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+}
+
+// Auth check
+window.addEventListener('DOMContentLoaded', () => {
+  const token = getToken();
+  if (!token) {
+    window.location.href = '/login';
+    return;
+  }
+
+  // Verify token
+  fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => {
+      if (!r.ok) throw new Error('Invalid token');
+      return r.json();
+    })
+    .then(data => {
+      const name = data.user.name || data.user.email.split('@')[0];
+      document.getElementById('user-name').textContent = name;
+      document.getElementById('greeting').textContent = 'Welcome, ' + name;
+    })
+    .catch(() => {
+      // Try refresh
+      const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+      if (refresh) {
+        fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refresh })
+        }).then(r => {
+          if (!r.ok) throw new Error('Refresh failed');
+          return r.json();
+        }).then(data => {
+          const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+          storage.setItem('access_token', data.access_token);
+          storage.setItem('refresh_token', data.refresh_token);
+          location.reload();
+        }).catch(() => logout());
+      } else {
+        logout();
+      }
+    });
+});
+</script>
+</body>
+</html>

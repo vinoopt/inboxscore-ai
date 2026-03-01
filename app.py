@@ -29,7 +29,7 @@ from auth import (
     get_user_from_token, refresh_session
 )
 
-app = FastAPI(title="InboxScore API", version="1.0.0")
+app = FastAPI(title="InboxScore API", version="1.3.0")
 
 # CORS for local development
 app.add_middleware(
@@ -1199,7 +1199,7 @@ async def api_refresh_token(request: RefreshTokenRequest):
 async def health_check():
     return {
         "status": "ok",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "database": "connected" if is_db_available() else "not configured",
         "auth": "enabled" if is_auth_available() else "not configured"
     }
@@ -1242,6 +1242,26 @@ async def serve_frontend():
 async def serve_scan_page(domain: str):
     """Serve homepage for shareable scan URLs"""
     return FileResponse("static/index.html")
+
+
+@app.get("/signup")
+async def serve_signup():
+    return FileResponse("static/signup.html")
+
+
+@app.get("/login")
+async def serve_login():
+    return FileResponse("static/login.html")
+
+
+@app.get("/forgot-password")
+async def serve_forgot_password():
+    return FileResponse("static/forgot-password.html")
+
+
+@app.get("/dashboard")
+async def serve_dashboard():
+    return FileResponse("static/dashboard.html")
 
 
 if __name__ == "__main__":

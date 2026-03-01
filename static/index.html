@@ -218,10 +218,11 @@
     <div class="logo-icon">📨</div>
     InboxScore
   </div>
-  <div class="nav-links">
+  <div class="nav-links" id="nav-links">
     <a onclick="showView('home')">Scan</a>
     <a onclick="showView('pricing')">Pricing</a>
-    <a class="nav-cta">Sign Up</a>
+    <a href="/login" id="nav-login" style="color: var(--text-muted);">Log In</a>
+    <a href="/signup" class="nav-cta" id="nav-signup">Sign Up</a>
   </div>
 </nav>
 
@@ -486,14 +487,29 @@ function showToast(message) {
   }, 3000);
 }
 
-// Check for shareable URL on page load
+// Check for shareable URL on page load + auth state
 window.addEventListener('DOMContentLoaded', () => {
   const pathMatch = window.location.pathname.match(/^\/scan\/([a-z0-9.-]+)$/i);
   if (pathMatch) {
     const domain = pathMatch[1];
     document.getElementById('domain-input').value = domain;
-    // Auto-trigger scan
     setTimeout(() => startScan(), 500);
+  }
+
+  // Update nav if logged in
+  const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+  if (token) {
+    fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(r => { if (r.ok) return r.json(); throw new Error(); })
+      .then(data => {
+        const name = data.user.name || data.user.email.split('@')[0];
+        const navLinks = document.getElementById('nav-links');
+        const loginEl = document.getElementById('nav-login');
+        const signupEl = document.getElementById('nav-signup');
+        if (loginEl) loginEl.remove();
+        if (signupEl) { signupEl.href = '/dashboard'; signupEl.textContent = 'Dashboard'; }
+      })
+      .catch(() => {});
   }
 });
 
