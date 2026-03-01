@@ -29,7 +29,9 @@ from db import (
     get_domain_scans, get_scan_detail, update_domain_score,
     get_user_profile, get_user_plan, PLAN_LIMITS, ANONYMOUS_LIMIT,
     get_full_user_profile, update_user_profile, update_user_preferences,
-    export_user_data, delete_user_data
+    export_user_data, delete_user_data,
+    get_user_alerts, get_unread_alert_count, mark_alert_read,
+    mark_all_alerts_read, delete_alert
 )
 
 # Auth
@@ -38,7 +40,7 @@ from auth import (
     get_user_from_token, refresh_session
 )
 
-app = FastAPI(title="InboxScore API", version="1.8.0")
+app = FastAPI(title="InboxScore API", version="1.9.0")
 
 # CORS for local development
 app.add_middleware(
@@ -1872,6 +1874,99 @@ async def api_delete_account(req: Request):
     return {"success": True, "message": "Account deleted"}
 
 
+# ─── ALERTS API ENDPOINTS ─────────────────────────────────────────
+
+@app.get("/api/user/alerts")
+async def api_get_alerts(req: Request, severity: str = None, unread: bool = False, limit: int = 50):
+    """Get alerts for authenticated user"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    alerts = get_user_alerts(user_id, limit=min(limit, 100), severity=severity, unread_only=unread)
+    return {"alerts": alerts}
+
+
+@app.get("/api/user/alerts/count")
+async def api_alert_count(req: Request):
+    """Get unread alert count for sidebar badge"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    count = get_unread_alert_count(user_id)
+    return {"unread_count": count}
+
+
+@app.put("/api/alerts/{alert_id}/read")
+async def api_mark_alert_read(req: Request, alert_id: str):
+    """Mark a single alert as read"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    success = mark_alert_read(user_id, alert_id)
+    if success:
+        return {"ok": True}
+    raise HTTPException(status_code=500, detail="Failed to mark alert as read")
+
+
+@app.put("/api/user/alerts/read-all")
+async def api_mark_all_read(req: Request):
+    """Mark all alerts as read"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    success = mark_all_alerts_read(user_id)
+    if success:
+        return {"ok": True}
+    raise HTTPException(status_code=500, detail="Failed to mark alerts as read")
+
+
+@app.delete("/api/alerts/{alert_id}")
+async def api_delete_alert(req: Request, alert_id: str):
+    """Delete an alert"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    success = delete_alert(user_id, alert_id)
+    if success:
+        return {"ok": True}
+    raise HTTPException(status_code=500, detail="Failed to delete alert")
+
+
 # ─── DOMAIN API ENDPOINTS ─────────────────────────────────────────
 
 @app.get("/api/user/domains")
@@ -2057,6 +2152,11 @@ async def serve_domains():
 @app.get("/domains/{domain}")
 async def serve_domain_detail(domain: str):
     return FileResponse("static/domains.html")
+
+
+@app.get("/alerts")
+async def serve_alerts():
+    return FileResponse("static/alerts.html")
 
 
 @app.get("/settings")

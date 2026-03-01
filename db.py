@@ -404,6 +404,117 @@ def delete_user_data(user_id: str) -> bool:
         return False
 
 
+# ─── ALERT OPERATIONS ────────────────────────────────────────────
+
+def create_alert(user_id: str, alert_type: str, severity: str, title: str,
+                 message: str = None, domain_id: str = None, domain: str = None) -> dict:
+    """Create a new alert for a user"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        data = {
+            "user_id": user_id,
+            "type": alert_type,
+            "severity": severity,
+            "title": title,
+        }
+        if message:
+            data["message"] = message
+        if domain_id:
+            data["domain_id"] = domain_id
+        if domain:
+            data["domain"] = domain
+
+        result = sb.table("alerts").insert(data).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error creating alert: {e}")
+        return None
+
+
+def get_user_alerts(user_id: str, limit: int = 50, severity: str = None,
+                    unread_only: bool = False) -> list:
+    """Get alerts for a user with optional filters"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        query = sb.table("alerts").select("*").eq("user_id", user_id)
+
+        if severity:
+            query = query.eq("severity", severity)
+        if unread_only:
+            query = query.eq("is_read", False)
+
+        query = query.order("created_at", desc=True).limit(limit)
+        result = query.execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error fetching alerts: {e}")
+        return []
+
+
+def get_unread_alert_count(user_id: str) -> int:
+    """Get count of unread alerts for sidebar badge"""
+    sb = get_supabase()
+    if not sb:
+        return 0
+    try:
+        result = sb.table("alerts").select("id", count="exact").eq(
+            "user_id", user_id
+        ).eq("is_read", False).execute()
+        return result.count if result.count else 0
+    except Exception as e:
+        print(f"Error counting unread alerts: {e}")
+        return 0
+
+
+def mark_alert_read(user_id: str, alert_id: str) -> bool:
+    """Mark a single alert as read"""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("alerts").update({"is_read": True}).eq(
+            "id", alert_id
+        ).eq("user_id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Error marking alert read: {e}")
+        return False
+
+
+def mark_all_alerts_read(user_id: str) -> bool:
+    """Mark all alerts as read for a user"""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("alerts").update({"is_read": True}).eq(
+            "user_id", user_id
+        ).eq("is_read", False).execute()
+        return True
+    except Exception as e:
+        print(f"Error marking all alerts read: {e}")
+        return False
+
+
+def delete_alert(user_id: str, alert_id: str) -> bool:
+    """Delete an alert"""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("alerts").delete().eq(
+            "id", alert_id
+        ).eq("user_id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Error deleting alert: {e}")
+        return False
+
+
 # ─── RATE LIMITING ────────────────────────────────────────────────
 
 def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -> dict:

@@ -147,7 +147,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <ul class="sidebar-nav">
       <li><a href="/dashboard"><span class="nav-icon">📊</span> Overview</a></li>
       <li><a href="/domains" class="active"><span class="nav-icon">🌐</span> Domains</a></li>
-      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">🔔</span> Alerts <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
+      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;background:#ef4444;color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto;min-width:18px;text-align:center;">0</span></a></li>
       <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">📄</span> Reports <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
     </ul>
     <div class="sidebar-section">Account</div>
@@ -568,6 +568,17 @@ window.addEventListener('DOMContentLoaded', () => {
   } else {
     loadDomains();
   }
+
+  // Load alert badge count
+  fetch('/api/user/alerts/count', { headers })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data && data.unread_count > 0) {
+        const badge = document.getElementById('sidebar-badge');
+        badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+        badge.style.display = 'inline';
+      }
+    }).catch(() => {});
 
   // Close sidebar on mobile when clicking outside
   document.querySelector('.main').addEventListener('click', () => {
