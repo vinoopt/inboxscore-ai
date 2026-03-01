@@ -783,6 +783,23 @@ function renderCheckCard(check) {
       if (check.raw_data.senders && check.name === 'sender_detection') {
         expandContent += `<p style="color: var(--text-muted); margin-top: 8px;">Detected: ${check.raw_data.senders.join(', ')}</p>`;
       }
+      // Blacklist details — show which IPs were checked and where they're listed
+      if (check.name === 'blacklists') {
+        if (check.raw_data.ips_checked && check.raw_data.ips_checked.length > 0) {
+          expandContent += `<p style="color: var(--text-muted); margin-top: 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">IPs Checked:</p>`;
+          check.raw_data.ips_checked.forEach(item => {
+            const ip = typeof item === 'string' ? item : item.ip;
+            const source = typeof item === 'string' ? '' : ` (${item.source})`;
+            expandContent += `<p style="color: var(--text-muted); margin-top: 4px;"><code>${ip}</code>${source}</p>`;
+          });
+        }
+        if (check.raw_data.listings_by_ip) {
+          expandContent += `<p style="color: var(--text-muted); margin-top: 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Blacklist Listings:</p>`;
+          Object.entries(check.raw_data.listings_by_ip).forEach(([ip, bls]) => {
+            expandContent += `<p style="color: var(--text-muted); margin-top: 4px;"><code>${ip}</code> → ${bls.join(', ')}</p>`;
+          });
+        }
+      }
     }
   }
 

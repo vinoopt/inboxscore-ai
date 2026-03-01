@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Res
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import concurrent.futures
+import whois
 
 # Database
 from db import (
@@ -557,23 +558,26 @@ def check_dmarc(domain: str) -> CheckResult:
 
 
 def check_blacklists(domain: str) -> CheckResult:
-    """Check domain against multiple blacklists"""
-    # First, resolve domain to IP(s)
-    ips = set()
+    """Check domain against multiple blacklists — tracks IP source for transparency"""
+    # Resolve domain IPs and track WHERE each IP came from
+    ip_sources = {}  # ip -> list of sources like "MX: aspmx.l.google.com" or "A record"
+
     mx_records = safe_dns_query(domain, "MX")
     if mx_records:
         for mx in mx_records:
             mx_host = mx.split()[-1].rstrip(".")
             a_records = safe_dns_query(mx_host, "A")
             if a_records:
-                ips.update(a_records)
+                for ip in a_records:
+                    ip_sources.setdefault(ip, []).append(f"MX: {mx_host}")
 
     # Also check domain's A record
     a_records = safe_dns_query(domain, "A")
     if a_records:
-        ips.update(a_records)
+        for ip in a_records:
+            ip_sources.setdefault(ip, []).append("A record")
 
-    if not ips:
+    if not ip_sources:
         return CheckResult(
             name="blacklists",
             category="reputation",
@@ -584,6 +588,8 @@ def check_blacklists(domain: str) -> CheckResult:
             max_points=25,
             raw_data={"checked": 0, "listed": []}
         )
+
+    ips = list(ip_sources.keys())
 
     # Check each IP against blacklists
     listed_on = []
@@ -598,14 +604,14 @@ def check_blacklists(domain: str) -> CheckResult:
             resolver.timeout = 3
             resolver.lifetime = 3
             resolver.resolve(query, "A")
-            return {"blacklist": bl, "ip": ip}
+            return {"blacklist": bl, "ip": ip, "source": ", ".join(ip_sources.get(ip, ["unknown"]))}
         except:
             return None
 
     # Use thread pool for parallel blacklist checks
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = []
-        for ip in list(ips)[:3]:  # Check up to 3 IPs
+        for ip in ips[:3]:  # Check up to 3 IPs
             for bl in BLACKLISTS:
                 futures.append(executor.submit(check_single_bl, ip, bl))
 
@@ -623,34 +629,53 @@ def check_blacklists(domain: str) -> CheckResult:
     total_lists = len(BLACKLISTS)
     listings = len(listed_on)
 
+    # Build IP summary for display
+    ip_summary = []
+    for ip in ips[:3]:
+        sources = ", ".join(ip_sources.get(ip, []))
+        ip_summary.append({"ip": ip, "source": sources})
+
     if listings == 0:
+        detail = f"Not listed on any of {total_lists} blacklists checked"
+        if len(ips) == 1:
+            detail += f" (checked IP: {ips[0]} via {ip_sources[ips[0]][0]})"
+        else:
+            detail += f" (checked {len(ips[:3])} IPs)"
         return CheckResult(
             name="blacklists",
             category="reputation",
             status="pass",
             title="Blacklist Status",
-            detail=f"Not listed on any of {total_lists} blacklists checked",
-            raw_data={"checked": total_lists, "listed": [], "ips_checked": list(ips)[:3]},
+            detail=detail,
+            raw_data={"checked": total_lists, "listed": [], "ips_checked": ip_summary},
             points=25,
             max_points=25
         )
-    elif listings <= 2:
-        # Build specific fix steps
-        fix_steps = [
-            f"Your IP is listed on {listings} blacklist{'s' if listings > 1 else ''}. Here's how to get delisted:"
-        ]
+
+    # Group listings by IP for clear display
+    listings_by_ip = {}
+    for item in listed_on:
+        ip = item["ip"]
+        listings_by_ip.setdefault(ip, []).append(item["blacklist"])
+
+    if listings <= 2:
+        fix_steps = []
         for item in listed_on:
             bl_name = item["blacklist"]
+            ip = item["ip"]
+            source = item.get("source", "unknown")
+            step = f"IP {ip} ({source}) listed on {bl_name}: "
             if "spamhaus" in bl_name:
-                fix_steps.append(f"{bl_name}: Visit spamhaus.org/lookup and submit a removal request")
+                step += "Visit spamhaus.org/lookup and submit a removal request"
             elif "barracuda" in bl_name:
-                fix_steps.append(f"{bl_name}: Go to barracudacentral.org/rbl/removal-request")
+                step += "Go to barracudacentral.org/rbl/removal-request"
             elif "spamcop" in bl_name:
-                fix_steps.append(f"{bl_name}: Listings auto-expire in 24-48 hours once spam stops")
+                step += "Listings auto-expire in 24-48 hours once spam stops"
             elif "sorbs" in bl_name:
-                fix_steps.append(f"{bl_name}: Visit sorbs.net and request delisting")
+                step += "Visit sorbs.net and request delisting"
             else:
-                fix_steps.append(f"{bl_name}: Search for '{bl_name} removal request' to find the delisting form")
+                step += f"Search for '{bl_name} removal request' to find the delisting form"
+            fix_steps.append(step)
         fix_steps.append("Before requesting removal, identify and fix the root cause (high bounces, spam complaints, compromised account)")
 
         return CheckResult(
@@ -659,34 +684,38 @@ def check_blacklists(domain: str) -> CheckResult:
             status="warn" if listings == 1 else "fail",
             title="Blacklist Status",
             detail=f"Listed on {listings} blacklist{'s' if listings > 1 else ''} out of {total_lists} checked",
-            raw_data={"checked": total_lists, "listed": listed_on, "ips_checked": list(ips)[:3]},
+            raw_data={"checked": total_lists, "listed": listed_on, "ips_checked": ip_summary, "listings_by_ip": listings_by_ip},
             points=max(25 - (listings * 8), 0),
             max_points=25,
             fix_steps=fix_steps
         )
     else:
+        # Build detailed fix steps showing which IPs are listed where
+        fix_steps = []
+        for ip, bls in listings_by_ip.items():
+            source = ", ".join(ip_sources.get(ip, ["unknown"]))
+            fix_steps.append(f"IP {ip} ({source}) — listed on {len(bls)} blacklist{'s' if len(bls) > 1 else ''}: {', '.join(bls[:5])}{'...' if len(bls) > 5 else ''}")
+        fix_steps.append("Immediately check for compromised accounts or open relays on your mail server")
+        fix_steps.append("Review recent bounce-back messages for patterns")
+        fix_steps.append("Contact your email hosting provider — they may need to assign you a clean IP")
+        fix_steps.append("After fixing the root cause, submit removal requests to each blacklist individually")
+        fix_steps.append("Consider using a dedicated IP or a reputable email service provider")
+
         return CheckResult(
             name="blacklists",
             category="reputation",
             status="fail",
             title="Blacklist Status",
             detail=f"Listed on {listings} blacklists — this is severely impacting your deliverability",
-            raw_data={"checked": total_lists, "listed": listed_on, "ips_checked": list(ips)[:3]},
+            raw_data={"checked": total_lists, "listed": listed_on, "ips_checked": ip_summary, "listings_by_ip": listings_by_ip},
             points=0,
             max_points=25,
-            fix_steps=[
-                f"Your IP appears on {listings} blacklists — this is critical",
-                "Immediately check for compromised accounts or open relays on your mail server",
-                "Review recent bounce-back messages for patterns",
-                "Contact your email hosting provider — they may need to assign you a clean IP",
-                "After fixing the root cause, submit removal requests to each blacklist individually",
-                "Consider using a dedicated IP or a reputable email service provider"
-            ]
+            fix_steps=fix_steps
         )
 
 
 def check_tls(domain: str) -> CheckResult:
-    """Check if mail server supports TLS"""
+    """Check if mail server supports TLS — tries all MX hosts"""
     mx_records = safe_dns_query(domain, "MX")
     if not mx_records:
         return CheckResult(
@@ -699,111 +728,137 @@ def check_tls(domain: str) -> CheckResult:
             max_points=10
         )
 
-    mx_host = mx_records[0].split()[-1].rstrip(".")
+    # Try each MX host in priority order until one connects
+    mx_hosts = [mx.split()[-1].rstrip(".") for mx in mx_records]
+    last_error = None
 
-    try:
-        sock = socket.create_connection((mx_host, 25), timeout=5)
-        banner = sock.recv(1024).decode("utf-8", errors="ignore")
+    for mx_host in mx_hosts[:5]:  # Try up to 5 MX hosts
+        try:
+            sock = socket.create_connection((mx_host, 25), timeout=5)
+            banner = sock.recv(1024).decode("utf-8", errors="ignore")
 
-        # Send EHLO
-        sock.sendall(b"EHLO inboxscore.test\r\n")
-        ehlo_response = sock.recv(4096).decode("utf-8", errors="ignore")
+            # Send EHLO
+            sock.sendall(b"EHLO inboxscore.test\r\n")
+            ehlo_response = sock.recv(4096).decode("utf-8", errors="ignore")
 
-        supports_starttls = "STARTTLS" in ehlo_response.upper()
+            supports_starttls = "STARTTLS" in ehlo_response.upper()
 
-        if supports_starttls:
-            # Try STARTTLS
-            sock.sendall(b"STARTTLS\r\n")
-            starttls_response = sock.recv(1024).decode("utf-8", errors="ignore")
+            if supports_starttls:
+                # Try STARTTLS
+                sock.sendall(b"STARTTLS\r\n")
+                starttls_response = sock.recv(1024).decode("utf-8", errors="ignore")
 
-            if starttls_response.startswith("220"):
-                context = ssl.create_default_context()
-                context.check_hostname = False
-                context.verify_mode = ssl.CERT_NONE
-                ssl_sock = context.wrap_socket(sock, server_hostname=mx_host)
-                tls_version = ssl_sock.version()
-                ssl_sock.close()
+                if starttls_response.startswith("220"):
+                    context = ssl.create_default_context()
+                    context.check_hostname = False
+                    context.verify_mode = ssl.CERT_NONE
+                    ssl_sock = context.wrap_socket(sock, server_hostname=mx_host)
+                    tls_version = ssl_sock.version()
+                    ssl_sock.close()
 
-                if "TLSv1.3" in str(tls_version):
-                    return CheckResult(
-                        name="tls",
-                        category="infrastructure",
-                        status="pass",
-                        title="TLS Encryption",
-                        detail=f"Mail server supports {tls_version} — excellent encryption",
-                        raw_data={"mx_host": mx_host, "tls_version": str(tls_version)},
-                        points=10,
-                        max_points=10
-                    )
-                else:
-                    return CheckResult(
-                        name="tls",
-                        category="infrastructure",
-                        status="pass",
-                        title="TLS Encryption",
-                        detail=f"Mail server supports TLS ({tls_version})",
-                        raw_data={"mx_host": mx_host, "tls_version": str(tls_version)},
-                        points=8,
-                        max_points=10
-                    )
+                    if "TLSv1.3" in str(tls_version):
+                        return CheckResult(
+                            name="tls",
+                            category="infrastructure",
+                            status="pass",
+                            title="TLS Encryption",
+                            detail=f"Mail server supports {tls_version} — excellent encryption",
+                            raw_data={"mx_host": mx_host, "tls_version": str(tls_version)},
+                            points=10,
+                            max_points=10
+                        )
+                    else:
+                        return CheckResult(
+                            name="tls",
+                            category="infrastructure",
+                            status="pass",
+                            title="TLS Encryption",
+                            detail=f"Mail server supports TLS ({tls_version})",
+                            raw_data={"mx_host": mx_host, "tls_version": str(tls_version)},
+                            points=8,
+                            max_points=10
+                        )
 
-        sock.close()
+            sock.close()
 
-        if supports_starttls:
-            return CheckResult(
-                name="tls",
-                category="infrastructure",
-                status="warn",
-                title="TLS Encryption",
-                detail="STARTTLS advertised but could not complete handshake",
-                raw_data={"mx_host": mx_host},
-                points=5,
-                max_points=10,
-                fix_steps=[
-                    "Your mail server advertises STARTTLS but the handshake failed",
-                    "Verify your SSL certificate is valid and not expired",
-                    "Ensure the certificate matches the mail server hostname"
-                ]
-            )
-        else:
-            return CheckResult(
-                name="tls",
-                category="infrastructure",
-                status="fail",
-                title="TLS Encryption",
-                detail="Mail server does not support STARTTLS — emails sent in plain text",
-                raw_data={"mx_host": mx_host},
-                points=0,
-                max_points=10,
-                fix_steps=[
-                    "Your mail server doesn't support TLS encryption",
-                    "Gmail and other providers flag unencrypted emails with a red padlock icon",
-                    "Enable STARTTLS on your mail server or switch to a provider that supports it",
-                    "Most modern email providers (Google, Microsoft, etc.) support TLS by default"
-                ]
-            )
-    except socket.timeout:
-        return CheckResult(
-            name="tls",
-            category="infrastructure",
-            status="info",
-            title="TLS Encryption",
-            detail=f"Could not connect to mail server {mx_host} on port 25 (timeout)",
-            raw_data={"mx_host": mx_host},
-            points=5,
-            max_points=10
-        )
-    except Exception as e:
-        return CheckResult(
-            name="tls",
-            category="infrastructure",
-            status="info",
-            title="TLS Encryption",
-            detail=f"Could not test TLS — connection to {mx_host} failed",
-            raw_data={"mx_host": mx_host, "error": str(e)},
-            points=5,
-            max_points=10
-        )
+            if supports_starttls:
+                return CheckResult(
+                    name="tls",
+                    category="infrastructure",
+                    status="warn",
+                    title="TLS Encryption",
+                    detail=f"STARTTLS advertised on {mx_host} but could not complete handshake",
+                    raw_data={"mx_host": mx_host},
+                    points=5,
+                    max_points=10,
+                    fix_steps=[
+                        f"Mail server {mx_host} advertises STARTTLS but the handshake failed",
+                        "Verify your SSL certificate is valid and not expired",
+                        "Ensure the certificate matches the mail server hostname"
+                    ]
+                )
+            else:
+                return CheckResult(
+                    name="tls",
+                    category="infrastructure",
+                    status="fail",
+                    title="TLS Encryption",
+                    detail=f"Mail server {mx_host} does not support STARTTLS — emails sent in plain text",
+                    raw_data={"mx_host": mx_host},
+                    points=0,
+                    max_points=10,
+                    fix_steps=[
+                        f"Mail server {mx_host} doesn't support TLS encryption",
+                        "Gmail and other providers flag unencrypted emails with a red padlock icon",
+                        "Enable STARTTLS on your mail server or switch to a provider that supports it",
+                        "Most modern email providers (Google, Microsoft, etc.) support TLS by default"
+                    ]
+                )
+        except (socket.timeout, ConnectionRefusedError, OSError) as e:
+            last_error = str(e)
+            continue  # Try next MX host
+        except Exception as e:
+            last_error = str(e)
+            continue  # Try next MX host
+
+    # If we get here, none of the MX hosts were reachable on port 25
+    # For well-known providers, we can infer TLS support
+    provider_tls = {
+        "google.com": ("Google Workspace", "TLSv1.3"),
+        "googlemail.com": ("Google Workspace", "TLSv1.3"),
+        "outlook.com": ("Microsoft 365", "TLSv1.2+"),
+        "protection.outlook.com": ("Microsoft 365", "TLSv1.2+"),
+        "pphosted.com": ("Proofpoint", "TLSv1.2+"),
+        "mimecast.com": ("Mimecast", "TLSv1.2+"),
+    }
+
+    for mx_host in mx_hosts:
+        mx_lower = mx_host.lower()
+        for provider_domain, (provider_name, tls_ver) in provider_tls.items():
+            if provider_domain in mx_lower:
+                return CheckResult(
+                    name="tls",
+                    category="infrastructure",
+                    status="pass",
+                    title="TLS Encryption",
+                    detail=f"Mail handled by {provider_name} ({mx_host}) — {tls_ver} supported",
+                    raw_data={"mx_host": mx_host, "tls_version": tls_ver, "inferred": True, "provider": provider_name},
+                    points=10,
+                    max_points=10
+                )
+
+    # Truly couldn't determine
+    tried = ", ".join(mx_hosts[:3])
+    return CheckResult(
+        name="tls",
+        category="infrastructure",
+        status="info",
+        title="TLS Encryption",
+        detail=f"Could not test TLS — port 25 unreachable on {tried}",
+        raw_data={"mx_hosts_tried": mx_hosts[:5], "error": last_error},
+        points=5,
+        max_points=10
+    )
 
 
 def check_reverse_dns(domain: str) -> CheckResult:
@@ -1251,11 +1306,12 @@ def check_sender_detection(domain: str) -> CheckResult:
 def check_domain_age(domain: str) -> CheckResult:
     """Check domain age via RDAP/WHOIS — newer domains have lower reputation"""
     try:
-        # Use RDAP (modern replacement for WHOIS) via rdap.org
-        rdap_url = f"https://rdap.org/domain/{domain}"
         creation_date = None
+        lookup_method = None
 
+        # Method 1: RDAP (modern, preferred)
         try:
+            rdap_url = f"https://rdap.org/domain/{domain}"
             with httpx.Client(timeout=8, follow_redirects=True) as client:
                 resp = client.get(rdap_url, headers={"Accept": "application/rdap+json"})
                 if resp.status_code == 200:
@@ -1265,11 +1321,29 @@ def check_domain_age(domain: str) -> CheckResult:
                         if event.get("eventAction") == "registration":
                             date_str = event.get("eventDate", "")
                             if date_str:
-                                # Parse ISO format date
                                 creation_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                                lookup_method = "RDAP"
                                 break
         except Exception:
             pass
+
+        # Method 2: python-whois fallback (works for .com, .net, .org, etc.)
+        if not creation_date:
+            try:
+                w = whois.whois(domain)
+                if w and w.creation_date:
+                    cd = w.creation_date
+                    # whois sometimes returns a list of dates
+                    if isinstance(cd, list):
+                        cd = cd[0]
+                    if cd:
+                        if cd.tzinfo is None:
+                            from datetime import timezone
+                            cd = cd.replace(tzinfo=timezone.utc)
+                        creation_date = cd
+                        lookup_method = "WHOIS"
+            except Exception:
+                pass
 
         if not creation_date:
             return CheckResult(
@@ -1277,7 +1351,7 @@ def check_domain_age(domain: str) -> CheckResult:
                 category="reputation",
                 status="info",
                 title="Domain Age",
-                detail="Could not determine domain registration date — RDAP lookup unavailable for this TLD",
+                detail="Could not determine domain registration date — RDAP and WHOIS lookups both failed for this domain",
                 points=0,
                 max_points=0
             )
