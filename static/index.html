@@ -398,6 +398,10 @@ async function startScan() {
     else clearInterval(interval);
   }, 500);
 
+  // Client-side timeout (25s) — Render has 30s limit
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+
   try {
     const scanHeaders = { 'Content-Type': 'application/json' };
     const authToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
@@ -406,8 +410,10 @@ async function startScan() {
     const response = await fetch('/api/scan', {
       method: 'POST',
       headers: scanHeaders,
-      body: JSON.stringify({ domain })
+      body: JSON.stringify({ domain }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       let err;
@@ -433,8 +439,13 @@ async function startScan() {
 
     setTimeout(() => renderResults(data), 600);
   } catch (err) {
+    clearTimeout(timeoutId);
     clearInterval(interval);
-    errorEl.textContent = err.message;
+    if (err.name === 'AbortError') {
+      errorEl.textContent = 'Scan timed out — the domain may be slow to respond. Please try again.';
+    } else {
+      errorEl.textContent = err.message;
+    }
     errorEl.style.display = 'block';
     showView('home');
   }

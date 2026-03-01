@@ -606,28 +606,49 @@ async function scanDomain() {
   btn.disabled = true;
   btn.textContent = 'Scanning...';
 
+  // Animated progress dots
+  let dots = 0;
+  const dotTimer = setInterval(() => {
+    dots = (dots + 1) % 4;
+    btn.textContent = 'Scanning' + '.'.repeat(dots);
+  }, 400);
+
+  // Client-side timeout (25s) — Render has 30s limit
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+
   try {
     const res = await fetch('/api/scan', {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain: currentDomain })
+      body: JSON.stringify({ domain: currentDomain }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
+
     if (res.status === 429) {
       const err = await res.json();
       const detail = err.detail || {};
       const msg = typeof detail === 'string' ? detail : detail.message || 'Daily scan limit reached.';
       showToast(msg, 'error');
-      btn.disabled = false;
-      btn.textContent = 'Scan Now';
       return;
     }
-    if (!res.ok) throw new Error();
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || 'Scan returned an error');
+    }
 
     showToast('Scan complete!');
     showDomainDetail(currentDomain);
   } catch (e) {
-    showToast('Scan failed — please try again', 'error');
+    clearTimeout(timeoutId);
+    if (e.name === 'AbortError') {
+      showToast('Scan timed out — the domain may be slow to respond. Try again.', 'error');
+    } else {
+      showToast(e.message || 'Scan failed — please try again', 'error');
+    }
   } finally {
+    clearInterval(dotTimer);
     btn.disabled = false;
     btn.textContent = 'Scan Now';
   }
