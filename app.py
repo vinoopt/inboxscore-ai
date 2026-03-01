@@ -33,7 +33,9 @@ from db import (
     export_user_data, delete_user_data,
     get_user_alerts, get_unread_alert_count, mark_alert_read,
     mark_all_alerts_read, delete_alert,
-    update_domain_monitoring, get_monitored_domains, get_monitoring_logs
+    update_domain_monitoring, get_monitored_domains, get_monitoring_logs,
+    save_postmaster_connection, get_postmaster_connection,
+    delete_postmaster_connection, get_postmaster_metrics as db_get_postmaster_metrics,
 )
 
 # Auth
@@ -45,7 +47,7 @@ from auth import (
 # PDF report generation
 from pdf_report import generate_pdf_report
 
-app = FastAPI(title="InboxScore API", version="1.13.0")
+app = FastAPI(title="InboxScore API", version="1.14.0")
 
 # CORS for local development
 app.add_middleware(
@@ -59,11 +61,15 @@ app.add_middleware(
 # ─── BACKGROUND MONITORING SCHEDULER ─────────────────────────────
 from apscheduler.schedulers.background import BackgroundScheduler
 from monitor import run_monitoring_cycle
+from postmaster_scheduler import sync_all_postmaster_users
 
 scheduler = BackgroundScheduler()
 # Run monitoring check every 15 minutes to find domains due for their scan
 scheduler.add_job(run_monitoring_cycle, 'interval', minutes=15, id='monitoring_cycle',
                   max_instances=1, replace_existing=True)
+# Sync Google Postmaster data daily at 6 AM UTC
+scheduler.add_job(sync_all_postmaster_users, 'cron', hour=6, minute=0,
+                  id='postmaster_sync', max_instances=1, replace_existing=True)
 
 
 @app.on_event("startup")
@@ -2786,10 +2792,209 @@ async def api_export_scans_csv(req: Request):
 async def health_check():
     return {
         "status": "ok",
-        "version": "1.13.0",
+        "version": "1.14.0",
         "database": "connected" if is_db_available() else "not configured",
         "auth": "enabled" if is_auth_available() else "not configured",
         "monitoring": "running" if scheduler.running else "stopped"
+    }
+
+
+# ─── GOOGLE POSTMASTER TOOLS ENDPOINTS ───────────────────────────
+
+def _require_pro_plan(user_id: str):
+    """Check if user has Pro+ plan for Postmaster features"""
+    plan = get_user_plan(user_id)
+    if plan not in ("pro", "growth", "enterprise"):
+        raise HTTPException(
+            status_code=403,
+            detail="Google Postmaster Tools requires a Pro plan or higher. Upgrade to unlock advanced deliverability insights."
+        )
+    return plan
+
+
+@app.get("/api/postmaster/authorize")
+async def api_postmaster_authorize(req: Request):
+    """Start Google Postmaster OAuth flow — redirects to Google consent"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    from postmaster import get_authorization_url, GOOGLE_CLIENT_ID
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Google Postmaster not configured")
+
+    # Use user_id as state parameter for callback verification
+    auth_url = get_authorization_url(state=user_id)
+    return {"authorization_url": auth_url}
+
+
+@app.get("/api/postmaster/callback")
+async def api_postmaster_callback(req: Request):
+    """
+    OAuth callback from Google. Exchanges code for tokens, saves connection.
+    Redirects user back to settings page.
+    """
+    code = req.query_params.get("code")
+    state = req.query_params.get("state")  # This is the user_id
+    error = req.query_params.get("error")
+
+    if error:
+        # User denied consent or other error
+        return FileResponse("static/settings.html")
+
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="Missing code or state parameter")
+
+    try:
+        from postmaster import exchange_code_for_tokens, get_google_user_email
+
+        tokens = await exchange_code_for_tokens(code)
+        google_email = await get_google_user_email(tokens["access_token"])
+
+        save_postmaster_connection(
+            user_id=state,
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            token_expiry=tokens["token_expiry"],
+            google_email=google_email or "unknown",
+        )
+
+        # Trigger initial sync for this user in the background
+        import asyncio
+        from postmaster import fetch_metrics_for_user
+        connection = get_postmaster_connection(state)
+        if connection:
+            asyncio.create_task(fetch_metrics_for_user(state, connection, days=14))
+
+        # Redirect back to settings with success indicator
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/settings?postmaster=connected", status_code=302)
+
+    except Exception as e:
+        print(f"[Postmaster] OAuth callback error: {e}")
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/settings?postmaster=error", status_code=302)
+
+
+@app.get("/api/postmaster/status")
+async def api_postmaster_status(req: Request):
+    """Get Postmaster connection status for the current user"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    plan = get_user_plan(user_id)
+    is_pro = plan in ("pro", "growth", "enterprise")
+
+    connection = get_postmaster_connection(user_id)
+
+    if connection:
+        return {
+            "connected": True,
+            "google_email": connection.get("google_email", ""),
+            "connected_at": connection.get("connected_at", ""),
+            "is_pro": is_pro,
+        }
+    else:
+        return {
+            "connected": False,
+            "google_email": None,
+            "connected_at": None,
+            "is_pro": is_pro,
+        }
+
+
+@app.post("/api/postmaster/disconnect")
+async def api_postmaster_disconnect(req: Request):
+    """Disconnect Google Postmaster (remove stored tokens)"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    success = delete_postmaster_connection(user_id)
+
+    if success:
+        return {"success": True, "message": "Google Postmaster disconnected"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to disconnect")
+
+
+@app.get("/api/postmaster/metrics/{domain}")
+async def api_postmaster_metrics(domain: str, req: Request, days: int = 30):
+    """Get Postmaster metrics for a specific domain"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    # Check if connected
+    connection = get_postmaster_connection(user_id)
+    if not connection:
+        return {"connected": False, "metrics": [], "message": "Connect Google Postmaster in Settings to see metrics"}
+
+    metrics = db_get_postmaster_metrics(user_id, domain, days=min(days, 90))
+    return {
+        "connected": True,
+        "domain": domain,
+        "metrics": metrics,
+        "google_email": connection.get("google_email", ""),
+    }
+
+
+@app.post("/api/postmaster/sync")
+async def api_postmaster_sync(req: Request):
+    """Manually trigger a Postmaster data sync for the current user"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    connection = get_postmaster_connection(user_id)
+    if not connection:
+        raise HTTPException(status_code=400, detail="Google Postmaster not connected")
+
+    from postmaster import fetch_metrics_for_user
+    result = await fetch_metrics_for_user(user_id, connection, days=14)
+
+    return {
+        "success": True,
+        "domains_synced": result["domains_synced"],
+        "metrics_saved": result["metrics_saved"],
+        "errors": result["errors"] if result["errors"] else None,
     }
 
 

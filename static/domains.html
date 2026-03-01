@@ -90,6 +90,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .chart-container h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .chart-wrap { position: relative; height: 250px; }
 
+/* Postmaster Metrics Widget */
+.pm-widget { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+.pm-widget h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+.pm-widget .pm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.pm-metric { background: var(--surface-2); border-radius: 8px; padding: 14px; text-align: center; }
+.pm-metric .pm-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.pm-metric .pm-value { font-size: 20px; font-weight: 700; }
+.pm-metric .pm-value.rep-high { color: var(--green); }
+.pm-metric .pm-value.rep-medium { color: var(--yellow); }
+.pm-metric .pm-value.rep-low { color: #f97316; }
+.pm-metric .pm-value.rep-bad { color: var(--red); }
+.pm-auth-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.pm-auth-row { display: flex; align-items: center; gap: 10px; }
+.pm-auth-row .pm-auth-label { font-size: 12px; color: var(--text-muted); width: 50px; }
+.pm-auth-row .pm-bar { flex: 1; height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.pm-auth-row .pm-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.pm-auth-row .pm-pct { font-size: 12px; font-weight: 600; width: 40px; text-align: right; }
+.pm-cta { text-align: center; padding: 16px; }
+.pm-cta a { color: var(--accent); text-decoration: none; font-weight: 500; font-size: 13px; }
+.pm-cta a:hover { text-decoration: underline; }
+.pm-trend-chart { position: relative; height: 120px; margin-top: 16px; }
+
 /* Scan history table */
 .scans-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .scans-table th { text-align: left; padding: 12px 16px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-weight: 500; }
@@ -253,6 +275,78 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         <div class="chart-wrap">
           <canvas id="score-chart"></canvas>
         </div>
+      </div>
+
+      <!-- Postmaster Metrics Widget -->
+      <div id="pm-widget" class="pm-widget" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h3 style="font-size:16px;font-weight:600;margin:0;">
+            <svg width="18" height="18" viewBox="0 0 48 48" style="vertical-align:-3px;margin-right:6px;">
+              <path fill="#EA4335" d="M24 5L4 24l4 4 16-16 16 16 4-4z"/>
+              <path fill="#4285F4" d="M4 24v19h12V30h16v13h12V24L24 5z"/>
+              <path fill="#34A853" d="M16 43h16V30H16z"/>
+              <path fill="#FBBC05" d="M4 24l8 8V24z"/>
+              <path fill="#1967D2" d="M36 32l8-8v19h-8z"/>
+            </svg>
+            Google Postmaster Insights
+          </h3>
+          <span id="pm-date-range" style="font-size:12px;color:var(--text-muted);"></span>
+        </div>
+
+        <div id="pm-reputation-row" style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <span style="font-size:13px;color:var(--text-muted);">Domain Reputation:</span>
+          <span id="pm-reputation-badge" class="pm-metric" style="font-weight:700;font-size:14px;"></span>
+        </div>
+
+        <div class="pm-grid">
+          <div class="pm-metric">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Spam Rate</div>
+            <div id="pm-spam-rate" style="font-size:22px;font-weight:700;">—</div>
+          </div>
+          <div class="pm-metric">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">TLS Encrypted</div>
+            <div id="pm-tls-rate" style="font-size:22px;font-weight:700;">—</div>
+          </div>
+        </div>
+
+        <div class="pm-auth-bars" style="margin-top:16px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Authentication Success</div>
+          <div class="pm-auth-row">
+            <span style="width:50px;font-size:12px;color:var(--text-muted);">SPF</span>
+            <div class="pm-bar"><div id="pm-bar-spf" class="pm-bar-fill" style="width:0%"></div></div>
+            <span id="pm-pct-spf" style="width:40px;font-size:12px;text-align:right;">—</span>
+          </div>
+          <div class="pm-auth-row">
+            <span style="width:50px;font-size:12px;color:var(--text-muted);">DKIM</span>
+            <div class="pm-bar"><div id="pm-bar-dkim" class="pm-bar-fill" style="width:0%"></div></div>
+            <span id="pm-pct-dkim" style="width:40px;font-size:12px;text-align:right;">—</span>
+          </div>
+          <div class="pm-auth-row">
+            <span style="width:50px;font-size:12px;color:var(--text-muted);">DMARC</span>
+            <div class="pm-bar"><div id="pm-bar-dmarc" class="pm-bar-fill" style="width:0%"></div></div>
+            <span id="pm-pct-dmarc" style="width:40px;font-size:12px;text-align:right;">—</span>
+          </div>
+        </div>
+
+        <div id="pm-errors" style="margin-top:16px;display:none;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Delivery Errors</div>
+          <div id="pm-errors-list"></div>
+        </div>
+
+        <div id="pm-trend" class="pm-trend-chart" style="margin-top:16px;display:none;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;">30-Day Reputation Trend</div>
+          <div style="display:flex;gap:3px;align-items:flex-end;height:60px;" id="pm-trend-bars"></div>
+        </div>
+      </div>
+
+      <!-- Postmaster CTA (shown when not connected) -->
+      <div id="pm-cta" class="pm-cta" style="display:none;">
+        <svg width="20" height="20" viewBox="0 0 48 48" style="vertical-align:-4px;margin-right:6px;">
+          <path fill="#EA4335" d="M24 5L4 24l4 4 16-16 16 16 4-4z"/>
+          <path fill="#4285F4" d="M4 24v19h12V30h16v13h12V24L24 5z"/>
+        </svg>
+        <strong>Get deeper Gmail insights</strong> — Connect Google Postmaster Tools to see domain reputation, spam rates, and authentication data.
+        <a href="/settings" style="color:var(--accent);font-weight:600;margin-left:8px;">Connect →</a>
       </div>
 
       <div style="margin-bottom:16px;">
@@ -448,6 +542,7 @@ async function showDomainDetail(domain) {
     } catch(e) {}
   }
   loadMonitorBar();
+  loadPostmasterMetrics(domain);
 
   try {
     const res = await fetch('/api/domains/' + domain + '/scans?limit=50', { headers });
@@ -736,6 +831,145 @@ async function loadMonitorBar() {
   document.getElementById('mb-settings-btn').onclick = function() {
     openMonitorSettings(d.id, d.domain, d.monitor_interval || 24, d.alert_threshold || 70, d.is_monitored);
   };
+}
+
+// ─── POSTMASTER METRICS ─────────────────────────────────
+
+let pmConnected = null; // cached status
+
+async function checkPostmasterStatus() {
+  if (pmConnected !== null) return pmConnected;
+  try {
+    const res = await fetch('/api/postmaster/status', { headers });
+    if (!res.ok) { pmConnected = false; return false; }
+    const data = await res.json();
+    pmConnected = data.connected || false;
+    return pmConnected;
+  } catch { pmConnected = false; return false; }
+}
+
+async function loadPostmasterMetrics(domain) {
+  const widget = document.getElementById('pm-widget');
+  const cta = document.getElementById('pm-cta');
+  widget.style.display = 'none';
+  cta.style.display = 'none';
+
+  const connected = await checkPostmasterStatus();
+  if (!connected) {
+    cta.style.display = 'block';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/postmaster/metrics/' + encodeURIComponent(domain) + '?days=30', { headers });
+    if (!res.ok) return;
+    const data = await res.json();
+    const metrics = data.metrics || [];
+    if (metrics.length === 0) return;
+
+    widget.style.display = 'block';
+
+    // Use latest day with data
+    const latest = metrics[0];
+    const oldest = metrics[metrics.length - 1];
+
+    // Date range
+    document.getElementById('pm-date-range').textContent =
+      formatPmDate(oldest.date) + ' – ' + formatPmDate(latest.date);
+
+    // Reputation badge
+    const repBadge = document.getElementById('pm-reputation-badge');
+    const rep = (latest.domain_reputation || 'UNKNOWN').toUpperCase();
+    repBadge.textContent = rep;
+    repBadge.className = 'pm-metric rep-' + rep.toLowerCase();
+
+    // Spam rate
+    const spamEl = document.getElementById('pm-spam-rate');
+    if (latest.spam_rate !== null && latest.spam_rate !== undefined) {
+      const spamPct = (latest.spam_rate * 100).toFixed(2);
+      spamEl.textContent = spamPct + '%';
+      spamEl.style.color = latest.spam_rate > 0.003 ? 'var(--red)' :
+                           latest.spam_rate > 0.001 ? 'var(--orange)' : 'var(--green)';
+    } else {
+      spamEl.textContent = '—';
+      spamEl.style.color = 'var(--text-muted)';
+    }
+
+    // TLS
+    const tlsEl = document.getElementById('pm-tls-rate');
+    if (latest.encrypted_traffic_tls !== null && latest.encrypted_traffic_tls !== undefined) {
+      const tlsPct = (latest.encrypted_traffic_tls * 100).toFixed(0);
+      tlsEl.textContent = tlsPct + '%';
+      tlsEl.style.color = latest.encrypted_traffic_tls >= 0.95 ? 'var(--green)' :
+                          latest.encrypted_traffic_tls >= 0.80 ? 'var(--orange)' : 'var(--red)';
+    } else {
+      tlsEl.textContent = '—';
+      tlsEl.style.color = 'var(--text-muted)';
+    }
+
+    // Auth bars
+    setAuthBar('spf', latest.auth_success_spf);
+    setAuthBar('dkim', latest.auth_success_dkim);
+    setAuthBar('dmarc', latest.auth_success_dmarc);
+
+    // Delivery errors
+    const errContainer = document.getElementById('pm-errors');
+    const errList = document.getElementById('pm-errors-list');
+    const errors = latest.delivery_errors || {};
+    const errKeys = Object.keys(errors).filter(k => errors[k] > 0);
+    if (errKeys.length > 0) {
+      errContainer.style.display = 'block';
+      errList.innerHTML = errKeys.map(k => {
+        const pct = (errors[k] * 100).toFixed(1);
+        const label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid var(--border);">' +
+          '<span>' + label + '</span><span style="color:var(--red);font-weight:600;">' + pct + '%</span></div>';
+      }).join('');
+    } else {
+      errContainer.style.display = 'none';
+    }
+
+    // Reputation trend bars (last 30 days)
+    if (metrics.length >= 3) {
+      document.getElementById('pm-trend').style.display = 'block';
+      const barsContainer = document.getElementById('pm-trend-bars');
+      const repValues = { 'HIGH': 4, 'MEDIUM': 3, 'LOW': 2, 'BAD': 1, 'UNKNOWN': 0 };
+      const repColors = { 'HIGH': 'var(--green)', 'MEDIUM': '#f59e0b', 'LOW': 'var(--orange)', 'BAD': 'var(--red)', 'UNKNOWN': 'var(--text-muted)' };
+
+      barsContainer.innerHTML = metrics.slice().reverse().map(m => {
+        const r = (m.domain_reputation || 'UNKNOWN').toUpperCase();
+        const h = repValues[r] || 0;
+        const pxH = Math.max(8, h * 14);
+        const color = repColors[r] || 'var(--text-muted)';
+        return '<div title="' + m.date + ': ' + r + '" style="flex:1;min-width:4px;max-width:12px;height:' + pxH + 'px;background:' + color + ';border-radius:2px;cursor:default;"></div>';
+      }).join('');
+    } else {
+      document.getElementById('pm-trend').style.display = 'none';
+    }
+
+  } catch (e) {
+    console.log('[Postmaster] Failed to load metrics:', e);
+  }
+}
+
+function setAuthBar(type, value) {
+  const bar = document.getElementById('pm-bar-' + type);
+  const pct = document.getElementById('pm-pct-' + type);
+  if (value !== null && value !== undefined) {
+    const p = (value * 100).toFixed(0);
+    bar.style.width = p + '%';
+    bar.style.background = value >= 0.95 ? 'var(--green)' : value >= 0.80 ? 'var(--orange)' : 'var(--red)';
+    pct.textContent = p + '%';
+  } else {
+    bar.style.width = '0%';
+    pct.textContent = '—';
+  }
+}
+
+function formatPmDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 // ─── INIT ───────────────────────────────────────────────

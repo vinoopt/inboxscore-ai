@@ -727,3 +727,177 @@ def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -
     except Exception as e:
         print(f"Rate limit check error: {e}")
         return {"allowed": True, "scans_used": 0, "max_scans": max_scans, "plan": plan}
+
+
+# ─── POSTMASTER OPERATIONS ───────────────────────────────────
+
+def save_postmaster_connection(user_id: str, access_token: str, refresh_token: str,
+                                token_expiry: str, google_email: str) -> dict:
+    """Save or update Google Postmaster OAuth connection for a user"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        data = {
+            "user_id": user_id,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_expiry": token_expiry,
+            "google_email": google_email,
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+        result = sb.table("postmaster_connections").upsert(
+            data, on_conflict="user_id"
+        ).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error saving postmaster connection: {e}")
+        return None
+
+
+def get_postmaster_connection(user_id: str) -> dict:
+    """Get Postmaster OAuth connection for a user"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("postmaster_connections").select("*").eq(
+            "user_id", user_id
+        ).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error getting postmaster connection: {e}")
+        return None
+
+
+def update_postmaster_tokens(user_id: str, access_token: str, token_expiry: str) -> bool:
+    """Update access token after refresh"""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("postmaster_connections").update({
+            "access_token": access_token,
+            "token_expiry": token_expiry,
+            "updated_at": datetime.utcnow().isoformat(),
+        }).eq("user_id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Error updating postmaster tokens: {e}")
+        return False
+
+
+def delete_postmaster_connection(user_id: str) -> bool:
+    """Remove Postmaster OAuth connection (disconnect)"""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("postmaster_connections").delete().eq(
+            "user_id", user_id
+        ).execute()
+        return True
+    except Exception as e:
+        print(f"Error deleting postmaster connection: {e}")
+        return False
+
+
+def upsert_postmaster_metrics(user_id: str, domain: str, metric_date: str, metrics: dict) -> dict:
+    """Insert or update daily Postmaster metrics for a domain"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        data = {
+            "user_id": user_id,
+            "domain": domain,
+            "date": metric_date,
+            "domain_reputation": metrics.get("domain_reputation"),
+            "spam_rate": metrics.get("spam_rate"),
+            "ip_reputation": json.dumps(metrics.get("ip_reputation", [])),
+            "auth_success_spf": metrics.get("auth_success_spf"),
+            "auth_success_dkim": metrics.get("auth_success_dkim"),
+            "auth_success_dmarc": metrics.get("auth_success_dmarc"),
+            "delivery_errors": json.dumps(metrics.get("delivery_errors", {})),
+            "encrypted_traffic_tls": metrics.get("encrypted_traffic_tls"),
+            "raw_data": json.dumps(metrics.get("raw_data", {})),
+        }
+        result = sb.table("postmaster_metrics").upsert(
+            data, on_conflict="user_id,domain,date"
+        ).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error upserting postmaster metrics: {e}")
+        return None
+
+
+def get_postmaster_metrics(user_id: str, domain: str, days: int = 30) -> list:
+    """Get Postmaster metrics for a domain (last N days)"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        from datetime import timedelta
+        cutoff = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+        result = sb.table("postmaster_metrics").select("*").eq(
+            "user_id", user_id
+        ).eq("domain", domain).gte("date", cutoff).order("date", desc=False).execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error getting postmaster metrics: {e}")
+        return []
+
+
+def get_postmaster_domains_for_user(user_id: str) -> list:
+    """Get distinct domains that have Postmaster metrics for a user"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        result = sb.table("postmaster_metrics").select("domain").eq(
+            "user_id", user_id
+        ).execute()
+        if result.data:
+            return list(set(row["domain"] for row in result.data))
+        return []
+    except Exception as e:
+        print(f"Error getting postmaster domains: {e}")
+        return []
+
+
+def get_all_postmaster_connections() -> list:
+    """Get all active Postmaster connections (for scheduler sync)"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        result = sb.table("postmaster_connections").select("*").execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error getting all postmaster connections: {e}")
+        return []
+
+
+def log_postmaster_sync(user_id: str, status: str, domains_synced: int = 0,
+                         error_message: str = None, sync_started_at: str = None) -> dict:
+    """Log a Postmaster sync run"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        data = {
+            "user_id": user_id,
+            "status": status,
+            "domains_synced": domains_synced,
+            "sync_completed_at": datetime.utcnow().isoformat(),
+        }
+        if sync_started_at:
+            data["sync_started_at"] = sync_started_at
+        if error_message:
+            data["error_message"] = error_message
+
+        result = sb.table("postmaster_sync_log").insert(data).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error logging postmaster sync: {e}")
+        return None
