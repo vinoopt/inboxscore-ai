@@ -10,20 +10,33 @@ from supabase import create_client, Client
 # ─── SUPABASE CLIENT ──────────────────────────────────────────────
 
 _supabase: Client | None = None
+_db_init_failed = False
 
 
 def get_supabase() -> Client:
     """Get or create Supabase client (singleton)"""
-    global _supabase
+    global _supabase, _db_init_failed
+
+    # If init already failed, don't retry (avoid repeated crashes)
+    if _db_init_failed:
+        return None
+
     if _supabase is None:
         url = os.environ.get("SUPABASE_URL")
         key = os.environ.get("SUPABASE_SERVICE_KEY")  # Service role for server-side ops
 
         if not url or not key:
             print("⚠️  SUPABASE_URL or SUPABASE_SERVICE_KEY not set — database disabled")
+            _db_init_failed = True
             return None
 
-        _supabase = create_client(url, key)
+        try:
+            _supabase = create_client(url, key)
+        except Exception as e:
+            print(f"⚠️  Supabase connection failed: {e} — database disabled")
+            _db_init_failed = True
+            return None
+
     return _supabase
 
 
