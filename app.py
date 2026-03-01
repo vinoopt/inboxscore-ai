@@ -690,6 +690,14 @@ def check_blacklists(domain: str) -> CheckResult:
             fix_steps=fix_steps
         )
     else:
+        # Build IP-aware detail text so the user can see which IPs are listed
+        ip_detail_parts = []
+        for ip, bls in listings_by_ip.items():
+            source = ", ".join(ip_sources.get(ip, ["unknown"]))
+            ip_detail_parts.append(f"{ip} ({source}) on {len(bls)}")
+
+        detail = f"Listed on {listings} blacklists across {len(listings_by_ip)} IP{'s' if len(listings_by_ip) > 1 else ''}: " + "; ".join(ip_detail_parts)
+
         # Build detailed fix steps showing which IPs are listed where
         fix_steps = []
         for ip, bls in listings_by_ip.items():
@@ -706,7 +714,7 @@ def check_blacklists(domain: str) -> CheckResult:
             category="reputation",
             status="fail",
             title="Blacklist Status",
-            detail=f"Listed on {listings} blacklists — this is severely impacting your deliverability",
+            detail=detail,
             raw_data={"checked": total_lists, "listed": listed_on, "ips_checked": ip_summary, "listings_by_ip": listings_by_ip},
             points=0,
             max_points=25,
@@ -1304,44 +1312,47 @@ def check_sender_detection(domain: str) -> CheckResult:
 
 
 def check_domain_age(domain: str) -> CheckResult:
-    """Check domain age via RDAP/WHOIS — newer domains have lower reputation"""
+    """Check domain age via WHOIS/RDAP — newer domains have lower reputation"""
     try:
         creation_date = None
         lookup_method = None
 
-        # Method 1: RDAP (modern, preferred)
+        # Method 1: python-whois (preferred — returns current registrar's
+        # creation date, which is accurate for transferred/re-registered domains)
         try:
-            rdap_url = f"https://rdap.org/domain/{domain}"
-            with httpx.Client(timeout=8, follow_redirects=True) as client:
-                resp = client.get(rdap_url, headers={"Accept": "application/rdap+json"})
-                if resp.status_code == 200:
-                    data = resp.json()
-                    events = data.get("events", [])
-                    for event in events:
-                        if event.get("eventAction") == "registration":
-                            date_str = event.get("eventDate", "")
-                            if date_str:
-                                creation_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-                                lookup_method = "RDAP"
-                                break
+            w = whois.whois(domain)
+            if w and w.creation_date:
+                cd = w.creation_date
+                # whois sometimes returns a list of dates
+                if isinstance(cd, list):
+                    cd = cd[0]
+                if cd:
+                    if cd.tzinfo is None:
+                        from datetime import timezone
+                        cd = cd.replace(tzinfo=timezone.utc)
+                    creation_date = cd
+                    lookup_method = "WHOIS"
         except Exception:
             pass
 
-        # Method 2: python-whois fallback (works for .com, .net, .org, etc.)
+        # Method 2: RDAP fallback (for exotic TLDs where WHOIS may not work)
+        # Note: RDAP can return the *original* creation date for domains that
+        # were previously owned by someone else, so WHOIS is preferred.
         if not creation_date:
             try:
-                w = whois.whois(domain)
-                if w and w.creation_date:
-                    cd = w.creation_date
-                    # whois sometimes returns a list of dates
-                    if isinstance(cd, list):
-                        cd = cd[0]
-                    if cd:
-                        if cd.tzinfo is None:
-                            from datetime import timezone
-                            cd = cd.replace(tzinfo=timezone.utc)
-                        creation_date = cd
-                        lookup_method = "WHOIS"
+                rdap_url = f"https://rdap.org/domain/{domain}"
+                with httpx.Client(timeout=8, follow_redirects=True) as client:
+                    resp = client.get(rdap_url, headers={"Accept": "application/rdap+json"})
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        events = data.get("events", [])
+                        for event in events:
+                            if event.get("eventAction") == "registration":
+                                date_str = event.get("eventDate", "")
+                                if date_str:
+                                    creation_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                                    lookup_method = "RDAP"
+                                    break
             except Exception:
                 pass
 
