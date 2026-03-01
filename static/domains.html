@@ -522,6 +522,18 @@ function renderScoreChart(scans) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onClick: function(event, elements) {
+        if (elements.length > 0) {
+          const idx = elements[0].index;
+          const scan = chartData[idx];
+          if (scan && scan.id) {
+            window.location.href = '/scan/' + currentDomain + '?id=' + scan.id;
+          }
+        }
+      },
+      onHover: function(event, elements) {
+        event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -533,6 +545,9 @@ function renderScoreChart(scans) {
           callbacks: {
             label: function(ctx) {
               return 'Score: ' + ctx.parsed.y + '/100';
+            },
+            afterLabel: function() {
+              return 'Click to view details';
             }
           }
         }
@@ -575,7 +590,7 @@ function renderScansTable(scans) {
       <td><span class="score-badge ${color}">${s.score}/100</span></td>
       <td style="color:var(--text-muted);text-transform:capitalize">${s.scan_type || 'manual'}</td>
       <td style="color:var(--text-muted)">${timeAgo(s.created_at)}</td>
-      <td><a href="/scan/${currentDomain}" class="view-link">View Details →</a></td>
+      <td><a href="/scan/${currentDomain}?id=${s.id}" class="view-link">View Details →</a></td>
     </tr>`;
   });
 

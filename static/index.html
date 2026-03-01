@@ -637,8 +637,16 @@ window.addEventListener('DOMContentLoaded', () => {
   const pathMatch = window.location.pathname.match(/^\/scan\/([a-z0-9.-]+)$/i);
   if (pathMatch) {
     const domain = pathMatch[1];
-    document.getElementById('domain-input').value = domain;
-    setTimeout(() => startScan(), 500);
+    const urlParams = new URLSearchParams(window.location.search);
+    const scanId = urlParams.get('id');
+
+    if (scanId) {
+      // Load stored scan result instead of running a new scan
+      loadStoredScan(scanId, domain);
+    } else {
+      document.getElementById('domain-input').value = domain;
+      setTimeout(() => startScan(), 500);
+    }
   }
 
   // Update nav if logged in
@@ -657,6 +665,31 @@ window.addEventListener('DOMContentLoaded', () => {
       .catch(() => {});
   }
 });
+
+async function loadStoredScan(scanId, domain) {
+  // Show loading state
+  document.getElementById('domain-input').value = domain;
+  showView('scanning');
+  const items = document.querySelectorAll('.progress-item');
+  items.forEach(i => { i.classList.add('done'); i.querySelector('.check-dot').textContent = '✓'; });
+
+  try {
+    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const fetchHeaders = token ? { 'Authorization': 'Bearer ' + token } : {};
+    const res = await fetch('/api/scans/' + scanId, { headers: fetchHeaders });
+
+    if (res.ok) {
+      const json = await res.json();
+      const scanData = json.scan?.results || json.scan || json;
+      setTimeout(() => renderResults(scanData), 300);
+    } else {
+      // Fallback: run a fresh scan if stored scan not accessible
+      setTimeout(() => startScan(), 300);
+    }
+  } catch (e) {
+    setTimeout(() => startScan(), 300);
+  }
+}
 
 function renderResults(data) {
   const container = document.getElementById('results-container');
