@@ -494,6 +494,56 @@ function shareResults(domain) {
   });
 }
 
+async function downloadPdfReport() {
+  const data = window.currentScanData;
+  if (!data) { showToast('No scan data available'); return; }
+
+  const btn = event.target;
+  const originalText = btn.textContent;
+  btn.textContent = '⏳ Generating...';
+  btn.disabled = true;
+
+  try {
+    // Try authenticated endpoint first if we have a scan_id + token
+    const token = getToken();
+    let response;
+
+    if (data.scan_id && token) {
+      response = await fetch(API + '/api/scans/' + data.scan_id + '/pdf', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+    }
+
+    // Fall back to unauthenticated POST endpoint
+    if (!response || !response.ok) {
+      response = await fetch(API + '/api/report/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    }
+
+    if (!response.ok) throw new Error('PDF generation failed');
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inboxscore-' + data.domain + '-report.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('PDF report downloaded!');
+  } catch (err) {
+    console.error('PDF download error:', err);
+    showToast('Failed to generate PDF report');
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
 function showToast(message) {
   const toast = document.createElement('div');
   toast.className = 'toast success';
@@ -622,7 +672,8 @@ function renderResults(data) {
       </div>
     </div>
 
-    <div style="text-align: right; margin-bottom: 32px;">
+    <div style="text-align: right; margin-bottom: 32px; display: flex; justify-content: flex-end; gap: 8px;">
+      <button class="share-button" onclick="downloadPdfReport()">📄 Download PDF</button>
       <button class="share-button" onclick="shareResults('${data.domain}')">📋 Share Results</button>
     </div>
 

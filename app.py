@@ -41,7 +41,10 @@ from auth import (
     get_user_from_token, refresh_session
 )
 
-app = FastAPI(title="InboxScore API", version="1.12.0")
+# PDF report generation
+from pdf_report import generate_pdf_report
+
+app = FastAPI(title="InboxScore API", version="1.13.0")
 
 # CORS for local development
 app.add_middleware(
@@ -2504,11 +2507,82 @@ async def api_scan_detail(req: Request, scan_id: str):
         raise HTTPException(status_code=404, detail="Scan not found")
 
 
+# ─── PDF REPORT ENDPOINTS ──────────────────────────────────────────
+
+@app.get("/api/scans/{scan_id}/pdf")
+async def api_scan_pdf(req: Request, scan_id: str):
+    """Download PDF report for a saved scan (authenticated users)"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    scan = get_scan_detail(scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    # The scan detail stores full results JSON
+    scan_data = scan.get("results", scan)
+    try:
+        pdf_bytes = generate_pdf_report(scan_data)
+    except Exception as e:
+        print(f"[PDF] Generation error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate PDF report")
+
+    domain = scan_data.get("domain", "scan")
+    filename = f"inboxscore-{domain}-report.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+        }
+    )
+
+
+@app.post("/api/report/pdf")
+async def api_report_pdf(req: Request):
+    """Generate PDF report from scan data (no auth required — for live scans).
+    Accepts the same JSON body as the scan response."""
+    try:
+        body = await req.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    # Validate minimum required fields
+    if not body.get("domain") or "checks" not in body:
+        raise HTTPException(status_code=400, detail="Missing domain or checks data")
+
+    try:
+        pdf_bytes = generate_pdf_report(body)
+    except Exception as e:
+        print(f"[PDF] Generation error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate PDF report")
+
+    domain = body.get("domain", "scan")
+    filename = f"inboxscore-{domain}-report.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+        }
+    )
+
+
 @app.get("/api/health")
 async def health_check():
     return {
         "status": "ok",
-        "version": "1.12.0",
+        "version": "1.13.0",
         "database": "connected" if is_db_available() else "not configured",
         "auth": "enabled" if is_auth_available() else "not configured",
         "monitoring": "running" if scheduler.running else "stopped"
