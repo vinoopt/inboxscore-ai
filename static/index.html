@@ -382,9 +382,13 @@ async function startScan() {
   }, 500);
 
   try {
+    const scanHeaders = { 'Content-Type': 'application/json' };
+    const authToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    if (authToken) scanHeaders['Authorization'] = 'Bearer ' + authToken;
+
     const response = await fetch('/api/scan', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: scanHeaders,
       body: JSON.stringify({ domain })
     });
 

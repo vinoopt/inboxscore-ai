@@ -76,6 +76,50 @@ def save_scan(domain: str, score: int, results: dict, ip_address: str = None,
         return None
 
 
+def get_user_scans(user_id: str, limit: int = 20) -> list:
+    """Get recent scans for a user"""
+    sb = get_supabase()
+    if not sb:
+        return []
+
+    try:
+        result = sb.table("scans").select("*").eq(
+            "user_id", user_id
+        ).order("created_at", desc=True).limit(limit).execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error fetching user scans: {e}")
+        return []
+
+
+def get_user_scan_stats(user_id: str) -> dict:
+    """Get scan statistics for a user"""
+    sb = get_supabase()
+    if not sb:
+        return {"total_scans": 0, "unique_domains": 0, "avg_score": 0}
+
+    try:
+        result = sb.table("scans").select("domain, score").eq(
+            "user_id", user_id
+        ).execute()
+        scans = result.data if result.data else []
+
+        if not scans:
+            return {"total_scans": 0, "unique_domains": 0, "avg_score": 0}
+
+        domains = set(s["domain"] for s in scans)
+        avg_score = round(sum(s["score"] for s in scans) / len(scans))
+
+        return {
+            "total_scans": len(scans),
+            "unique_domains": len(domains),
+            "avg_score": avg_score
+        }
+    except Exception as e:
+        print(f"Error fetching scan stats: {e}")
+        return {"total_scans": 0, "unique_domains": 0, "avg_score": 0}
+
+
 # ─── SUBSCRIBER OPERATIONS ────────────────────────────────────────
 
 def save_subscriber(email: str, domain: str = None, score: int = None, source: str = "scan_results"):

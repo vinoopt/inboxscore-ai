@@ -21,7 +21,7 @@ from pydantic import BaseModel
 import concurrent.futures
 
 # Database
-from db import is_db_available, save_scan, save_subscriber as db_save_subscriber, check_rate_limit
+from db import is_db_available, save_scan, save_subscriber as db_save_subscriber, check_rate_limit, get_user_scans, get_user_scan_stats
 
 # Auth
 from auth import (
@@ -29,7 +29,7 @@ from auth import (
     get_user_from_token, refresh_session
 )
 
-app = FastAPI(title="InboxScore API", version="1.3.2")
+app = FastAPI(title="InboxScore API", version="1.4.0")
 
 # CORS for local development
 app.add_middleware(
@@ -1069,6 +1069,15 @@ async def scan_domain(request: ScanRequest, req: Request):
         "scanned_at": datetime.utcnow().isoformat()
     }
 
+    # Check if user is authenticated (optional — scans work without login)
+    scan_user_id = None
+    auth_header = req.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.replace("Bearer ", "")
+        user_result = get_user_from_token(token)
+        if user_result["success"]:
+            scan_user_id = user_result["user"]["id"]
+
     # Store scan in database (async-safe, non-blocking to the response)
     if is_db_available():
         try:
@@ -1077,6 +1086,7 @@ async def scan_domain(request: ScanRequest, req: Request):
                 score=score,
                 results=response_data,
                 ip_address=client_ip,
+                user_id=scan_user_id,
             )
             if saved:
                 response_data["scan_id"] = saved["id"]
@@ -1195,11 +1205,45 @@ async def api_refresh_token(request: RefreshTokenRequest):
         raise HTTPException(status_code=401, detail=result["error"])
 
 
+@app.get("/api/user/scans")
+async def api_user_scans(req: Request, limit: int = 20):
+    """Get scan history for authenticated user"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    scans = get_user_scans(user_id, limit=min(limit, 50))
+    return {"scans": scans}
+
+
+@app.get("/api/user/stats")
+async def api_user_stats(req: Request):
+    """Get scan stats for authenticated user"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    stats = get_user_scan_stats(user_id)
+    return stats
+
+
 @app.get("/api/health")
 async def health_check():
     return {
         "status": "ok",
-        "version": "1.3.2",
+        "version": "1.4.0",
         "database": "connected" if is_db_available() else "not configured",
         "auth": "enabled" if is_auth_available() else "not configured"
     }
