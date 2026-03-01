@@ -511,11 +511,10 @@ function getToken() {
   return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
 }
 
-async function downloadPdfReport() {
+async function downloadPdfReport(btn) {
   const data = window.currentScanData;
   if (!data) { showToast('No scan data available'); return; }
 
-  const btn = event.target;
   const originalText = btn.textContent;
   btn.textContent = '⏳ Generating...';
   btn.disabled = true;
@@ -690,7 +689,7 @@ function renderResults(data) {
     </div>
 
     <div style="text-align: right; margin-bottom: 32px; display: flex; justify-content: flex-end; gap: 8px;">
-      <button class="share-button" onclick="downloadPdfReport()">📄 Download PDF</button>
+      <button class="share-button" onclick="downloadPdfReport(this)">📄 Download PDF</button>
       <button class="share-button" onclick="shareResults('${data.domain}')">📋 Share Results</button>
     </div>
 
