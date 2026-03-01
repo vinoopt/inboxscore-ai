@@ -2578,6 +2578,112 @@ async def api_report_pdf(req: Request):
     )
 
 
+# ─── CSV EXPORT ENDPOINT ───────────────────────────────────────────
+
+@app.get("/api/user/scans/csv")
+async def api_export_scans_csv(req: Request):
+    """Export user's scan history as CSV file (authenticated)"""
+    import csv
+    import io as _io
+
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+
+    # Fetch all scans (up to 500)
+    scans = get_user_scans(user_id, limit=500)
+
+    if not scans:
+        raise HTTPException(status_code=404, detail="No scans found")
+
+    # Build CSV
+    output = _io.StringIO()
+    writer = csv.writer(output)
+
+    # Header row
+    writer.writerow([
+        "Domain", "Score", "Verdict", "Scanned At",
+        "SPF", "DKIM", "DMARC", "MX Records", "Blacklists",
+        "TLS", "Reverse DNS", "BIMI", "MTA-STS", "TLS-RPT",
+        "Domain Age", "IP Reputation", "Sender Detection",
+        "Scan Time (s)"
+    ])
+
+    check_names_order = [
+        "spf", "dkim", "dmarc", "mx_records", "blacklists",
+        "tls", "reverse_dns", "bimi", "mta_sts", "tls_rpt",
+        "domain_age", "ip_reputation", "sender_detection"
+    ]
+
+    for scan in scans:
+        results = scan.get("results", {})
+        if isinstance(results, str):
+            try:
+                results = json.loads(results)
+            except Exception:
+                results = {}
+
+        score = results.get("score", scan.get("score", ""))
+        domain = results.get("domain", scan.get("domain", ""))
+        scan_time = results.get("scan_time", "")
+        scanned_at = scan.get("created_at", results.get("scanned_at", ""))
+
+        # Determine verdict from score
+        try:
+            s = int(score)
+            if s >= 85:
+                verdict = "Excellent"
+            elif s >= 65:
+                verdict = "Good"
+            elif s >= 40:
+                verdict = "Needs Work"
+            else:
+                verdict = "Critical"
+        except (ValueError, TypeError):
+            verdict = ""
+
+        # Extract check statuses
+        checks_list = results.get("checks", [])
+        check_map = {}
+        for c in checks_list:
+            cname = c.get("name", "")
+            cstatus = c.get("status", "")
+            cpoints = c.get("points", "")
+            cmax = c.get("max_points", "")
+            if cmax:
+                check_map[cname] = f"{cstatus} ({cpoints}/{cmax})"
+            else:
+                check_map[cname] = cstatus
+
+        # Build row
+        row = [domain, score, verdict, scanned_at]
+        for cn in check_names_order:
+            row.append(check_map.get(cn, ""))
+        row.append(scan_time)
+
+        writer.writerow(row)
+
+    csv_content = output.getvalue()
+    output.close()
+
+    filename = f"inboxscore-scan-history-{datetime.utcnow().strftime('%Y%m%d')}.csv"
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        }
+    )
+
+
 @app.get("/api/health")
 async def health_check():
     return {

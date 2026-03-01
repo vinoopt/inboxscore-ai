@@ -154,8 +154,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </div>
 
     <!-- Recent Scans -->
-    <div class="section-header">
+    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
       <h2>Recent Scans</h2>
+      <button id="csv-export-btn" onclick="exportCsv()" style="background: var(--surface-2, #1e293b); color: var(--text, #e2e8f0); padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; border: 1px solid var(--border, #334155); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">📊 Export CSV</button>
     </div>
     <div id="scans-container">
       <div class="loading">Loading your scans...</div>
@@ -243,6 +244,40 @@ function renderStats(stats) {
   } else {
     avgEl.textContent = '—';
     avgSubEl.textContent = '';
+  }
+}
+
+async function exportCsv() {
+  const token = getToken();
+  if (!token) { alert('Please log in first'); return; }
+
+  const btn = document.getElementById('csv-export-btn');
+  btn.textContent = '⏳ Exporting...';
+  btn.disabled = true;
+
+  try {
+    const API = window.location.origin;
+    const res = await fetch(API + '/api/user/scans/csv', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Export failed');
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inboxscore-scan-history.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert(err.message || 'Failed to export CSV');
+  } finally {
+    btn.textContent = '📊 Export CSV';
+    btn.disabled = false;
   }
 }
 
