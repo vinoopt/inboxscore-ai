@@ -27,7 +27,9 @@ from db import (
     check_rate_limit, get_user_scans, get_user_scan_stats,
     add_user_domain, get_user_domains, remove_user_domain,
     get_domain_scans, get_scan_detail, update_domain_score,
-    get_user_profile, get_user_plan, PLAN_LIMITS, ANONYMOUS_LIMIT
+    get_user_profile, get_user_plan, PLAN_LIMITS, ANONYMOUS_LIMIT,
+    get_full_user_profile, update_user_profile, update_user_preferences,
+    export_user_data, delete_user_data
 )
 
 # Auth
@@ -36,7 +38,7 @@ from auth import (
     get_user_from_token, refresh_session
 )
 
-app = FastAPI(title="InboxScore API", version="1.7.0")
+app = FastAPI(title="InboxScore API", version="1.8.0")
 
 # CORS for local development
 app.add_middleware(
@@ -1719,6 +1721,157 @@ async def api_user_plan(req: Request):
     }
 
 
+# ─── SETTINGS API ENDPOINTS ──────────────────────────────────────
+
+@app.get("/api/user/profile")
+async def api_get_profile(req: Request):
+    """Get full user profile including preferences"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    profile = get_full_user_profile(user_result["user"]["id"])
+    if not profile:
+        return {"name": "", "company": "", "plan": "free", "preferences": {}}
+    return profile
+
+
+@app.put("/api/user/profile")
+async def api_update_profile(req: Request):
+    """Update user profile (name, company)"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    body = await req.json()
+    name = body.get("name", "").strip()
+    company = body.get("company", "").strip()
+
+    updated = update_user_profile(user_result["user"]["id"], name=name, company=company)
+    if updated is None:
+        raise HTTPException(status_code=500, detail="Failed to update profile")
+    return {"success": True, "profile": updated}
+
+
+@app.put("/api/user/password")
+async def api_change_password(req: Request):
+    """Change user password via Supabase Admin API"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    body = await req.json()
+    new_password = body.get("new_password", "")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    # Use Supabase service role to update password
+    from db import get_supabase
+    sb = get_supabase()
+    if not sb:
+        raise HTTPException(status_code=500, detail="Database unavailable")
+
+    try:
+        sb.auth.admin.update_user_by_id(
+            user_result["user"]["id"],
+            {"password": new_password}
+        )
+        return {"success": True}
+    except Exception as e:
+        print(f"Password update error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update password")
+
+
+@app.put("/api/user/preferences")
+async def api_update_preferences(req: Request):
+    """Update user notification preferences"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    body = await req.json()
+    prefs = {
+        "scan_alerts": body.get("scan_alerts", True),
+        "blacklist_alerts": body.get("blacklist_alerts", True),
+        "weekly_digest": body.get("weekly_digest", False),
+    }
+
+    success = update_user_preferences(user_result["user"]["id"], prefs)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to save preferences")
+    return {"success": True}
+
+
+@app.get("/api/user/export")
+async def api_export_data(req: Request):
+    """Export all user data (GDPR data portability)"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    data = export_user_data(user_result["user"]["id"])
+    if "error" in data:
+        raise HTTPException(status_code=500, detail=data["error"])
+    return data
+
+
+@app.delete("/api/user/account")
+async def api_delete_account(req: Request):
+    """Delete user account and all associated data"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+
+    # Delete user data from our tables
+    success = delete_user_data(user_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete account data")
+
+    # Delete auth user via Supabase admin
+    from db import get_supabase
+    sb = get_supabase()
+    if sb:
+        try:
+            sb.auth.admin.delete_user(user_id)
+        except Exception as e:
+            print(f"Auth user deletion error: {e}")
+            # Data is already deleted, so continue
+
+    return {"success": True, "message": "Account deleted"}
+
+
 # ─── DOMAIN API ENDPOINTS ─────────────────────────────────────────
 
 @app.get("/api/user/domains")
@@ -1904,6 +2057,11 @@ async def serve_domains():
 @app.get("/domains/{domain}")
 async def serve_domain_detail(domain: str):
     return FileResponse("static/domains.html")
+
+
+@app.get("/settings")
+async def serve_settings():
+    return FileResponse("static/settings.html")
 
 
 if __name__ == "__main__":

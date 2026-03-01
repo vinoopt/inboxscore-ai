@@ -306,6 +306,104 @@ def get_user_plan(user_id: str) -> str:
     return "free"
 
 
+def get_full_user_profile(user_id: str) -> dict:
+    """Get user profile including preferences"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("profiles").select("id,name,company,plan,preferences").eq(
+            "id", user_id
+        ).execute()
+        if result.data:
+            return result.data[0]
+        return None
+    except Exception as e:
+        print(f"Error getting full user profile: {e}")
+        return None
+
+
+def update_user_profile(user_id: str, name: str = None, company: str = None) -> dict:
+    """Update user profile fields"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        data = {}
+        if name is not None:
+            data["name"] = name
+        if company is not None:
+            data["company"] = company
+
+        if not data:
+            return get_user_profile(user_id)
+
+        result = sb.table("profiles").update(data).eq("id", user_id).execute()
+        if result.data:
+            return result.data[0]
+        return None
+    except Exception as e:
+        print(f"Error updating profile: {e}")
+        return None
+
+
+def update_user_preferences(user_id: str, preferences: dict) -> bool:
+    """Update user notification preferences (stored as JSONB)"""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("profiles").update(
+            {"preferences": preferences}
+        ).eq("id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Error updating preferences: {e}")
+        return False
+
+
+def export_user_data(user_id: str) -> dict:
+    """Export all user data for GDPR/data portability"""
+    sb = get_supabase()
+    if not sb:
+        return {"error": "Database unavailable"}
+    try:
+        profile = sb.table("profiles").select("*").eq("id", user_id).execute()
+        scans = sb.table("scans").select("domain,score,created_at,scan_type").eq(
+            "user_id", user_id
+        ).order("created_at", desc=True).execute()
+        domains = sb.table("domains").select("domain,latest_score,created_at,is_monitored").eq(
+            "user_id", user_id
+        ).execute()
+
+        return {
+            "profile": profile.data[0] if profile.data else {},
+            "scans": scans.data or [],
+            "domains": domains.data or [],
+            "exported_at": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        print(f"Error exporting user data: {e}")
+        return {"error": str(e)}
+
+
+def delete_user_data(user_id: str) -> bool:
+    """Delete all user data (scans, domains, rate limits, profile)"""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        # Delete in order: scans, domains, rate limits, profile
+        sb.table("scans").delete().eq("user_id", user_id).execute()
+        sb.table("domains").delete().eq("user_id", user_id).execute()
+        sb.table("rate_limits").delete().eq("ip_address", user_id).execute()
+        sb.table("profiles").delete().eq("id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Error deleting user data: {e}")
+        return False
+
+
 # ─── RATE LIMITING ────────────────────────────────────────────────
 
 def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -> dict:

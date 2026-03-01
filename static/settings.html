@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — InboxScore</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26; --border: #2a2a3a;
+  --text: #e4e4ef; --text-muted: #8888a0; --accent: #6366f1; --accent-glow: rgba(99,102,241,0.3);
+  --green: #22c55e; --red: #ef4444; --yellow: #eab308;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* Top Nav */
+.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 10; }
+.logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+.logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.user-name { font-size: 13px; color: var(--text-muted); }
+.logout-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+
+/* Layout */
+.layout { display: flex; flex: 1; }
+
+/* Sidebar */
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
+.sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
+.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); }
+.sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
+
+/* Main */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
+.page-title { font-size: 24px; font-weight: 700; margin-bottom: 32px; }
+
+/* Settings Cards */
+.settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 24px; max-width: 640px; }
+.settings-card h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.settings-card .card-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+
+/* Form Elements */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+.form-group input { width: 100%; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; outline: none; transition: border-color 0.2s; }
+.form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.form-group input:disabled { opacity: 0.5; cursor: not-allowed; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: #5558e6; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+.btn-outline:hover { border-color: var(--text-muted); color: var(--text); }
+
+/* Plan Badge */
+.plan-row { display: flex; align-items: center; justify-content: space-between; padding: 16px; background: var(--surface-2); border-radius: 10px; margin-bottom: 16px; }
+.plan-info { display: flex; align-items: center; gap: 12px; }
+.plan-badge { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.plan-badge.free { background: rgba(136,136,160,0.15); color: var(--text-muted); }
+.plan-badge.pro { background: rgba(99,102,241,0.15); color: var(--accent); }
+.plan-badge.growth { background: rgba(34,197,94,0.15); color: var(--green); }
+.plan-badge.enterprise { background: rgba(234,179,8,0.15); color: var(--yellow); }
+.plan-label { font-size: 14px; font-weight: 500; }
+.plan-detail { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.btn-upgrade { padding: 8px 16px; font-size: 12px; }
+
+/* Usage Bar */
+.usage-bar-container { margin-top: 12px; }
+.usage-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.usage-bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.usage-bar .fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+.usage-bar .fill.low { background: var(--green); }
+.usage-bar .fill.medium { background: var(--yellow); }
+.usage-bar .fill.high { background: var(--red); }
+
+/* Toast */
+.toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; z-index: 1000; transform: translateY(-20px); opacity: 0; transition: all 0.3s; pointer-events: none; }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+.toast.error { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+
+/* Danger Zone */
+.danger-zone { border-color: rgba(239,68,68,0.3); }
+.danger-zone h2 { color: var(--red); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar.open { left: 0; }
+  .mobile-toggle { display: block; }
+  .main { padding: 24px 16px; }
+  .form-row { grid-template-columns: 1fr; }
+  .plan-row { flex-direction: column; gap: 12px; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+    <a href="/dashboard" class="logo">
+      <div class="logo-icon">📨</div>
+      InboxScore
+    </a>
+  </div>
+  <div class="nav-right">
+    <span class="user-name" id="user-name"></span>
+    <button class="logout-btn" onclick="logout()">Log Out</button>
+  </div>
+</nav>
+
+<div class="layout">
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="/dashboard"><span class="nav-icon">📊</span> Overview</a></li>
+      <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
+      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">🔔</span> Alerts <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
+      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">📄</span> Reports <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
+    </ul>
+    <div class="sidebar-section">Account</div>
+    <ul class="sidebar-nav">
+      <li><a href="/settings" class="active"><span class="nav-icon">⚙️</span> Settings</a></li>
+    </ul>
+  </aside>
+
+  <main class="main">
+    <h1 class="page-title">Settings</h1>
+
+    <!-- Plan & Usage -->
+    <div class="settings-card">
+      <h2>Plan & Usage</h2>
+      <div class="card-desc">Your current subscription and scan usage.</div>
+
+      <div class="plan-row">
+        <div class="plan-info">
+          <span class="plan-badge free" id="plan-badge">FREE</span>
+          <div>
+            <div class="plan-label" id="plan-label">Free Plan</div>
+            <div class="plan-detail" id="plan-detail">5 scans per day</div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-upgrade" id="upgrade-btn" disabled style="opacity:0.5">Upgrade — Coming Soon</button>
+      </div>
+
+      <div class="usage-bar-container" id="usage-container">
+        <div class="usage-label">
+          <span>Daily scans</span>
+          <span id="usage-text">0 / 5</span>
+        </div>
+        <div class="usage-bar">
+          <div class="fill low" id="usage-fill" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile -->
+    <div class="settings-card">
+      <h2>Profile</h2>
+      <div class="card-desc">Update your display name and company.</div>
+
+      <form id="profile-form" onsubmit="saveProfile(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Display Name</label>
+            <input type="text" id="profile-name" placeholder="Your name">
+          </div>
+          <div class="form-group">
+            <label>Company</label>
+            <input type="text" id="profile-company" placeholder="Company name">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="profile-email" disabled>
+        </div>
+        <button type="submit" class="btn btn-primary" id="save-profile-btn">Save Changes</button>
+      </form>
+    </div>
+
+    <!-- Change Password -->
+    <div class="settings-card">
+      <h2>Change Password</h2>
+      <div class="card-desc">Update your account password. Must be at least 6 characters.</div>
+
+      <form id="password-form" onsubmit="changePassword(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>New Password</label>
+            <input type="password" id="new-password" placeholder="New password" minlength="6" required>
+          </div>
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <input type="password" id="confirm-password" placeholder="Confirm password" minlength="6" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="save-password-btn">Update Password</button>
+      </form>
+    </div>
+
+    <!-- Notification Preferences -->
+    <div class="settings-card">
+      <h2>Notifications</h2>
+      <div class="card-desc">Control what email notifications you receive.</div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+          <input type="checkbox" id="notify-scan" checked style="width:16px;height:16px;accent-color:var(--accent);">
+          <div>
+            <div style="font-size:14px;">Scan Alerts</div>
+            <div style="font-size:12px;color:var(--text-muted);">Get notified when a monitored domain score drops below threshold</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+          <input type="checkbox" id="notify-blacklist" checked style="width:16px;height:16px;accent-color:var(--accent);">
+          <div>
+            <div style="font-size:14px;">Blacklist Alerts</div>
+            <div style="font-size:12px;color:var(--text-muted);">Get notified when a domain is listed on a new blacklist</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
+          <input type="checkbox" id="notify-weekly" style="width:16px;height:16px;accent-color:var(--accent);">
+          <div>
+            <div style="font-size:14px;">Weekly Digest</div>
+            <div style="font-size:12px;color:var(--text-muted);">Receive a weekly summary of all your domain health scores</div>
+          </div>
+        </label>
+      </div>
+      <div style="margin-top:16px;">
+        <button class="btn btn-primary" onclick="saveNotifications()" id="save-notif-btn">Save Preferences</button>
+      </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="settings-card danger-zone">
+      <h2>Danger Zone</h2>
+      <div class="card-desc">Irreversible actions. Proceed with caution.</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="btn btn-outline" onclick="exportData()" style="border-color:rgba(239,68,68,0.3);color:var(--text-muted);">Export My Data</button>
+        <button class="btn btn-outline" onclick="confirmDelete()" style="border-color:var(--red);color:var(--red);">Delete Account</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function getToken() {
+  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+}
+
+function getHeaders() {
+  return { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' };
+}
+
+function logout() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  sessionStorage.removeItem('access_token');
+  sessionStorage.removeItem('refresh_token');
+  sessionStorage.removeItem('user');
+  window.location.href = '/login';
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ─── Load Profile + Plan ─────────────────────────────────────
+async function loadSettings() {
+  const token = getToken();
+  if (!token) { window.location.href = '/login'; return; }
+  const headers = { 'Authorization': 'Bearer ' + token };
+
+  try {
+    const [meRes, planRes, profileRes] = await Promise.all([
+      fetch('/api/auth/me', { headers }),
+      fetch('/api/user/plan', { headers }),
+      fetch('/api/user/profile', { headers }),
+    ]);
+
+    if (!meRes.ok) throw new Error('auth');
+
+    const me = await meRes.json();
+    const email = me.user.email;
+    const displayName = me.user.name || email.split('@')[0];
+    document.getElementById('user-name').textContent = displayName;
+    document.getElementById('profile-email').value = email;
+
+    // Profile data
+    if (profileRes.ok) {
+      const profile = await profileRes.json();
+      document.getElementById('profile-name').value = profile.name || '';
+      document.getElementById('profile-company').value = profile.company || '';
+
+      // Load notification preferences
+      if (profile.preferences) {
+        const prefs = profile.preferences;
+        document.getElementById('notify-scan').checked = prefs.scan_alerts !== false;
+        document.getElementById('notify-blacklist').checked = prefs.blacklist_alerts !== false;
+        document.getElementById('notify-weekly').checked = prefs.weekly_digest === true;
+      }
+    }
+
+    // Plan data
+    if (planRes.ok) {
+      const plan = await planRes.json();
+      const badge = document.getElementById('plan-badge');
+      const label = document.getElementById('plan-label');
+      const detail = document.getElementById('plan-detail');
+
+      const planName = plan.plan || 'free';
+      badge.textContent = planName.toUpperCase();
+      badge.className = 'plan-badge ' + planName;
+      label.textContent = planName.charAt(0).toUpperCase() + planName.slice(1) + ' Plan';
+
+      if (plan.scans_limit === -1) {
+        detail.textContent = 'Unlimited scans';
+        document.getElementById('usage-container').style.display = 'none';
+      } else {
+        detail.textContent = plan.scans_limit + ' scans per day';
+        document.getElementById('usage-text').textContent = plan.scans_today + ' / ' + plan.scans_limit;
+        const pct = Math.min((plan.scans_today / plan.scans_limit) * 100, 100);
+        const fill = document.getElementById('usage-fill');
+        fill.style.width = pct + '%';
+        fill.className = 'fill ' + (pct >= 80 ? 'high' : pct >= 50 ? 'medium' : 'low');
+      }
+
+      if (planName !== 'free') {
+        document.getElementById('upgrade-btn').style.display = 'none';
+      }
+    }
+
+  } catch (e) {
+    // Try refresh
+    const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+    if (refresh) {
+      try {
+        const r = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refresh })
+        });
+        if (!r.ok) throw new Error();
+        const data = await r.json();
+        const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+        storage.setItem('access_token', data.access_token);
+        storage.setItem('refresh_token', data.refresh_token);
+        location.reload();
+      } catch { logout(); }
+    } else { logout(); }
+  }
+}
+
+// ─── Save Profile ────────────────────────────────────────────
+async function saveProfile(e) {
+  e.preventDefault();
+  const btn = document.getElementById('save-profile-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const res = await fetch('/api/user/profile', {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        name: document.getElementById('profile-name').value.trim(),
+        company: document.getElementById('profile-company').value.trim(),
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Failed to save');
+    }
+
+    showToast('Profile updated successfully');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Changes';
+  }
+}
+
+// ─── Change Password ─────────────────────────────────────────
+async function changePassword(e) {
+  e.preventDefault();
+  const newPw = document.getElementById('new-password').value;
+  const confirmPw = document.getElementById('confirm-password').value;
+
+  if (newPw !== confirmPw) {
+    showToast('Passwords do not match', 'error');
+    return;
+  }
+  if (newPw.length < 6) {
+    showToast('Password must be at least 6 characters', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('save-password-btn');
+  btn.disabled = true;
+  btn.textContent = 'Updating...';
+
+  try {
+    const res = await fetch('/api/user/password', {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ new_password: newPw })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Failed to update password');
+    }
+
+    showToast('Password updated successfully');
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Update Password';
+  }
+}
+
+// ─── Save Notification Preferences ───────────────────────────
+async function saveNotifications() {
+  const btn = document.getElementById('save-notif-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const res = await fetch('/api/user/preferences', {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        scan_alerts: document.getElementById('notify-scan').checked,
+        blacklist_alerts: document.getElementById('notify-blacklist').checked,
+        weekly_digest: document.getElementById('notify-weekly').checked,
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Failed to save');
+    }
+
+    showToast('Notification preferences saved');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Preferences';
+  }
+}
+
+// ─── Export Data ──────────────────────────────────────────────
+async function exportData() {
+  showToast('Preparing your data export...');
+  try {
+    const res = await fetch('/api/user/export', { headers: getHeaders() });
+    if (!res.ok) throw new Error('Export failed');
+    const data = await res.json();
+
+    // Download as JSON
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inboxscore-export.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Data exported successfully');
+  } catch (err) {
+    showToast('Export failed: ' + err.message, 'error');
+  }
+}
+
+// ─── Delete Account ──────────────────────────────────────────
+function confirmDelete() {
+  if (confirm('Are you sure you want to delete your account? This action is permanent and cannot be undone. All your domains, scan history, and settings will be removed.')) {
+    if (confirm('This is your last chance. Type "DELETE" in the next prompt to confirm.')) {
+      const input = prompt('Type DELETE to permanently remove your account:');
+      if (input === 'DELETE') {
+        deleteAccount();
+      } else {
+        showToast('Account deletion cancelled', 'error');
+      }
+    }
+  }
+}
+
+async function deleteAccount() {
+  try {
+    const res = await fetch('/api/user/account', {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Deletion failed');
+    showToast('Account deleted. Redirecting...');
+    setTimeout(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
+    }, 2000);
+  } catch (err) {
+    showToast('Failed to delete account: ' + err.message, 'error');
+  }
+}
+
+// ─── Init ────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  document.querySelector('.main').addEventListener('click', () => {
+    document.querySelector('.sidebar').classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>
