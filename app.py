@@ -23,6 +23,12 @@ import concurrent.futures
 # Database
 from db import is_db_available, save_scan, save_subscriber as db_save_subscriber, check_rate_limit
 
+# Auth
+from auth import (
+    is_auth_available, sign_up, sign_in, reset_password,
+    get_user_from_token, refresh_session
+)
+
 app = FastAPI(title="InboxScore API", version="1.0.0")
 
 # CORS for local development
@@ -96,6 +102,25 @@ class SubscribeRequest(BaseModel):
     email: str
     domain: str
     score: int
+
+
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
 
 
 class CheckResult(BaseModel):
@@ -1094,12 +1119,89 @@ async def subscribe(request: SubscribeRequest):
     }
 
 
+# ─── AUTH ENDPOINTS ────────────────────────────────────────────────
+
+@app.post("/api/auth/signup")
+async def api_signup(request: SignupRequest):
+    """Register a new user"""
+    # Validate email
+    email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    if not re.match(email_regex, request.email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    if len(request.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    result = sign_up(request.email, request.password, request.name)
+
+    if result["success"]:
+        return result
+    else:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+
+@app.post("/api/auth/login")
+async def api_login(request: LoginRequest):
+    """Log in and get access token"""
+    if not request.email or not request.password:
+        raise HTTPException(status_code=400, detail="Email and password required")
+
+    result = sign_in(request.email, request.password)
+
+    if result["success"]:
+        return result
+    else:
+        raise HTTPException(status_code=401, detail=result["error"])
+
+
+@app.post("/api/auth/forgot-password")
+async def api_forgot_password(request: ForgotPasswordRequest):
+    """Send password reset email"""
+    email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    if not re.match(email_regex, request.email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    result = reset_password(request.email)
+    return result
+
+
+@app.get("/api/auth/me")
+async def api_get_current_user(req: Request):
+    """Get current user from access token"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+
+    token = auth_header.replace("Bearer ", "")
+    result = get_user_from_token(token)
+
+    if result["success"]:
+        return result
+    else:
+        raise HTTPException(status_code=401, detail=result["error"])
+
+
+@app.post("/api/auth/refresh")
+async def api_refresh_token(request: RefreshTokenRequest):
+    """Refresh an expired access token"""
+    if not request.refresh_token:
+        raise HTTPException(status_code=400, detail="Refresh token required")
+
+    result = refresh_session(request.refresh_token)
+
+    if result["success"]:
+        return result
+    else:
+        raise HTTPException(status_code=401, detail=result["error"])
+
+
 @app.get("/api/health")
 async def health_check():
     return {
         "status": "ok",
-        "version": "1.1.0",
-        "database": "connected" if is_db_available() else "not configured"
+        "version": "1.2.0",
+        "database": "connected" if is_db_available() else "not configured",
+        "auth": "enabled" if is_auth_available() else "not configured"
     }
 
 
