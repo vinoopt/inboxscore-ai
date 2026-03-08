@@ -24,8 +24,8 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 POSTMASTER_API_BASE = "https://gmailpostmastertools.googleapis.com/v2"
 
-# v2 scope (postmaster.traffic.readonly replaces postmaster.readonly)
-SCOPES = "https://www.googleapis.com/auth/postmaster.traffic.readonly openid email"
+# v2 scopes: .domain for listing domains, .traffic.readonly for stats
+SCOPES = "https://www.googleapis.com/auth/postmaster.domain https://www.googleapis.com/auth/postmaster.traffic.readonly openid email"
 
 
 # ─── OAUTH HELPERS ───────────────────────────────────────────
