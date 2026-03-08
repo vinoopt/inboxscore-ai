@@ -3077,6 +3077,11 @@ async def serve_settings():
     return FileResponse("static/settings.html")
 
 
+@app.get("/email-health")
+async def serve_email_health():
+    return FileResponse("static/email-health.html")
+
+
 if __name__ == "__main__":
     import uvicorn
     print("\n🚀 InboxScore is running!")
