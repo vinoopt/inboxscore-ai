@@ -808,6 +808,13 @@ def upsert_postmaster_metrics(user_id: str, domain: str, metric_date: str, metri
     if not sb:
         return None
     try:
+        # Build delivery_errors JSON — include v2 rate/count alongside categories
+        delivery_err = dict(metrics.get("delivery_errors", {}))
+        if metrics.get("delivery_error_rate") is not None:
+            delivery_err["_rate"] = metrics["delivery_error_rate"]
+        if metrics.get("delivery_error_count") is not None:
+            delivery_err["_count"] = metrics["delivery_error_count"]
+
         data = {
             "user_id": user_id,
             "domain": domain,
@@ -818,7 +825,7 @@ def upsert_postmaster_metrics(user_id: str, domain: str, metric_date: str, metri
             "auth_success_spf": metrics.get("auth_success_spf"),
             "auth_success_dkim": metrics.get("auth_success_dkim"),
             "auth_success_dmarc": metrics.get("auth_success_dmarc"),
-            "delivery_errors": json.dumps(metrics.get("delivery_errors", {})),
+            "delivery_errors": json.dumps(delivery_err),
             "encrypted_traffic_tls": metrics.get("encrypted_traffic_tls"),
             "raw_data": json.dumps(metrics.get("raw_data", {})),
         }

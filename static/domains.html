@@ -293,11 +293,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
           <span id="pm-date-range" style="font-size:12px;color:var(--text-muted);"></span>
         </div>
 
-        <div id="pm-reputation-row" style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-          <span style="font-size:13px;color:var(--text-muted);">Domain Reputation:</span>
-          <span id="pm-reputation-badge" class="pm-metric" style="font-weight:700;font-size:14px;"></span>
-        </div>
-
         <div class="pm-grid">
           <div class="pm-metric">
             <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Spam Rate</div>
@@ -306,6 +301,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
           <div class="pm-metric">
             <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">TLS Encrypted</div>
             <div id="pm-tls-rate" style="font-size:22px;font-weight:700;">—</div>
+          </div>
+          <div class="pm-metric">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Delivery Errors</div>
+            <div id="pm-delivery-err" style="font-size:22px;font-weight:700;">—</div>
           </div>
         </div>
 
@@ -334,7 +333,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         </div>
 
         <div id="pm-trend" class="pm-trend-chart" style="margin-top:16px;display:none;">
-          <div style="font-size:13px;font-weight:600;margin-bottom:8px;">30-Day Reputation Trend</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;">30-Day Spam Rate Trend</div>
           <div style="display:flex;gap:3px;align-items:flex-end;height:60px;" id="pm-trend-bars"></div>
         </div>
       </div>
@@ -345,7 +344,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
           <path fill="#EA4335" d="M24 5L4 24l4 4 16-16 16 16 4-4z"/>
           <path fill="#4285F4" d="M4 24v19h12V30h16v13h12V24L24 5z"/>
         </svg>
-        <strong>Get deeper Gmail insights</strong> — Connect Google Postmaster Tools to see domain reputation, spam rates, and authentication data.
+        <strong>Get deeper Gmail insights</strong> — Connect Google Postmaster Tools to see spam rates, authentication compliance, and delivery data.
         <a href="/settings" style="color:var(--accent);font-weight:600;margin-left:8px;">Connect →</a>
       </div>
 
@@ -869,19 +868,13 @@ async function loadPostmasterMetrics(domain) {
 
     widget.style.display = 'block';
 
-    // Use latest day with data
-    const latest = metrics[0];
-    const oldest = metrics[metrics.length - 1];
+    // Use latest day with data (metrics sorted oldest→newest from API)
+    const latest = metrics[metrics.length - 1];
+    const oldest = metrics[0];
 
     // Date range
     document.getElementById('pm-date-range').textContent =
       formatPmDate(oldest.date) + ' – ' + formatPmDate(latest.date);
-
-    // Reputation badge
-    const repBadge = document.getElementById('pm-reputation-badge');
-    const rep = (latest.domain_reputation || 'UNKNOWN').toUpperCase();
-    repBadge.textContent = rep;
-    repBadge.className = 'pm-metric rep-' + rep.toLowerCase();
 
     // Spam rate
     const spamEl = document.getElementById('pm-spam-rate');
@@ -889,7 +882,7 @@ async function loadPostmasterMetrics(domain) {
       const spamPct = (latest.spam_rate * 100).toFixed(2);
       spamEl.textContent = spamPct + '%';
       spamEl.style.color = latest.spam_rate > 0.003 ? 'var(--red)' :
-                           latest.spam_rate > 0.001 ? 'var(--orange)' : 'var(--green)';
+                           latest.spam_rate > 0.001 ? '#f97316' : 'var(--green)';
     } else {
       spamEl.textContent = '—';
       spamEl.style.color = 'var(--text-muted)';
@@ -901,10 +894,24 @@ async function loadPostmasterMetrics(domain) {
       const tlsPct = (latest.encrypted_traffic_tls * 100).toFixed(0);
       tlsEl.textContent = tlsPct + '%';
       tlsEl.style.color = latest.encrypted_traffic_tls >= 0.95 ? 'var(--green)' :
-                          latest.encrypted_traffic_tls >= 0.80 ? 'var(--orange)' : 'var(--red)';
+                          latest.encrypted_traffic_tls >= 0.80 ? '#f97316' : 'var(--red)';
     } else {
       tlsEl.textContent = '—';
       tlsEl.style.color = 'var(--text-muted)';
+    }
+
+    // Delivery error rate (v2 metric — stored in delivery_errors._rate)
+    const errRateEl = document.getElementById('pm-delivery-err');
+    const deObj = latest.delivery_errors || {};
+    const errRate = deObj._rate !== undefined ? deObj._rate : null;
+    if (errRate !== null && errRate !== undefined) {
+      const errPct = (errRate * 100).toFixed(1);
+      errRateEl.textContent = errPct + '%';
+      errRateEl.style.color = errRate > 0.05 ? 'var(--red)' :
+                              errRate > 0.02 ? '#f97316' : 'var(--green)';
+    } else {
+      errRateEl.textContent = '—';
+      errRateEl.style.color = 'var(--text-muted)';
     }
 
     // Auth bars
@@ -912,11 +919,11 @@ async function loadPostmasterMetrics(domain) {
     setAuthBar('dkim', latest.auth_success_dkim);
     setAuthBar('dmarc', latest.auth_success_dmarc);
 
-    // Delivery errors
+    // Delivery errors detail (legacy format from raw_data)
     const errContainer = document.getElementById('pm-errors');
     const errList = document.getElementById('pm-errors-list');
     const errors = latest.delivery_errors || {};
-    const errKeys = Object.keys(errors).filter(k => errors[k] > 0);
+    const errKeys = Object.keys(errors).filter(k => k !== 'TOTAL' && k !== '_rate' && k !== '_count' && errors[k] > 0);
     if (errKeys.length > 0) {
       errContainer.style.display = 'block';
       errList.innerHTML = errKeys.map(k => {
@@ -929,19 +936,21 @@ async function loadPostmasterMetrics(domain) {
       errContainer.style.display = 'none';
     }
 
-    // Reputation trend bars (last 30 days)
+    // Spam rate trend bars (last 30 days) — replaces v1 reputation trend
     if (metrics.length >= 3) {
       document.getElementById('pm-trend').style.display = 'block';
       const barsContainer = document.getElementById('pm-trend-bars');
-      const repValues = { 'HIGH': 4, 'MEDIUM': 3, 'LOW': 2, 'BAD': 1, 'UNKNOWN': 0 };
-      const repColors = { 'HIGH': 'var(--green)', 'MEDIUM': '#f59e0b', 'LOW': 'var(--orange)', 'BAD': 'var(--red)', 'UNKNOWN': 'var(--text-muted)' };
 
-      barsContainer.innerHTML = metrics.slice().reverse().map(m => {
-        const r = (m.domain_reputation || 'UNKNOWN').toUpperCase();
-        const h = repValues[r] || 0;
-        const pxH = Math.max(8, h * 14);
-        const color = repColors[r] || 'var(--text-muted)';
-        return '<div title="' + m.date + ': ' + r + '" style="flex:1;min-width:4px;max-width:12px;height:' + pxH + 'px;background:' + color + ';border-radius:2px;cursor:default;"></div>';
+      barsContainer.innerHTML = metrics.map(m => {
+        const sr = m.spam_rate;
+        if (sr === null || sr === undefined) {
+          return '<div title="' + m.date + ': No data" style="flex:1;min-width:4px;max-width:12px;height:4px;background:var(--border);border-radius:2px;cursor:default;"></div>';
+        }
+        // Scale: 0% = 4px tall, 0.3%+ = 56px tall (max bar height)
+        const pxH = Math.max(4, Math.min(56, Math.round(sr * 100 / 0.3 * 52) + 4));
+        const color = sr > 0.003 ? 'var(--red)' : sr > 0.001 ? '#f97316' : 'var(--green)';
+        const pct = (sr * 100).toFixed(2);
+        return '<div title="' + m.date + ': ' + pct + '% spam" style="flex:1;min-width:4px;max-width:12px;height:' + pxH + 'px;background:' + color + ';border-radius:2px;cursor:default;"></div>';
       }).join('');
     } else {
       document.getElementById('pm-trend').style.display = 'none';
