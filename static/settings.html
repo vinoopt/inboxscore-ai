@@ -659,7 +659,13 @@ async function syncPostmaster() {
       throw new Error(err.detail || 'Sync failed');
     }
     const data = await res.json();
-    showToast(`Synced ${data.domains_synced} domain(s), ${data.metrics_saved} metric(s)`);
+    if (data.errors && data.errors.length > 0) {
+      showToast(`Sync issue: ${data.errors[0]}`, 'error');
+    } else if (data.domains_synced === 0) {
+      showToast('Synced 0 domains. Verify domains at postmaster.google.com with the same Google account.', 'error');
+    } else {
+      showToast(`Synced ${data.domains_synced} domain(s), ${data.metrics_saved} metric(s)`);
+    }
   } catch (e) {
     showToast('Sync failed: ' + e.message, 'error');
   } finally {

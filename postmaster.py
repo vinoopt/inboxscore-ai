@@ -111,23 +111,38 @@ async def get_postmaster_domains(access_token: str) -> list:
     """
     List all domains verified in Google Postmaster Tools (v2).
     Returns list of domain resource names, e.g. ['domains/example.com']
+    Raises exceptions with details on failure for better error reporting.
     """
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{POSTMASTER_API_BASE}/domains",
             headers={"Authorization": f"Bearer {access_token}"},
+            params={"pageSize": 200},
             timeout=30.0,
         )
 
+        print(f"[Postmaster v2] domains.list status={response.status_code}")
+
         if response.status_code == 200:
             data = response.json()
+            print(f"[Postmaster v2] domains.list response keys: {list(data.keys())}")
             domains = data.get("domains", [])
-            return [d.get("name", "") for d in domains]
+            print(f"[Postmaster v2] Found {len(domains)} domain(s)")
+            if domains:
+                print(f"[Postmaster v2] First domain: {domains[0]}")
+            return [d.get("name", "") for d in domains if d.get("name")]
         elif response.status_code == 401:
             raise Exception("TOKEN_EXPIRED")
+        elif response.status_code == 403:
+            error_text = response.text[:500]
+            print(f"[Postmaster v2] 403 Forbidden listing domains: {error_text}")
+            raise Exception(f"SCOPE_MISSING: Permission denied listing domains. "
+                            f"Please disconnect and reconnect Google Postmaster to grant domain access. "
+                            f"API response: {error_text}")
         else:
-            print(f"[Postmaster v2] List domains error {response.status_code}: {response.text}")
-            return []
+            error_text = response.text[:500]
+            print(f"[Postmaster v2] List domains error {response.status_code}: {error_text}")
+            raise Exception(f"API error {response.status_code}: {error_text}")
 
 
 def _make_date_obj(date_str: str) -> dict:
@@ -415,13 +430,24 @@ async def fetch_metrics_for_user(user_id: str, connection: dict, days: int = 7) 
     try:
         domain_resources = await get_postmaster_domains(access_token)
     except Exception as e:
-        if "TOKEN_EXPIRED" in str(e):
+        error_msg = str(e)
+        if "TOKEN_EXPIRED" in error_msg:
             result["errors"].append("Token expired and could not be refreshed")
+        elif "SCOPE_MISSING" in error_msg:
+            result["errors"].append(
+                "Permission denied: Please disconnect and reconnect Google Postmaster "
+                "in Settings to grant the required domain access scope."
+            )
         else:
-            result["errors"].append(f"Failed to list domains: {e}")
+            result["errors"].append(f"Failed to list domains: {error_msg}")
         return result
 
     if not domain_resources:
+        result["errors"].append(
+            "No domains found. Make sure you have domains verified in "
+            "Google Postmaster Tools (postmaster.google.com) with the same "
+            "Google account you connected."
+        )
         return result
 
     # v2 advantage: fetch entire date range in one API call per domain
