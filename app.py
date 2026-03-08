@@ -2799,6 +2799,53 @@ async def health_check():
     }
 
 
+# ─── HETRIXTOOLS BLACKLIST CHECK ENDPOINTS ───────────────────────
+
+@app.get("/api/blacklist/check/{domain}")
+async def api_blacklist_check(domain: str, req: Request):
+    """
+    Run a full blacklist check for a domain via HetrixTools API (1000+ lists).
+    Resolves MX/A record IPs and checks both domain + IPs.
+    Requires authentication. Uses 1 credit per check (cached 30 min by HetrixTools).
+    """
+    user = get_current_user(req)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    from hetrix import full_blacklist_check, HETRIX_API_KEY
+    if not HETRIX_API_KEY:
+        raise HTTPException(status_code=503, detail="Blacklist monitoring not configured")
+
+    # Resolve sending IPs from MX + A records
+    ips = set()
+    mx_records = safe_dns_query(domain, "MX")
+    ip_sources = {}  # ip -> source label
+    if mx_records:
+        for mx in mx_records:
+            mx_host = mx.split()[-1].rstrip(".")
+            a_records = safe_dns_query(mx_host, "A")
+            if a_records:
+                for ip in a_records:
+                    ips.add(ip)
+                    ip_sources[ip] = f"MX: {mx_host}"
+
+    a_records = safe_dns_query(domain, "A")
+    if a_records:
+        for ip in a_records:
+            ips.add(ip)
+            if ip not in ip_sources:
+                ip_sources[ip] = "A record"
+
+    result = await full_blacklist_check(domain, list(ips)[:5])
+
+    # Attach IP source labels for display
+    for ip_result in result.get("ip_results", []):
+        ip = ip_result.get("ip", "")
+        ip_result["source"] = ip_sources.get(ip, "unknown")
+
+    return result
+
+
 # ─── GOOGLE POSTMASTER TOOLS ENDPOINTS ───────────────────────────
 
 def _require_pro_plan(user_id: str):

@@ -1047,77 +1047,63 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               <span style="font-size:18px;">🛡️</span>
               Blacklist Monitor
             </div>
-            <span class="pm-date-range">Checked 2 min ago</span>
-          </div>
-
-          <!-- Summary -->
-          <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
-            <div class="pm-metric">
-              <div class="pm-label">Blacklists Checked</div>
-              <div class="pm-value">1000+</div>
-              <div class="pm-sub">via HetrixTools API</div>
-            </div>
-            <div class="pm-metric">
-              <div class="pm-label">Current Listings</div>
-              <div class="pm-value" style="color:var(--yellow);">1</div>
-              <div class="pm-sub">1 low-severity listing</div>
-            </div>
-            <div class="pm-metric">
-              <div class="pm-label">Status</div>
-              <div class="pm-value" style="color:var(--yellow);font-size:16px;">⚠️ Warning</div>
-              <div class="pm-sub">1 listing detected</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span id="bl-checked-at" class="pm-date-range"></span>
+              <button id="bl-check-btn" onclick="runBlacklistCheck()" style="padding:4px 12px;font-size:11px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;">Check Now</button>
             </div>
           </div>
 
-          <!-- IP Checks -->
-          <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Sending IPs</div>
-          <div style="display:flex;flex-direction:column;gap:6px;">
-            <div class="pm-error-row" style="align-items:center;">
-              <span style="font-size:13px;font-weight:600;">198.51.100.25</span>
-              <span style="display:flex;align-items:center;gap:6px;">
-                <span class="badge badge-green">Clean</span>
-                <span style="font-size:11px;color:var(--text-muted);">0 / 80+ lists</span>
-              </span>
-            </div>
-            <div class="pm-error-row" style="align-items:center;">
-              <span style="font-size:13px;font-weight:600;">198.51.100.26</span>
-              <span style="display:flex;align-items:center;gap:6px;">
-                <span class="badge badge-green">Clean</span>
-                <span style="font-size:11px;color:var(--text-muted);">0 / 80+ lists</span>
-              </span>
-            </div>
-            <div class="pm-error-row" style="align-items:center;">
-              <span style="font-size:13px;font-weight:600;">198.51.100.30</span>
-              <span style="display:flex;align-items:center;gap:6px;">
-                <span class="badge badge-yellow">1 Listed</span>
-                <span style="font-size:11px;color:var(--text-muted);">1 / 80+ lists</span>
-              </span>
-            </div>
+          <!-- Loading state -->
+          <div id="bl-loading" style="display:none;text-align:center;padding:40px 20px;">
+            <div style="font-size:28px;margin-bottom:10px;animation:pulse 1.5s infinite;">🔍</div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Checking 1000+ blacklists...</div>
+            <div style="font-size:12px;color:var(--text-muted);">This may take up to a minute via HetrixTools</div>
           </div>
 
-          <!-- Domain Checks -->
-          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
-            <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Domain</div>
-            <div class="pm-error-row" style="align-items:center;">
-              <span style="font-size:13px;font-weight:600;">mailercloud.com</span>
-              <span style="display:flex;align-items:center;gap:6px;">
-                <span class="badge badge-green">Clean</span>
-                <span style="font-size:11px;color:var(--text-muted);">0 / 1000+ lists</span>
-              </span>
-            </div>
-          </div>
-
-          <!-- Listing Detail -->
-          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
-            <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Active Listings</div>
-            <div style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.25);border-radius:10px;padding:14px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <span style="font-size:13px;font-weight:600;color:var(--yellow);">SORBS DUHL</span>
-                <span class="badge badge-yellow">Low Severity</span>
+          <!-- Results (hidden until data loads) -->
+          <div id="bl-results" style="display:none;">
+            <!-- Summary -->
+            <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+              <div class="pm-metric">
+                <div class="pm-label">Blacklists Checked</div>
+                <div class="pm-value">1000+</div>
+                <div class="pm-sub">via HetrixTools API</div>
               </div>
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">IP: 198.51.100.30 · Listed since Mar 5, 2026</div>
-              <div style="font-size:12px;color:var(--text-muted);">Dynamic IP range listing — common for new/warm-up IPs. Usually auto-delists when IP establishes reputation.</div>
+              <div class="pm-metric">
+                <div class="pm-label">Current Listings</div>
+                <div id="bl-listings-count" class="pm-value">—</div>
+                <div id="bl-listings-sub" class="pm-sub"></div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">Status</div>
+                <div id="bl-status-val" class="pm-value" style="font-size:16px;">—</div>
+                <div id="bl-status-sub" class="pm-sub"></div>
+              </div>
             </div>
+
+            <!-- IP Checks -->
+            <div id="bl-ip-section" style="display:none;">
+              <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Sending IPs</div>
+              <div id="bl-ip-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+            </div>
+
+            <!-- Domain Check -->
+            <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
+              <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Domain</div>
+              <div id="bl-domain-row" class="pm-error-row" style="align-items:center;"></div>
+            </div>
+
+            <!-- Active Listings Detail -->
+            <div id="bl-listings-section" style="display:none;margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
+              <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Active Listings</div>
+              <div id="bl-listings-detail" style="display:flex;flex-direction:column;gap:8px;"></div>
+            </div>
+          </div>
+
+          <!-- Error state -->
+          <div id="bl-error" style="display:none;text-align:center;padding:30px 20px;">
+            <div style="font-size:28px;margin-bottom:10px;">⚠️</div>
+            <div id="bl-error-msg" style="font-size:13px;color:var(--text-muted);"></div>
           </div>
         </div>
         </div><!-- /eh-sec-blacklist -->
@@ -1922,6 +1908,217 @@ function setGpmState(state) {
     const el = document.getElementById('gpm-state-' + s);
     if (el) el.classList.toggle('active', s === state);
   });
+}
+
+/* ================================================================
+   BLACKLIST MONITOR — HetrixTools Integration
+   ================================================================ */
+
+function getBlacklistDomain() {
+  // Use GPM domain if available, else parse the main domain selector
+  if (gpmCurrentDomain) return gpmCurrentDomain;
+  const sel = document.getElementById('eh-domain-select');
+  if (!sel) return 'mailercloud.com';
+  const txt = sel.options[sel.selectedIndex]?.text || 'mailercloud.com';
+  return txt.trim();
+}
+
+async function runBlacklistCheck() {
+  const domain = getBlacklistDomain();
+  const token = getToken();
+  if (!token) { alert('Please log in to run a blacklist check.'); return; }
+
+  const loadEl  = document.getElementById('bl-loading');
+  const resEl   = document.getElementById('bl-results');
+  const errEl   = document.getElementById('bl-error');
+  const btnEl   = document.getElementById('bl-check-btn');
+
+  // Show loading
+  if (loadEl) loadEl.style.display = 'block';
+  if (resEl)  resEl.style.display = 'none';
+  if (errEl)  errEl.style.display = 'none';
+  if (btnEl)  { btnEl.disabled = true; btnEl.textContent = 'Checking...'; }
+
+  try {
+    const res = await fetch(`/api/blacklist/check/${encodeURIComponent(domain)}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+
+    // Handle in_progress (HetrixTools still scanning)
+    if (data.overall_status === 'in_progress' || data.domain_result?.status === 'in_progress') {
+      if (loadEl) loadEl.style.display = 'none';
+      if (errEl) {
+        errEl.style.display = 'block';
+        document.getElementById('bl-error-msg').textContent =
+          'Blacklist check is still processing. Please try again in 1-2 minutes.';
+      }
+      return;
+    }
+
+    renderBlacklistResults(data);
+  } catch (e) {
+    if (loadEl) loadEl.style.display = 'none';
+    if (errEl) {
+      errEl.style.display = 'block';
+      document.getElementById('bl-error-msg').textContent = 'Error: ' + e.message;
+    }
+  } finally {
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Check Now'; }
+  }
+}
+
+function renderBlacklistResults(data) {
+  const loadEl = document.getElementById('bl-loading');
+  const resEl  = document.getElementById('bl-results');
+  if (loadEl) loadEl.style.display = 'none';
+  if (resEl)  resEl.style.display = 'block';
+
+  // --- Checked at timestamp ---
+  const checkedEl = document.getElementById('bl-checked-at');
+  if (checkedEl && data.checked_at) {
+    const d = new Date(data.checked_at);
+    checkedEl.textContent = 'Checked ' + d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+    });
+  }
+
+  // --- Listings count ---
+  const countEl = document.getElementById('bl-listings-count');
+  const countSub = document.getElementById('bl-listings-sub');
+  const total = data.total_listings || 0;
+  if (countEl) {
+    countEl.textContent = total;
+    countEl.style.color = total === 0 ? 'var(--green)' : total >= 3 ? 'var(--red)' : 'var(--yellow)';
+  }
+  if (countSub) {
+    countSub.textContent = total === 0 ? 'All clear' :
+      `${data.high_severity_count || 0} high severity`;
+  }
+
+  // --- Overall status ---
+  const statusVal = document.getElementById('bl-status-val');
+  const statusSub = document.getElementById('bl-status-sub');
+  if (statusVal) {
+    const statusMap = {
+      clean:    { label: '✅ Clean',    color: 'var(--green)' },
+      warning:  { label: '⚠️ Warning',  color: 'var(--yellow)' },
+      critical: { label: '🔴 Critical', color: 'var(--red)' }
+    };
+    const s = statusMap[data.overall_status] || statusMap.clean;
+    statusVal.textContent = s.label;
+    statusVal.style.color = s.color;
+  }
+  if (statusSub) {
+    statusSub.textContent = data.overall_status === 'clean'
+      ? 'No action required'
+      : 'Delisting recommended';
+  }
+
+  // --- IP checks ---
+  const ipSection = document.getElementById('bl-ip-section');
+  const ipList = document.getElementById('bl-ip-list');
+  const ipResults = data.ip_results || [];
+  if (ipList) ipList.innerHTML = '';
+
+  if (ipResults.length > 0 && ipSection) {
+    ipSection.style.display = 'block';
+    ipResults.forEach(ip => {
+      const listed = ip.blacklisted_count || 0;
+      const color = listed === 0 ? 'var(--green)' : listed >= 3 ? 'var(--red)' : 'var(--yellow)';
+      const badge = listed === 0
+        ? '<span class="badge badge-green">Clean</span>'
+        : `<span class="badge badge-${listed >= 3 ? 'red' : 'yellow'}">${listed} listed</span>`;
+      const source = ip.source ? `<span style="font-size:10px;color:var(--text-muted);">(${ip.source})</span>` : '';
+      const row = document.createElement('div');
+      row.className = 'pm-error-row';
+      row.style.alignItems = 'center';
+      row.innerHTML = `
+        <span style="font-size:13px;font-weight:600;font-family:monospace;">${ip.ip || '—'}</span>
+        ${source}
+        <span style="margin-left:auto;">${badge}</span>
+      `;
+      ipList.appendChild(row);
+    });
+  } else if (ipSection) {
+    ipSection.style.display = 'none';
+  }
+
+  // --- Domain check ---
+  const domRow = document.getElementById('bl-domain-row');
+  if (domRow) {
+    const dr = data.domain_result || {};
+    const dListed = dr.blacklisted_count || 0;
+    const dBadge = dListed === 0
+      ? '<span class="badge badge-green">Clean</span>'
+      : `<span class="badge badge-${dListed >= 3 ? 'red' : 'yellow'}">${dListed} listed</span>`;
+    const reportLink = dr.report_link
+      ? `<a href="${dr.report_link}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);text-decoration:none;margin-left:8px;">Full Report ↗</a>`
+      : '';
+    domRow.innerHTML = `
+      <span style="font-size:13px;font-weight:600;">${data.domain || '—'}</span>
+      ${reportLink}
+      <span style="margin-left:auto;">${dBadge}</span>
+    `;
+  }
+
+  // --- Active Listings Detail ---
+  const listSection = document.getElementById('bl-listings-section');
+  const listDetail = document.getElementById('bl-listings-detail');
+
+  // Collect all listings from domain + IPs
+  const allListings = [];
+  if (data.domain_result?.blacklisted_on) {
+    data.domain_result.blacklisted_on.forEach(l => {
+      allListings.push({ ...l, target: data.domain, type: 'domain' });
+    });
+  }
+  (data.ip_results || []).forEach(ip => {
+    (ip.blacklisted_on || []).forEach(l => {
+      allListings.push({ ...l, target: ip.ip, type: 'ip' });
+    });
+  });
+
+  if (allListings.length > 0 && listSection && listDetail) {
+    listSection.style.display = 'block';
+    listDetail.innerHTML = '';
+    // Sort: high first, then medium, then low
+    const sevOrder = { high: 0, medium: 1, low: 2 };
+    allListings.sort((a, b) => (sevOrder[a.severity] || 2) - (sevOrder[b.severity] || 2));
+
+    allListings.forEach(l => {
+      const sevColor = l.severity === 'high' ? 'var(--red)' :
+                       l.severity === 'medium' ? 'var(--yellow)' : 'var(--text-muted)';
+      const sevLabel = l.severity.charAt(0).toUpperCase() + l.severity.slice(1);
+      const delistBtn = l.delist
+        ? `<a href="${l.delist}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);text-decoration:none;">Delist ↗</a>`
+        : '';
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface-2);border-radius:8px;font-size:12px;';
+      row.innerHTML = `
+        <span style="width:8px;height:8px;border-radius:50%;background:${sevColor};flex-shrink:0;"></span>
+        <span style="font-weight:600;min-width:180px;">${l.rbl}</span>
+        <span style="color:var(--text-muted);font-family:monospace;font-size:11px;">${l.target}</span>
+        <span style="color:${sevColor};font-size:11px;font-weight:600;margin-left:auto;">${sevLabel}</span>
+        ${delistBtn}
+      `;
+      listDetail.appendChild(row);
+    });
+  } else if (listSection) {
+    listSection.style.display = 'none';
+  }
+
+  // --- Credits info ---
+  if (data.credits_left !== undefined) {
+    const credEl = document.getElementById('bl-checked-at');
+    if (credEl && credEl.textContent) {
+      credEl.textContent += ` · ${data.credits_left.toLocaleString()} credits left`;
+    }
+  }
 }
 
 /* === GPM: Connect (OAuth) === */
