@@ -176,6 +176,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* ===== EMAIL HEALTH: FBL Bars ===== */
 .fbl-bar { transition: height 0.5s ease; }
 
+/* ===== EMAIL HEALTH: Domain Selector ===== */
+.gpm-domain-select {
+  padding: 5px 10px; font-size: 12px; background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; outline: none; cursor: pointer;
+  max-width: 200px; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238888a0'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center; padding-right: 24px;
+}
+.gpm-domain-select:focus { border-color: var(--accent); }
+.gpm-domain-select option { background: var(--surface); color: var(--text); }
+
 /* ===== EMAIL HEALTH: Responsive ===== */
 @media (max-width: 800px) {
   .pm-grid { grid-template-columns: repeat(2, 1fr) !important; }
@@ -491,7 +502,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
               Google Postmaster
             </div>
-            <span class="pm-date-range">Last 7 days</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <select class="gpm-domain-select" id="gpm-domain-select" onchange="onGpmDomainChange(this.value)">
+                <option value="">Select domain...</option>
+              </select>
+              <span class="pm-date-range" id="gpm-date-range">Last 7 days</span>
+            </div>
           </div>
 
           <!-- Tab Navigation -->
@@ -508,18 +524,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);margin-top:16px;">
               <div class="pm-metric">
                 <div class="pm-label">Spam Rate</div>
-                <div class="pm-value" style="color:var(--green);">0.02%</div>
-                <div class="pm-sub">Below 0.1% ✓</div>
+                <div class="pm-value" id="gpm-ov-spam">—</div>
+                <div class="pm-sub" id="gpm-ov-spam-sub">Loading...</div>
               </div>
               <div class="pm-metric">
                 <div class="pm-label">TLS Encrypted</div>
-                <div class="pm-value" style="color:var(--green);">100%</div>
+                <div class="pm-value" id="gpm-ov-tls">—</div>
                 <div class="pm-sub">Inbound TLS</div>
               </div>
               <div class="pm-metric">
                 <div class="pm-label">Delivery Errors</div>
-                <div class="pm-value" style="color:var(--green);">0%</div>
-                <div class="pm-sub">No errors this period</div>
+                <div class="pm-value" id="gpm-ov-errors">—</div>
+                <div class="pm-sub" id="gpm-ov-errors-sub">Loading...</div>
               </div>
             </div>
 
@@ -528,27 +544,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               <div class="pm-auth-row">
                 <span class="pm-auth-label">SPF</span>
                 <div class="pm-bar"><div class="pm-bar-fill" id="bar-spf" style="width:0%;background:var(--green);"></div></div>
-                <span class="pm-pct" style="color:var(--green);">98.5%</span>
+                <span class="pm-pct" id="gpm-ov-spf-pct">—</span>
               </div>
               <div class="pm-auth-row">
                 <span class="pm-auth-label">DKIM</span>
                 <div class="pm-bar"><div class="pm-bar-fill" id="bar-dkim" style="width:0%;background:var(--green);"></div></div>
-                <span class="pm-pct" style="color:var(--green);">99.8%</span>
+                <span class="pm-pct" id="gpm-ov-dkim-pct">—</span>
               </div>
               <div class="pm-auth-row">
                 <span class="pm-auth-label">DMARC</span>
                 <div class="pm-bar"><div class="pm-bar-fill" id="bar-dmarc" style="width:0%;background:var(--green);"></div></div>
-                <span class="pm-pct" style="color:var(--green);">100%</span>
+                <span class="pm-pct" id="gpm-ov-dmarc-pct">—</span>
               </div>
             </div>
 
             <div style="margin-top:16px;">
               <div class="pm-compliance-title">Quick Compliance</div>
               <div class="pm-compliance-grid" style="grid-template-columns:repeat(4,1fr);">
-                <div class="pm-compliance-item"><div class="pm-compliance-label">SPF/DKIM</div><div class="pm-compliance-status" style="color:var(--green);">✓</div></div>
-                <div class="pm-compliance-item"><div class="pm-compliance-label">DMARC</div><div class="pm-compliance-status" style="color:var(--green);">✓</div></div>
-                <div class="pm-compliance-item"><div class="pm-compliance-label">Encryption</div><div class="pm-compliance-status" style="color:var(--green);">✓</div></div>
-                <div class="pm-compliance-item"><div class="pm-compliance-label">Unsubscribe</div><div class="pm-compliance-status" style="color:var(--red);">✗</div></div>
+                <div class="pm-compliance-item"><div class="pm-compliance-label">SPF/DKIM</div><div class="pm-compliance-status" id="gpm-ov-comp-auth">—</div></div>
+                <div class="pm-compliance-item"><div class="pm-compliance-label">DMARC</div><div class="pm-compliance-status" id="gpm-ov-comp-dmarc">—</div></div>
+                <div class="pm-compliance-item"><div class="pm-compliance-label">Encryption</div><div class="pm-compliance-status" id="gpm-ov-comp-tls">—</div></div>
+                <div class="pm-compliance-item"><div class="pm-compliance-label">Spam Rate</div><div class="pm-compliance-status" id="gpm-ov-comp-spam">—</div></div>
               </div>
             </div>
           </div>
@@ -567,8 +583,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                   </div>
                   <div class="pm-trend-bars" id="gpm-spam-bars" style="height:100%;width:100%;"></div>
                 </div>
-                <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);">
-                  <span>Mar 1</span><span>Mar 2</span><span>Mar 3</span><span>Mar 4</span><span>Mar 5</span><span>Mar 6</span>
+                <div id="gpm-spam-dates" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);">
                 </div>
               </div>
             </div>
@@ -580,26 +595,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Spam Rate</th>
                   <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Under 0.3%</th>
                 </tr></thead>
-                <tbody>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 1, 2026</td><td style="padding:8px 12px;color:var(--green);">0.00%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 2, 2026</td><td style="padding:8px 12px;color:var(--green);">0.00%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 3, 2026</td><td style="padding:8px 12px;color:var(--orange);">0.13%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 4, 2026</td><td style="padding:8px 12px;color:var(--green);">0.00%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 5, 2026</td><td style="padding:8px 12px;color:var(--green);">0.00%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
-                  <tr><td style="padding:8px 12px;">Mar 6, 2026</td><td style="padding:8px 12px;color:var(--green);">0.00%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
+                <tbody id="gpm-spam-table-body">
+                  <tr><td colspan="3" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
 
             <div style="margin-top:24px;padding-top:20px;border-top:1px dashed var(--border);">
               <div class="pm-trend-title">Feedback Loop <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(FBL spam rate by identifier)</span></div>
-              <div style="display:flex;gap:3px;align-items:flex-end;height:100px;margin-top:8px;background:var(--surface-2);border-radius:8px;padding:12px;">
-                <div style="flex:1;background:var(--accent);border-radius:2px 2px 0 0;height:0%;transition:height 0.5s;" class="fbl-bar" data-h="90%"></div>
-                <div style="flex:1;background:var(--accent);border-radius:2px 2px 0 0;height:0%;transition:height 0.5s;" class="fbl-bar" data-h="85%"></div>
-                <div style="flex:1;background:var(--accent);border-radius:2px 2px 0 0;height:0%;transition:height 0.5s;" class="fbl-bar" data-h="40%"></div>
+              <div id="gpm-fbl-bars" style="display:flex;gap:3px;align-items:flex-end;height:100px;margin-top:8px;background:var(--surface-2);border-radius:8px;padding:12px;">
               </div>
-              <div style="display:flex;justify-content:space-around;margin-top:4px;font-size:10px;color:var(--text-muted);">
-                <span>Mar 2</span><span>Mar 3</span><span>Mar 4</span>
+              <div id="gpm-fbl-dates" style="display:flex;justify-content:space-around;margin-top:4px;font-size:10px;color:var(--text-muted);">
               </div>
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
                 <thead><tr style="border-bottom:1px solid var(--border);">
@@ -607,10 +613,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Identifiers</th>
                   <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Spam Rate</th>
                 </tr></thead>
-                <tbody>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 3, 2026</td><td style="padding:8px 12px;font-weight:600;">1285</td><td style="padding:8px 12px;text-align:right;color:var(--orange);">0.13%</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 3, 2026</td><td style="padding:8px 12px;">239</td><td style="padding:8px 12px;text-align:right;color:var(--orange);">0.13%</td></tr>
-                  <tr><td style="padding:8px 12px;">Mar 3, 2026</td><td style="padding:8px 12px;color:var(--text-muted);">promotional</td><td style="padding:8px 12px;text-align:right;color:var(--orange);">0.13%</td></tr>
+                <tbody id="gpm-fbl-table-body">
+                  <tr><td colspan="3" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -631,8 +635,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                   <div style="position:absolute;left:0;right:0;top:75%;border-top:1px solid rgba(255,255,255,0.05);"></div>
                   <div class="pm-trend-bars" id="gpm-auth-chart" style="width:100%;height:100%;"></div>
                 </div>
-                <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);padding-left:4px;">
-                  <span>Mar 1</span><span>Mar 2</span><span>Mar 3</span><span>Mar 4</span><span>Mar 5</span><span>Mar 6</span>
+                <div id="gpm-auth-dates" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);padding-left:4px;">
                 </div>
                 <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:11px;">
                   <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#4285F4;border-radius:2px;display:inline-block;"></span> DMARC</span>
@@ -648,13 +651,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">SPF Rate</th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DMARC Rate</th>
                 </tr></thead>
-                <tbody>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 1</td><td style="padding:8px 12px;">93.62%</td><td style="padding:8px 12px;color:var(--yellow);">85.11%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 2</td><td style="padding:8px 12px;">98.51%</td><td style="padding:8px 12px;color:var(--yellow);">76.12%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 3</td><td style="padding:8px 12px;color:var(--green);">99.99%</td><td style="padding:8px 12px;color:var(--red);">52.25%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 4</td><td style="padding:8px 12px;">96.72%</td><td style="padding:8px 12px;color:var(--yellow);">76.23%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 5</td><td style="padding:8px 12px;">96.43%</td><td style="padding:8px 12px;color:var(--yellow);">62.50%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
-                  <tr><td style="padding:8px 12px;">Mar 6</td><td style="padding:8px 12px;color:var(--green);">99.83%</td><td style="padding:8px 12px;color:var(--green);">98.49%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
+                <tbody id="gpm-auth-table-body">
+                  <tr><td colspan="4" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -667,8 +665,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               <div class="pm-grid" style="grid-template-columns:repeat(2,1fr);margin-top:8px;">
                 <div class="pm-metric">
                   <div class="pm-label">Inbound TLS</div>
-                  <div class="pm-value" style="color:var(--green);">100%</div>
-                  <div class="pm-sub">All days at 100%</div>
+                  <div class="pm-value" id="gpm-enc-tls-val">—</div>
+                  <div class="pm-sub" id="gpm-enc-tls-sub">Loading...</div>
                 </div>
                 <div class="pm-metric">
                   <div class="pm-label">Outbound TLS</div>
@@ -682,13 +680,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Inbound TLS</th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Outbound TLS</th>
                 </tr></thead>
-                <tbody>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 1</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 2</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 3</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 4</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
-                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 5</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
-                  <tr><td style="padding:8px 12px;">Mar 6</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
+                <tbody id="gpm-enc-tls-table-body">
+                  <tr><td colspan="3" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -698,8 +691,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               <div class="pm-grid" style="grid-template-columns:1fr;margin-top:8px;">
                 <div class="pm-metric">
                   <div class="pm-label">Error Rate</div>
-                  <div class="pm-value" style="color:var(--green);">0%</div>
-                  <div class="pm-sub">No rejections or temp failures</div>
+                  <div class="pm-value" id="gpm-enc-err-val">—</div>
+                  <div class="pm-sub" id="gpm-enc-err-sub">Loading...</div>
                 </div>
               </div>
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
@@ -709,8 +702,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Reason</th>
                   <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Percentage</th>
                 </tr></thead>
-                <tbody>
-                  <tr><td colspan="4" style="padding:20px 12px;text-align:center;color:var(--text-muted);">No delivery errors in this period ✓</td></tr>
+                <tbody id="gpm-enc-err-table-body">
+                  <tr><td colspan="4" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -719,50 +712,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
           <!-- TAB 5: Compliance Status -->
           <div class="gpm-panel" id="gpm-compliance">
             <div style="margin-top:16px;">
-              <div class="pm-trend-title">Compliance Status <span style="font-size:11px;color:var(--text-muted);font-weight:400;">Last updated Thu, Mar 5, at 12:00 AM.</span></div>
+              <div class="pm-trend-title">Compliance Status <span style="font-size:11px;color:var(--text-muted);font-weight:400;" id="gpm-comp-updated">Loading...</span></div>
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
                 <thead><tr style="border-bottom:1px solid var(--border);">
                   <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Requirement</th>
                   <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Status</th>
                 </tr></thead>
-                <tbody>
-                  <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:12px;">SPF and DKIM authentication</td>
-                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
-                  </tr>
-                  <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:12px;">From: header alignment</td>
-                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
-                  </tr>
-                  <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:12px;">DMARC authentication</td>
-                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
-                  </tr>
-                  <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:12px;">Encryption</td>
-                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
-                  </tr>
-                  <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:12px;">User-reported spam rate</td>
-                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
-                  </tr>
-                  <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:12px;">DNS records</td>
-                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
-                  </tr>
-                  <tr style="border-bottom:1px solid var(--border);">
-                    <td style="padding:12px;">
-                      <div>One-click unsubscribe</div>
-                    </td>
-                    <td style="padding:12px;">
-                      <div style="color:var(--red);font-weight:600;">⚠️ Needs work</div>
-                      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Ensure one-click unsubscribe is correctly implemented for your subscription messages. One-click unsubscribe allows recipients to easily unsubscribe instead of marking your messages as spam.</div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:12px;">Honor unsubscribe</td>
-                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
-                  </tr>
+                <tbody id="gpm-comp-table-body">
+                  <tr><td colspan="2" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -791,14 +748,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                   <div style="font-size:13px;font-weight:600;color:var(--green);margin-top:4px;">✓ Connected</div>
                 </div>
                 <div style="text-align:center;">
-                  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Domain Verified</div>
-                  <div style="font-size:13px;font-weight:600;color:var(--green);margin-top:4px;">✓ mailercloud.com</div>
+                  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Account</div>
+                  <div id="gpm-nodata-email" style="font-size:13px;font-weight:600;color:var(--text);margin-top:4px;">—</div>
                 </div>
                 <div style="text-align:center;">
                   <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Last Sync</div>
-                  <div style="font-size:13px;font-weight:600;margin-top:4px;">Just now</div>
+                  <div id="gpm-nodata-sync" style="font-size:13px;font-weight:600;margin-top:4px;">—</div>
                 </div>
               </div>
+              <button class="cta-btn" onclick="gpmSyncNow(this)" style="margin-top:20px;padding:8px 24px;font-size:13px;">Sync Now</button>
             </div>
           </div>
         </div><!-- /gpm-state-nodata -->
@@ -811,8 +769,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
             <div class="cta-title">Connect Google Postmaster Tools</div>
             <div class="cta-desc">See live spam rates, authentication pass rates, encryption data, feedback loop reports, and compliance status directly from Google's mail infrastructure.</div>
-            <button class="cta-btn">Connect Google Account</button>
-            <a class="cta-btn-outline" href="#">Learn More</a>
+            <button class="cta-btn" onclick="gpmConnect()">Connect Google Account</button>
+            <a class="cta-btn-outline" href="https://support.google.com/a/answer/9981691" target="_blank" rel="noopener">Learn More</a>
           </div>
         </div><!-- /gpm-state-disconnected -->
 
@@ -844,7 +802,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               <div style="font-size:24px;margin-bottom:8px;">🔒</div>
               <div style="font-size:15px;font-weight:700;margin-bottom:6px;">Pro Feature</div>
               <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Google Postmaster integration is available on the Pro plan and above.</div>
-              <button class="cta-btn" style="width:100%;">Upgrade to Pro</button>
+              <button class="cta-btn" onclick="window.location.href='/settings#billing'" style="width:100%;">Upgrade to Pro</button>
             </div>
           </div>
         </div><!-- /gpm-state-free -->
@@ -1362,6 +1320,9 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     }).catch(() => {});
 
+  // Load Google Postmaster status + metrics
+  loadGpmStatus();
+
   // Close sidebar on mobile when clicking main
   document.querySelector('.main').addEventListener('click', () => {
     document.querySelector('.sidebar').classList.remove('open');
@@ -1405,11 +1366,28 @@ function switchGpmTab(tab) {
 
 /* === Animate auth bar fills on load/tab switch === */
 function animateAuthBars() {
-  const bars = { 'bar-spf': 98.5, 'bar-dkim': 99.8, 'bar-dmarc': 100 };
-  Object.entries(bars).forEach(([id, pct]) => {
-    const el = document.getElementById(id);
-    if (el) setTimeout(() => { el.style.width = pct + '%'; }, 100);
-  });
+  // If real data is cached, use it; otherwise fall back to placeholder values
+  if (gpmMetricsCache && gpmMetricsCache.length > 0) {
+    const latest = gpmMetricsCache[gpmMetricsCache.length - 1];
+    const bars = {
+      'bar-spf':   latest.auth_success_spf != null ? latest.auth_success_spf * 100 : 0,
+      'bar-dkim':  latest.auth_success_dkim != null ? latest.auth_success_dkim * 100 : 0,
+      'bar-dmarc': latest.auth_success_dmarc != null ? latest.auth_success_dmarc * 100 : 0
+    };
+    Object.entries(bars).forEach(([id, pct]) => {
+      const el = document.getElementById(id);
+      if (el) {
+        const color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)';
+        setTimeout(() => { el.style.width = pct + '%'; el.style.background = color; }, 100);
+      }
+    });
+  } else {
+    const bars = { 'bar-spf': 98.5, 'bar-dkim': 99.8, 'bar-dmarc': 100 };
+    Object.entries(bars).forEach(([id, pct]) => {
+      const el = document.getElementById(id);
+      if (el) setTimeout(() => { el.style.width = pct + '%'; }, 100);
+    });
+  }
 }
 
 /* === Animate FBL bars === */
@@ -1426,55 +1404,310 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(animateAuthBars, 500);
 });
 
-/* === GPM Spam Rate Bars + FBL animation === */
+/* === GPM Spam Rate Bars + FBL animation (uses real data from gpmMetricsCache) === */
 function animateGpmSpam() {
+  const metrics = gpmMetricsCache || [];
+  if (metrics.length === 0) return;
+
+  // --- Spam Rate Bar Chart ---
   const spamBars = document.getElementById('gpm-spam-bars');
-  if (spamBars && spamBars.children.length === 0) {
-    const rates = [0.00, 0.00, 0.13, 0.00, 0.00, 0.00];
-    rates.forEach((rate, i) => {
+  spamBars.innerHTML = '';
+  metrics.forEach((m, i) => {
+    const rate = m.spam_rate != null ? m.spam_rate * 100 : 0;
+    const bar = document.createElement('div');
+    bar.className = 'pm-trend-bar';
+    bar.style.flex = '1';
+    const h = rate === 0 ? 3 : Math.max(6, Math.min(140, Math.round(rate / 0.3 * 140)));
+    bar.style.height = '0px';
+    bar.style.background = rate === 0 ? 'var(--green)' : rate < 0.1 ? 'var(--green)' : rate < 0.3 ? 'var(--orange)' : 'var(--red)';
+    bar.title = m.date + ': ' + rate.toFixed(2) + '%';
+    bar.style.minWidth = '16px';
+    spamBars.appendChild(bar);
+    setTimeout(() => { bar.style.height = h + 'px'; }, 200 + i * 80);
+  });
+
+  // --- Spam Date Labels ---
+  const spamDates = document.getElementById('gpm-spam-dates');
+  spamDates.innerHTML = '';
+  metrics.forEach(m => {
+    const span = document.createElement('span');
+    span.textContent = m.date ? m.date.slice(5) : '';  // show MM-DD
+    spamDates.appendChild(span);
+  });
+
+  // --- Spam Rate Table ---
+  const tbody = document.getElementById('gpm-spam-table-body');
+  tbody.innerHTML = '';
+  metrics.forEach((m, i) => {
+    const rate = m.spam_rate != null ? m.spam_rate * 100 : null;
+    const tr = document.createElement('tr');
+    if (i < metrics.length - 1) tr.style.borderBottom = '1px solid var(--border)';
+    const rateColor = rate == null ? 'var(--text-muted)' : rate < 0.1 ? 'var(--green)' : rate < 0.3 ? 'var(--orange)' : 'var(--red)';
+    const under = rate != null ? (rate < 0.3 ? 'Yes' : 'No') : '—';
+    const underColor = rate != null ? (rate < 0.3 ? 'var(--green)' : 'var(--red)') : 'var(--text-muted)';
+    tr.innerHTML = '<td style="padding:8px 12px;">' + (m.date || '—') + '</td>'
+      + '<td style="padding:8px 12px;color:' + rateColor + ';">' + (rate != null ? rate.toFixed(2) + '%' : 'N/A') + '</td>'
+      + '<td style="padding:8px 12px;text-align:right;color:' + underColor + ';">' + under + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  // --- FBL Section (populated from raw_data if available) ---
+  const fblBars = document.getElementById('gpm-fbl-bars');
+  const fblDates = document.getElementById('gpm-fbl-dates');
+  const fblBody = document.getElementById('gpm-fbl-table-body');
+  fblBars.innerHTML = '';
+  fblDates.innerHTML = '';
+  fblBody.innerHTML = '';
+
+  // Extract FBL data from raw_data.spammyFeedbackLoops if present
+  const fblRows = [];
+  metrics.forEach(m => {
+    const raw = m.raw_data;
+    if (raw && raw.spammyFeedbackLoops) {
+      raw.spammyFeedbackLoops.forEach(loop => {
+        fblRows.push({ date: m.date, id: loop.id || '—', spamRatio: loop.spamRatio || 0 });
+      });
+    }
+  });
+
+  if (fblRows.length === 0) {
+    fblBars.innerHTML = '<div style="color:var(--text-muted);font-size:12px;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">No FBL data available</div>';
+    fblBody.innerHTML = '<tr><td colspan="3" style="padding:12px;color:var(--text-muted);text-align:center;">No feedback loop data</td></tr>';
+  } else {
+    fblRows.forEach((row, i) => {
+      const pct = (row.spamRatio * 100);
       const bar = document.createElement('div');
-      bar.className = 'pm-trend-bar';
-      bar.style.flex = '1';
-      const h = rate === 0 ? 3 : Math.max(6, Math.min(140, Math.round(rate / 0.3 * 140)));
-      bar.style.height = '0px';
-      bar.style.background = rate === 0 ? 'var(--green)' : rate <= 0.1 ? 'var(--orange)' : 'var(--red)';
-      bar.title = 'Mar ' + (i+1) + ': ' + rate.toFixed(2) + '%';
-      bar.style.minWidth = '16px';
-      spamBars.appendChild(bar);
-      setTimeout(() => { bar.style.height = h + 'px'; }, 200 + i * 80);
+      bar.style.cssText = 'flex:1;background:var(--accent);border-radius:2px 2px 0 0;height:0%;transition:height 0.5s;';
+      const h = Math.max(5, Math.min(90, pct / 1 * 90));
+      setTimeout(() => { bar.style.height = h + '%'; }, 300 + i * 100);
+      bar.title = row.date + ': ' + pct.toFixed(2) + '%';
+      fblBars.appendChild(bar);
+
+      const span = document.createElement('span');
+      span.textContent = row.date ? row.date.slice(5) : '';
+      fblDates.appendChild(span);
+
+      const tr = document.createElement('tr');
+      if (i < fblRows.length - 1) tr.style.borderBottom = '1px solid var(--border)';
+      const rateColor = pct < 0.1 ? 'var(--green)' : pct < 0.3 ? 'var(--orange)' : 'var(--red)';
+      tr.innerHTML = '<td style="padding:8px 12px;">' + row.date + '</td>'
+        + '<td style="padding:8px 12px;">' + row.id + '</td>'
+        + '<td style="padding:8px 12px;text-align:right;color:' + rateColor + ';">' + pct.toFixed(2) + '%</td>';
+      fblBody.appendChild(tr);
     });
   }
-  document.querySelectorAll('.fbl-bar').forEach((bar, i) => {
-    setTimeout(() => { bar.style.height = bar.dataset.h; }, 300 + i * 100);
-  });
 }
 
 /* === GPM Auth Chart (grouped bars per day) === */
 function animateGpmAuth() {
+  const metrics = gpmMetricsCache || [];
+  if (metrics.length === 0) return;
+
+  // --- Grouped bar chart (DMARC / DKIM / SPF per day) ---
   const authChart = document.getElementById('gpm-auth-chart');
-  if (authChart && authChart.children.length === 0) {
-    const days = [
-      { dkim: 93.62, spf: 85.11, dmarc: 100 },
-      { dkim: 98.51, spf: 76.12, dmarc: 100 },
-      { dkim: 99.99, spf: 52.25, dmarc: 100 },
-      { dkim: 96.72, spf: 76.23, dmarc: 100 },
-      { dkim: 96.43, spf: 62.50, dmarc: 100 },
-      { dkim: 99.83, spf: 98.49, dmarc: 100 }
-    ];
-    days.forEach((d, i) => {
-      const group = document.createElement('div');
-      group.style.cssText = 'flex:1;display:flex;gap:2px;align-items:flex-end;height:100%;';
-      ['dmarc','dkim','spf'].forEach((key, ki) => {
-        const bar = document.createElement('div');
-        const colors = { dmarc: '#4285F4', dkim: '#EA4335', spf: '#FBBC05' };
-        bar.style.cssText = 'flex:1;border-radius:2px 2px 0 0;background:' + colors[key] + ';height:0%;transition:height 0.6s ease;min-width:4px;';
-        bar.title = key.toUpperCase() + ': ' + d[key].toFixed(1) + '%';
-        group.appendChild(bar);
-        setTimeout(() => { bar.style.height = (d[key] / 100 * 100) + '%'; }, 200 + i * 100 + ki * 50);
+  authChart.innerHTML = '';
+  metrics.forEach((m, i) => {
+    const dkim  = m.auth_success_dkim  != null ? m.auth_success_dkim  * 100 : 0;
+    const spf   = m.auth_success_spf   != null ? m.auth_success_spf   * 100 : 0;
+    const dmarc = m.auth_success_dmarc != null ? m.auth_success_dmarc * 100 : 0;
+
+    const group = document.createElement('div');
+    group.style.cssText = 'flex:1;display:flex;gap:2px;align-items:flex-end;height:100%;';
+    [{ key: 'dmarc', val: dmarc, color: '#4285F4' },
+     { key: 'dkim',  val: dkim,  color: '#EA4335' },
+     { key: 'spf',   val: spf,   color: '#FBBC05' }].forEach((item, ki) => {
+      const bar = document.createElement('div');
+      bar.style.cssText = 'flex:1;border-radius:2px 2px 0 0;background:' + item.color + ';height:0%;transition:height 0.6s ease;min-width:4px;';
+      bar.title = item.key.toUpperCase() + ': ' + item.val.toFixed(1) + '%';
+      group.appendChild(bar);
+      setTimeout(() => { bar.style.height = item.val + '%'; }, 200 + i * 100 + ki * 50);
+    });
+    authChart.appendChild(group);
+  });
+
+  // --- Date labels ---
+  const authDates = document.getElementById('gpm-auth-dates');
+  authDates.innerHTML = '';
+  metrics.forEach(m => {
+    const span = document.createElement('span');
+    span.textContent = m.date ? m.date.slice(5) : '';
+    authDates.appendChild(span);
+  });
+
+  // --- Auth table ---
+  const tbody = document.getElementById('gpm-auth-table-body');
+  tbody.innerHTML = '';
+  function authColor(pct) {
+    if (pct == null) return 'var(--text-muted)';
+    return pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)';
+  }
+  metrics.forEach((m, i) => {
+    const dkim  = m.auth_success_dkim  != null ? (m.auth_success_dkim  * 100) : null;
+    const spf   = m.auth_success_spf   != null ? (m.auth_success_spf   * 100) : null;
+    const dmarc = m.auth_success_dmarc != null ? (m.auth_success_dmarc * 100) : null;
+    const tr = document.createElement('tr');
+    if (i < metrics.length - 1) tr.style.borderBottom = '1px solid var(--border)';
+    tr.innerHTML = '<td style="padding:8px 12px;">' + (m.date || '—') + '</td>'
+      + '<td style="padding:8px 12px;color:' + authColor(dkim) + ';">' + (dkim != null ? dkim.toFixed(2) + '%' : 'N/A') + '</td>'
+      + '<td style="padding:8px 12px;color:' + authColor(spf) + ';">' + (spf != null ? spf.toFixed(2) + '%' : 'N/A') + '</td>'
+      + '<td style="padding:8px 12px;color:' + authColor(dmarc) + ';">' + (dmarc != null ? dmarc.toFixed(2) + '%' : 'N/A') + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+/* === GPM Encryption & Errors tab (uses real data from gpmMetricsCache) === */
+function populateGpmEncryption() {
+  const metrics = gpmMetricsCache || [];
+  if (metrics.length === 0) return;
+
+  // --- TLS summary card ---
+  const tlsVal = document.getElementById('gpm-enc-tls-val');
+  const tlsSub = document.getElementById('gpm-enc-tls-sub');
+  // Compute average TLS across all days
+  const tlsRates = metrics.filter(m => m.encrypted_traffic_tls != null).map(m => m.encrypted_traffic_tls * 100);
+  if (tlsRates.length > 0) {
+    const avg = tlsRates.reduce((a, b) => a + b, 0) / tlsRates.length;
+    tlsVal.textContent = avg.toFixed(1) + '%';
+    tlsVal.style.color = avg >= 95 ? 'var(--green)' : avg >= 80 ? 'var(--yellow)' : 'var(--red)';
+    const allFull = tlsRates.every(r => r >= 99.9);
+    tlsSub.textContent = allFull ? 'All days at 100%' : 'Avg over ' + metrics.length + ' days';
+  } else {
+    tlsVal.textContent = '—';
+    tlsVal.style.color = 'var(--text-muted)';
+    tlsSub.textContent = 'No TLS data';
+  }
+
+  // --- TLS table ---
+  const tlsBody = document.getElementById('gpm-enc-tls-table-body');
+  tlsBody.innerHTML = '';
+  metrics.forEach((m, i) => {
+    const pct = m.encrypted_traffic_tls != null ? (m.encrypted_traffic_tls * 100) : null;
+    const color = pct != null ? (pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-muted)';
+    const tr = document.createElement('tr');
+    if (i < metrics.length - 1) tr.style.borderBottom = '1px solid var(--border)';
+    tr.innerHTML = '<td style="padding:8px 12px;">' + (m.date || '—') + '</td>'
+      + '<td style="padding:8px 12px;color:' + color + ';">' + (pct != null ? pct.toFixed(2) + '%' : 'N/A') + '</td>'
+      + '<td style="padding:8px 12px;color:var(--text-muted);">—</td>';
+    tlsBody.appendChild(tr);
+  });
+
+  // --- Delivery Errors summary ---
+  const errVal = document.getElementById('gpm-enc-err-val');
+  const errSub = document.getElementById('gpm-enc-err-sub');
+  // Collect all error entries across all days
+  const allErrors = [];
+  metrics.forEach(m => {
+    if (m.delivery_errors && typeof m.delivery_errors === 'object') {
+      Object.entries(m.delivery_errors).forEach(([type, pct]) => {
+        if (Number(pct) > 0) allErrors.push({ date: m.date, type, pct: Number(pct) });
       });
-      authChart.appendChild(group);
+    }
+  });
+
+  if (allErrors.length === 0) {
+    errVal.textContent = '0%';
+    errVal.style.color = 'var(--green)';
+    errSub.textContent = 'No rejections or temp failures';
+  } else {
+    const maxErr = Math.max(...allErrors.map(e => e.pct));
+    errVal.textContent = allErrors.length + ' issue' + (allErrors.length > 1 ? 's' : '');
+    errVal.style.color = maxErr > 5 ? 'var(--red)' : 'var(--yellow)';
+    errSub.textContent = 'Peak: ' + maxErr.toFixed(1) + '%';
+  }
+
+  // --- Delivery Errors table ---
+  const errBody = document.getElementById('gpm-enc-err-table-body');
+  errBody.innerHTML = '';
+  if (allErrors.length === 0) {
+    errBody.innerHTML = '<tr><td colspan="4" style="padding:20px 12px;text-align:center;color:var(--text-muted);">No delivery errors in this period ✓</td></tr>';
+  } else {
+    allErrors.forEach((e, i) => {
+      const tr = document.createElement('tr');
+      if (i < allErrors.length - 1) tr.style.borderBottom = '1px solid var(--border)';
+      const color = e.pct > 5 ? 'var(--red)' : e.pct > 1 ? 'var(--yellow)' : 'var(--text-muted)';
+      tr.innerHTML = '<td style="padding:8px 12px;">' + (e.date || '—') + '</td>'
+        + '<td style="padding:8px 12px;">' + e.type + '</td>'
+        + '<td style="padding:8px 12px;color:var(--text-muted);">—</td>'
+        + '<td style="padding:8px 12px;text-align:right;color:' + color + ';">' + e.pct.toFixed(2) + '%</td>';
+      errBody.appendChild(tr);
     });
   }
+}
+
+/* === GPM Compliance tab (uses real data from gpmMetricsCache) === */
+function populateGpmCompliance() {
+  const metrics = gpmMetricsCache || [];
+  if (metrics.length === 0) return;
+
+  const latest = metrics[metrics.length - 1];
+
+  // Update "Last updated" label
+  const updatedEl = document.getElementById('gpm-comp-updated');
+  if (updatedEl && latest.date) {
+    updatedEl.textContent = 'Last updated: ' + latest.date;
+  }
+
+  // Compute compliance from latest metrics
+  const spf   = latest.auth_success_spf   != null ? latest.auth_success_spf   * 100 : null;
+  const dkim  = latest.auth_success_dkim  != null ? latest.auth_success_dkim  * 100 : null;
+  const dmarc = latest.auth_success_dmarc != null ? latest.auth_success_dmarc * 100 : null;
+  const tls   = latest.encrypted_traffic_tls != null ? latest.encrypted_traffic_tls * 100 : null;
+  const spam  = latest.spam_rate != null ? latest.spam_rate * 100 : null;
+
+  // Build compliance checks
+  const checks = [
+    {
+      label: 'SPF and DKIM authentication',
+      pass: (spf != null && dkim != null) ? (spf >= 95 && dkim >= 95) : null,
+      failMsg: 'SPF: ' + (spf != null ? spf.toFixed(1) + '%' : 'N/A') + ', DKIM: ' + (dkim != null ? dkim.toFixed(1) + '%' : 'N/A') + '. Both should be above 95%.'
+    },
+    {
+      label: 'From: header alignment',
+      pass: (dmarc != null) ? dmarc >= 90 : null,
+      failMsg: 'DMARC alignment indicates From: header may not be fully aligned.'
+    },
+    {
+      label: 'DMARC authentication',
+      pass: dmarc != null ? dmarc >= 95 : null,
+      failMsg: 'DMARC pass rate is ' + (dmarc != null ? dmarc.toFixed(1) + '%' : 'N/A') + '. Should be above 95%.'
+    },
+    {
+      label: 'Encryption',
+      pass: tls != null ? tls >= 95 : null,
+      failMsg: 'TLS encryption is ' + (tls != null ? tls.toFixed(1) + '%' : 'N/A') + '. Should be above 95%.'
+    },
+    {
+      label: 'User-reported spam rate',
+      pass: spam != null ? spam < 0.3 : null,
+      failMsg: 'Spam rate is ' + (spam != null ? spam.toFixed(2) + '%' : 'N/A') + '. Must stay below 0.3%.'
+    },
+    {
+      label: 'DNS records',
+      pass: (spf != null && dkim != null && dmarc != null) ? (spf > 0 && dkim > 0 && dmarc > 0) : null,
+      failMsg: 'Some DNS authentication records may be missing or misconfigured.'
+    }
+  ];
+
+  const tbody = document.getElementById('gpm-comp-table-body');
+  tbody.innerHTML = '';
+
+  checks.forEach((check, i) => {
+    const tr = document.createElement('tr');
+    if (i < checks.length - 1) tr.style.borderBottom = '1px solid var(--border)';
+
+    if (check.pass === null) {
+      tr.innerHTML = '<td style="padding:12px;">' + check.label + '</td>'
+        + '<td style="padding:12px;"><span style="color:var(--text-muted);">— No data</span></td>';
+    } else if (check.pass) {
+      tr.innerHTML = '<td style="padding:12px;">' + check.label + '</td>'
+        + '<td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✓ Compliant</span></td>';
+    } else {
+      tr.innerHTML = '<td style="padding:12px;">' + check.label + '</td>'
+        + '<td style="padding:12px;"><div style="color:var(--red);font-weight:600;">✗ Needs work</div>'
+        + '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">' + check.failMsg + '</div></td>';
+    }
+    tbody.appendChild(tr);
+  });
 }
 
 /* === Email Health Trend Animations (Overview + MS + Yahoo) === */
@@ -1551,6 +1784,255 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(animateEmailHealthTrends, 100);
   };
 })();
+
+/* === GPM Domain Selector: triggered when user picks a domain === */
+let gpmCurrentDomain = null;
+let gpmMetricsCache = null;   // stores fetched metrics array for other tabs
+
+function onGpmDomainChange(domain) {
+  if (!domain) return;
+  gpmCurrentDomain = domain;
+  loadGpmMetrics(domain);
+}
+
+/* === GPM: Fetch metrics for a domain and populate Overview tab === */
+async function loadGpmMetrics(domain) {
+  const token = getToken();
+  if (!token || !domain) return;
+
+  try {
+    const res = await fetch('/api/postmaster/metrics/' + encodeURIComponent(domain) + '?days=7', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) { setGpmState('nodata'); return; }
+    const data = await res.json();
+    const metrics = data.metrics || [];
+
+    if (metrics.length === 0) { setGpmState('nodata'); return; }
+
+    // Cache for other tabs (B4-B7)
+    gpmMetricsCache = metrics;
+    setGpmState('data');
+
+    // Use the latest day's data for headline numbers
+    const latest = metrics[metrics.length - 1];
+
+    // --- Spam Rate ---
+    const spamEl = document.getElementById('gpm-ov-spam');
+    const spamSub = document.getElementById('gpm-ov-spam-sub');
+    const spamPct = latest.spam_rate != null ? (latest.spam_rate * 100) : null;
+    if (spamPct != null) {
+      spamEl.textContent = spamPct.toFixed(2) + '%';
+      spamEl.style.color = spamPct < 0.1 ? 'var(--green)' : spamPct < 0.3 ? 'var(--yellow)' : 'var(--red)';
+      spamSub.textContent = spamPct < 0.1 ? 'Excellent' : spamPct < 0.3 ? 'Watch closely' : 'Above threshold';
+    } else {
+      spamEl.textContent = 'N/A';
+      spamEl.style.color = 'var(--text-muted)';
+      spamSub.textContent = 'No data';
+    }
+
+    // --- TLS Encrypted ---
+    const tlsEl = document.getElementById('gpm-ov-tls');
+    const tlsPct = latest.encrypted_traffic_tls != null ? (latest.encrypted_traffic_tls * 100) : null;
+    if (tlsPct != null) {
+      tlsEl.textContent = tlsPct.toFixed(1) + '%';
+      tlsEl.style.color = tlsPct >= 95 ? 'var(--green)' : tlsPct >= 80 ? 'var(--yellow)' : 'var(--red)';
+    } else {
+      tlsEl.textContent = 'N/A';
+      tlsEl.style.color = 'var(--text-muted)';
+    }
+
+    // --- Delivery Errors ---
+    const errEl = document.getElementById('gpm-ov-errors');
+    const errSub = document.getElementById('gpm-ov-errors-sub');
+    const errors = latest.delivery_errors;
+    if (errors && typeof errors === 'object') {
+      const totalErrors = Object.values(errors).reduce((sum, v) => sum + (Number(v) || 0), 0);
+      errEl.textContent = totalErrors;
+      errEl.style.color = totalErrors === 0 ? 'var(--green)' : totalErrors < 5 ? 'var(--yellow)' : 'var(--red)';
+      errSub.textContent = totalErrors === 0 ? 'No errors' : Object.keys(errors).join(', ');
+    } else {
+      errEl.textContent = '0';
+      errEl.style.color = 'var(--green)';
+      errSub.textContent = 'No errors';
+    }
+
+    // --- Authentication Bars (SPF / DKIM / DMARC) ---
+    const spfPct = latest.auth_success_spf != null ? (latest.auth_success_spf * 100) : null;
+    const dkimPct = latest.auth_success_dkim != null ? (latest.auth_success_dkim * 100) : null;
+    const dmarcPct = latest.auth_success_dmarc != null ? (latest.auth_success_dmarc * 100) : null;
+
+    function setAuthBar(barId, labelId, pct) {
+      const bar = document.getElementById(barId);
+      const label = document.getElementById(labelId);
+      if (pct != null) {
+        const color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)';
+        if (bar) { bar.style.width = pct + '%'; bar.style.background = color; }
+        if (label) label.textContent = pct.toFixed(1) + '%';
+      } else {
+        if (bar) bar.style.width = '0%';
+        if (label) label.textContent = 'N/A';
+      }
+    }
+
+    setAuthBar('bar-spf', 'gpm-ov-spf-pct', spfPct);
+    setAuthBar('bar-dkim', 'gpm-ov-dkim-pct', dkimPct);
+    setAuthBar('bar-dmarc', 'gpm-ov-dmarc-pct', dmarcPct);
+
+    // --- Quick Compliance Checks ---
+    function setComp(id, pass) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (pass === null) { el.textContent = '—'; el.style.color = 'var(--text-muted)'; return; }
+      el.textContent = pass ? '✓' : '✗';
+      el.style.color = pass ? 'var(--green)' : 'var(--red)';
+    }
+
+    const authPass = (spfPct != null && dkimPct != null) ? (spfPct >= 95 && dkimPct >= 95) : null;
+    const dmarcPass = dmarcPct != null ? dmarcPct >= 95 : null;
+    const tlsPass = tlsPct != null ? tlsPct >= 95 : null;
+    const spamPass = spamPct != null ? spamPct < 0.3 : null;
+
+    setComp('gpm-ov-comp-auth', authPass);
+    setComp('gpm-ov-comp-dmarc', dmarcPass);
+    setComp('gpm-ov-comp-tls', tlsPass);
+    setComp('gpm-ov-comp-spam', spamPass);
+
+    // Update date range label
+    const dateRange = document.getElementById('gpm-date-range');
+    if (dateRange && metrics.length >= 2) {
+      dateRange.textContent = metrics[0].date + ' — ' + metrics[metrics.length - 1].date;
+    }
+
+    // Populate other tabs with real data
+    animateGpmSpam();
+    animateGpmAuth();
+    populateGpmEncryption();
+    populateGpmCompliance();
+
+  } catch (e) {
+    console.error('[GPM] Failed to load metrics:', e);
+    setGpmState('nodata');
+  }
+}
+
+/* === GPM: Switch provider state (data | nodata | disconnected | free) === */
+function setGpmState(state) {
+  ['data','nodata','disconnected','free'].forEach(s => {
+    const el = document.getElementById('gpm-state-' + s);
+    if (el) el.classList.toggle('active', s === state);
+  });
+}
+
+/* === GPM: Connect (OAuth) === */
+async function gpmConnect() {
+  try {
+    const res = await fetch('/api/postmaster/authorize', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.detail || 'Failed to start connection');
+      return;
+    }
+    const data = await res.json();
+    window.location.href = data.authorization_url;
+  } catch (e) {
+    alert('Failed to connect: ' + e.message);
+  }
+}
+
+/* === GPM: Sync Now (from no-data state) === */
+async function gpmSyncNow(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing...'; }
+  try {
+    const res = await fetch('/api/postmaster/sync', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Sync failed');
+    }
+    const data = await res.json();
+    if (btn) { btn.textContent = 'Sync Complete'; }
+    // Reload status to switch to data state if metrics arrived
+    setTimeout(() => loadGpmStatus(), 1000);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sync Now'; }
+    alert('Sync failed: ' + e.message);
+  }
+}
+
+/* === GPM: Load connection status + populate domain dropdown === */
+async function loadGpmStatus() {
+  const token = getToken();
+  if (!token) return;
+  const headers = { 'Authorization': 'Bearer ' + token };
+
+  try {
+    const res = await fetch('/api/postmaster/status', { headers });
+    if (!res.ok) throw new Error('status-fail');
+    const data = await res.json();
+
+    // Free plan — show paywall state
+    if (!data.is_pro) {
+      setGpmState('free');
+      return;
+    }
+
+    // Not connected — show disconnected state
+    if (!data.connected) {
+      setGpmState('disconnected');
+      return;
+    }
+
+    // Connected — load user's domains into the dropdown
+    const domRes = await fetch('/api/user/domains', { headers });
+    if (!domRes.ok) throw new Error('domains-fail');
+    const domData = await domRes.json();
+    const domains = domData.domains || [];
+
+    const select = document.getElementById('gpm-domain-select');
+    select.innerHTML = '';
+
+    if (domains.length === 0) {
+      select.innerHTML = '<option value="">No domains added</option>';
+      // Populate no-data state info
+      const ndEmail = document.getElementById('gpm-nodata-email');
+      if (ndEmail && data.google_email) ndEmail.textContent = data.google_email;
+      const ndSync = document.getElementById('gpm-nodata-sync');
+      if (ndSync && data.connected_at) {
+        const d = new Date(data.connected_at);
+        ndSync.textContent = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      }
+      setGpmState('nodata');
+      return;
+    }
+
+    // Populate dropdown with user's domains
+    domains.forEach((d, i) => {
+      const opt = document.createElement('option');
+      opt.value = d.domain || d.name || d;
+      opt.textContent = d.domain || d.name || d;
+      select.appendChild(opt);
+    });
+
+    // Auto-select first domain and load its metrics
+    const firstDomain = select.value;
+    if (firstDomain) {
+      gpmCurrentDomain = firstDomain;
+      setGpmState('data');
+      loadGpmMetrics(firstDomain);
+    } else {
+      setGpmState('nodata');
+    }
+
+  } catch (e) {
+    console.error('[GPM] Status check failed:', e);
+    setGpmState('disconnected');
+  }
+}
 </script>
 </body>
 </html>
