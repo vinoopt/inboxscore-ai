@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Health — InboxScore</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26; --border: #2a2a3a;
+  --text: #e4e4ef; --text-muted: #8888a0; --accent: #6366f1; --accent-glow: rgba(99,102,241,0.3);
+  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* Top Nav */
+.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 10; }
+.logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+.logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.user-name { font-size: 13px; color: var(--text-muted); }
+.logout-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+
+/* Layout */
+.layout { display: flex; flex: 1; }
+
+/* Sidebar */
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
+.sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
+.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); }
+.sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
+.alert-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; display: none; }
+
+/* Main */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; }
+
+/* Common Components */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
+.badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+.badge-yellow { background: rgba(234,179,8,0.15); color: var(--yellow); }
+.badge-accent { background: rgba(99,102,241,0.15); color: var(--accent); }
+.badge-orange { background: rgba(249,115,22,0.15); color: var(--orange); }
+
+/* Sidebar backdrop */
+.sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
+.sidebar-backdrop.show { display: block; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar.open { left: 0; }
+  .mobile-toggle { display: block; }
+  .main { padding: 24px 16px; }
+}
+
+/* ===== EMAIL HEALTH: Toolbar ===== */
+.eh-toolbar { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.eh-select { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 14px; cursor: pointer; min-width: 240px; -webkit-appearance: none; }
+.eh-select:focus { outline: none; border-color: var(--accent); }
+.eh-period { display: flex; gap: 4px; }
+.eh-period button { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.eh-period button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ===== EMAIL HEALTH: Submenu Layout ===== */
+.eh-layout { display: flex; gap: 0; min-height: calc(100vh - 180px); }
+.eh-submenu { width: 190px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 8px 0; position: sticky; top: 140px; align-self: flex-start; }
+.eh-submenu-item { display: flex; align-items: center; gap: 10px; padding: 10px 18px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-left: 3px solid transparent; transition: all 0.2s; text-decoration: none; }
+.eh-submenu-item:hover { color: var(--text); background: var(--surface-2); }
+.eh-submenu-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); font-weight: 600; }
+.eh-submenu-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+.eh-submenu-badge { margin-left: auto; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 700; }
+.eh-submenu-badge.red { background: rgba(239,68,68,0.15); color: var(--red); }
+.eh-submenu-badge.green { background: rgba(34,197,94,0.15); color: var(--green); }
+.eh-content { flex: 1; padding: 0 0 0 24px; min-width: 0; }
+.eh-section { display: none; }
+.eh-section.active { display: block; }
+
+/* ===== EMAIL HEALTH: Responsive submenu ===== */
+@media (max-width: 768px) {
+  .eh-layout { flex-direction: column; }
+  .eh-submenu { width: 100%; border-right: none; border-bottom: 1px solid var(--border); position: static; display: flex; overflow-x: auto; padding: 0; gap: 0; }
+  .eh-submenu-item { white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; padding: 10px 14px; }
+  .eh-submenu-item.active { border-left-color: transparent; border-bottom-color: var(--accent); }
+  .eh-content { padding: 16px 0 0 0; }
+}
+
+/* ===== EMAIL HEALTH: Score Hero ===== */
+.eh-score-hero { display: flex; align-items: center; gap: 24px; margin-bottom: 24px; }
+.eh-score-ring { width: 100px; height: 100px; position: relative; }
+.eh-score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.eh-score-ring .ring-bg { fill: none; stroke: var(--surface-2); stroke-width: 8; }
+.eh-score-ring .ring-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+.eh-score-number { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 28px; font-weight: 700; }
+.eh-score-details { flex: 1; }
+.eh-score-label { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+.eh-checks { display: flex; gap: 16px; flex-wrap: wrap; }
+.eh-check { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.check-pass { color: var(--green); }
+.check-fail { color: var(--red); }
+
+/* ===== EMAIL HEALTH: Postmaster Metric Widgets (used in Overview + sections) ===== */
+.pm-widget { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; position: relative; }
+.pm-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+.pm-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.pm-date-range { font-size: 12px; color: var(--text-muted); }
+.pm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+.pm-metric { background: var(--surface-2); border-radius: 8px; padding: 14px; text-align: center; }
+.pm-metric .pm-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.pm-metric .pm-value { font-size: 22px; font-weight: 700; }
+.pm-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* ===== EMAIL HEALTH: Card Components ===== */
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.card-title { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+
+/* ===== EMAIL HEALTH: Auth Bars ===== */
+.pm-auth-bars { margin-top: 16px; }
+.pm-auth-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.pm-auth-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.pm-auth-label { font-size: 12px; color: var(--text-muted); width: 50px; }
+.pm-bar { flex: 1; height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.pm-bar-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+.pm-pct { font-size: 12px; font-weight: 600; width: 40px; text-align: right; }
+.pm-trend-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.pm-trend-bars { display: flex; gap: 3px; align-items: flex-end; height: 60px; }
+.pm-trend-bar { flex: 1; border-radius: 2px 2px 0 0; min-width: 6px; transition: height 0.5s ease; cursor: pointer; }
+.pm-trend-bar:hover { opacity: 0.8; }
+
+/* ===== EMAIL HEALTH: Compliance ===== */
+.pm-compliance-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.pm-compliance-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pm-compliance-item { background: var(--surface-2); border-radius: 8px; padding: 10px; text-align: center; }
+.pm-compliance-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.pm-compliance-status { font-size: 13px; font-weight: 700; }
+
+/* ===== EMAIL HEALTH: Google Postmaster Tabs ===== */
+.gpm-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding: 0; margin-top: 12px; overflow-x: auto; }
+.gpm-tab { padding: 8px 14px; font-size: 12px; font-weight: 600; color: var(--text-muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+.gpm-tab:hover { color: var(--text); }
+.gpm-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.gpm-panel { display: none; }
+.gpm-panel.active { display: block; }
+
+/* ===== EMAIL HEALTH: Provider States ===== */
+.provider-state { display: none; }
+.provider-state.active { display: block; }
+.provider-cta { background: var(--surface); border: 1px dashed var(--border); border-radius: 12px; padding: 32px; text-align: center; }
+.provider-cta .cta-icon { font-size: 32px; margin-bottom: 12px; }
+.provider-cta .cta-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.provider-cta .cta-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; max-width: 400px; margin-left: auto; margin-right: auto; }
+.provider-cta .cta-btn { display: inline-block; padding: 10px 24px; background: var(--accent); color: #fff; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; border: none; }
+.provider-cta .cta-btn:hover { background: #5558e6; }
+.provider-cta .cta-btn-outline { display: inline-block; padding: 10px 24px; background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; margin-left: 8px; }
+.free-badge { display: inline-block; background: rgba(234,179,8,0.15); color: var(--yellow); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 4px; }
+
+/* ===== EMAIL HEALTH: Trend Wrapper ===== */
+.pm-trend { margin-top: 16px; }
+
+/* ===== EMAIL HEALTH: Error / JMRP / Detail Rows ===== */
+.pm-errors { margin-top: 16px; }
+.pm-errors-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.pm-error-row { display: flex; justify-content: space-between; padding: 6px 10px; background: var(--surface-2); border-radius: 6px; margin-bottom: 4px; font-size: 12px; }
+.pm-error-label { color: var(--text-muted); }
+.pm-error-count { font-weight: 600; }
+
+/* ===== EMAIL HEALTH: FBL Bars ===== */
+.fbl-bar { transition: height 0.5s ease; }
+
+/* ===== EMAIL HEALTH: Responsive ===== */
+@media (max-width: 800px) {
+  .pm-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .pm-compliance-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+    <a href="/dashboard" class="logo">
+      <div class="logo-icon">📨</div>
+      InboxScore
+    </a>
+  </div>
+  <div class="nav-right">
+    <span class="user-name" id="user-name"></span>
+    <button class="logout-btn" onclick="logout()">Log Out</button>
+  </div>
+</nav>
+
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+<div class="layout">
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="/dashboard"><span class="nav-icon">📊</span> Overview</a></li>
+      <li><a href="/email-health" class="active"><span class="nav-icon">🛡️</span> Email Health</a></li>
+      <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
+      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge">0</span></a></li>
+      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">📄</span> Reports <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
+    </ul>
+    <div class="sidebar-section">Account</div>
+    <ul class="sidebar-nav">
+      <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
+    </ul>
+  </aside>
+
+  <main class="main">
+    <h1 class="page-title">Email Health</h1>
+    <p class="page-subtitle">Detailed deliverability intelligence per domain.</p>
+
+    <!-- Toolbar -->
+    <div class="eh-toolbar">
+      <select class="eh-select" id="eh-domain-select">
+        <option value="mailercloud">mailercloud.com</option>
+        <option value="news">news.mailercloud.com</option>
+        <option value="promo">promo.mailercloud.com</option>
+      </select>
+      <div class="eh-period">
+        <button>7d</button>
+        <button class="active">30d</button>
+        <button>90d</button>
+      </div>
+    </div>
+
+    <!-- Submenu Layout -->
+    <div class="eh-layout">
+      <!-- Left Submenu -->
+      <nav class="eh-submenu">
+        <div class="eh-submenu-item active" onclick="switchEhSection('overview')">
+          <span class="eh-submenu-icon">📊</span> Overview
+        </div>
+        <div class="eh-submenu-item" onclick="switchEhSection('google')">
+          <span class="eh-submenu-icon"><svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg></span> Google Postmaster
+        </div>
+        <div class="eh-submenu-item" onclick="switchEhSection('microsoft')">
+          <span class="eh-submenu-icon"><svg width="14" height="14" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg></span> Microsoft SNDS
+        </div>
+        <div class="eh-submenu-item" onclick="switchEhSection('yahoo')">
+          <span class="eh-submenu-icon"><svg width="14" height="14" viewBox="0 0 24 24"><path fill="#6001D2" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c.83 0 1.5.67 1.5 1.5S12.83 8 12 8s-1.5-.67-1.5-1.5S11.17 5 12 5zm-2 12v-1h1v-4h-1v-1h3v5h1v1H10z"/></svg></span> Yahoo / AOL
+        </div>
+        <div class="eh-submenu-item" onclick="switchEhSection('blacklist')">
+          <span class="eh-submenu-icon">🛡️</span> Blacklist Monitor
+          <span class="eh-submenu-badge red">1</span>
+        </div>
+        <div class="eh-submenu-item" onclick="switchEhSection('reputation')">
+          <span class="eh-submenu-icon">⭐</span> IP Reputation
+        </div>
+      </nav>
+
+      <!-- Right Content Area -->
+      <div class="eh-content">
+
+        <!-- ===== SECTION: OVERVIEW ===== -->
+        <div class="eh-section active" id="eh-sec-overview">
+
+          <!-- Score Hero -->
+          <div class="card">
+            <div class="eh-score-hero">
+              <div class="eh-score-ring">
+                <svg viewBox="0 0 100 100">
+                  <circle class="ring-bg" cx="50" cy="50" r="42"/>
+                  <circle class="ring-fill" cx="50" cy="50" r="42" stroke="var(--green)"
+                    stroke-dasharray="264" stroke-dashoffset="34"/>
+                </svg>
+                <div class="eh-score-number" style="color:var(--green);">87</div>
+              </div>
+              <div class="eh-score-details">
+                <div class="eh-score-label">InboxScore for <strong>mailercloud.com</strong></div>
+                <div class="eh-checks" style="margin-top:8px;">
+                  <span class="eh-check check-pass">✓ SPF</span>
+                  <span class="eh-check check-pass">✓ DKIM</span>
+                  <span class="eh-check check-pass">✓ DMARC</span>
+                  <span class="eh-check check-pass">✓ MX</span>
+                  <span class="eh-check check-pass">✓ TLS</span>
+                  <span class="eh-check check-pass">✓ BIMI</span>
+                </div>
+                <div style="margin-top:10px;font-size:12px;color:var(--text-muted);">DNS diagnostics · Last scanned: Mar 7, 2026 at 6:00 AM UTC</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DNS Diagnostics Detail -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">DNS & Authentication Diagnostics</span>
+              <span style="font-size:11px;color:var(--text-muted);">Auto-scanned daily · No provider connection required</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+              <div class="pm-metric">
+                <div class="pm-label">SPF Record</div>
+                <div class="pm-value" style="font-size:14px;color:var(--green);">✓ Valid</div>
+                <div class="pm-sub">v=spf1 include:mailercloud.com ~all</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">DKIM Selector</div>
+                <div class="pm-value" style="font-size:14px;color:var(--green);">✓ Found</div>
+                <div class="pm-sub">mc._domainkey · RSA 2048-bit</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">DMARC Policy</div>
+                <div class="pm-value" style="font-size:14px;color:var(--green);">✓ Published</div>
+                <div class="pm-sub">p=quarantine; rua=mailto:dmarc@...</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">MX Records</div>
+                <div class="pm-value" style="font-size:14px;color:var(--green);">✓ Valid</div>
+                <div class="pm-sub">2 MX records found</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">TLS / STARTTLS</div>
+                <div class="pm-value" style="font-size:14px;color:var(--green);">✓ Supported</div>
+                <div class="pm-sub">TLS 1.3 · Valid cert</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">BIMI Record</div>
+                <div class="pm-value" style="font-size:14px;color:var(--green);">✓ Published</div>
+                <div class="pm-sub">SVG logo + VMC found</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">Reverse DNS (PTR)</div>
+                <div class="pm-value" style="font-size:14px;color:var(--green);">✓ Aligned</div>
+                <div class="pm-sub">198.51.100.25 → mail.mailercloud.com</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">HELO/EHLO</div>
+                <div class="pm-value" style="font-size:14px;color:var(--green);">✓ Matches</div>
+                <div class="pm-sub">Aligns with PTR record</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">Domain Age</div>
+                <div class="pm-value" style="font-size:14px;color:var(--green);">8 yrs</div>
+                <div class="pm-sub">Registered 2018</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Provider Quick Status -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Provider Status</span>
+              <span style="font-size:11px;color:var(--text-muted);">Quick view · Click submenu for details</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+              <!-- Google Summary -->
+              <div style="background:var(--surface-2);border-radius:10px;padding:14px;cursor:pointer;" onclick="switchEhSection('google')">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                  <span style="font-size:13px;font-weight:600;">Google</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--text-muted);">Domain Rep.</span>
+                    <span style="color:var(--green);font-weight:600;">High</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--text-muted);">Spam Rate</span>
+                    <span style="color:var(--green);font-weight:600;">0.02%</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--text-muted);">Auth Pass</span>
+                    <span style="color:var(--green);font-weight:600;">99.9%</span>
+                  </div>
+                </div>
+                <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:500;">View details →</div>
+              </div>
+              <!-- Microsoft Summary -->
+              <div style="background:var(--surface-2);border-radius:10px;padding:14px;cursor:pointer;" onclick="switchEhSection('microsoft')">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+                  <span style="font-size:13px;font-weight:600;">Microsoft</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--text-muted);">IP Status</span>
+                    <span style="color:var(--green);font-weight:600;">2/3 Green</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--text-muted);">Trap Hits</span>
+                    <span style="color:var(--green);font-weight:600;">0</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--text-muted);">JMRP</span>
+                    <span style="color:var(--yellow);font-weight:600;">3 reports</span>
+                  </div>
+                </div>
+                <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:500;">View details →</div>
+              </div>
+              <!-- Yahoo Summary -->
+              <div style="background:var(--surface-2);border-radius:10px;padding:14px;cursor:pointer;" onclick="switchEhSection('yahoo')">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#6001D2" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c.83 0 1.5.67 1.5 1.5S12.83 8 12 8s-1.5-.67-1.5-1.5S11.17 5 12 5zm-2 12v-1h1v-4h-1v-1h3v5h1v1H10z"/></svg>
+                  <span style="font-size:13px;font-weight:600;">Yahoo / AOL</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--text-muted);">Complaint Rate</span>
+                    <span style="color:var(--green);font-weight:600;">0.04%</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--text-muted);">Delivered</span>
+                    <span style="font-weight:600;">57.5K</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--text-muted);">Reputation</span>
+                    <span style="color:var(--green);font-weight:600;">Good</span>
+                  </div>
+                </div>
+                <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:500;">View details →</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Alerts -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Active Alerts</span>
+              <span class="eh-submenu-badge red" style="font-size:11px;">1 issue</span>
+            </div>
+            <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:12px;display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="switchEhSection('blacklist')">
+              <span style="font-size:20px;">🛡️</span>
+              <div style="flex:1;">
+                <div style="font-size:13px;font-weight:600;">Blacklist Alert: SORBS DUHL</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">IP 198.51.100.30 (Warm-up) listed on SORBS DUHL · Severity: Low · Dynamic range listing</div>
+              </div>
+              <span style="font-size:11px;color:var(--accent);font-weight:500;">View →</span>
+            </div>
+          </div>
+
+          <!-- Domain Safety -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Domain Safety</span>
+              <span class="badge badge-green">All Clear</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+              <div style="background:var(--surface-2);border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Domain Blacklists</div>
+                <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Clear</div>
+                <div style="font-size:10px;color:var(--text-muted);">0 of 1000+ lists</div>
+              </div>
+              <div style="background:var(--surface-2);border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Google Safe Browsing</div>
+                <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Safe</div>
+                <div style="font-size:10px;color:var(--text-muted);">No threats</div>
+              </div>
+              <div style="background:var(--surface-2);border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Phishing DB</div>
+                <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Clear</div>
+                <div style="font-size:10px;color:var(--text-muted);">Not flagged</div>
+              </div>
+            </div>
+            <div style="margin-top:8px;font-size:10px;color:var(--text-muted);">Domain blacklists via HetrixTools · Safe Browsing via Google API v4</div>
+          </div>
+
+          <!-- Scan History -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">Scan History</span></div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
+              <span>Score: <strong>87</strong></span><span style="color:var(--text-muted);">Mar 7, 2026</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
+              <span>Score: <strong>85</strong></span><span style="color:var(--text-muted);">Mar 6, 2026</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:13px;">
+              <span>Score: <strong>87</strong></span><span style="color:var(--text-muted);">Mar 5, 2026</span>
+            </div>
+          </div>
+
+        </div><!-- /eh-sec-overview -->
+
+        <!-- ===== SECTION: GOOGLE POSTMASTER ===== -->
+        <div class="eh-section" id="eh-sec-google">
+
+        <!-- GPM State: With Data (default for Task 4) -->
+        <div class="provider-state active" id="gpm-state-data">
+        <div class="pm-widget" id="gpm-widget">
+          <div class="pm-header">
+            <div class="pm-title">
+              <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
+              Google Postmaster
+            </div>
+            <span class="pm-date-range">Last 7 days</span>
+          </div>
+
+          <!-- Tab Navigation -->
+          <div class="gpm-tabs">
+            <button class="gpm-tab active" onclick="switchGpmTab('overview')">Overview</button>
+            <button class="gpm-tab" onclick="switchGpmTab('spam')">Spam & Feedback</button>
+            <button class="gpm-tab" onclick="switchGpmTab('auth')">Authentication</button>
+            <button class="gpm-tab" onclick="switchGpmTab('encryption')">Encryption & Errors</button>
+            <button class="gpm-tab" onclick="switchGpmTab('compliance')">Compliance</button>
+          </div>
+
+          <!-- TAB 1: Overview -->
+          <div class="gpm-panel active" id="gpm-overview">
+            <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);margin-top:16px;">
+              <div class="pm-metric">
+                <div class="pm-label">Spam Rate</div>
+                <div class="pm-value" style="color:var(--green);">0.02%</div>
+                <div class="pm-sub">Below 0.1% ✓</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">TLS Encrypted</div>
+                <div class="pm-value" style="color:var(--green);">100%</div>
+                <div class="pm-sub">Inbound TLS</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">Delivery Errors</div>
+                <div class="pm-value" style="color:var(--green);">0%</div>
+                <div class="pm-sub">No errors this period</div>
+              </div>
+            </div>
+
+            <div class="pm-auth-bars">
+              <div class="pm-auth-title">Authentication Rates</div>
+              <div class="pm-auth-row">
+                <span class="pm-auth-label">SPF</span>
+                <div class="pm-bar"><div class="pm-bar-fill" id="bar-spf" style="width:0%;background:var(--green);"></div></div>
+                <span class="pm-pct" style="color:var(--green);">98.5%</span>
+              </div>
+              <div class="pm-auth-row">
+                <span class="pm-auth-label">DKIM</span>
+                <div class="pm-bar"><div class="pm-bar-fill" id="bar-dkim" style="width:0%;background:var(--green);"></div></div>
+                <span class="pm-pct" style="color:var(--green);">99.8%</span>
+              </div>
+              <div class="pm-auth-row">
+                <span class="pm-auth-label">DMARC</span>
+                <div class="pm-bar"><div class="pm-bar-fill" id="bar-dmarc" style="width:0%;background:var(--green);"></div></div>
+                <span class="pm-pct" style="color:var(--green);">100%</span>
+              </div>
+            </div>
+
+            <div style="margin-top:16px;">
+              <div class="pm-compliance-title">Quick Compliance</div>
+              <div class="pm-compliance-grid" style="grid-template-columns:repeat(4,1fr);">
+                <div class="pm-compliance-item"><div class="pm-compliance-label">SPF/DKIM</div><div class="pm-compliance-status" style="color:var(--green);">✓</div></div>
+                <div class="pm-compliance-item"><div class="pm-compliance-label">DMARC</div><div class="pm-compliance-status" style="color:var(--green);">✓</div></div>
+                <div class="pm-compliance-item"><div class="pm-compliance-label">Encryption</div><div class="pm-compliance-status" style="color:var(--green);">✓</div></div>
+                <div class="pm-compliance-item"><div class="pm-compliance-label">Unsubscribe</div><div class="pm-compliance-status" style="color:var(--red);">✗</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: Spam & Feedback Loop -->
+          <div class="gpm-panel" id="gpm-spam">
+            <div style="margin-top:16px;">
+              <div class="pm-trend-title">User-Reported Spam Rate</div>
+              <div style="position:relative;">
+                <div style="display:flex;align-items:flex-end;height:160px;border-left:1px solid var(--border);border-bottom:1px solid var(--border);padding:0 4px;position:relative;">
+                  <div style="position:absolute;left:0;right:0;bottom:53%;border-top:1px dashed var(--red);z-index:1;">
+                    <span style="position:absolute;right:4px;top:-14px;font-size:9px;color:var(--red);">0.3% Policy</span>
+                  </div>
+                  <div style="position:absolute;left:0;right:0;bottom:18%;border-top:1px dashed var(--yellow);z-index:1;">
+                    <span style="position:absolute;right:4px;top:-14px;font-size:9px;color:var(--yellow);">0.1% Recommended</span>
+                  </div>
+                  <div class="pm-trend-bars" id="gpm-spam-bars" style="height:100%;width:100%;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);">
+                  <span>Mar 1</span><span>Mar 2</span><span>Mar 3</span><span>Mar 4</span><span>Mar 5</span><span>Mar 6</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:20px;">
+              <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead><tr style="border-bottom:1px solid var(--border);">
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Spam Rate</th>
+                  <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Under 0.3%</th>
+                </tr></thead>
+                <tbody>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 1, 2026</td><td style="padding:8px 12px;color:var(--green);">0.00%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 2, 2026</td><td style="padding:8px 12px;color:var(--green);">0.00%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 3, 2026</td><td style="padding:8px 12px;color:var(--orange);">0.13%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 4, 2026</td><td style="padding:8px 12px;color:var(--green);">0.00%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 5, 2026</td><td style="padding:8px 12px;color:var(--green);">0.00%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
+                  <tr><td style="padding:8px 12px;">Mar 6, 2026</td><td style="padding:8px 12px;color:var(--green);">0.00%</td><td style="padding:8px 12px;text-align:right;color:var(--green);">Yes</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="margin-top:24px;padding-top:20px;border-top:1px dashed var(--border);">
+              <div class="pm-trend-title">Feedback Loop <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(FBL spam rate by identifier)</span></div>
+              <div style="display:flex;gap:3px;align-items:flex-end;height:100px;margin-top:8px;background:var(--surface-2);border-radius:8px;padding:12px;">
+                <div style="flex:1;background:var(--accent);border-radius:2px 2px 0 0;height:0%;transition:height 0.5s;" class="fbl-bar" data-h="90%"></div>
+                <div style="flex:1;background:var(--accent);border-radius:2px 2px 0 0;height:0%;transition:height 0.5s;" class="fbl-bar" data-h="85%"></div>
+                <div style="flex:1;background:var(--accent);border-radius:2px 2px 0 0;height:0%;transition:height 0.5s;" class="fbl-bar" data-h="40%"></div>
+              </div>
+              <div style="display:flex;justify-content:space-around;margin-top:4px;font-size:10px;color:var(--text-muted);">
+                <span>Mar 2</span><span>Mar 3</span><span>Mar 4</span>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
+                <thead><tr style="border-bottom:1px solid var(--border);">
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Identifiers</th>
+                  <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Spam Rate</th>
+                </tr></thead>
+                <tbody>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 3, 2026</td><td style="padding:8px 12px;font-weight:600;">1285</td><td style="padding:8px 12px;text-align:right;color:var(--orange);">0.13%</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 3, 2026</td><td style="padding:8px 12px;">239</td><td style="padding:8px 12px;text-align:right;color:var(--orange);">0.13%</td></tr>
+                  <tr><td style="padding:8px 12px;">Mar 3, 2026</td><td style="padding:8px 12px;color:var(--text-muted);">promotional</td><td style="padding:8px 12px;text-align:right;color:var(--orange);">0.13%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 3: Authentication -->
+          <div class="gpm-panel" id="gpm-auth">
+            <div style="margin-top:16px;">
+              <div class="pm-trend-title">Authentication Rates (SPF, DKIM, DMARC)</div>
+              <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;">
+                <div style="display:flex;align-items:flex-end;height:140px;position:relative;border-left:1px solid var(--border);border-bottom:1px solid var(--border);">
+                  <div style="position:absolute;left:-36px;top:0;font-size:9px;color:var(--text-muted);">100%</div>
+                  <div style="position:absolute;left:-30px;top:25%;font-size:9px;color:var(--text-muted);">80%</div>
+                  <div style="position:absolute;left:-30px;top:50%;font-size:9px;color:var(--text-muted);">60%</div>
+                  <div style="position:absolute;left:-30px;top:75%;font-size:9px;color:var(--text-muted);">40%</div>
+                  <div style="position:absolute;left:0;right:0;top:25%;border-top:1px solid rgba(255,255,255,0.05);"></div>
+                  <div style="position:absolute;left:0;right:0;top:50%;border-top:1px solid rgba(255,255,255,0.05);"></div>
+                  <div style="position:absolute;left:0;right:0;top:75%;border-top:1px solid rgba(255,255,255,0.05);"></div>
+                  <div class="pm-trend-bars" id="gpm-auth-chart" style="width:100%;height:100%;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);padding-left:4px;">
+                  <span>Mar 1</span><span>Mar 2</span><span>Mar 3</span><span>Mar 4</span><span>Mar 5</span><span>Mar 6</span>
+                </div>
+                <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:11px;">
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#4285F4;border-radius:2px;display:inline-block;"></span> DMARC</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#EA4335;border-radius:2px;display:inline-block;"></span> DKIM</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#FBBC05;border-radius:2px;display:inline-block;"></span> SPF</span>
+                </div>
+              </div>
+
+              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:16px;">
+                <thead><tr style="border-bottom:1px solid var(--border);">
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DKIM Rate</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">SPF Rate</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DMARC Rate</th>
+                </tr></thead>
+                <tbody>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 1</td><td style="padding:8px 12px;">93.62%</td><td style="padding:8px 12px;color:var(--yellow);">85.11%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 2</td><td style="padding:8px 12px;">98.51%</td><td style="padding:8px 12px;color:var(--yellow);">76.12%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 3</td><td style="padding:8px 12px;color:var(--green);">99.99%</td><td style="padding:8px 12px;color:var(--red);">52.25%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 4</td><td style="padding:8px 12px;">96.72%</td><td style="padding:8px 12px;color:var(--yellow);">76.23%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 5</td><td style="padding:8px 12px;">96.43%</td><td style="padding:8px 12px;color:var(--yellow);">62.50%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
+                  <tr><td style="padding:8px 12px;">Mar 6</td><td style="padding:8px 12px;color:var(--green);">99.83%</td><td style="padding:8px 12px;color:var(--green);">98.49%</td><td style="padding:8px 12px;color:var(--green);">100.00%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 4: Encryption & Delivery Errors -->
+          <div class="gpm-panel" id="gpm-encryption">
+            <div style="margin-top:16px;">
+              <div class="pm-trend-title">TLS Encryption Rate</div>
+              <div class="pm-grid" style="grid-template-columns:repeat(2,1fr);margin-top:8px;">
+                <div class="pm-metric">
+                  <div class="pm-label">Inbound TLS</div>
+                  <div class="pm-value" style="color:var(--green);">100%</div>
+                  <div class="pm-sub">All days at 100%</div>
+                </div>
+                <div class="pm-metric">
+                  <div class="pm-label">Outbound TLS</div>
+                  <div class="pm-value" style="color:var(--text-muted);">—</div>
+                  <div class="pm-sub">No outbound data</div>
+                </div>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
+                <thead><tr style="border-bottom:1px solid var(--border);">
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Inbound TLS</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Outbound TLS</th>
+                </tr></thead>
+                <tbody>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 1</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 2</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 3</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 4</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
+                  <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;">Mar 5</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
+                  <tr><td style="padding:8px 12px;">Mar 6</td><td style="padding:8px 12px;color:var(--green);">100.00%</td><td style="padding:8px 12px;color:var(--text-muted);">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="margin-top:24px;padding-top:20px;border-top:1px dashed var(--border);">
+              <div class="pm-trend-title">Delivery Errors</div>
+              <div class="pm-grid" style="grid-template-columns:1fr;margin-top:8px;">
+                <div class="pm-metric">
+                  <div class="pm-label">Error Rate</div>
+                  <div class="pm-value" style="color:var(--green);">0%</div>
+                  <div class="pm-sub">No rejections or temp failures</div>
+                </div>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
+                <thead><tr style="border-bottom:1px solid var(--border);">
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Error Type</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Reason</th>
+                  <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Percentage</th>
+                </tr></thead>
+                <tbody>
+                  <tr><td colspan="4" style="padding:20px 12px;text-align:center;color:var(--text-muted);">No delivery errors in this period ✓</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 5: Compliance Status -->
+          <div class="gpm-panel" id="gpm-compliance">
+            <div style="margin-top:16px;">
+              <div class="pm-trend-title">Compliance Status <span style="font-size:11px;color:var(--text-muted);font-weight:400;">Last updated Thu, Mar 5, at 12:00 AM.</span></div>
+              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
+                <thead><tr style="border-bottom:1px solid var(--border);">
+                  <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Requirement</th>
+                  <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Status</th>
+                </tr></thead>
+                <tbody>
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:12px;">SPF and DKIM authentication</td>
+                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:12px;">From: header alignment</td>
+                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:12px;">DMARC authentication</td>
+                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:12px;">Encryption</td>
+                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:12px;">User-reported spam rate</td>
+                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:12px;">DNS records</td>
+                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
+                  </tr>
+                  <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:12px;">
+                      <div>One-click unsubscribe</div>
+                    </td>
+                    <td style="padding:12px;">
+                      <div style="color:var(--red);font-weight:600;">⚠️ Needs work</div>
+                      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Ensure one-click unsubscribe is correctly implemented for your subscription messages. One-click unsubscribe allows recipients to easily unsubscribe instead of marking your messages as spam.</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px;">Honor unsubscribe</td>
+                    <td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✅ Compliant</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+        </div><!-- /gpm-state-data -->
+
+        <!-- GPM State: No Data (connected but no data yet) -->
+        <div class="provider-state" id="gpm-state-nodata">
+          <div class="pm-widget">
+            <div class="pm-header">
+              <div class="pm-title">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
+                Google Postmaster
+              </div>
+              <span class="badge badge-green">Connected</span>
+            </div>
+            <div style="text-align:center;padding:40px 20px;">
+              <div style="font-size:40px;margin-bottom:12px;opacity:0.5;">📭</div>
+              <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Waiting for data</div>
+              <div style="font-size:13px;color:var(--text-muted);max-width:380px;margin:0 auto 16px;">Google Postmaster is connected successfully. Data typically appears within 24–48 hours after your first email send. Google processes data in daily batches.</div>
+              <div style="display:flex;justify-content:center;gap:24px;margin-top:20px;">
+                <div style="text-align:center;">
+                  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Status</div>
+                  <div style="font-size:13px;font-weight:600;color:var(--green);margin-top:4px;">✓ Connected</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Domain Verified</div>
+                  <div style="font-size:13px;font-weight:600;color:var(--green);margin-top:4px;">✓ mailercloud.com</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Last Sync</div>
+                  <div style="font-size:13px;font-weight:600;margin-top:4px;">Just now</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><!-- /gpm-state-nodata -->
+
+        <!-- GPM State: Not Connected -->
+        <div class="provider-state" id="gpm-state-disconnected">
+          <div class="provider-cta">
+            <div class="cta-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
+            </div>
+            <div class="cta-title">Connect Google Postmaster Tools</div>
+            <div class="cta-desc">See live spam rates, authentication pass rates, encryption data, feedback loop reports, and compliance status directly from Google's mail infrastructure.</div>
+            <button class="cta-btn">Connect Google Account</button>
+            <a class="cta-btn-outline" href="#">Learn More</a>
+          </div>
+        </div><!-- /gpm-state-disconnected -->
+
+        <!-- GPM State: Free User (blurred paywall) -->
+        <div class="provider-state" id="gpm-state-free">
+          <div class="pm-widget" style="position:relative;overflow:hidden;">
+            <div class="pm-header">
+              <div class="pm-title">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
+                Google Postmaster
+              </div>
+              <span class="free-badge">Free Plan</span>
+            </div>
+            <!-- Blurred preview -->
+            <div style="filter:blur(4px);opacity:0.5;pointer-events:none;">
+              <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);margin-top:16px;">
+                <div class="pm-metric"><div class="pm-label">Spam Rate</div><div class="pm-value" style="color:var(--green);">0.02%</div></div>
+                <div class="pm-metric"><div class="pm-label">TLS Encrypted</div><div class="pm-value" style="color:var(--green);">100%</div></div>
+                <div class="pm-metric"><div class="pm-label">Delivery Errors</div><div class="pm-value" style="color:var(--green);">0%</div></div>
+              </div>
+              <div class="pm-auth-bars" style="margin-top:16px;">
+                <div class="pm-auth-row"><span class="pm-auth-label">SPF</span><div class="pm-bar"><div class="pm-bar-fill" style="width:85%;background:var(--green);"></div></div><span class="pm-pct">98.5%</span></div>
+                <div class="pm-auth-row"><span class="pm-auth-label">DKIM</span><div class="pm-bar"><div class="pm-bar-fill" style="width:90%;background:var(--green);"></div></div><span class="pm-pct">99.8%</span></div>
+                <div class="pm-auth-row"><span class="pm-auth-label">DMARC</span><div class="pm-bar"><div class="pm-bar-fill" style="width:95%;background:var(--green);"></div></div><span class="pm-pct">100%</span></div>
+              </div>
+            </div>
+            <!-- Upgrade overlay -->
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;background:rgba(10,10,15,0.92);border:1px solid var(--accent);border-radius:12px;padding:28px 36px;z-index:5;width:320px;">
+              <div style="font-size:24px;margin-bottom:8px;">🔒</div>
+              <div style="font-size:15px;font-weight:700;margin-bottom:6px;">Pro Feature</div>
+              <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Google Postmaster integration is available on the Pro plan and above.</div>
+              <button class="cta-btn" style="width:100%;">Upgrade to Pro</button>
+            </div>
+          </div>
+        </div><!-- /gpm-state-free -->
+
+        </div><!-- /eh-sec-google -->
+
+        <!-- ===== SECTION: MICROSOFT SNDS ===== -->
+        <div class="eh-section" id="eh-sec-microsoft">
+
+        <!-- MS State: Data -->
+        <div class="provider-state active" id="ms-state-data">
+        <div class="pm-widget">
+          <div class="pm-header">
+            <div class="pm-title">
+              <svg width="18" height="18" viewBox="0 0 23 23">
+                <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+                <rect x="12" y="1" width="10" height="10" fill="#7FBA00"/>
+                <rect x="1" y="12" width="10" height="10" fill="#00A4EF"/>
+                <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
+              </svg>
+              Microsoft Outlook Intelligence
+            </div>
+            <span class="pm-date-range">Last 48 hours</span>
+          </div>
+
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Sending IP Status (SNDS)</div>
+          <div class="pm-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));">
+            <div class="pm-metric">
+              <div class="pm-label">Primary IP</div>
+              <div class="pm-value" style="color:var(--green);font-size:16px;">🟢 Green</div>
+              <div class="pm-sub">198.51.100.25</div>
+            </div>
+            <div class="pm-metric">
+              <div class="pm-label">Secondary IP</div>
+              <div class="pm-value" style="color:var(--green);font-size:16px;">🟢 Green</div>
+              <div class="pm-sub">198.51.100.26</div>
+            </div>
+            <div class="pm-metric">
+              <div class="pm-label">Warm-up IP</div>
+              <div class="pm-value" style="color:var(--yellow);font-size:16px;">🟡 Yellow</div>
+              <div class="pm-sub">198.51.100.30</div>
+            </div>
+          </div>
+
+          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
+            <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Complaint & Trap Data</div>
+            <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);">
+              <div class="pm-metric">
+                <div class="pm-label">Complaint Rate</div>
+                <div class="pm-value" style="color:var(--green);">0.05%</div>
+                <div class="pm-sub">JMRP reports</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">Spam Trap Hits</div>
+                <div class="pm-value" style="color:var(--green);">0</div>
+                <div class="pm-sub">Last 48h</div>
+              </div>
+              <div class="pm-metric">
+                <div class="pm-label">Junk Reports</div>
+                <div class="pm-value" style="color:var(--yellow);">7</div>
+                <div class="pm-sub">Last 48h</div>
+              </div>
+            </div>
+
+            <div class="pm-trend" style="margin-top:16px;">
+              <div class="pm-trend-title">Complaint Rate Trend (30 days)</div>
+              <div class="pm-trend-bars" id="eh-ms-trend"></div>
+              <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);">
+                <span>Feb 6</span>
+                <span style="color:var(--green);font-weight:600;">▼ Below 0.1% threshold</span>
+                <span>Mar 7</span>
+              </div>
+            </div>
+          </div><!-- /complaint section -->
+
+          <div class="pm-errors" style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
+            <div class="pm-errors-title">Recent Junk Mail Reports (JMRP Samples)</div>
+            <div class="pm-error-row">
+              <span class="pm-error-label">Subject: "March Newsletter - New Features"</span>
+              <span class="pm-error-count" style="color:var(--yellow);">Mar 6</span>
+            </div>
+            <div class="pm-error-row">
+              <span class="pm-error-label">Subject: "Your Weekly Digest"</span>
+              <span class="pm-error-count" style="color:var(--yellow);">Mar 5</span>
+            </div>
+            <div class="pm-error-row">
+              <span class="pm-error-label">Subject: "Special Offer Inside"</span>
+              <span class="pm-error-count" style="color:var(--red);">Mar 4</span>
+            </div>
+          </div>
+        </div>
+        </div><!-- /ms-state-data -->
+
+        <!-- MS State: Not Connected -->
+        <div class="provider-state" id="ms-state-disconnected">
+          <div class="provider-cta">
+            <div class="cta-icon">
+              <svg width="32" height="32" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+            </div>
+            <div class="cta-title">Connect Microsoft SNDS</div>
+            <div class="cta-desc">Get IP reputation data, complaint rates, and spam trap hits from Microsoft's Smart Network Data Services for Outlook & Hotmail delivery.</div>
+            <button class="cta-btn">Connect Microsoft SNDS</button>
+            <a class="cta-btn-outline" href="#">Learn More</a>
+          </div>
+        </div><!-- /ms-state-disconnected -->
+
+        </div><!-- /eh-sec-microsoft -->
+
+        <!-- ===== SECTION: YAHOO / AOL ===== -->
+        <div class="eh-section" id="eh-sec-yahoo">
+
+        <!-- Yahoo State: Data -->
+        <div class="provider-state active" id="yahoo-state-data">
+        <div class="pm-widget">
+          <div class="pm-header">
+            <div class="pm-title">
+              <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#6001D2" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c.83 0 1.5.67 1.5 1.5S12.83 8 12 8s-1.5-.67-1.5-1.5S11.17 5 12 5zm-2 12v-1h1v-4h-1v-1h3v5h1v1H10z"/></svg>
+              Yahoo / AOL Intelligence
+            </div>
+            <span class="pm-date-range">CFL data · Last 30 days</span>
+          </div>
+
+          <!-- Summary Metrics -->
+          <div class="pm-grid" style="grid-template-columns:repeat(4,1fr);">
+            <div class="pm-metric">
+              <div class="pm-label">Complaint Rate</div>
+              <div class="pm-value" style="color:var(--green);">0.04%</div>
+              <div class="pm-sub">Below 0.1% ✓</div>
+            </div>
+            <div class="pm-metric">
+              <div class="pm-label">Complaints</div>
+              <div class="pm-value">23</div>
+              <div class="pm-sub">Last 30 days</div>
+            </div>
+            <div class="pm-metric">
+              <div class="pm-label">Delivered</div>
+              <div class="pm-value">57.5K</div>
+              <div class="pm-sub">Yahoo + AOL inboxes</div>
+            </div>
+            <div class="pm-metric">
+              <div class="pm-label">Reputation</div>
+              <div class="pm-value" style="color:var(--green);font-size:16px;">Good</div>
+              <div class="pm-sub">Stable sender</div>
+            </div>
+          </div>
+
+          <!-- Complaint Trend -->
+          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
+            <div class="pm-trend-title">Complaint Rate Trend (30 days)</div>
+            <div class="pm-trend-bars" id="eh-yahoo-trend"></div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);">
+              <span>Feb 6</span>
+              <span style="color:var(--green);font-weight:600;">▼ Below 0.1% threshold</span>
+              <span>Mar 7</span>
+            </div>
+          </div>
+
+          <!-- Top Complained Subjects -->
+          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
+            <div class="pm-errors-title">Top Complained Subjects</div>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead><tr style="border-bottom:1px solid var(--border);">
+                <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Subject Line</th>
+                <th style="text-align:center;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Complaints</th>
+                <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Rate</th>
+              </tr></thead>
+              <tbody>
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 12px;">Special Offer Inside - 50% Off</td>
+                  <td style="padding:8px 12px;text-align:center;font-weight:600;">8</td>
+                  <td style="padding:8px 12px;text-align:right;color:var(--orange);">0.12%</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 12px;">You're Missing Out - Last Chance!</td>
+                  <td style="padding:8px 12px;text-align:center;font-weight:600;">5</td>
+                  <td style="padding:8px 12px;text-align:right;color:var(--orange);">0.08%</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:8px 12px;">March Newsletter - New Features</td>
+                  <td style="padding:8px 12px;text-align:center;font-weight:600;">4</td>
+                  <td style="padding:8px 12px;text-align:right;color:var(--green);">0.02%</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 12px;">Your Weekly Digest</td>
+                  <td style="padding:8px 12px;text-align:center;font-weight:600;">3</td>
+                  <td style="padding:8px 12px;text-align:right;color:var(--green);">0.01%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Sending IP Breakdown -->
+          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
+            <div class="pm-errors-title">Complaints by Sending IP</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div class="pm-error-row" style="align-items:center;">
+                <span style="font-size:13px;">198.51.100.25 <span style="color:var(--text-muted);font-size:11px;">(Primary)</span></span>
+                <span style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:12px;color:var(--text-muted);">12 complaints</span>
+                  <span class="badge badge-green">0.03%</span>
+                </span>
+              </div>
+              <div class="pm-error-row" style="align-items:center;">
+                <span style="font-size:13px;">198.51.100.26 <span style="color:var(--text-muted);font-size:11px;">(Secondary)</span></span>
+                <span style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:12px;color:var(--text-muted);">6 complaints</span>
+                  <span class="badge badge-green">0.04%</span>
+                </span>
+              </div>
+              <div class="pm-error-row" style="align-items:center;">
+                <span style="font-size:13px;">198.51.100.30 <span style="color:var(--text-muted);font-size:11px;">(Warm-up)</span></span>
+                <span style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:12px;color:var(--text-muted);">5 complaints</span>
+                  <span class="badge badge-yellow">0.09%</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div><!-- /yahoo-state-data -->
+
+        <!-- Yahoo State: Not Connected -->
+        <div class="provider-state" id="yahoo-state-disconnected">
+          <div class="provider-cta">
+            <div class="cta-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24"><path fill="#6001D2" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c.83 0 1.5.67 1.5 1.5S12.83 8 12 8s-1.5-.67-1.5-1.5S11.17 5 12 5zm-2 12v-1h1v-4h-1v-1h3v5h1v1H10z"/></svg>
+            </div>
+            <div class="cta-title">Connect Yahoo/AOL CFL</div>
+            <div class="cta-desc">Set up Yahoo's Complaint Feedback Loop to receive complaint reports, track complaint rates, and identify problematic campaigns for Yahoo & AOL inboxes.</div>
+            <button class="cta-btn">Connect Yahoo CFL</button>
+            <a class="cta-btn-outline" href="#">Learn More</a>
+          </div>
+        </div><!-- /yahoo-state-disconnected -->
+
+        </div><!-- /eh-sec-yahoo -->
+
+        <!-- ===== SECTION: BLACKLIST MONITOR ===== -->
+        <div class="eh-section" id="eh-sec-blacklist">
+        <div class="pm-widget">
+          <div class="pm-header">
+            <div class="pm-title">
+              <span style="font-size:18px;">🛡️</span>
+              Blacklist Monitor
+            </div>
+            <span class="pm-date-range">Checked 2 min ago</span>
+          </div>
+
+          <!-- Summary -->
+          <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+            <div class="pm-metric">
+              <div class="pm-label">Blacklists Checked</div>
+              <div class="pm-value">1000+</div>
+              <div class="pm-sub">via HetrixTools API</div>
+            </div>
+            <div class="pm-metric">
+              <div class="pm-label">Current Listings</div>
+              <div class="pm-value" style="color:var(--yellow);">1</div>
+              <div class="pm-sub">1 low-severity listing</div>
+            </div>
+            <div class="pm-metric">
+              <div class="pm-label">Status</div>
+              <div class="pm-value" style="color:var(--yellow);font-size:16px;">⚠️ Warning</div>
+              <div class="pm-sub">1 listing detected</div>
+            </div>
+          </div>
+
+          <!-- IP Checks -->
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Sending IPs</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div class="pm-error-row" style="align-items:center;">
+              <span style="font-size:13px;font-weight:600;">198.51.100.25</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span class="badge badge-green">Clean</span>
+                <span style="font-size:11px;color:var(--text-muted);">0 / 80+ lists</span>
+              </span>
+            </div>
+            <div class="pm-error-row" style="align-items:center;">
+              <span style="font-size:13px;font-weight:600;">198.51.100.26</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span class="badge badge-green">Clean</span>
+                <span style="font-size:11px;color:var(--text-muted);">0 / 80+ lists</span>
+              </span>
+            </div>
+            <div class="pm-error-row" style="align-items:center;">
+              <span style="font-size:13px;font-weight:600;">198.51.100.30</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span class="badge badge-yellow">1 Listed</span>
+                <span style="font-size:11px;color:var(--text-muted);">1 / 80+ lists</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Domain Checks -->
+          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
+            <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Domain</div>
+            <div class="pm-error-row" style="align-items:center;">
+              <span style="font-size:13px;font-weight:600;">mailercloud.com</span>
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span class="badge badge-green">Clean</span>
+                <span style="font-size:11px;color:var(--text-muted);">0 / 1000+ lists</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Listing Detail -->
+          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
+            <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Active Listings</div>
+            <div style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.25);border-radius:10px;padding:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;color:var(--yellow);">SORBS DUHL</span>
+                <span class="badge badge-yellow">Low Severity</span>
+              </div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">IP: 198.51.100.30 · Listed since Mar 5, 2026</div>
+              <div style="font-size:12px;color:var(--text-muted);">Dynamic IP range listing — common for new/warm-up IPs. Usually auto-delists when IP establishes reputation.</div>
+            </div>
+          </div>
+        </div>
+        </div><!-- /eh-sec-blacklist -->
+
+        <!-- ===== SECTION: IP & DOMAIN REPUTATION ===== -->
+        <div class="eh-section" id="eh-sec-reputation">
+        <div class="pm-widget">
+          <div class="pm-header">
+            <div class="pm-title">
+              <span style="font-size:18px;">📊</span>
+              IP Reputation
+            </div>
+            <span class="pm-date-range">Consolidated from all sources</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Each IP's health across third-party reputation services, Microsoft SNDS, and blacklist databases — all in one view.</div>
+
+          <div style="display:flex;flex-direction:column;gap:10px;">
+
+            <!-- IP 1: 198.51.100.25 (Primary) — Healthy -->
+            <div style="background:var(--surface-2);border-radius:10px;padding:16px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span style="font-size:13px;font-weight:600;">198.51.100.25 <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(Primary)</span></span>
+                <span class="badge badge-green">Healthy</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Sender Score</div>
+                  <div style="font-size:18px;font-weight:700;color:var(--green);margin-top:2px;">92</div>
+                  <div style="font-size:10px;color:var(--text-muted);">Validity (DNS)</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Cisco Talos</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Good</div>
+                  <div style="font-size:10px;color:var(--text-muted);">Neutral → Good</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Barracuda BRBL</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Good</div>
+                  <div style="font-size:10px;color:var(--text-muted);">DNSBL clear</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Microsoft SNDS</div>
+                  <div style="margin-top:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:middle;"></span><span style="font-size:14px;font-weight:700;color:var(--green);">Normal</span></div>
+                  <div style="font-size:10px;color:var(--text-muted);">Green status</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Blacklists</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Clear</div>
+                  <div style="font-size:10px;color:var(--text-muted);">0 of 1000+</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- IP 2: 198.51.100.26 (Secondary) — Healthy -->
+            <div style="background:var(--surface-2);border-radius:10px;padding:16px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span style="font-size:13px;font-weight:600;">198.51.100.26 <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(Secondary)</span></span>
+                <span class="badge badge-green">Healthy</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Sender Score</div>
+                  <div style="font-size:18px;font-weight:700;color:var(--green);margin-top:2px;">88</div>
+                  <div style="font-size:10px;color:var(--text-muted);">Validity (DNS)</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Cisco Talos</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Good</div>
+                  <div style="font-size:10px;color:var(--text-muted);">Stable</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Barracuda BRBL</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Good</div>
+                  <div style="font-size:10px;color:var(--text-muted);">DNSBL clear</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Microsoft SNDS</div>
+                  <div style="margin-top:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:middle;"></span><span style="font-size:14px;font-weight:700;color:var(--green);">Normal</span></div>
+                  <div style="font-size:10px;color:var(--text-muted);">Green status</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Blacklists</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Clear</div>
+                  <div style="font-size:10px;color:var(--text-muted);">0 of 1000+</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- IP 3: 198.51.100.30 (Warm-up) — Warning -->
+            <div style="background:var(--surface-2);border-radius:10px;padding:16px;border-left:3px solid var(--yellow);">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span style="font-size:13px;font-weight:600;">198.51.100.30 <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(Warm-up)</span></span>
+                <span class="badge badge-yellow">Warming</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Sender Score</div>
+                  <div style="font-size:18px;font-weight:700;color:var(--yellow);margin-top:2px;">61</div>
+                  <div style="font-size:10px;color:var(--text-muted);">Validity (DNS)</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Cisco Talos</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--yellow);margin-top:4px;">Neutral</div>
+                  <div style="font-size:10px;color:var(--text-muted);">Building rep</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Barracuda BRBL</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Good</div>
+                  <div style="font-size:10px;color:var(--text-muted);">DNSBL clear</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Microsoft SNDS</div>
+                  <div style="margin-top:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--yellow);margin-right:4px;vertical-align:middle;"></span><span style="font-size:14px;font-weight:700;color:var(--yellow);">Elevated</span></div>
+                  <div style="font-size:10px;color:var(--text-muted);">Yellow status</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Blacklists</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--red);margin-top:4px;">1 Listed</div>
+                  <div style="font-size:10px;color:var(--text-muted);cursor:pointer;text-decoration:underline;" onclick="switchEhSection('blacklist')">SORBS DUHL →</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Legend / Sources -->
+          <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border);display:flex;gap:20px;flex-wrap:wrap;">
+            <div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
+              <span style="font-weight:600;">Sources:</span> Validity Sender Score (DNS) · Cisco Talos · Barracuda BRBL (DNSBL) · Microsoft SNDS · HetrixTools (1000+ blacklists)
+            </div>
+          </div>
+        </div>
+        </div><!-- /eh-sec-reputation -->
+
+      </div><!-- /eh-content -->
+    </div><!-- /eh-layout -->
+
+  </main>
+</div>
+
+<script>
+/* === Base JS (auth, sidebar toggle, logout) === */
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('show');
+}
+
+function getToken() {
+  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+}
+
+function logout() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  sessionStorage.removeItem('access_token');
+  sessionStorage.removeItem('refresh_token');
+  sessionStorage.removeItem('user');
+  window.location.href = '/login';
+}
+
+/* === Auth check on load === */
+window.addEventListener('DOMContentLoaded', () => {
+  const token = getToken();
+  if (!token) { window.location.href = '/login'; return; }
+
+  const headers = { 'Authorization': 'Bearer ' + token };
+
+  fetch('/api/auth/me', { headers })
+    .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    .then(userData => {
+      const name = userData.user.name || userData.user.email.split('@')[0];
+      document.getElementById('user-name').textContent = name;
+    })
+    .catch(() => {
+      const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+      if (refresh) {
+        fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refresh })
+        }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
+          .then(data => {
+            const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+            storage.setItem('access_token', data.access_token);
+            storage.setItem('refresh_token', data.refresh_token);
+            location.reload();
+          }).catch(() => logout());
+      } else { logout(); }
+    });
+
+  // Load alert badge count
+  fetch('/api/user/alerts/count', { headers })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data && data.unread_count > 0) {
+        const badge = document.getElementById('sidebar-badge');
+        badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+        badge.style.display = 'inline';
+      }
+    }).catch(() => {});
+
+  // Close sidebar on mobile when clicking main
+  document.querySelector('.main').addEventListener('click', () => {
+    document.querySelector('.sidebar').classList.remove('open');
+  });
+});
+
+/* === Email Health: Section Switching === */
+function switchEhSection(section) {
+  document.querySelectorAll('.eh-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('eh-sec-' + section).classList.add('active');
+  const sections = ['overview','google','microsoft','yahoo','blacklist','reputation'];
+  document.querySelectorAll('.eh-submenu-item').forEach((item, i) => {
+    item.classList.toggle('active', sections[i] === section);
+  });
+}
+
+/* === Email Health: Period Button Toggle === */
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.eh-period button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.eh-period button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+});
+
+/* === Google Postmaster: Tab Switching === */
+function switchGpmTab(tab) {
+  document.querySelectorAll('.gpm-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.gpm-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('gpm-' + tab).classList.add('active');
+  const tabs = ['overview','spam','auth','encryption','compliance'];
+  document.querySelectorAll('.gpm-tab').forEach((t, i) => {
+    if (tabs[i] === tab) t.classList.add('active');
+  });
+  // Animate bars when switching to overview tab
+  if (tab === 'overview') animateAuthBars();
+  // Animate FBL bars when switching to spam tab
+  if (tab === 'spam') animateFblBars();
+}
+
+/* === Animate auth bar fills on load/tab switch === */
+function animateAuthBars() {
+  const bars = { 'bar-spf': 98.5, 'bar-dkim': 99.8, 'bar-dmarc': 100 };
+  Object.entries(bars).forEach(([id, pct]) => {
+    const el = document.getElementById(id);
+    if (el) setTimeout(() => { el.style.width = pct + '%'; }, 100);
+  });
+}
+
+/* === Animate FBL bars === */
+function animateFblBars() {
+  document.querySelectorAll('.fbl-bar').forEach(bar => {
+    const h = bar.getAttribute('data-h');
+    if (h) setTimeout(() => { bar.style.height = h; }, 100);
+  });
+}
+
+/* === Trigger auth bar animation on page load === */
+document.addEventListener('DOMContentLoaded', () => {
+  // Delay slightly so bars animate visibly when user navigates to Google section
+  setTimeout(animateAuthBars, 500);
+});
+
+/* === GPM Spam Rate Bars + FBL animation === */
+function animateGpmSpam() {
+  const spamBars = document.getElementById('gpm-spam-bars');
+  if (spamBars && spamBars.children.length === 0) {
+    const rates = [0.00, 0.00, 0.13, 0.00, 0.00, 0.00];
+    rates.forEach((rate, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'pm-trend-bar';
+      bar.style.flex = '1';
+      const h = rate === 0 ? 3 : Math.max(6, Math.min(140, Math.round(rate / 0.3 * 140)));
+      bar.style.height = '0px';
+      bar.style.background = rate === 0 ? 'var(--green)' : rate <= 0.1 ? 'var(--orange)' : 'var(--red)';
+      bar.title = 'Mar ' + (i+1) + ': ' + rate.toFixed(2) + '%';
+      bar.style.minWidth = '16px';
+      spamBars.appendChild(bar);
+      setTimeout(() => { bar.style.height = h + 'px'; }, 200 + i * 80);
+    });
+  }
+  document.querySelectorAll('.fbl-bar').forEach((bar, i) => {
+    setTimeout(() => { bar.style.height = bar.dataset.h; }, 300 + i * 100);
+  });
+}
+
+/* === GPM Auth Chart (grouped bars per day) === */
+function animateGpmAuth() {
+  const authChart = document.getElementById('gpm-auth-chart');
+  if (authChart && authChart.children.length === 0) {
+    const days = [
+      { dkim: 93.62, spf: 85.11, dmarc: 100 },
+      { dkim: 98.51, spf: 76.12, dmarc: 100 },
+      { dkim: 99.99, spf: 52.25, dmarc: 100 },
+      { dkim: 96.72, spf: 76.23, dmarc: 100 },
+      { dkim: 96.43, spf: 62.50, dmarc: 100 },
+      { dkim: 99.83, spf: 98.49, dmarc: 100 }
+    ];
+    days.forEach((d, i) => {
+      const group = document.createElement('div');
+      group.style.cssText = 'flex:1;display:flex;gap:2px;align-items:flex-end;height:100%;';
+      ['dmarc','dkim','spf'].forEach((key, ki) => {
+        const bar = document.createElement('div');
+        const colors = { dmarc: '#4285F4', dkim: '#EA4335', spf: '#FBBC05' };
+        bar.style.cssText = 'flex:1;border-radius:2px 2px 0 0;background:' + colors[key] + ';height:0%;transition:height 0.6s ease;min-width:4px;';
+        bar.title = key.toUpperCase() + ': ' + d[key].toFixed(1) + '%';
+        group.appendChild(bar);
+        setTimeout(() => { bar.style.height = (d[key] / 100 * 100) + '%'; }, 200 + i * 100 + ki * 50);
+      });
+      authChart.appendChild(group);
+    });
+  }
+}
+
+/* === Email Health Trend Animations (Overview + MS + Yahoo) === */
+function animateEmailHealthTrends() {
+  // Overview spam trend
+  const spamTrend = document.getElementById('eh-spam-trend');
+  if (spamTrend && spamTrend.children.length === 0) {
+    const rates = [0.018,0.015,0.020,0.022,0.019,0.017,0.025,0.030,0.028,0.021,0.018,0.016,0.019,0.023,0.020,0.017,0.015,0.014,0.018,0.022,0.025,0.019,0.016,0.015,0.018,0.020,0.017,0.016,0.019,0.020];
+    rates.forEach((rate, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'pm-trend-bar';
+      const pxH = Math.max(4, Math.min(56, Math.round(rate * 100 / 0.05 * 50) + 4));
+      bar.style.height = '0px';
+      bar.style.background = rate > 0.01 ? '#f97316' : 'var(--green)';
+      bar.title = 'Day ' + (i+1) + ': ' + (rate*100).toFixed(3) + '%';
+      spamTrend.appendChild(bar);
+      setTimeout(() => { bar.style.height = pxH + 'px'; }, 300 + i * 20);
+    });
+  }
+
+  // Microsoft complaint trend
+  const msTrend = document.getElementById('eh-ms-trend');
+  if (msTrend && msTrend.children.length === 0) {
+    const complaints = [0.06,0.05,0.07,0.04,0.05,0.06,0.08,0.09,0.07,0.06,0.05,0.04,0.06,0.07,0.05,0.04,0.03,0.04,0.05,0.06,0.07,0.05,0.04,0.05,0.06,0.05,0.04,0.05,0.05,0.05];
+    complaints.forEach((rate, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'pm-trend-bar';
+      const pxH = Math.max(4, Math.min(56, Math.round(rate / 0.15 * 50) + 4));
+      bar.style.height = '0px';
+      bar.style.background = rate < 0.05 ? 'var(--green)' : rate < 0.08 ? '#f97316' : 'var(--red)';
+      bar.title = 'Day ' + (i+1) + ': ' + rate.toFixed(2) + '%';
+      msTrend.appendChild(bar);
+      setTimeout(() => { bar.style.height = pxH + 'px'; }, 300 + i * 20);
+    });
+  }
+
+  // Yahoo/AOL complaint trend
+  const yahooTrend = document.getElementById('eh-yahoo-trend');
+  if (yahooTrend && yahooTrend.children.length === 0) {
+    const complaints = [0.03,0.04,0.05,0.03,0.04,0.06,0.07,0.05,0.04,0.03,0.04,0.05,0.06,0.04,0.03,0.04,0.05,0.03,0.02,0.04,0.05,0.06,0.04,0.03,0.04,0.05,0.04,0.03,0.04,0.04];
+    complaints.forEach((rate, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'pm-trend-bar';
+      const pxH = Math.max(4, Math.min(56, Math.round(rate / 0.12 * 50) + 4));
+      bar.style.height = '0px';
+      bar.style.background = rate < 0.05 ? 'var(--green)' : rate < 0.08 ? '#f97316' : 'var(--red)';
+      bar.title = 'Day ' + (i+1) + ': ' + rate.toFixed(2) + '%';
+      yahooTrend.appendChild(bar);
+      setTimeout(() => { bar.style.height = pxH + 'px'; }, 300 + i * 20);
+    });
+  }
+}
+
+/* === Update switchGpmTab to use new animation functions === */
+(function() {
+  const origSwitch = switchGpmTab;
+  switchGpmTab = function(tab) {
+    origSwitch(tab);
+    if (tab === 'spam') animateGpmSpam();
+    if (tab === 'auth') animateGpmAuth();
+  };
+})();
+
+/* === Trigger trend animations on page load === */
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(animateEmailHealthTrends, 600);
+});
+
+/* === Re-animate trends when switching sections === */
+(function() {
+  const origSection = switchEhSection;
+  switchEhSection = function(section) {
+    origSection(section);
+    setTimeout(animateEmailHealthTrends, 100);
+  };
+})();
+</script>
+</body>
+</html>
