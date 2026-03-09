@@ -459,7 +459,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     // Fetch postmaster metrics for each domain
-    const domains = domainsData || [];
+    const domains = (domainsData && domainsData.domains) ? domainsData.domains : [];
     const pmMap = {};
     const pmPromises = domains.map(d =>
       fetch(`/api/postmaster/metrics/${d.domain}`, { headers })
