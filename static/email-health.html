@@ -755,7 +755,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
                 Google Postmaster
               </div>
-              <span class="free-badge">Free Plan</span>
+              <span class="free-badge">Free plan</span>
             </div>
             <!-- Blurred preview -->
             <div style="filter:blur(4px);opacity:0.5;pointer-events:none;">
@@ -1844,10 +1844,21 @@ function getBlacklistDomain() {
   return txt.trim();
 }
 
-async function runBlacklistCheck() {
+// Session-level blacklist cache (5 min TTL)
+const _blCache = {};
+const BL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function runBlacklistCheck(forceRefresh) {
   const domain = getBlacklistDomain();
   const token = getToken();
   if (!token) { alert('Please log in to run a blacklist check.'); return; }
+
+  // Return cached result if available and not expired
+  const cached = _blCache[domain];
+  if (!forceRefresh && cached && (Date.now() - cached.ts < BL_CACHE_TTL)) {
+    renderBlacklistResults(cached.data);
+    return;
+  }
 
   const loadEl  = document.getElementById('bl-loading');
   const resEl   = document.getElementById('bl-results');
@@ -1881,6 +1892,8 @@ async function runBlacklistCheck() {
       return;
     }
 
+    // Cache successful result
+    _blCache[domain] = { data, ts: Date.now() };
     renderBlacklistResults(data);
   } catch (e) {
     if (loadEl) loadEl.style.display = 'none';
@@ -2329,15 +2342,27 @@ function renderMsTrend(dailyRates) {
 
   const maxRate = Math.max(...rates, 0.001); // Ensure non-zero for scaling
 
-  trendEl.innerHTML = rates.map((rate, i) => {
-    const pct = Math.max((rate / maxRate) * 100, 2);
+  // Handle single data point: show a centered bar with label instead of full-width
+  if (rates.length === 1) {
+    const rate = rates[0];
     const color = rate < 0.001 ? 'var(--green)' : rate < 0.005 ? 'var(--yellow)' : 'var(--red)';
-    return `<div class="pm-trend-bar" style="height:${pct}%;background:${color};" title="${dates[i]}: ${(rate * 100).toFixed(3)}%"></div>`;
-  }).join('');
+    const pct = Math.max((rate / maxRate) * 100, 15);
+    trendEl.innerHTML = `<div style="display:flex;align-items:flex-end;justify-content:center;height:100%;gap:4px;">
+      <div class="pm-trend-bar" style="height:${pct}%;background:${color};width:24px;border-radius:4px 4px 0 0;" title="${dates[0]}: ${(rate * 100).toFixed(3)}%"></div>
+    </div>`;
+    document.getElementById('ms-trend-start').textContent = formatDate(dates[0]);
+    document.getElementById('ms-trend-end').textContent = 'Only 1 day of data';
+  } else {
+    trendEl.innerHTML = rates.map((rate, i) => {
+      const pct = Math.max((rate / maxRate) * 100, 2);
+      const color = rate < 0.001 ? 'var(--green)' : rate < 0.005 ? 'var(--yellow)' : 'var(--red)';
+      return `<div class="pm-trend-bar" style="height:${pct}%;background:${color};" title="${dates[i]}: ${(rate * 100).toFixed(3)}%"></div>`;
+    }).join('');
 
-  // Date labels
-  document.getElementById('ms-trend-start').textContent = formatDate(dates[0]);
-  document.getElementById('ms-trend-end').textContent = formatDate(dates[dates.length - 1]);
+    // Date labels — show fewer labels on mobile
+    document.getElementById('ms-trend-start').textContent = formatDate(dates[0]);
+    document.getElementById('ms-trend-end').textContent = formatDate(dates[dates.length - 1]);
+  }
 
   // Status text
   const latestRate = rates[rates.length - 1];
@@ -3087,6 +3112,11 @@ async function loadDomainSafety(domain) {
 
   } catch (e) {
     console.error('[EH] Domain safety check error:', e);
+    const badge = document.getElementById('eh-safety-badge');
+    if (badge) {
+      badge.textContent = 'Unavailable';
+      badge.className = 'badge badge-yellow';
+    }
   }
 }
 

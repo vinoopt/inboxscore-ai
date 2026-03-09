@@ -3445,6 +3445,12 @@ async def serve_scan_page(domain: str):
     return FileResponse("static/index.html")
 
 
+@app.get("/pricing")
+async def serve_pricing():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/#pricing", status_code=302)
+
+
 @app.get("/signup")
 async def serve_signup():
     return FileResponse("static/signup.html")
