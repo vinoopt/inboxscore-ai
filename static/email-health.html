@@ -1790,22 +1790,41 @@ function getBlacklistDomain() {
 const _blCache = {};
 const BL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Called on domain change: show cached blacklist for new domain or clear stale data
-function refreshBlacklistForDomain(domain) {
+// Called on domain change: show cached blacklist for new domain or load from DB
+async function refreshBlacklistForDomain(domain) {
+  // 1) Check in-memory cache first (fast, avoids API call)
   const cached = _blCache[domain];
   if (cached && (Date.now() - cached.ts < BL_CACHE_TTL)) {
     renderBlacklistResults(cached.data);
-  } else {
-    // Clear stale results from previous domain and show prompt
-    const resEl = document.getElementById('bl-results');
-    const loadEl = document.getElementById('bl-loading');
-    const errEl = document.getElementById('bl-error');
-    const btnEl = document.getElementById('bl-check-btn');
-    if (resEl) resEl.style.display = 'none';
-    if (loadEl) loadEl.style.display = 'none';
-    if (errEl) errEl.style.display = 'none';
-    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Check Now'; }
+    return;
   }
+
+  // 2) Try loading last saved results from the database
+  const token = getToken();
+  if (token) {
+    try {
+      const resp = await fetch('/api/blacklist/results/' + encodeURIComponent(domain), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        // Cache it in memory too
+        _blCache[domain] = { data, ts: Date.now() };
+        renderBlacklistResults(data);
+        return;
+      }
+    } catch (e) { /* no saved results — fall through */ }
+  }
+
+  // 3) No cached or saved results — show clean state with Check Now button
+  const resEl = document.getElementById('bl-results');
+  const loadEl = document.getElementById('bl-loading');
+  const errEl = document.getElementById('bl-error');
+  const btnEl = document.getElementById('bl-check-btn');
+  if (resEl) resEl.style.display = 'none';
+  if (loadEl) loadEl.style.display = 'none';
+  if (errEl) errEl.style.display = 'none';
+  if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Check Now'; }
 }
 
 async function runBlacklistCheck(forceRefresh) {

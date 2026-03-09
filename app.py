@@ -40,6 +40,7 @@ from db import (
     get_snds_metrics as db_get_snds_metrics, update_snds_sync_status,
     upsert_snds_metrics,
     add_user_ips, get_user_ips, remove_user_ip, set_ip_domains, get_ips_for_domain,
+    save_blacklist_results, get_blacklist_results,
 )
 
 # Auth
@@ -2986,7 +2987,31 @@ async def api_blacklist_check(domain: str, req: Request):
         ip = ip_result.get("ip", "")
         ip_result["source"] = ip_sources.get(ip, "unknown")
 
+    # Persist results so they survive page navigation
+    save_blacklist_results(user_id, domain, result)
+
     return result
+
+
+@app.get("/api/blacklist/results/{domain}")
+async def api_blacklist_saved_results(domain: str, req: Request):
+    """
+    Get the last saved blacklist check results for a domain.
+    Returns 404 if no prior check exists.
+    """
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    saved = get_blacklist_results(user_id, domain)
+    if not saved:
+        raise HTTPException(status_code=404, detail="No saved blacklist results for this domain")
+    return saved
 
 
 # ─── GOOGLE POSTMASTER TOOLS ENDPOINTS ───────────────────────────

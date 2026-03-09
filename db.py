@@ -1184,3 +1184,49 @@ def get_ips_for_domain(user_id: str, domain: str) -> list:
     except Exception as e:
         print(f"Error fetching IPs for domain {domain}: {e}")
         return []
+
+
+# ─── BLACKLIST RESULTS PERSISTENCE ─────────────────────────────
+
+def save_blacklist_results(user_id: str, domain: str, results: dict) -> bool:
+    """Save blacklist check results for a domain (upsert — one row per user+domain)."""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        import json
+        sb.table("blacklist_results").upsert(
+            {
+                "user_id": user_id,
+                "domain": domain,
+                "results": json.dumps(results),
+                "checked_at": results.get("checked_at", None) or "now()",
+            },
+            on_conflict="user_id,domain"
+        ).execute()
+        return True
+    except Exception as e:
+        print(f"Error saving blacklist results for {domain}: {e}")
+        return False
+
+
+def get_blacklist_results(user_id: str, domain: str) -> dict | None:
+    """Get last saved blacklist check results for a domain. Returns None if no saved results."""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("blacklist_results").select("results, checked_at").eq(
+            "user_id", user_id
+        ).eq("domain", domain).single().execute()
+        if result.data:
+            import json
+            data = result.data["results"]
+            # results is stored as JSONB so it may already be a dict
+            if isinstance(data, str):
+                data = json.loads(data)
+            return data
+        return None
+    except Exception as e:
+        # .single() throws if no rows — that's normal (no prior check)
+        return None
