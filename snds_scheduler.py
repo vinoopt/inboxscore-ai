@@ -19,55 +19,61 @@ def sync_all_snds_users():
     Called by APScheduler daily at 7 AM UTC.
     Runs the async fetch in a new event loop since APScheduler uses sync threads.
     """
-    if not is_db_available():
-        print("[SNDS Sync] Database not available, skipping")
-        return
-
-    connections = get_all_snds_connections()
-    if not connections:
-        print("[SNDS Sync] No connected users, skipping")
-        return
-
-    print(f"[SNDS Sync] Starting sync for {len(connections)} user(s)")
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
     try:
-        for conn in connections:
-            user_id = conn["user_id"]
-            snds_key = conn["snds_key"]
+        if not is_db_available():
+            print("[SNDS Sync] Database not available, skipping")
+            return
 
-            try:
-                result = loop.run_until_complete(fetch_snds_data(snds_key))
+        connections = get_all_snds_connections()
+        if not connections:
+            print("[SNDS Sync] No connected users, skipping")
+            return
 
-                if not result["success"]:
-                    print(f"[SNDS Sync] User {user_id[:8]}...: fetch failed — {result['error']}")
-                    continue
+        print(f"[SNDS Sync] Starting sync for {len(connections)} user(s)")
 
-                ip_set = set()
-                metrics_saved = 0
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-                for row in result["data"]:
-                    ip_set.add(row["ip_address"])
-                    upsert_snds_metrics(
-                        user_id=user_id,
-                        ip_address=row["ip_address"],
-                        metric_date=row["metric_date"],
-                        metrics=row,
-                    )
-                    metrics_saved += 1
+        try:
+            for conn in connections:
+                user_id = conn["user_id"]
+                snds_key = conn["snds_key"]
 
-                # Update connection sync status
-                update_snds_sync_status(user_id, ip_count=len(ip_set))
+                try:
+                    result = loop.run_until_complete(fetch_snds_data(snds_key))
 
-                print(f"[SNDS Sync] User {user_id[:8]}...: "
-                      f"{len(ip_set)} IPs, {metrics_saved} metrics saved")
+                    if not result["success"]:
+                        print(f"[SNDS Sync] User {user_id[:8]}...: fetch failed — {result['error']}")
+                        continue
 
-            except Exception as e:
-                print(f"[SNDS Sync] Error for user {user_id[:8]}...: {e}")
+                    ip_set = set()
+                    metrics_saved = 0
 
-    finally:
-        loop.close()
+                    for row in result["data"]:
+                        ip_set.add(row["ip_address"])
+                        upsert_snds_metrics(
+                            user_id=user_id,
+                            ip_address=row["ip_address"],
+                            metric_date=row["metric_date"],
+                            metrics=row,
+                        )
+                        metrics_saved += 1
 
-    print("[SNDS Sync] Sync complete")
+                    # Update connection sync status
+                    update_snds_sync_status(user_id, ip_count=len(ip_set))
+
+                    print(f"[SNDS Sync] User {user_id[:8]}...: "
+                          f"{len(ip_set)} IPs, {metrics_saved} metrics saved")
+
+                except Exception as e:
+                    print(f"[SNDS Sync] Error for user {user_id[:8]}...: {e}")
+
+        finally:
+            loop.close()
+
+        print("[SNDS Sync] Sync complete")
+
+    except Exception as e:
+        print(f"[SNDS Sync] CRITICAL — scheduler job crashed: {e}")
+        import traceback
+        traceback.print_exc()

@@ -19,56 +19,62 @@ def sync_all_postmaster_users():
     Called by APScheduler daily at 6 AM UTC.
     Runs the async fetch in a new event loop since APScheduler uses sync threads.
     """
-    if not is_db_available():
-        print("[Postmaster Sync] Database not available, skipping")
-        return
-
-    connections = get_all_postmaster_connections()
-    if not connections:
-        print("[Postmaster Sync] No connected users, skipping")
-        return
-
-    print(f"[Postmaster Sync] Starting sync for {len(connections)} user(s)")
-
-    # Create a new event loop for this thread
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
     try:
-        for conn in connections:
-            user_id = conn["user_id"]
-            sync_started = datetime.utcnow().isoformat()
+        if not is_db_available():
+            print("[Postmaster Sync] Database not available, skipping")
+            return
 
-            try:
-                result = loop.run_until_complete(
-                    fetch_metrics_for_user(user_id, conn, days=7)
-                )
+        connections = get_all_postmaster_connections()
+        if not connections:
+            print("[Postmaster Sync] No connected users, skipping")
+            return
 
-                status = "success" if not result["errors"] else "partial"
-                error_msg = "; ".join(result["errors"]) if result["errors"] else None
+        print(f"[Postmaster Sync] Starting sync for {len(connections)} user(s)")
 
-                log_postmaster_sync(
-                    user_id=user_id,
-                    status=status,
-                    domains_synced=result["domains_synced"],
-                    error_message=error_msg,
-                    sync_started_at=sync_started,
-                )
+        # Create a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-                print(f"[Postmaster Sync] User {user_id[:8]}...: "
-                      f"{result['domains_synced']} domains, "
-                      f"{result['metrics_saved']} metrics, "
-                      f"status={status}")
+        try:
+            for conn in connections:
+                user_id = conn["user_id"]
+                sync_started = datetime.utcnow().isoformat()
 
-            except Exception as e:
-                print(f"[Postmaster Sync] Error for user {user_id[:8]}...: {e}")
-                log_postmaster_sync(
-                    user_id=user_id,
-                    status="failed",
-                    error_message=str(e),
-                    sync_started_at=sync_started,
-                )
-    finally:
-        loop.close()
+                try:
+                    result = loop.run_until_complete(
+                        fetch_metrics_for_user(user_id, conn, days=7)
+                    )
 
-    print("[Postmaster Sync] Sync complete")
+                    status = "success" if not result["errors"] else "partial"
+                    error_msg = "; ".join(result["errors"]) if result["errors"] else None
+
+                    log_postmaster_sync(
+                        user_id=user_id,
+                        status=status,
+                        domains_synced=result["domains_synced"],
+                        error_message=error_msg,
+                        sync_started_at=sync_started,
+                    )
+
+                    print(f"[Postmaster Sync] User {user_id[:8]}...: "
+                          f"{result['domains_synced']} domains, "
+                          f"{result['metrics_saved']} metrics, "
+                          f"status={status}")
+
+                except Exception as e:
+                    print(f"[Postmaster Sync] Error for user {user_id[:8]}...: {e}")
+                    log_postmaster_sync(
+                        user_id=user_id,
+                        status="failed",
+                        error_message=str(e),
+                        sync_started_at=sync_started,
+                    )
+        finally:
+            loop.close()
+
+        print("[Postmaster Sync] Sync complete")
+
+    except Exception as e:
+        print(f"[Postmaster Sync] CRITICAL — scheduler job crashed: {e}")
+        import traceback
+        traceback.print_exc()

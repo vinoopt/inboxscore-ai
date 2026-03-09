@@ -702,10 +702,12 @@ def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -
                     "plan": plan
                 }
 
-            # Increment count
+            # Increment count — conditional update to reduce race window
             sb.table("rate_limits").update(
                 {"scan_count": current_count + 1}
-            ).eq("ip_address", lookup_key).eq("date", today).execute()
+            ).eq("ip_address", lookup_key).eq("date", today).lt(
+                "scan_count", max_scans
+            ).execute()
 
             return {
                 "allowed": True,

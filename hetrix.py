@@ -11,6 +11,13 @@ from typing import Optional
 HETRIX_API_KEY = os.environ.get("HETRIX_API_KEY", "")
 HETRIX_BASE_URL = "https://api.hetrixtools.com/v2"
 
+
+def _safe_url(url: str) -> str:
+    """Mask API key in URL for safe logging."""
+    if HETRIX_API_KEY and HETRIX_API_KEY in url:
+        return url.replace(HETRIX_API_KEY, "***KEY***")
+    return url
+
 # Severity classification for known blacklists
 HIGH_SEVERITY_RBLS = {
     "zen.spamhaus.org", "sbl.spamhaus.org", "xbl.spamhaus.org",
@@ -93,7 +100,11 @@ async def check_ip_blacklist(ip: str, api_key: Optional[str] = None) -> dict:
     except httpx.TimeoutException:
         return {"status": "in_progress", "ip": ip, "error": "Check timed out — still processing"}
     except Exception as e:
-        return {"status": "error", "ip": ip, "error": str(e)}
+        # Sanitize — str(e) may contain the full URL with API key
+        err_msg = str(e)
+        if HETRIX_API_KEY and HETRIX_API_KEY in err_msg:
+            err_msg = err_msg.replace(HETRIX_API_KEY, "***")
+        return {"status": "error", "ip": ip, "error": err_msg}
 
 
 async def check_domain_blacklist(domain: str, api_key: Optional[str] = None) -> dict:
@@ -142,7 +153,10 @@ async def check_domain_blacklist(domain: str, api_key: Optional[str] = None) -> 
     except httpx.TimeoutException:
         return {"status": "in_progress", "domain": domain, "error": "Check timed out — still processing"}
     except Exception as e:
-        return {"status": "error", "domain": domain, "error": str(e)}
+        err_msg = str(e)
+        if HETRIX_API_KEY and HETRIX_API_KEY in err_msg:
+            err_msg = err_msg.replace(HETRIX_API_KEY, "***")
+        return {"status": "error", "domain": domain, "error": err_msg}
 
 
 async def full_blacklist_check(domain: str, ips: list[str] = None, api_key: Optional[str] = None) -> dict:
