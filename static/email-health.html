@@ -1778,8 +1778,8 @@ function setGpmState(state) {
    ================================================================ */
 
 function getBlacklistDomain() {
-  // Use GPM domain if available, else parse the main domain selector
-  if (gpmCurrentDomain) return gpmCurrentDomain;
+  // Use main EH domain (always up-to-date), fallback to select value
+  if (ehCurrentDomain) return ehCurrentDomain;
   const sel = document.getElementById('eh-domain-select');
   if (!sel) return 'mailercloud.com';
   const txt = sel.options[sel.selectedIndex]?.text || 'mailercloud.com';
@@ -1789,6 +1789,24 @@ function getBlacklistDomain() {
 // Session-level blacklist cache (5 min TTL)
 const _blCache = {};
 const BL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Called on domain change: show cached blacklist for new domain or clear stale data
+function refreshBlacklistForDomain(domain) {
+  const cached = _blCache[domain];
+  if (cached && (Date.now() - cached.ts < BL_CACHE_TTL)) {
+    renderBlacklistResults(cached.data);
+  } else {
+    // Clear stale results from previous domain and show prompt
+    const resEl = document.getElementById('bl-results');
+    const loadEl = document.getElementById('bl-loading');
+    const errEl = document.getElementById('bl-error');
+    const btnEl = document.getElementById('bl-check-btn');
+    if (resEl) resEl.style.display = 'none';
+    if (loadEl) loadEl.style.display = 'none';
+    if (errEl) errEl.style.display = 'none';
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Check Now'; }
+  }
+}
 
 async function runBlacklistCheck(forceRefresh) {
   const domain = getBlacklistDomain();
@@ -2524,52 +2542,42 @@ async function onEhDomainChange(domain) {
   if (!token) return;
   const headers = { 'Authorization': 'Bearer ' + token };
 
-  // Fetch latest scan for this domain
+  // Fetch latest scan for this domain (overview only — don't block provider loads)
   try {
     const resp = await fetch('/api/domains/' + encodeURIComponent(domain) + '/scans?limit=1', { headers });
     if (!resp.ok) {
       if (scanTime) scanTime.textContent = 'No scan data yet — run a scan from the Dashboard';
       resetOverview();
-      return;
-    }
-    const data = await resp.json();
-    const scans = data.scans || [];
+    } else {
+      const data = await resp.json();
+      const scans = data.scans || [];
 
-    if (scans.length === 0) {
-      if (scanTime) scanTime.textContent = 'No scan data yet — run a scan from the Dashboard';
-      resetOverview();
-      return;
+      if (scans.length === 0) {
+        if (scanTime) scanTime.textContent = 'No scan data yet — run a scan from the Dashboard';
+        resetOverview();
+      } else {
+        const scan = scans[0];
+        ehLatestScan = scan;
+        populateOverviewFromScan(scan);
+      }
     }
-
-    const scan = scans[0];
-    ehLatestScan = scan;
-    populateOverviewFromScan(scan);
   } catch (e) {
     console.error('[EH] Scan fetch failed:', e);
     if (scanTime) scanTime.textContent = 'Failed to load scan data';
     resetOverview();
   }
 
-  // Load provider status cards
+  // Always reload all provider sections regardless of scan data availability
   loadProviderStatus(domain);
-
-  // Load scan history
   loadScanHistory(domain);
-
-  // Load domain safety data
   loadDomainSafety(domain);
-
-  // Load real alerts
   loadActiveAlerts(domain);
-
-  // Reload SNDS metrics filtered by new domain
   loadSndsMetrics();
-
-  // Reload IP Reputation with domain-mapped IPs
   loadIpReputation(domain);
-
-  // Reload Google Postmaster data for the new domain
   onGpmDomainChange(domain);
+
+  // Refresh blacklist: show cached data for new domain or clear stale results
+  refreshBlacklistForDomain(domain);
 }
 
 function resetOverview() {
