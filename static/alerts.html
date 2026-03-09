@@ -10,7 +10,7 @@
 :root {
   --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26; --border: #2a2a3a;
   --text: #e4e4ef; --text-muted: #8888a0; --accent: #6366f1; --accent-glow: rgba(99,102,241,0.3);
-  --green: #22c55e; --red: #ef4444; --yellow: #eab308;
+  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
@@ -28,49 +28,53 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .layout { display: flex; flex: 1; }
 
 /* Sidebar */
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; }
-.sidebar-nav { list-style: none; }
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar-nav { list-style: none; flex: 1; }
 .sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
 .sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); }
 .sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-.sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
-.alert-badge { background: var(--red); color: white; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; }
+.alert-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; }
+.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
 
 /* Main */
-.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-title { font-size: 24px; font-weight: 700; }
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); max-width: 960px; }
 
-/* Filter Bar */
-.filter-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
-.filter-btn { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); transition: all 0.2s; }
-.filter-btn:hover { border-color: var(--accent); color: var(--text); }
-.filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
-.action-btn { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-muted); transition: all 0.2s; margin-left: auto; }
-.action-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* Page Header */
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; }
 
-/* Alert List */
-.alert-list { display: flex; flex-direction: column; gap: 8px; }
-.alert-item { display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; transition: all 0.2s; cursor: pointer; position: relative; }
-.alert-item:hover { border-color: var(--accent); background: var(--surface-2); }
+/* Filter Chips */
+.alerts-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.filter-chip { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.filter-chip:hover { border-color: var(--accent); color: var(--text); }
+.filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.mark-all-btn { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-muted); transition: all 0.2s; margin-left: auto; }
+.mark-all-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Alert Feed */
+.alert-feed { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.alert-item { display: flex; gap: 14px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); transition: all 0.2s; cursor: pointer; }
+.alert-item:hover { border-color: var(--accent); }
 .alert-item.unread { border-left: 3px solid var(--accent); }
-.alert-item.unread .alert-title { font-weight: 600; }
+.alert-item.resolved { opacity: 0.7; }
+.alert-severity { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.sev-critical { background: rgba(239,68,68,0.15); }
+.sev-warning { background: rgba(234,179,8,0.15); }
+.sev-info { background: rgba(99,102,241,0.15); }
+.sev-resolved { background: rgba(34,197,94,0.15); }
+.alert-body { flex: 1; min-width: 0; }
+.alert-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+.alert-title { font-size: 14px; font-weight: 600; }
+.alert-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; margin-left: 12px; }
+.alert-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; line-height: 1.5; }
+.alert-domain { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
+.badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
+.badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
 
-.alert-severity { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
-.alert-severity.critical { background: var(--red); box-shadow: 0 0 6px rgba(239,68,68,0.4); }
-.alert-severity.warning { background: var(--yellow); box-shadow: 0 0 6px rgba(234,179,8,0.4); }
-.alert-severity.info { background: var(--accent); box-shadow: 0 0 6px rgba(99,102,241,0.4); }
-
-.alert-content { flex: 1; min-width: 0; }
-.alert-title { font-size: 14px; margin-bottom: 4px; color: var(--text); }
-.alert-message { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.alert-meta { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); }
-.alert-meta .severity-label { text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-.alert-meta .severity-label.critical { color: var(--red); }
-.alert-meta .severity-label.warning { color: var(--yellow); }
-.alert-meta .severity-label.info { color: var(--accent); }
-
+/* Alert Actions (on hover) */
 .alert-actions { display: flex; gap: 6px; flex-shrink: 0; opacity: 0; transition: opacity 0.2s; }
 .alert-item:hover .alert-actions { opacity: 1; }
 .alert-action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 4px; border-radius: 4px; transition: all 0.2s; }
@@ -112,12 +116,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .toast.success { background: var(--green); color: white; }
 .toast.error { background: var(--red); color: white; }
 
-/* Stats Row */
-.alert-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-.alert-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
-.alert-stat .stat-value { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
-.alert-stat .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-
 /* Sidebar Backdrop */
 .sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
 .sidebar-backdrop.show { display: block; }
@@ -128,10 +126,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   .sidebar.open { left: 0; }
   .mobile-toggle { display: block; }
   .main { padding: 24px 16px; }
-  .alert-stats { grid-template-columns: repeat(2, 1fr); }
-  .filter-bar { flex-wrap: wrap; }
+  .alerts-filters { flex-wrap: wrap; }
   .alert-actions { opacity: 1; }
-  .alert-message { white-space: normal; }
 }
 </style>
 </head>
@@ -141,7 +137,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div style="display:flex;align-items:center;gap:12px;">
     <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
     <a href="/dashboard" class="logo">
-      <div class="logo-icon">📨</div>
+      <div class="logo-icon" style="font-size:11px;font-weight:700;color:white;">IS</div>
       InboxScore
     </a>
   </div>
@@ -156,56 +152,32 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <div class="layout">
   <aside class="sidebar">
     <ul class="sidebar-nav">
-      <li><a href="/dashboard"><span class="nav-icon">📊</span> Overview</a></li>
+      <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
       <li><a href="/email-health"><span class="nav-icon">🛡️</span> Email Health</a></li>
       <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
-      <li><a href="/alerts" class="active"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none">0</span></a></li>
-      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">📄</span> Reports <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
-    </ul>
-    <div class="sidebar-section">Account</div>
-    <ul class="sidebar-nav">
+      <li><a href="/alerts" class="active"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
       <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
     </ul>
+    <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
   </aside>
 
   <main class="main">
-    <div class="page-header">
-      <h1 class="page-title">Alerts</h1>
+    <h1 class="page-title">Alerts</h1>
+    <p class="page-subtitle">Stay on top of deliverability issues across all your domains.</p>
+
+    <!-- Filter Chips -->
+    <div class="alerts-filters" id="filters-bar">
+      <span class="filter-chip active" data-filter="all" onclick="setFilter('all')">All</span>
+      <span class="filter-chip" data-filter="critical" onclick="setFilter('critical')">Critical</span>
+      <span class="filter-chip" data-filter="warning" onclick="setFilter('warning')">Warnings</span>
+      <span class="filter-chip" data-filter="resolved" onclick="setFilter('resolved')">Resolved</span>
+      <!-- Domain chips will be dynamically added here -->
+      <button class="mark-all-btn" id="mark-all-btn" onclick="markAllRead()" style="display:none">Mark all read</button>
     </div>
 
-    <!-- Stats Row -->
-    <div class="alert-stats" id="alert-stats">
-      <div class="alert-stat">
-        <div class="stat-value" id="stat-total">0</div>
-        <div class="stat-label">Total Alerts</div>
-      </div>
-      <div class="alert-stat">
-        <div class="stat-value" id="stat-unread" style="color:var(--accent)">0</div>
-        <div class="stat-label">Unread</div>
-      </div>
-      <div class="alert-stat">
-        <div class="stat-value" id="stat-critical" style="color:var(--red)">0</div>
-        <div class="stat-label">Critical</div>
-      </div>
-      <div class="alert-stat">
-        <div class="stat-value" id="stat-warning" style="color:var(--yellow)">0</div>
-        <div class="stat-label">Warnings</div>
-      </div>
-    </div>
-
-    <!-- Filter Bar -->
-    <div class="filter-bar">
-      <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
-      <button class="filter-btn" data-filter="unread" onclick="setFilter('unread')">Unread</button>
-      <button class="filter-btn" data-filter="critical" onclick="setFilter('critical')">Critical</button>
-      <button class="filter-btn" data-filter="warning" onclick="setFilter('warning')">Warning</button>
-      <button class="filter-btn" data-filter="info" onclick="setFilter('info')">Info</button>
-      <button class="action-btn" id="mark-all-btn" onclick="markAllRead()" style="display:none">Mark all read</button>
-    </div>
-
-    <!-- Alert List -->
+    <!-- Alert Feed -->
     <div id="alerts-loading" class="loading"><div class="loading-spinner"></div>Loading alerts...</div>
-    <div id="alerts-list" class="alert-list" style="display:none"></div>
+    <ul id="alerts-list" class="alert-feed" style="display:none"></ul>
     <div id="alerts-empty" class="empty-state" style="display:none">
       <div class="empty-icon">🔔</div>
       <h3>No alerts yet</h3>
@@ -239,6 +211,7 @@ function toggleSidebar() {
 
 let allAlerts = [];
 let currentFilter = 'all';
+let domainFilter = null;
 let currentModalAlert = null;
 let headers = {};
 
@@ -263,7 +236,7 @@ async function loadAlerts() {
     if (!res.ok) throw new Error('Failed to load alerts');
     const data = await res.json();
     allAlerts = data.alerts || [];
-    updateStats();
+    buildDomainChips();
     renderAlerts();
     updateSidebarBadge();
   } catch (e) {
@@ -276,18 +249,25 @@ async function loadAlerts() {
   }
 }
 
-function updateStats() {
-  const total = allAlerts.length;
-  const unread = allAlerts.filter(a => !a.is_read).length;
-  const critical = allAlerts.filter(a => a.severity === 'critical').length;
-  const warning = allAlerts.filter(a => a.severity === 'warning').length;
-
-  document.getElementById('stat-total').textContent = total;
-  document.getElementById('stat-unread').textContent = unread;
-  document.getElementById('stat-critical').textContent = critical;
-  document.getElementById('stat-warning').textContent = warning;
+function buildDomainChips() {
+  // Extract unique domains from alerts
+  const domains = [...new Set(allAlerts.filter(a => a.domain).map(a => a.domain))];
+  const filtersBar = document.getElementById('filters-bar');
+  // Remove existing domain chips
+  filtersBar.querySelectorAll('.filter-chip[data-domain]').forEach(el => el.remove());
+  // Add domain chips before the mark-all button
+  const markBtn = document.getElementById('mark-all-btn');
+  domains.forEach(d => {
+    const chip = document.createElement('span');
+    chip.className = 'filter-chip';
+    chip.dataset.domain = d;
+    chip.textContent = d;
+    chip.onclick = () => setDomainFilter(d);
+    filtersBar.insertBefore(chip, markBtn);
+  });
 
   // Show/hide mark all read button
+  const unread = allAlerts.filter(a => !a.is_read).length;
   document.getElementById('mark-all-btn').style.display = unread > 0 ? 'block' : 'none';
 }
 
@@ -308,17 +288,26 @@ function renderAlerts() {
   const empty = document.getElementById('alerts-empty');
 
   let filtered = allAlerts;
-  if (currentFilter === 'unread') {
-    filtered = allAlerts.filter(a => !a.is_read);
-  } else if (currentFilter === 'critical' || currentFilter === 'warning' || currentFilter === 'info') {
-    filtered = allAlerts.filter(a => a.severity === currentFilter);
+
+  // Apply type filter
+  if (currentFilter === 'critical') {
+    filtered = filtered.filter(a => a.severity === 'critical');
+  } else if (currentFilter === 'warning') {
+    filtered = filtered.filter(a => a.severity === 'warning');
+  } else if (currentFilter === 'resolved') {
+    filtered = filtered.filter(a => a.is_read && (a.severity === 'info' || a.resolved));
+  }
+
+  // Apply domain filter
+  if (domainFilter) {
+    filtered = filtered.filter(a => a.domain === domainFilter);
   }
 
   if (filtered.length === 0) {
     list.style.display = 'none';
     empty.style.display = 'block';
-    if (currentFilter !== 'all') {
-      empty.querySelector('h3').textContent = 'No ' + currentFilter + ' alerts';
+    if (currentFilter !== 'all' || domainFilter) {
+      empty.querySelector('h3').textContent = 'No matching alerts';
       empty.querySelector('p').textContent = 'No alerts match this filter.';
     } else {
       empty.querySelector('h3').textContent = 'No alerts yet';
@@ -332,33 +321,50 @@ function renderAlerts() {
 
   list.innerHTML = filtered.map(alert => {
     const timeAgo = getTimeAgo(alert.created_at);
-    const typeIcon = getTypeIcon(alert.type);
+    const isResolved = alert.is_read && (alert.severity === 'info' || alert.resolved);
+    const icon = alert.severity === 'critical' ? '🔴' : alert.severity === 'warning' ? '⚠️' : '🟢';
+    const sevClass = alert.severity === 'critical' ? 'sev-critical' : alert.severity === 'warning' ? 'sev-warning' : isResolved ? 'sev-resolved' : 'sev-info';
+
+    const resolvedBadge = isResolved ? ' <span class="badge badge-green">Resolved</span>' : '';
+    const source = alert.source || '';
+
     return `
-      <div class="alert-item ${alert.is_read ? '' : 'unread'}" onclick="openAlert('${alert.id}')">
-        <div class="alert-severity ${alert.severity}"></div>
-        <div class="alert-content">
-          <div class="alert-title">${typeIcon} ${escapeHtml(alert.title)}</div>
-          ${alert.message ? `<div class="alert-message">${escapeHtml(alert.message)}</div>` : ''}
-          <div class="alert-meta">
-            <span class="severity-label ${alert.severity}">${alert.severity}</span>
-            ${alert.domain ? `<span>${escapeHtml(alert.domain)}</span>` : ''}
-            <span>${timeAgo}</span>
+      <li class="alert-item ${alert.is_read ? '' : 'unread'} ${isResolved ? 'resolved' : ''}" onclick="openAlert('${alert.id}')">
+        <div class="alert-severity ${sevClass}">${icon}</div>
+        <div class="alert-body">
+          <div class="alert-title-row">
+            <span class="alert-title">${escapeHtml(alert.title)}</span>
+            <span class="alert-time">${timeAgo}</span>
           </div>
+          ${alert.message ? `<div class="alert-desc">${escapeHtml(alert.message)}${resolvedBadge}</div>` : ''}
+          ${alert.domain ? `<span class="alert-domain">🌐 ${escapeHtml(alert.domain)}${source ? ' · ' + escapeHtml(source) : ''}</span>` : ''}
         </div>
         <div class="alert-actions">
           ${!alert.is_read ? `<button class="alert-action-btn" onclick="event.stopPropagation();markRead('${alert.id}')" title="Mark as read">✓</button>` : ''}
           <button class="alert-action-btn delete" onclick="event.stopPropagation();deleteAlert('${alert.id}')" title="Delete">✕</button>
         </div>
-      </div>
+      </li>
     `;
   }).join('');
 }
 
-// ─── Filter ─────────────────────────────
+// ─── Filters ─────────────────────────────
 function setFilter(filter) {
   currentFilter = filter;
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.filter === filter);
+  domainFilter = null;
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.filter === filter);
+  });
+  // Deactivate domain chips
+  document.querySelectorAll('.filter-chip[data-domain]').forEach(chip => chip.classList.remove('active'));
+  renderAlerts();
+}
+
+function setDomainFilter(domain) {
+  domainFilter = domain;
+  currentFilter = 'all';
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.domain === domain);
   });
   renderAlerts();
 }
@@ -366,15 +372,15 @@ function setFilter(filter) {
 // ─── Actions ─────────────────────────────
 async function markRead(alertId) {
   try {
-    const res = await fetch('/api/alerts/' + alertId + '/read', {
-      method: 'PUT', headers
-    });
+    const res = await fetch('/api/alerts/' + alertId + '/read', { method: 'PUT', headers });
     if (res.ok) {
       const alert = allAlerts.find(a => a.id === alertId);
       if (alert) alert.is_read = true;
-      updateStats();
       renderAlerts();
       updateSidebarBadge();
+      // Update mark all button visibility
+      const unread = allAlerts.filter(a => !a.is_read).length;
+      document.getElementById('mark-all-btn').style.display = unread > 0 ? 'block' : 'none';
     }
   } catch (e) {
     showToast('Failed to mark as read', 'error');
@@ -383,14 +389,12 @@ async function markRead(alertId) {
 
 async function markAllRead() {
   try {
-    const res = await fetch('/api/user/alerts/read-all', {
-      method: 'PUT', headers
-    });
+    const res = await fetch('/api/user/alerts/read-all', { method: 'PUT', headers });
     if (res.ok) {
       allAlerts.forEach(a => a.is_read = true);
-      updateStats();
       renderAlerts();
       updateSidebarBadge();
+      document.getElementById('mark-all-btn').style.display = 'none';
       showToast('All alerts marked as read', 'success');
     }
   } catch (e) {
@@ -400,12 +404,9 @@ async function markAllRead() {
 
 async function deleteAlert(alertId) {
   try {
-    const res = await fetch('/api/alerts/' + alertId, {
-      method: 'DELETE', headers
-    });
+    const res = await fetch('/api/alerts/' + alertId, { method: 'DELETE', headers });
     if (res.ok) {
       allAlerts = allAlerts.filter(a => a.id !== alertId);
-      updateStats();
       renderAlerts();
       updateSidebarBadge();
       showToast('Alert deleted', 'success');
@@ -430,16 +431,13 @@ function openAlert(alertId) {
   document.getElementById('modal-message').textContent = alert.message || 'No additional details.';
 
   const time = new Date(alert.created_at).toLocaleString();
-  let metaText = `Type: ${alert.type} · ${time}`;
+  let metaText = `Type: ${alert.type || alert.severity} · ${time}`;
   if (alert.domain) metaText += ` · Domain: ${alert.domain}`;
   document.getElementById('modal-meta').textContent = metaText;
 
   document.getElementById('alert-modal').classList.add('show');
 
-  // Mark as read if unread
-  if (!alert.is_read) {
-    markRead(alertId);
-  }
+  if (!alert.is_read) markRead(alertId);
 }
 
 function closeModal() {
@@ -456,30 +454,12 @@ function deleteFromModal() {
 
 // ─── Helpers ─────────────────────────────
 function getTimeAgo(dateStr) {
-  const now = new Date();
-  const date = new Date(dateStr);
-  const diff = Math.floor((now - date) / 1000);
-
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
   if (diff < 60) return 'just now';
   if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
   if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
   if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
-  return date.toLocaleDateString();
-}
-
-function getTypeIcon(type) {
-  const icons = {
-    'score_drop': '📉',
-    'blacklist_added': '🚫',
-    'blacklist_removed': '✅',
-    'cert_expiry': '🔒',
-    'reputation_change': '📊',
-    'dmarc_change': '🛡️',
-    'spf_change': '📝',
-    'dns_change': '🌐',
-    'welcome': '👋',
-  };
-  return icons[type] || '🔔';
+  return new Date(dateStr).toLocaleDateString();
 }
 
 function escapeHtml(str) {
@@ -500,7 +480,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
 
-// ─── Init (same pattern as domains.html) ─────────────────────────────
+// ─── Init ─────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   const token = getToken();
   if (!token) { window.location.href = '/login'; return; }
@@ -514,6 +494,8 @@ window.addEventListener('DOMContentLoaded', () => {
   }).then(userData => {
     const name = userData.user.name || userData.user.email.split('@')[0];
     document.getElementById('user-name').textContent = name;
+    const plan = userData.user.plan || 'free';
+    document.getElementById('plan-name').textContent = plan;
   }).catch(() => {
     const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
     if (refresh) {
@@ -531,19 +513,7 @@ window.addEventListener('DOMContentLoaded', () => {
     } else { logout(); }
   });
 
-  // Load alerts
   loadAlerts();
-
-  // Load alert badge count
-  fetch('/api/user/alerts/count', { headers })
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      if (data && data.unread_count > 0) {
-        const badge = document.getElementById('sidebar-badge');
-        badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
-        badge.style.display = 'inline';
-      }
-    }).catch(() => {});
 
   // Close sidebar on mobile
   document.querySelector('.main').addEventListener('click', () => {

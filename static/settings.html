@@ -10,14 +10,14 @@
 :root {
   --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26; --border: #2a2a3a;
   --text: #e4e4ef; --text-muted: #8888a0; --accent: #6366f1; --accent-glow: rgba(99,102,241,0.3);
-  --green: #22c55e; --red: #ef4444; --yellow: #eab308;
+  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
 /* Top Nav */
 .topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 10; }
 .logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
-.logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; }
 .nav-right { display: flex; align-items: center; gap: 16px; }
 .user-name { font-size: 13px; color: var(--text-muted); }
 .logout-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
@@ -28,68 +28,73 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .layout { display: flex; flex: 1; }
 
 /* Sidebar */
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; }
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
 .sidebar-nav { list-style: none; }
 .sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
 .sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); }
 .sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
 .sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
+.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
 
 /* Main */
 .main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
-.page-title { font-size: 24px; font-weight: 700; margin-bottom: 32px; }
+.page-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 28px; }
 
-/* Settings Cards */
-.settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 24px; max-width: 640px; }
-.settings-card h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
-.settings-card .card-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+/* Settings Layout (sidebar + content) */
+.settings-layout { display: flex; gap: 0; min-height: 500px; }
+.settings-sidebar { width: 200px; flex-shrink: 0; border-right: 1px solid var(--border); }
+.settings-sidebar a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: var(--text-muted); text-decoration: none; font-size: 13px; border-left: 2px solid transparent; cursor: pointer; transition: all 0.15s; }
+.settings-sidebar a:hover { color: var(--text); background: var(--surface-2); }
+.settings-sidebar a.s-active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); font-weight: 600; }
+.settings-sidebar a .s-icon { font-size: 15px; width: 18px; text-align: center; }
+.settings-sidebar a .s-soon { font-size: 9px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); padding: 1px 5px; border-radius: 3px; margin-left: auto; text-transform: uppercase; letter-spacing: 0.3px; }
 
-/* Form Elements */
-.form-group { margin-bottom: 16px; }
-.form-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
-.form-group input { width: 100%; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; outline: none; transition: border-color 0.2s; }
-.form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-.form-group input:disabled { opacity: 0.5; cursor: not-allowed; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.settings-content { flex: 1; padding-left: 32px; }
+.settings-panel { display: none; }
+.settings-panel.s-visible { display: block; }
+.s-section-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.s-section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
 
+/* Card */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+
+/* Settings Rows */
+.settings-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.settings-row:last-child { border-bottom: none; }
+.settings-label { font-size: 14px; }
+.settings-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* Toggles */
+.toggle { width: 40px; height: 22px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--border); position: relative; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.toggle::after { content: ''; width: 16px; height: 16px; border-radius: 50%; background: var(--text); position: absolute; top: 2px; left: 2px; transition: all 0.2s; }
+.toggle.on::after { left: 20px; }
+
+/* Connection Cards */
+.connection-card { display: flex; align-items: center; gap: 14px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; }
+.connection-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.connection-info { flex: 1; }
+.connection-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.connection-status { font-size: 12px; color: var(--text-muted); }
+
+/* Buttons */
 .btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
 .btn-primary { background: var(--accent); color: white; }
 .btn-primary:hover { background: #5558e6; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
-.btn-outline:hover { border-color: var(--text-muted); color: var(--text); }
+.btn-sm { padding: 5px 14px; font-size: 12px; background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; cursor: pointer; transition: all 0.2s; font-weight: 500; }
+.btn-sm:hover { border-color: var(--text-muted); color: var(--text); }
 
-/* Plan Badge */
-.plan-row { display: flex; align-items: center; justify-content: space-between; padding: 16px; background: var(--surface-2); border-radius: 10px; margin-bottom: 16px; }
-.plan-info { display: flex; align-items: center; gap: 12px; }
-.plan-badge { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-.plan-badge.free { background: rgba(136,136,160,0.15); color: var(--text-muted); }
-.plan-badge.pro { background: rgba(99,102,241,0.15); color: var(--accent); }
-.plan-badge.growth { background: rgba(34,197,94,0.15); color: var(--green); }
-.plan-badge.enterprise { background: rgba(234,179,8,0.15); color: var(--yellow); }
-.plan-label { font-size: 14px; font-weight: 500; }
-.plan-detail { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-.btn-upgrade { padding: 8px 16px; font-size: 12px; }
-
-/* Usage Bar */
-.usage-bar-container { margin-top: 12px; }
-.usage-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-.usage-bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
-.usage-bar .fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
-.usage-bar .fill.low { background: var(--green); }
-.usage-bar .fill.medium { background: var(--yellow); }
-.usage-bar .fill.high { background: var(--red); }
+/* Category Labels */
+.category-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
 
 /* Toast */
 .toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; z-index: 1000; transform: translateY(-20px); opacity: 0; transition: all 0.3s; pointer-events: none; }
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.success { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
 .toast.error { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
-
-/* Danger Zone */
-.danger-zone { border-color: rgba(239,68,68,0.3); }
-.danger-zone h2 { color: var(--red); }
 
 /* Sidebar Backdrop */
 .sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
@@ -101,8 +106,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   .sidebar.open { left: 0; }
   .mobile-toggle { display: block; }
   .main { padding: 24px 16px; }
-  .form-row { grid-template-columns: 1fr; }
-  .plan-row { flex-direction: column; gap: 12px; align-items: flex-start; }
+  .settings-layout { flex-direction: column; }
+  .settings-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; padding-bottom: 8px; margin-bottom: 20px; }
+  .settings-sidebar a { white-space: nowrap; border-left: none; border-bottom: 2px solid transparent; padding: 8px 14px; }
+  .settings-sidebar a.s-active { border-left-color: transparent; border-bottom-color: var(--accent); }
+  .settings-content { padding-left: 0; }
 }
 </style>
 </head>
@@ -112,7 +120,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div style="display:flex;align-items:center;gap:12px;">
     <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
     <a href="/dashboard" class="logo">
-      <div class="logo-icon">📨</div>
+      <div class="logo-icon">IS</div>
       InboxScore
     </a>
   </div>
@@ -126,165 +134,279 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 <div class="layout">
   <aside class="sidebar">
+    <div class="sidebar-section">Menu</div>
     <ul class="sidebar-nav">
-      <li><a href="/dashboard"><span class="nav-icon">📊</span> Overview</a></li>
+      <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
       <li><a href="/email-health"><span class="nav-icon">🛡️</span> Email Health</a></li>
       <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
-      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;background:#ef4444;color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto;min-width:18px;text-align:center;">0</span></a></li>
-      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">📄</span> Reports <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
-    </ul>
-    <div class="sidebar-section">Account</div>
-    <ul class="sidebar-nav">
+      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
       <li><a href="/settings" class="active"><span class="nav-icon">⚙️</span> Settings</a></li>
     </ul>
+    <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
   </aside>
 
   <main class="main">
     <h1 class="page-title">Settings</h1>
+    <p class="page-subtitle">Manage your account, connections, and preferences.</p>
 
-    <!-- Plan & Usage -->
-    <div class="settings-card">
-      <h2>Plan & Usage</h2>
-      <div class="card-desc">Your current subscription and scan usage.</div>
-
-      <div class="plan-row">
-        <div class="plan-info">
-          <span class="plan-badge free" id="plan-badge">FREE</span>
-          <div>
-            <div class="plan-label" id="plan-label">Free Plan</div>
-            <div class="plan-detail" id="plan-detail">5 scans per day</div>
-          </div>
-        </div>
-        <button class="btn btn-primary btn-upgrade" id="upgrade-btn" disabled style="opacity:0.5">Upgrade — Coming Soon</button>
+    <div class="settings-layout">
+      <!-- Settings Sidebar -->
+      <div class="settings-sidebar">
+        <a class="s-active" onclick="showSettingsPanel('general', this)"><span class="s-icon">👤</span> General</a>
+        <a onclick="showSettingsPanel('connections', this)"><span class="s-icon">🔗</span> Connected Services</a>
+        <a onclick="showSettingsPanel('notifications', this)"><span class="s-icon">🔔</span> Notifications</a>
+        <a onclick="showSettingsPanel('billing', this)"><span class="s-icon">💳</span> Plan & Billing <span class="s-soon">Soon</span></a>
+        <a onclick="showSettingsPanel('api', this)"><span class="s-icon">🔑</span> API Access <span class="s-soon">Soon</span></a>
+        <a onclick="showSettingsPanel('team', this)"><span class="s-icon">👥</span> Team <span class="s-soon">Soon</span></a>
       </div>
 
-      <div class="usage-bar-container" id="usage-container">
-        <div class="usage-label">
-          <span>Daily scans</span>
-          <span id="usage-text">0 / 5</span>
-        </div>
-        <div class="usage-bar">
-          <div class="fill low" id="usage-fill" style="width: 0%"></div>
-        </div>
-      </div>
-    </div>
+      <!-- Settings Content -->
+      <div class="settings-content">
 
-    <!-- Profile -->
-    <div class="settings-card">
-      <h2>Profile</h2>
-      <div class="card-desc">Update your display name and company.</div>
+        <!-- ===== General ===== -->
+        <div class="settings-panel s-visible" id="sp-general">
+          <div class="s-section-title">General</div>
+          <div class="s-section-desc">Your profile and account preferences.</div>
 
-      <form id="profile-form" onsubmit="saveProfile(event)">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Display Name</label>
-            <input type="text" id="profile-name" placeholder="Your name">
+          <div class="card" style="padding:0 20px;">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Full Name</div>
+                <div class="settings-desc" id="general-name">—</div>
+              </div>
+              <button class="btn-sm" onclick="editField('name')">Edit</button>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Email</div>
+                <div class="settings-desc" id="general-email">—</div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Company</div>
+                <div class="settings-desc" id="general-company">—</div>
+              </div>
+              <button class="btn-sm" onclick="editField('company')">Edit</button>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Password</div>
+                <div class="settings-desc">Change your account password</div>
+              </div>
+              <button class="btn-sm" onclick="editField('password')">Update</button>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Sync Frequency</div>
+                <div class="settings-desc">Postmaster data syncs daily at 6:00 AM UTC</div>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Company</label>
-            <input type="text" id="profile-company" placeholder="Company name">
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="profile-email" disabled>
-        </div>
-        <button type="submit" class="btn btn-primary" id="save-profile-btn">Save Changes</button>
-      </form>
-    </div>
 
-    <!-- Change Password -->
-    <div class="settings-card">
-      <h2>Change Password</h2>
-      <div class="card-desc">Update your account password. Must be at least 6 characters.</div>
-
-      <form id="password-form" onsubmit="changePassword(event)">
-        <div class="form-row">
-          <div class="form-group">
-            <label>New Password</label>
-            <input type="password" id="new-password" placeholder="New password" minlength="6" required>
-          </div>
-          <div class="form-group">
-            <label>Confirm Password</label>
-            <input type="password" id="confirm-password" placeholder="Confirm password" minlength="6" required>
+          <div style="margin-top:24px;">
+            <div style="font-size:13px;font-weight:600;color:var(--red);cursor:pointer;" onclick="confirmDelete()">Delete Account →</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Permanently remove your account and all data. This cannot be undone.</div>
           </div>
         </div>
-        <button type="submit" class="btn btn-primary" id="save-password-btn">Update Password</button>
-      </form>
-    </div>
 
-    <!-- Notification Preferences -->
-    <div class="settings-card">
-      <h2>Notifications</h2>
-      <div class="card-desc">Control what email notifications you receive.</div>
+        <!-- ===== Connected Services ===== -->
+        <div class="settings-panel" id="sp-connections">
+          <div class="s-section-title">Connected Services</div>
+          <div class="s-section-desc">Manage your provider integrations and data sources.</div>
 
-      <div style="display:flex;flex-direction:column;gap:14px;">
-        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
-          <input type="checkbox" id="notify-scan" checked style="width:16px;height:16px;accent-color:var(--accent);">
-          <div>
-            <div style="font-size:14px;">Scan Alerts</div>
-            <div style="font-size:12px;color:var(--text-muted);">Get notified when a monitored domain score drops below threshold</div>
+          <!-- Google Postmaster -->
+          <div class="connection-card" id="gpm-card">
+            <div class="connection-icon" style="background:rgba(66,133,244,0.15);">
+              <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
+            </div>
+            <div class="connection-info">
+              <div class="connection-name">Google Postmaster Tools</div>
+              <div class="connection-status" id="gpm-status">Checking connection...</div>
+            </div>
+            <div id="gpm-actions"></div>
           </div>
-        </label>
-        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
-          <input type="checkbox" id="notify-blacklist" checked style="width:16px;height:16px;accent-color:var(--accent);">
-          <div>
-            <div style="font-size:14px;">Blacklist Alerts</div>
-            <div style="font-size:12px;color:var(--text-muted);">Get notified when a domain is listed on a new blacklist</div>
+          <div id="gpm-pro-gate" style="display:none;margin:-6px 0 12px;padding:10px 16px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;">
+            <div style="font-size:12px;color:var(--text-muted);">
+              🔒 Google Postmaster integration is available on <strong style="color:var(--accent);">Pro</strong> plans and above.
+            </div>
           </div>
-        </label>
-        <label style="display:flex;align-items:center;gap:12px;cursor:pointer;">
-          <input type="checkbox" id="notify-weekly" style="width:16px;height:16px;accent-color:var(--accent);">
-          <div>
-            <div style="font-size:14px;">Weekly Digest</div>
-            <div style="font-size:12px;color:var(--text-muted);">Receive a weekly summary of all your domain health scores</div>
-          </div>
-        </label>
-      </div>
-      <div style="margin-top:16px;">
-        <button class="btn btn-primary" onclick="saveNotifications()" id="save-notif-btn">Save Preferences</button>
-      </div>
-    </div>
 
-    <!-- Connected Services -->
-    <div class="settings-card" id="connected-services">
-      <h2>Connected Services</h2>
-      <div class="card-desc">Connect external services for advanced deliverability insights.</div>
-
-      <div style="padding:16px;background:var(--surface-2);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:14px;">
-          <div style="width:40px;height:40px;background:white;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-            <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          <!-- HetrixTools -->
+          <div class="connection-card">
+            <div class="connection-icon" style="background:rgba(34,197,94,0.15);font-size:14px;font-weight:700;color:var(--green);">H</div>
+            <div class="connection-info">
+              <div class="connection-name">HetrixTools</div>
+              <div class="connection-status"><span style="color:var(--green);">● Connected</span> · Blacklist monitoring (1000+ lists) · API key active</div>
+            </div>
           </div>
-          <div>
-            <div style="font-size:14px;font-weight:600;">Google Postmaster Tools</div>
-            <div style="font-size:12px;color:var(--text-muted);" id="pm-status-text">Checking connection...</div>
+
+          <!-- Microsoft SNDS (future) -->
+          <div class="connection-card" style="border-style:dashed;opacity:0.6;">
+            <div class="connection-icon" style="background:rgba(0,164,239,0.15);">
+              <svg width="20" height="20" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+            </div>
+            <div class="connection-info">
+              <div class="connection-name">Microsoft SNDS</div>
+              <div class="connection-status">IP reputation & junk mail data · Coming soon</div>
+            </div>
+          </div>
+
+          <!-- Yahoo/AOL (future) -->
+          <div class="connection-card" style="border-style:dashed;opacity:0.6;">
+            <div class="connection-icon" style="background:rgba(115,90,210,0.15);font-size:16px;">Y!</div>
+            <div class="connection-info">
+              <div class="connection-name">Yahoo/AOL CFL</div>
+              <div class="connection-status">Complaint feedback loop · Coming soon</div>
+            </div>
+          </div>
+
+          <!-- Google Safe Browsing (future) -->
+          <div class="connection-card" style="border-style:dashed;opacity:0.6;">
+            <div class="connection-icon" style="background:rgba(99,102,241,0.12);font-size:14px;">🛡️</div>
+            <div class="connection-info">
+              <div class="connection-name">Google Safe Browsing</div>
+              <div class="connection-status">Domain safety checks · Coming soon</div>
+            </div>
           </div>
         </div>
-        <div id="pm-actions">
-          <!-- Populated by JS: Connect button, or Connected status + Disconnect -->
+
+        <!-- ===== Notifications ===== -->
+        <div class="settings-panel" id="sp-notifications">
+          <div class="s-section-title">Notifications</div>
+          <div class="s-section-desc">Configure alert thresholds, delivery channels, and digest frequency.</div>
+
+          <div class="category-label">Alert Triggers</div>
+          <div class="card" style="padding:0 20px;margin-bottom:20px;">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Spam rate threshold</div>
+                <div class="settings-desc">Alert when spam rate exceeds 0.1% or 0.3%</div>
+              </div>
+              <div class="toggle on" data-pref="spam_threshold" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Authentication drops</div>
+                <div class="settings-desc">Alert when SPF, DKIM, or DMARC drops below 95%</div>
+              </div>
+              <div class="toggle on" data-pref="auth_drops" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Blacklist detection</div>
+                <div class="settings-desc">Alert when any IP or domain is listed on a blacklist</div>
+              </div>
+              <div class="toggle on" data-pref="blacklist_alerts" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">DNS record changes</div>
+                <div class="settings-desc">Alert when SPF, DKIM, or DMARC records are modified</div>
+              </div>
+              <div class="toggle on" data-pref="dns_changes" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+
+          <div class="category-label">Delivery Channels</div>
+          <div class="card" style="padding:0 20px;margin-bottom:20px;">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Email notifications</div>
+                <div class="settings-desc" id="notif-email-desc">Send alert summaries to your email</div>
+              </div>
+              <div class="toggle on" data-pref="scan_alerts" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Slack webhook</div>
+                <div class="settings-desc" style="color:var(--text-muted);font-style:italic;">Not configured — send alerts to a Slack channel</div>
+              </div>
+              <button class="btn-sm" disabled style="opacity:0.4;">Setup</button>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Custom webhook</div>
+                <div class="settings-desc" style="color:var(--text-muted);font-style:italic;">Not configured — POST alert data to your endpoint</div>
+              </div>
+              <button class="btn-sm" disabled style="opacity:0.4;">Setup</button>
+            </div>
+          </div>
+
+          <div class="category-label">Scheduled Digests</div>
+          <div class="card" style="padding:0 20px;">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Weekly digest</div>
+                <div class="settings-desc">Email health summary every Monday at 9:00 AM</div>
+              </div>
+              <div class="toggle" data-pref="weekly_digest" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Monthly report</div>
+                <div class="settings-desc">Comprehensive report on the 1st of each month</div>
+              </div>
+              <div class="toggle" data-pref="monthly_report" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+
+          <div style="margin-top:20px;">
+            <button class="btn btn-primary" onclick="saveNotifications()" id="save-notif-btn" style="padding:8px 20px;font-size:13px;">Save Preferences</button>
+          </div>
         </div>
-      </div>
 
-      <div id="pm-pro-gate" style="display:none;margin-top:12px;padding:12px 16px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;">
-        <div style="font-size:13px;color:var(--text-muted);">
-          <span style="font-size:14px;">🔒</span> Google Postmaster integration is available on <strong style="color:var(--accent);">Pro</strong> plans and above.
-          <span style="color:var(--accent);cursor:pointer;font-weight:500;" onclick="showToast('Plan upgrades coming soon!')">Upgrade</span>
+        <!-- ===== Plan & Billing (Coming Soon) ===== -->
+        <div class="settings-panel" id="sp-billing">
+          <div class="s-section-title">Plan & Billing</div>
+          <div class="s-section-desc">Manage your subscription, view usage, and update payment details.</div>
+
+          <div class="card" style="padding:40px;text-align:center;">
+            <div style="font-size:36px;margin-bottom:12px;">💳</div>
+            <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Coming Soon</div>
+            <div style="font-size:13px;color:var(--text-muted);max-width:340px;margin:0 auto;">Plan management, billing history, and payment settings will be available here. You're currently on the <span style="color:var(--accent);font-weight:600;" id="billing-plan-name">Free plan</span>.</div>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Danger Zone -->
-    <div class="settings-card danger-zone">
-      <h2>Danger Zone</h2>
-      <div class="card-desc">Irreversible actions. Proceed with caution.</div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;">
-        <button class="btn btn-outline" onclick="exportData()" style="border-color:rgba(239,68,68,0.3);color:var(--text-muted);">Export My Data</button>
-        <button class="btn btn-outline" onclick="confirmDelete()" style="border-color:var(--red);color:var(--red);">Delete Account</button>
-      </div>
-    </div>
+        <!-- ===== API Access (Coming Soon) ===== -->
+        <div class="settings-panel" id="sp-api">
+          <div class="s-section-title">API Access</div>
+          <div class="s-section-desc">Generate API keys and manage programmatic access to your data.</div>
 
+          <div class="card" style="padding:40px;text-align:center;">
+            <div style="font-size:36px;margin-bottom:12px;">🔑</div>
+            <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Coming Soon</div>
+            <div style="font-size:13px;color:var(--text-muted);max-width:340px;margin:0 auto;">API key generation, usage statistics, rate limits, and webhook management will be available here.</div>
+          </div>
+        </div>
+
+        <!-- ===== Team (Coming Soon) ===== -->
+        <div class="settings-panel" id="sp-team">
+          <div class="s-section-title">Team</div>
+          <div class="s-section-desc">Invite team members and manage roles.</div>
+
+          <div class="card" style="padding:40px;text-align:center;">
+            <div style="font-size:36px;margin-bottom:12px;">👥</div>
+            <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Coming Soon</div>
+            <div style="font-size:13px;color:var(--text-muted);max-width:340px;margin:0 auto;">Invite team members, assign roles (Admin, Viewer), and manage access to your InboxScore workspace.</div>
+          </div>
+        </div>
+
+      </div><!-- /settings-content -->
+    </div><!-- /settings-layout -->
   </main>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;width:400px;max-width:90vw;">
+    <div style="font-size:16px;font-weight:600;margin-bottom:16px;" id="edit-modal-title">Edit</div>
+    <div id="edit-modal-body"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+      <button class="btn-sm" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-primary" style="padding:8px 20px;font-size:13px;" id="edit-modal-save" onclick="saveEditModal()">Save</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -304,12 +426,8 @@ function getHeaders() {
 }
 
 function logout() {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  localStorage.removeItem('user');
-  sessionStorage.removeItem('access_token');
-  sessionStorage.removeItem('refresh_token');
-  sessionStorage.removeItem('user');
+  localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); localStorage.removeItem('user');
+  sessionStorage.removeItem('access_token'); sessionStorage.removeItem('refresh_token'); sessionStorage.removeItem('user');
   window.location.href = '/login';
 }
 
@@ -320,17 +438,101 @@ function showToast(msg, type = 'success') {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ─── Load Profile + Plan ─────────────────────────────────────
+// ─── Settings Panel Switching ──────────────────────────────
+function showSettingsPanel(panelId, el) {
+  document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('s-visible'));
+  const target = document.getElementById('sp-' + panelId);
+  if (target) target.classList.add('s-visible');
+  document.querySelectorAll('.settings-sidebar a').forEach(a => a.classList.remove('s-active'));
+  if (el) el.classList.add('s-active');
+}
+
+// ─── Edit Modal ────────────────────────────────────────────
+let currentEditField = null;
+
+function editField(field) {
+  currentEditField = field;
+  const modal = document.getElementById('edit-modal');
+  const title = document.getElementById('edit-modal-title');
+  const body = document.getElementById('edit-modal-body');
+
+  if (field === 'name') {
+    title.textContent = 'Edit Name';
+    body.innerHTML = '<input type="text" id="edit-input" value="' + (document.getElementById('general-name').textContent || '') + '" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;" placeholder="Your name">';
+  } else if (field === 'company') {
+    title.textContent = 'Edit Company';
+    body.innerHTML = '<input type="text" id="edit-input" value="' + (document.getElementById('general-company').textContent || '') + '" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;" placeholder="Company name">';
+  } else if (field === 'password') {
+    title.textContent = 'Update Password';
+    body.innerHTML = `
+      <input type="password" id="edit-pw-new" placeholder="New password (min 6 chars)" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;margin-bottom:10px;" minlength="6">
+      <input type="password" id="edit-pw-confirm" placeholder="Confirm password" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;">
+    `;
+  }
+  modal.style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+  currentEditField = null;
+}
+
+async function saveEditModal() {
+  const btn = document.getElementById('edit-modal-save');
+  btn.disabled = true; btn.textContent = 'Saving...';
+
+  try {
+    if (currentEditField === 'name' || currentEditField === 'company') {
+      const val = document.getElementById('edit-input').value.trim();
+      const payload = {};
+      if (currentEditField === 'name') payload.name = val;
+      else payload.company = val;
+
+      const res = await fetch('/api/user/profile', { method: 'PUT', headers: getHeaders(), body: JSON.stringify(payload) });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Failed'); }
+
+      if (currentEditField === 'name') {
+        document.getElementById('general-name').textContent = val || '—';
+        document.getElementById('user-name').textContent = val;
+      } else {
+        document.getElementById('general-company').textContent = val || '—';
+      }
+      showToast('Updated successfully');
+    } else if (currentEditField === 'password') {
+      const newPw = document.getElementById('edit-pw-new').value;
+      const confirmPw = document.getElementById('edit-pw-confirm').value;
+      if (newPw !== confirmPw) { showToast('Passwords do not match', 'error'); return; }
+      if (newPw.length < 6) { showToast('Password must be at least 6 characters', 'error'); return; }
+
+      const res = await fetch('/api/user/password', { method: 'PUT', headers: getHeaders(), body: JSON.stringify({ new_password: newPw }) });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Failed'); }
+      showToast('Password updated successfully');
+    }
+    closeEditModal();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save';
+  }
+}
+
+// Click outside modal to close
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditModal();
+});
+
+// ─── Load Settings ─────────────────────────────────────────
 async function loadSettings() {
   const token = getToken();
   if (!token) { window.location.href = '/login'; return; }
   const headers = { 'Authorization': 'Bearer ' + token };
 
   try {
-    const [meRes, planRes, profileRes] = await Promise.all([
+    const [meRes, planRes, profileRes, domainsRes] = await Promise.all([
       fetch('/api/auth/me', { headers }),
       fetch('/api/user/plan', { headers }),
       fetch('/api/user/profile', { headers }),
+      fetch('/api/user/domains', { headers }),
     ]);
 
     if (!meRes.ok) throw new Error('auth');
@@ -339,62 +541,47 @@ async function loadSettings() {
     const email = me.user.email;
     const displayName = me.user.name || email.split('@')[0];
     document.getElementById('user-name').textContent = displayName;
-    document.getElementById('profile-email').value = email;
+    document.getElementById('general-email').textContent = email;
+    document.getElementById('notif-email-desc').textContent = 'Send alert summaries to ' + email;
 
     // Profile data
     if (profileRes.ok) {
       const profile = await profileRes.json();
-      document.getElementById('profile-name').value = profile.name || '';
-      document.getElementById('profile-company').value = profile.company || '';
+      document.getElementById('general-name').textContent = profile.name || displayName;
+      document.getElementById('general-company').textContent = profile.company || '—';
 
-      // Load notification preferences
+      // Load notification prefs into toggles
       if (profile.preferences) {
         const prefs = profile.preferences;
-        document.getElementById('notify-scan').checked = prefs.scan_alerts !== false;
-        document.getElementById('notify-blacklist').checked = prefs.blacklist_alerts !== false;
-        document.getElementById('notify-weekly').checked = prefs.weekly_digest === true;
+        setToggle('scan_alerts', prefs.scan_alerts !== false);
+        setToggle('blacklist_alerts', prefs.blacklist_alerts !== false);
+        setToggle('weekly_digest', prefs.weekly_digest === true);
       }
     }
 
     // Plan data
+    let planName = 'free';
+    let domainCount = 0;
+    if (domainsRes.ok) {
+      const domains = await domainsRes.json();
+      domainCount = Array.isArray(domains) ? domains.length : 0;
+    }
     if (planRes.ok) {
       const plan = await planRes.json();
-      const badge = document.getElementById('plan-badge');
-      const label = document.getElementById('plan-label');
-      const detail = document.getElementById('plan-detail');
-
-      const planName = plan.plan || 'free';
-      badge.textContent = planName.toUpperCase();
-      badge.className = 'plan-badge ' + planName;
-      label.textContent = planName.charAt(0).toUpperCase() + planName.slice(1) + ' Plan';
-
-      if (plan.scans_limit === -1) {
-        detail.textContent = 'Unlimited scans';
-        document.getElementById('usage-container').style.display = 'none';
-      } else {
-        detail.textContent = plan.scans_limit + ' scans per day';
-        document.getElementById('usage-text').textContent = plan.scans_today + ' / ' + plan.scans_limit;
-        const pct = Math.min((plan.scans_today / plan.scans_limit) * 100, 100);
-        const fill = document.getElementById('usage-fill');
-        fill.style.width = pct + '%';
-        fill.className = 'fill ' + (pct >= 80 ? 'high' : pct >= 50 ? 'medium' : 'low');
-      }
-
-      if (planName !== 'free') {
-        document.getElementById('upgrade-btn').style.display = 'none';
-      }
+      planName = plan.plan || 'free';
     }
 
+    // Update sidebar plan badge
+    const plan = planName || 'free';
+    document.getElementById('plan-name').textContent = plan;
+    const billingEl = document.getElementById('billing-plan-name');
+    if (billingEl) billingEl.textContent = plan.charAt(0).toUpperCase() + plan.slice(1) + ' Plan';
+
   } catch (e) {
-    // Try refresh
     const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
     if (refresh) {
       try {
-        const r = await fetch('/api/auth/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refresh })
-        });
+        const r = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refresh }) });
         if (!r.ok) throw new Error();
         const data = await r.json();
         const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
@@ -406,295 +593,164 @@ async function loadSettings() {
   }
 }
 
-// ─── Save Profile ────────────────────────────────────────────
-async function saveProfile(e) {
-  e.preventDefault();
-  const btn = document.getElementById('save-profile-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving...';
-
-  try {
-    const res = await fetch('/api/user/profile', {
-      method: 'PUT',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        name: document.getElementById('profile-name').value.trim(),
-        company: document.getElementById('profile-company').value.trim(),
-      })
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to save');
-    }
-
-    showToast('Profile updated successfully');
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Save Changes';
-  }
+function setToggle(pref, value) {
+  const el = document.querySelector('.toggle[data-pref="' + pref + '"]');
+  if (el) { if (value) el.classList.add('on'); else el.classList.remove('on'); }
 }
 
-// ─── Change Password ─────────────────────────────────────────
-async function changePassword(e) {
-  e.preventDefault();
-  const newPw = document.getElementById('new-password').value;
-  const confirmPw = document.getElementById('confirm-password').value;
-
-  if (newPw !== confirmPw) {
-    showToast('Passwords do not match', 'error');
-    return;
-  }
-  if (newPw.length < 6) {
-    showToast('Password must be at least 6 characters', 'error');
-    return;
-  }
-
-  const btn = document.getElementById('save-password-btn');
-  btn.disabled = true;
-  btn.textContent = 'Updating...';
-
-  try {
-    const res = await fetch('/api/user/password', {
-      method: 'PUT',
-      headers: getHeaders(),
-      body: JSON.stringify({ new_password: newPw })
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to update password');
-    }
-
-    showToast('Password updated successfully');
-    document.getElementById('new-password').value = '';
-    document.getElementById('confirm-password').value = '';
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Update Password';
-  }
-}
-
-// ─── Save Notification Preferences ───────────────────────────
+// ─── Save Notifications ────────────────────────────────────
 async function saveNotifications() {
   const btn = document.getElementById('save-notif-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving...';
+  btn.disabled = true; btn.textContent = 'Saving...';
 
   try {
-    const res = await fetch('/api/user/preferences', {
-      method: 'PUT',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        scan_alerts: document.getElementById('notify-scan').checked,
-        blacklist_alerts: document.getElementById('notify-blacklist').checked,
-        weekly_digest: document.getElementById('notify-weekly').checked,
-      })
+    const prefs = {};
+    document.querySelectorAll('.toggle[data-pref]').forEach(t => {
+      prefs[t.dataset.pref] = t.classList.contains('on');
     });
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to save');
-    }
-
+    const res = await fetch('/api/user/preferences', {
+      method: 'PUT', headers: getHeaders(),
+      body: JSON.stringify(prefs)
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Failed'); }
     showToast('Notification preferences saved');
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Save Preferences';
+    btn.disabled = false; btn.textContent = 'Save Preferences';
   }
 }
 
-// ─── Export Data ──────────────────────────────────────────────
-async function exportData() {
-  showToast('Preparing your data export...');
-  try {
-    const res = await fetch('/api/user/export', { headers: getHeaders() });
-    if (!res.ok) throw new Error('Export failed');
-    const data = await res.json();
-
-    // Download as JSON
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'inboxscore-export.json';
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('Data exported successfully');
-  } catch (err) {
-    showToast('Export failed: ' + err.message, 'error');
-  }
-}
-
-// ─── Delete Account ──────────────────────────────────────────
-function confirmDelete() {
-  if (confirm('Are you sure you want to delete your account? This action is permanent and cannot be undone. All your domains, scan history, and settings will be removed.')) {
-    if (confirm('This is your last chance. Type "DELETE" in the next prompt to confirm.')) {
-      const input = prompt('Type DELETE to permanently remove your account:');
-      if (input === 'DELETE') {
-        deleteAccount();
-      } else {
-        showToast('Account deletion cancelled', 'error');
-      }
-    }
-  }
-}
-
-async function deleteAccount() {
-  try {
-    const res = await fetch('/api/user/account', {
-      method: 'DELETE',
-      headers: getHeaders()
-    });
-    if (!res.ok) throw new Error('Deletion failed');
-    showToast('Account deleted. Redirecting...');
-    setTimeout(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.href = '/';
-    }, 2000);
-  } catch (err) {
-    showToast('Failed to delete account: ' + err.message, 'error');
-  }
-}
-
-// ─── Postmaster Connection ───────────────────────────────────
+// ─── Postmaster Connection ─────────────────────────────────
 async function loadPostmasterStatus() {
   const token = getToken();
   if (!token) return;
 
   try {
-    const res = await fetch('/api/postmaster/status', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!res.ok) throw new Error('Failed to check status');
+    const res = await fetch('/api/postmaster/status', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!res.ok) throw new Error();
     const data = await res.json();
 
-    const statusText = document.getElementById('pm-status-text');
-    const actions = document.getElementById('pm-actions');
-    const proGate = document.getElementById('pm-pro-gate');
+    const status = document.getElementById('gpm-status');
+    const actions = document.getElementById('gpm-actions');
+    const proGate = document.getElementById('gpm-pro-gate');
 
     if (!data.is_pro) {
-      // Free plan — show lock
-      statusText.textContent = 'Get Gmail reputation data, spam rates & delivery insights';
+      status.textContent = 'Get Gmail reputation data, spam rates & delivery insights';
       actions.innerHTML = '';
       proGate.style.display = 'block';
       return;
     }
-
     proGate.style.display = 'none';
 
     if (data.connected) {
-      statusText.innerHTML = 'Connected as <strong style="color:var(--green);">' + data.google_email + '</strong>';
+      status.innerHTML = '<span style="color:var(--green);">● Connected</span> · ' + data.google_email;
       actions.innerHTML = `
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button class="btn btn-primary" onclick="syncPostmaster()" id="pm-sync-btn" style="padding:6px 14px;font-size:12px;">Sync Now</button>
-          <button class="btn btn-outline" onclick="disconnectPostmaster()" style="padding:6px 14px;font-size:12px;border-color:rgba(239,68,68,0.3);color:var(--text-muted);">Disconnect</button>
-        </div>
-      `;
+        <div style="display:flex;gap:8px;">
+          <button class="btn-sm" onclick="syncPostmaster()" id="pm-sync-btn">Sync Now</button>
+          <button class="btn-sm" onclick="disconnectPostmaster()" style="color:var(--red);border-color:rgba(239,68,68,0.3);">Disconnect</button>
+        </div>`;
     } else {
-      statusText.textContent = 'Get Gmail reputation data, spam rates & delivery insights';
-      actions.innerHTML = `
-        <button class="btn btn-primary" onclick="connectPostmaster()" style="padding:8px 18px;font-size:13px;">
-          Connect Google Account
-        </button>
-      `;
+      status.textContent = 'Get Gmail reputation data, spam rates & delivery insights';
+      actions.innerHTML = '<button class="btn btn-primary" onclick="connectPostmaster()" style="padding:6px 16px;font-size:12px;">Connect</button>';
     }
-  } catch (e) {
-    document.getElementById('pm-status-text').textContent = 'Unable to check connection status';
-    document.getElementById('pm-actions').innerHTML = '';
+  } catch {
+    document.getElementById('gpm-status').textContent = 'Unable to check status';
+    document.getElementById('gpm-actions').innerHTML = '';
   }
 }
 
 async function connectPostmaster() {
   try {
-    const res = await fetch('/api/postmaster/authorize', {
-      headers: { 'Authorization': 'Bearer ' + getToken() }
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      showToast(err.detail || 'Failed to start connection', 'error');
-      return;
-    }
+    const res = await fetch('/api/postmaster/authorize', { headers: { 'Authorization': 'Bearer ' + getToken() } });
+    if (!res.ok) { const e = await res.json(); showToast(e.detail || 'Failed', 'error'); return; }
     const data = await res.json();
-    // Redirect to Google consent page
     window.location.href = data.authorization_url;
-  } catch (e) {
-    showToast('Failed to connect: ' + e.message, 'error');
-  }
+  } catch (e) { showToast('Failed: ' + e.message, 'error'); }
 }
 
 async function disconnectPostmaster() {
-  if (!confirm('Disconnect Google Postmaster Tools? Your historical metrics data will be preserved.')) return;
-
+  if (!confirm('Disconnect Google Postmaster Tools? Your historical metrics will be preserved.')) return;
   try {
-    const res = await fetch('/api/postmaster/disconnect', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + getToken() }
-    });
-    if (!res.ok) throw new Error('Failed to disconnect');
+    const res = await fetch('/api/postmaster/disconnect', { method: 'POST', headers: { 'Authorization': 'Bearer ' + getToken() } });
+    if (!res.ok) throw new Error();
     showToast('Google Postmaster disconnected');
     loadPostmasterStatus();
-  } catch (e) {
-    showToast('Failed to disconnect: ' + e.message, 'error');
-  }
+  } catch { showToast('Failed to disconnect', 'error'); }
 }
 
 async function syncPostmaster() {
   const btn = document.getElementById('pm-sync-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Syncing...'; }
-
   try {
-    const res = await fetch('/api/postmaster/sync', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + getToken() }
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Sync failed');
-    }
+    const res = await fetch('/api/postmaster/sync', { method: 'POST', headers: { 'Authorization': 'Bearer ' + getToken() } });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Sync failed'); }
     const data = await res.json();
-    if (data.errors && data.errors.length > 0) {
-      showToast(`Sync issue: ${data.errors[0]}`, 'error');
-    } else if (data.domains_synced === 0) {
-      showToast('Synced 0 domains. Verify domains at postmaster.google.com with the same Google account.', 'error');
-    } else {
-      showToast(`Synced ${data.domains_synced} domain(s), ${data.metrics_saved} metric(s)`);
-    }
-  } catch (e) {
-    showToast('Sync failed: ' + e.message, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Sync Now'; }
-  }
+    if (data.errors && data.errors.length > 0) showToast(data.errors[0], 'error');
+    else if (data.domains_synced === 0) showToast('Synced 0 domains. Verify at postmaster.google.com', 'error');
+    else showToast(`Synced ${data.domains_synced} domain(s), ${data.metrics_saved} metric(s)`);
+  } catch (e) { showToast('Sync failed: ' + e.message, 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Sync Now'; } }
 }
 
-// ─── Init ────────────────────────────────────────────────────
+// ─── Delete Account ────────────────────────────────────────
+function confirmDelete() {
+  if (!confirm('Are you sure? This is permanent and cannot be undone.')) return;
+  const input = prompt('Type DELETE to permanently remove your account:');
+  if (input === 'DELETE') deleteAccount();
+  else showToast('Account deletion cancelled', 'error');
+}
+
+async function deleteAccount() {
+  try {
+    const res = await fetch('/api/user/account', { method: 'DELETE', headers: getHeaders() });
+    if (!res.ok) throw new Error();
+    showToast('Account deleted. Redirecting...');
+    setTimeout(() => { localStorage.clear(); sessionStorage.clear(); window.location.href = '/'; }, 2000);
+  } catch { showToast('Failed to delete account', 'error'); }
+}
+
+// ─── Export Data ───────────────────────────────────────────
+async function exportData() {
+  showToast('Preparing export...');
+  try {
+    const res = await fetch('/api/user/export', { headers: getHeaders() });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'inboxscore-export.json'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('Data exported');
+  } catch { showToast('Export failed', 'error'); }
+}
+
+// ─── Init ──────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   loadPostmasterStatus();
 
-  // Check for postmaster callback status in URL
+  // Postmaster callback status
   const params = new URLSearchParams(window.location.search);
   if (params.get('postmaster') === 'connected') {
     showToast('Google Postmaster connected successfully!');
     window.history.replaceState({}, '', '/settings');
+    // Auto-switch to Connected Services panel
+    showSettingsPanel('connections', document.querySelectorAll('.settings-sidebar a')[1]);
   } else if (params.get('postmaster') === 'error') {
     showToast('Failed to connect Google Postmaster. Please try again.', 'error');
     window.history.replaceState({}, '', '/settings');
+    showSettingsPanel('connections', document.querySelectorAll('.settings-sidebar a')[1]);
   }
 
+  // Close sidebar on main click (mobile)
   document.querySelector('.main').addEventListener('click', () => {
     document.querySelector('.sidebar').classList.remove('open');
     document.getElementById('sidebar-backdrop').classList.remove('show');
   });
 
-  // Load alert badge count
+  // Alert badge
   const token = getToken();
   if (token) {
     fetch('/api/user/alerts/count', { headers: { 'Authorization': 'Bearer ' + token } })

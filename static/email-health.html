@@ -28,7 +28,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .layout { display: flex; flex: 1; }
 
 /* Sidebar */
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; }
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
 .sidebar-nav { list-style: none; }
 .sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
@@ -36,6 +36,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
 .sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
 .alert-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; display: none; }
+.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
 
 /* Main */
 .main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
@@ -201,7 +203,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div style="display:flex;align-items:center;gap:12px;">
     <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
     <a href="/dashboard" class="logo">
-      <div class="logo-icon">📨</div>
+      <div class="logo-icon" style="font-size:11px;font-weight:700;color:white;">IS</div>
       InboxScore
     </a>
   </div>
@@ -215,16 +217,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <div class="layout">
   <aside class="sidebar">
     <ul class="sidebar-nav">
-      <li><a href="/dashboard"><span class="nav-icon">📊</span> Overview</a></li>
+      <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
       <li><a href="/email-health" class="active"><span class="nav-icon">🛡️</span> Email Health</a></li>
       <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
-      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge">0</span></a></li>
-      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">📄</span> Reports <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
-    </ul>
-    <div class="sidebar-section">Account</div>
-    <ul class="sidebar-nav">
+      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
       <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
     </ul>
+    <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
   </aside>
 
   <main class="main">
@@ -1277,6 +1276,8 @@ window.addEventListener('DOMContentLoaded', () => {
     .then(userData => {
       const name = userData.user.name || userData.user.email.split('@')[0];
       document.getElementById('user-name').textContent = name;
+      const plan = userData.user.plan || 'free';
+      document.getElementById('plan-name').textContent = plan;
     })
     .catch(() => {
       const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');

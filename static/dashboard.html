@@ -10,7 +10,7 @@
 :root {
   --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26; --border: #2a2a3a;
   --text: #e4e4ef; --text-muted: #8888a0; --accent: #6366f1; --accent-glow: rgba(99,102,241,0.3);
-  --green: #22c55e; --red: #ef4444; --yellow: #eab308;
+  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
@@ -28,54 +28,69 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .layout { display: flex; flex: 1; }
 
 /* Sidebar */
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; }
-.sidebar-nav { list-style: none; }
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar-nav { list-style: none; flex: 1; }
 .sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
 .sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); }
 .sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-.sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
+.alert-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; }
+.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
 
 /* Main */
-.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
-.page-title { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); max-width: 960px; }
 
-/* Quick Scan Bar */
-.quick-scan { display: flex; max-width: 560px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; transition: border-color 0.3s; margin-bottom: 32px; }
-.quick-scan:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-.quick-scan input { flex: 1; padding: 12px 16px; background: transparent; border: none; color: var(--text); font-size: 14px; outline: none; }
-.quick-scan input::placeholder { color: var(--text-muted); }
-.quick-scan button { padding: 12px 20px; background: var(--accent); color: white; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-.quick-scan button:hover { background: #5558e6; }
+/* Page Header */
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; }
 
-/* Stat Cards */
-.stat-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
-.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-.stat-card .label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-.stat-card .value { font-size: 28px; font-weight: 700; }
-.stat-card .value.good { color: var(--green); }
-.stat-card .value.moderate { color: var(--yellow); }
-.stat-card .value.danger { color: var(--red); }
-.stat-card .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+/* Stat Grid */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.stat-value { font-size: 22px; font-weight: 700; }
+.stat-change { font-size: 11px; margin-top: 4px; color: var(--text-muted); }
 
-/* Recent Scans Table */
-.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.section-header h2 { font-size: 16px; font-weight: 600; }
-.section-header a { font-size: 13px; color: var(--accent); text-decoration: none; }
-.section-header a:hover { text-decoration: underline; }
+/* Domain Summary Cards */
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.section-title { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.domain-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.domain-summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.2s; }
+.domain-summary-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.dsc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.dsc-domain { font-size: 15px; font-weight: 600; }
+.dsc-score { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; }
+.dsc-score-good { background: rgba(34,197,94,0.15); color: var(--green); border: 2px solid var(--green); }
+.dsc-score-warn { background: rgba(234,179,8,0.15); color: var(--yellow); border: 2px solid var(--yellow); }
+.dsc-score-bad { background: rgba(239,68,68,0.15); color: var(--red); border: 2px solid var(--red); }
+.dsc-score-none { background: var(--surface-2); color: var(--text-muted); border: 2px solid var(--border); }
+.dsc-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dsc-metric { text-align: center; }
+.dsc-metric-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.dsc-metric-val { font-size: 14px; font-weight: 600; margin-top: 2px; }
+.dsc-alerts { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.dsc-alert-item { font-size: 12px; color: var(--yellow); display: flex; align-items: center; gap: 6px; }
 
-.scans-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.scans-table th { text-align: left; padding: 12px 16px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-weight: 500; }
-.scans-table td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
-.scans-table tr:last-child td { border-bottom: none; }
-.scans-table tr:hover td { background: var(--surface-2); }
-.scans-table .domain-link { color: var(--accent); text-decoration: none; font-weight: 500; }
-.scans-table .domain-link:hover { text-decoration: underline; }
+/* Card + Recent Alerts */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.card-title { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 13px; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+.btn:hover { border-color: var(--accent); }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
 
-.score-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; }
-.score-badge.good { background: rgba(34,197,94,0.15); color: var(--green); }
-.score-badge.moderate { background: rgba(234,179,8,0.15); color: var(--yellow); }
-.score-badge.danger { background: rgba(239,68,68,0.15); color: var(--red); }
+.recent-alerts-list { list-style: none; }
+.recent-alerts-list li { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.recent-alerts-list li:last-child { border-bottom: none; }
+.ral-icon { font-size: 16px; margin-top: 2px; }
+.ral-content { flex: 1; }
+.ral-text { font-size: 13px; }
+.ral-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* Score Trend Chart */
+.activity-chart { height: 120px; display: flex; gap: 3px; align-items: flex-end; }
+.activity-bar { flex: 1; border-radius: 2px 2px 0 0; transition: height 0.5s ease; min-width: 4px; }
 
 /* Empty State */
 .empty-state { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 48px; text-align: center; }
@@ -88,11 +103,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; font-size: 13px; z-index: 100; animation: fadeInUp 0.3s ease; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
 /* Sidebar backdrop */
 .sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
 .sidebar-backdrop.show { display: block; }
-/* Table scroll wrapper */
-.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -100,12 +117,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   .sidebar.open { left: 0; }
   .mobile-toggle { display: block; }
   .main { padding: 24px 16px; }
-  .stat-cards { grid-template-columns: 1fr; }
-  .scans-table { font-size: 13px; min-width: 520px; }
-  .scans-table th, .scans-table td { padding: 10px 12px; }
-  .quick-scan { flex-direction: column; }
-  .quick-scan input { border-radius: 10px 10px 0 0; }
-  .quick-scan button { border-radius: 0 0 10px 10px; padding: 14px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .domain-summary-grid { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -115,7 +128,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   <div style="display:flex;align-items:center;gap:12px;">
     <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
     <a href="/dashboard" class="logo">
-      <div class="logo-icon">📨</div>
+      <div class="logo-icon" style="font-size:11px;font-weight:700;color:white;">IS</div>
       InboxScore
     </a>
   </div>
@@ -129,50 +142,67 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 <div class="layout">
   <aside class="sidebar">
     <ul class="sidebar-nav">
-      <li><a href="/dashboard" class="active"><span class="nav-icon">📊</span> Overview</a></li>
+      <li><a href="/dashboard" class="active"><span class="nav-icon">📊</span> Dashboard</a></li>
       <li><a href="/email-health"><span class="nav-icon">🛡️</span> Email Health</a></li>
       <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
-      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;background:#ef4444;color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto;min-width:18px;text-align:center;">0</span></a></li>
-      <li><a href="#" onclick="return false;" style="opacity:0.4;cursor:default"><span class="nav-icon">📄</span> Reports <span style="font-size:10px;background:var(--surface-2);padding:2px 6px;border-radius:4px;margin-left:auto;">Soon</span></a></li>
-    </ul>
-    <div class="sidebar-section">Account</div>
-    <ul class="sidebar-nav">
+      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
       <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
     </ul>
+    <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
   </aside>
 
-  <main class="main">
-    <h1 class="page-title" id="greeting">Overview</h1>
+  <main class="main" id="main-content">
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Overview of your email deliverability across all domains.</p>
 
-    <div class="quick-scan">
-      <input type="text" id="domain-input" placeholder="Scan a domain (e.g. acme.com)" onkeypress="if(event.key==='Enter') quickScan()">
-      <button onclick="quickScan()">Scan</button>
-    </div>
-
-    <!-- Stat Cards -->
-    <div class="stat-cards" id="stat-cards">
+    <!-- Quick Stats -->
+    <div class="stat-grid">
       <div class="stat-card">
-        <div class="label">Total Scans</div>
-        <div class="value" id="stat-scans">—</div>
+        <div class="stat-label">Avg Inbox Score</div>
+        <div class="stat-value" id="stat-avg-score" style="color:var(--text-muted);">—</div>
+        <div class="stat-change" id="stat-avg-change"></div>
       </div>
       <div class="stat-card">
-        <div class="label">Domains Scanned</div>
-        <div class="value" id="stat-domains">—</div>
+        <div class="stat-label">Domains Monitored</div>
+        <div class="stat-value" id="stat-domains">—</div>
+        <div class="stat-change" id="stat-domains-sub"></div>
       </div>
       <div class="stat-card">
-        <div class="label">Average Score</div>
-        <div class="value" id="stat-avg">—</div>
-        <div class="sub" id="stat-avg-sub"></div>
+        <div class="stat-label">Avg Spam Rate</div>
+        <div class="stat-value" id="stat-spam" style="color:var(--text-muted);">—</div>
+        <div class="stat-change" id="stat-spam-change"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Alerts</div>
+        <div class="stat-value" id="stat-alerts" style="color:var(--text-muted);">0</div>
+        <div class="stat-change" id="stat-alerts-sub"></div>
       </div>
     </div>
 
-    <!-- Recent Scans -->
-    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-      <h2>Recent Scans</h2>
-      <button id="csv-export-btn" onclick="exportCsv()" style="background: var(--surface-2, #1e293b); color: var(--text, #e2e8f0); padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; border: 1px solid var(--border, #334155); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">📊 Export CSV</button>
+    <!-- Domain Summary Cards -->
+    <div class="section-header">
+      <span class="section-title">Your Domains</span>
     </div>
-    <div id="scans-container">
-      <div class="loading"><div class="loading-spinner"></div>Loading your scans...</div>
+    <div id="domains-container">
+      <div class="loading"><div class="loading-spinner"></div>Loading your domains...</div>
+    </div>
+
+    <!-- Recent Alerts -->
+    <div class="card" id="alerts-card" style="display:none;">
+      <div class="card-header">
+        <span class="card-title">Recent Alerts</span>
+        <a href="/alerts" class="btn btn-sm">View All →</a>
+      </div>
+      <ul class="recent-alerts-list" id="alerts-list"></ul>
+    </div>
+
+    <!-- Score Trend -->
+    <div class="card" id="trend-card" style="display:none;">
+      <div class="card-header">
+        <span class="card-title">Score Trend (30 days)</span>
+      </div>
+      <div class="activity-chart" id="score-chart"></div>
+      <div id="chart-labels" style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text-muted);"></div>
     </div>
   </main>
 </div>
@@ -197,15 +227,22 @@ function logout() {
   window.location.href = '/login';
 }
 
-function quickScan() {
-  const domain = document.getElementById('domain-input').value.trim();
-  if (domain) window.location.href = '/scan/' + domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+function scoreClass(score) {
+  if (score >= 80) return 'dsc-score-good';
+  if (score >= 50) return 'dsc-score-warn';
+  return 'dsc-score-bad';
 }
 
-function scoreColor(score) {
-  if (score >= 80) return 'good';
-  if (score >= 50) return 'moderate';
-  return 'danger';
+function scoreColor(val) {
+  if (val >= 80) return 'var(--green)';
+  if (val >= 50) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function spamColor(rate) {
+  if (rate <= 0.1) return 'var(--green)';
+  if (rate <= 0.3) return 'var(--yellow)';
+  return 'var(--red)';
 }
 
 function timeAgo(dateStr) {
@@ -220,82 +257,157 @@ function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString();
 }
 
-function renderScans(scans) {
-  const container = document.getElementById('scans-container');
-  if (!scans || scans.length === 0) {
+function renderDomainCards(domains, scansMap, pmMap) {
+  const container = document.getElementById('domains-container');
+  if (!domains || domains.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">📊</div>
-        <h3>No scans yet</h3>
-        <p>Run your first scan above to start monitoring your email deliverability.</p>
+        <div class="empty-icon">🌐</div>
+        <h3>No domains yet</h3>
+        <p>Add your first domain in the <a href="/domains" style="color:var(--accent);">Domains</a> page to start monitoring.</p>
       </div>`;
     return;
   }
 
-  let html = `<div class="table-wrap"><table class="scans-table">
-    <thead><tr><th>Domain</th><th>Score</th><th>When</th></tr></thead>
-    <tbody>`;
+  let html = '<div class="domain-summary-grid">';
+  domains.forEach(d => {
+    const domainName = d.domain;
+    const scan = scansMap[domainName];
+    const pm = pmMap[domainName];
+    const score = scan ? scan.score : null;
+    const scoreClassStr = score !== null ? scoreClass(score) : 'dsc-score-none';
+    const scoreDisplay = score !== null ? score : '—';
 
-  scans.forEach(s => {
-    const color = scoreColor(s.score);
-    html += `<tr>
-      <td><a href="/scan/${s.domain}" class="domain-link">${s.domain}</a></td>
-      <td><span class="score-badge ${color}">${s.score}/100</span></td>
-      <td style="color:var(--text-muted)">${timeAgo(s.created_at)}</td>
-    </tr>`;
+    // Metrics from postmaster data or scan data
+    const spamRate = pm && pm.spam_rate !== null ? (pm.spam_rate * 100).toFixed(2) + '%' : '—';
+    const authRate = pm && pm.auth_success_dmarc !== null ? (pm.auth_success_dmarc * 100).toFixed(1) + '%' : (scan ? '—' : '—');
+    const tlsRate = pm && pm.encrypted_traffic_tls !== null ? (pm.encrypted_traffic_tls * 100).toFixed(0) + '%' : '—';
+
+    const spamColorVal = pm && pm.spam_rate !== null ? spamColor(pm.spam_rate * 100) : 'var(--text-muted)';
+    const authColorVal = pm && pm.auth_success_dmarc !== null ? (pm.auth_success_dmarc >= 0.95 ? 'var(--green)' : pm.auth_success_dmarc >= 0.8 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-muted)';
+    const tlsColorVal = pm && pm.encrypted_traffic_tls !== null ? (pm.encrypted_traffic_tls >= 0.95 ? 'var(--green)' : 'var(--yellow)') : 'var(--text-muted)';
+
+    html += `<div class="domain-summary-card" onclick="window.location.href='/email-health?domain=${domainName}'">
+      <div class="dsc-header">
+        <span class="dsc-domain">${domainName}</span>
+        <div class="dsc-score ${scoreClassStr}">${scoreDisplay}</div>
+      </div>
+      <div class="dsc-metrics">
+        <div class="dsc-metric">
+          <div class="dsc-metric-label">Spam Rate</div>
+          <div class="dsc-metric-val" style="color:${spamColorVal};">${spamRate}</div>
+        </div>
+        <div class="dsc-metric">
+          <div class="dsc-metric-label">Auth</div>
+          <div class="dsc-metric-val" style="color:${authColorVal};">${authRate}</div>
+        </div>
+        <div class="dsc-metric">
+          <div class="dsc-metric-label">TLS</div>
+          <div class="dsc-metric-val" style="color:${tlsColorVal};">${tlsRate}</div>
+        </div>
+      </div>
+    </div>`;
   });
-
-  html += '</tbody></table></div>';
+  html += '</div>';
   container.innerHTML = html;
 }
 
-function renderStats(stats) {
-  document.getElementById('stat-scans').textContent = stats.total_scans;
-  document.getElementById('stat-domains').textContent = stats.unique_domains;
+function renderAlerts(alerts) {
+  if (!alerts || alerts.length === 0) return;
+  const card = document.getElementById('alerts-card');
+  const list = document.getElementById('alerts-list');
+  card.style.display = 'block';
 
-  const avgEl = document.getElementById('stat-avg');
-  const avgSubEl = document.getElementById('stat-avg-sub');
-  if (stats.total_scans > 0) {
-    avgEl.textContent = stats.avg_score;
-    avgEl.className = 'value ' + scoreColor(stats.avg_score);
-    avgSubEl.textContent = stats.avg_score >= 80 ? 'Healthy' : stats.avg_score >= 50 ? 'Needs work' : 'Critical';
-  } else {
-    avgEl.textContent = '—';
-    avgSubEl.textContent = '';
-  }
+  const recent = alerts.slice(0, 5);
+  let html = '';
+  recent.forEach(a => {
+    const icon = a.severity === 'critical' ? '🔴' : a.severity === 'warning' ? '⚠️' : '🟢';
+    html += `<li>
+      <span class="ral-icon">${icon}</span>
+      <div class="ral-content">
+        <div class="ral-text"><strong>${a.domain || ''}</strong> — ${a.message || a.title || ''}</div>
+        <div class="ral-time">${timeAgo(a.created_at)}</div>
+      </div>
+    </li>`;
+  });
+  list.innerHTML = html;
 }
 
-async function exportCsv() {
-  const token = getToken();
-  if (!token) { alert('Please log in first'); return; }
+function renderScoreTrend(scans) {
+  if (!scans || scans.length < 2) return;
+  const card = document.getElementById('trend-card');
+  card.style.display = 'block';
 
-  const btn = document.getElementById('csv-export-btn');
-  btn.textContent = '⏳ Exporting...';
-  btn.disabled = true;
+  // Group scans by date, take average score per day
+  const byDate = {};
+  scans.forEach(s => {
+    const day = new Date(s.created_at).toISOString().split('T')[0];
+    if (!byDate[day]) byDate[day] = [];
+    byDate[day].push(s.score);
+  });
 
-  try {
-    const API = window.location.origin;
-    const res = await fetch(API + '/api/user/scans/csv', {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Export failed');
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'inboxscore-scan-history.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    alert(err.message || 'Failed to export CSV');
-  } finally {
-    btn.textContent = '📊 Export CSV';
-    btn.disabled = false;
+  const dates = Object.keys(byDate).sort();
+  const last30 = dates.slice(-30);
+  if (last30.length < 2) return;
+
+  const chart = document.getElementById('score-chart');
+  const labels = document.getElementById('chart-labels');
+
+  let barsHtml = '';
+  last30.forEach(date => {
+    const avg = byDate[date].reduce((a, b) => a + b, 0) / byDate[date].length;
+    const height = Math.max(4, (avg / 100) * 120);
+    const color = avg >= 80 ? 'var(--green)' : avg >= 50 ? 'var(--yellow)' : 'var(--red)';
+    barsHtml += `<div class="activity-bar" style="height:${height}px;background:${color};" title="${date}: ${Math.round(avg)}"></div>`;
+  });
+  chart.innerHTML = barsHtml;
+
+  // Show 5 evenly spaced date labels
+  const step = Math.max(1, Math.floor(last30.length / 4));
+  let labelHtml = '';
+  for (let i = 0; i < last30.length; i += step) {
+    const d = new Date(last30[i]);
+    labelHtml += `<span>${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>`;
+  }
+  // Always include last
+  const lastD = new Date(last30[last30.length - 1]);
+  labelHtml += `<span>${lastD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>`;
+  labels.innerHTML = labelHtml;
+}
+
+function updateStats(stats, alertData, domains, pmMap) {
+  // Avg Inbox Score
+  const avgEl = document.getElementById('stat-avg-score');
+  if (stats && stats.avg_score > 0) {
+    avgEl.textContent = stats.avg_score;
+    avgEl.style.color = scoreColor(stats.avg_score);
+  }
+
+  // Domains Monitored
+  const domEl = document.getElementById('stat-domains');
+  domEl.textContent = domains ? domains.length : 0;
+  const pmCount = Object.keys(pmMap).length;
+  if (pmCount > 0) {
+    document.getElementById('stat-domains-sub').textContent = pmCount + ' connected to Postmaster';
+  }
+
+  // Avg Spam Rate
+  const spamRates = Object.values(pmMap).filter(p => p.spam_rate !== null).map(p => p.spam_rate * 100);
+  const spamEl = document.getElementById('stat-spam');
+  if (spamRates.length > 0) {
+    const avgSpam = spamRates.reduce((a, b) => a + b, 0) / spamRates.length;
+    spamEl.textContent = avgSpam.toFixed(2) + '%';
+    spamEl.style.color = spamColor(avgSpam);
+  }
+
+  // Active Alerts
+  const alertEl = document.getElementById('stat-alerts');
+  if (alertData && alertData.unread_count > 0) {
+    alertEl.textContent = alertData.unread_count;
+    alertEl.style.color = 'var(--yellow)';
+  } else {
+    alertEl.textContent = '0';
+    alertEl.style.color = 'var(--green)';
   }
 }
 
@@ -306,53 +418,95 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const headers = { 'Authorization': 'Bearer ' + token };
 
-  // Verify user + load data in parallel
-  Promise.all([
-    fetch('/api/auth/me', { headers }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
-    fetch('/api/user/stats', { headers }).then(r => r.ok ? r.json() : null),
-    fetch('/api/user/scans', { headers }).then(r => r.ok ? r.json() : null),
-  ]).then(([userData, stats, scansData]) => {
-    const name = userData.user.name || userData.user.email.split('@')[0];
-    document.getElementById('user-name').textContent = name;
-    document.getElementById('greeting').textContent = 'Welcome back, ' + name;
-
-    if (stats) renderStats(stats);
-    if (scansData) renderScans(scansData.scans);
-    else document.getElementById('scans-container').innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><h3>No scans yet</h3><p>Run your first scan above to start monitoring.</p></div>';
-  }).catch(() => {
-    // Try refresh
-    const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
-    if (refresh) {
-      fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refresh })
-      }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
-        .then(data => {
-          const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
-          storage.setItem('access_token', data.access_token);
-          storage.setItem('refresh_token', data.refresh_token);
-          location.reload();
-        }).catch(() => logout());
-    } else { logout(); }
-  });
-
-  // Note: data load error handling is covered in the Promise.all chain above
-
-  // Load alert badge count
-  fetch('/api/user/alerts/count', { headers: { 'Authorization': 'Bearer ' + token } })
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      if (data && data.unread_count > 0) {
-        const badge = document.getElementById('sidebar-badge');
-        badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
-        badge.style.display = 'inline';
-      }
-    }).catch(() => {});
-
   // Close sidebar on mobile when clicking outside
   document.querySelector('.main').addEventListener('click', () => {
     document.querySelector('.sidebar').classList.remove('open');
+    document.getElementById('sidebar-backdrop').classList.remove('show');
+  });
+
+  // Load all data in parallel
+  Promise.all([
+    fetch('/api/auth/me', { headers }).then(r => { if (!r.ok) throw new Error('auth'); return r.json(); }),
+    fetch('/api/user/stats', { headers }).then(r => r.ok ? r.json() : null),
+    fetch('/api/user/domains', { headers }).then(r => r.ok ? r.json() : null),
+    fetch('/api/user/scans', { headers }).then(r => r.ok ? r.json() : null),
+    fetch('/api/user/alerts', { headers }).then(r => r.ok ? r.json() : null),
+    fetch('/api/user/alerts/count', { headers }).then(r => r.ok ? r.json() : null),
+  ]).then(async ([userData, stats, domainsData, scansData, alertsData, alertCount]) => {
+    // User info
+    const name = userData.user.name || userData.user.email.split('@')[0];
+    document.getElementById('user-name').textContent = name;
+
+    // Plan badge
+    const plan = userData.user.plan || 'free';
+    document.getElementById('plan-name').textContent = plan;
+
+    // Alert badge
+    if (alertCount && alertCount.unread_count > 0) {
+      const badge = document.getElementById('sidebar-badge');
+      badge.textContent = alertCount.unread_count > 99 ? '99+' : alertCount.unread_count;
+      badge.style.display = 'inline';
+    }
+
+    // Build scans map: latest scan per domain
+    const scansMap = {};
+    if (scansData && scansData.scans) {
+      scansData.scans.forEach(s => {
+        if (!scansMap[s.domain] || new Date(s.created_at) > new Date(scansMap[s.domain].created_at)) {
+          scansMap[s.domain] = s;
+        }
+      });
+    }
+
+    // Fetch postmaster metrics for each domain
+    const domains = domainsData || [];
+    const pmMap = {};
+    const pmPromises = domains.map(d =>
+      fetch(`/api/postmaster/metrics/${d.domain}`, { headers })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && data.metrics && data.metrics.length > 0) {
+            pmMap[d.domain] = data.metrics[0]; // Most recent
+          }
+        })
+        .catch(() => {})
+    );
+    await Promise.all(pmPromises);
+
+    // Render everything
+    renderDomainCards(domains, scansMap, pmMap);
+    updateStats(stats, alertCount, domains, pmMap);
+
+    // Alerts
+    if (alertsData && alertsData.alerts) {
+      renderAlerts(alertsData.alerts);
+    }
+
+    // Score Trend
+    if (scansData && scansData.scans) {
+      renderScoreTrend(scansData.scans);
+    }
+
+  }).catch((err) => {
+    if (err.message === 'auth') {
+      // Try refresh
+      const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+      if (refresh) {
+        fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refresh })
+        }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
+          .then(data => {
+            const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+            storage.setItem('access_token', data.access_token);
+            storage.setItem('refresh_token', data.refresh_token);
+            location.reload();
+          }).catch(() => logout());
+      } else { logout(); }
+    } else {
+      console.error('Dashboard load error:', err);
+    }
   });
 });
 </script>
