@@ -3264,10 +3264,12 @@ async def api_postmaster_debug_sync(req: Request):
                     {"name": "delivery_error_rate", "baseMetric": {"standardMetric": "DELIVERY_ERROR_RATE"}},
                 ],
                 "timeQuery": {
-                    "dateRanges": [{
-                        "start": {"year": int(start_date[:4]), "month": int(start_date[5:7]), "day": int(start_date[8:10])},
-                        "end": {"year": int(end_date[:4]), "month": int(end_date[5:7]), "day": int(end_date[8:10])},
-                    }]
+                    "dateRanges": {
+                        "dateRanges": [{
+                            "start": {"year": int(start_date[:4]), "month": int(start_date[5:7]), "day": int(start_date[8:10])},
+                            "end": {"year": int(end_date[:4]), "month": int(end_date[5:7]), "day": int(end_date[8:10])},
+                        }]
+                    }
                 },
                 "aggregationGranularity": "DAILY",
                 "pageSize": 200,

@@ -182,10 +182,12 @@ async def query_domain_stats(access_token: str, domain_resource: str,
     request_body = {
         "metricDefinitions": metric_definitions,
         "timeQuery": {
-            "dateRanges": [{
-                "start": _make_date_obj(start_date),
-                "end": _make_date_obj(end_date),
-            }]
+            "dateRanges": {
+                "dateRanges": [{
+                    "start": _make_date_obj(start_date),
+                    "end": _make_date_obj(end_date),
+                }]
+            }
         },
         "aggregationGranularity": "DAILY",
         "pageSize": 200,
