@@ -811,8 +811,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         <!-- ===== SECTION: MICROSOFT SNDS ===== -->
         <div class="eh-section" id="eh-sec-microsoft">
 
+        <!-- MS State: Free plan -->
+        <div class="provider-state" id="ms-state-free">
+          <div class="provider-cta">
+            <div class="cta-icon">
+              <svg width="32" height="32" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+            </div>
+            <div class="cta-title">Upgrade to Pro</div>
+            <div class="cta-desc">Microsoft SNDS integration requires a Pro plan or higher. Get IP reputation data, complaint rates, and spam trap insights for Outlook & Hotmail.</div>
+            <a class="cta-btn" href="/settings">Upgrade Plan</a>
+          </div>
+        </div>
+
         <!-- MS State: Data -->
-        <div class="provider-state active" id="ms-state-data">
+        <div class="provider-state" id="ms-state-data">
         <div class="pm-widget">
           <div class="pm-header">
             <div class="pm-title">
@@ -824,26 +836,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               </svg>
               Microsoft Outlook Intelligence
             </div>
-            <span class="pm-date-range">Last 48 hours</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="pm-date-range" id="ms-date-range">Last 30 days</span>
+              <button class="btn btn-sm" id="ms-sync-btn" onclick="msSyncNow()" style="font-size:11px;padding:4px 10px;">Sync Now</button>
+            </div>
           </div>
 
           <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Sending IP Status (SNDS)</div>
-          <div class="pm-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));">
-            <div class="pm-metric">
-              <div class="pm-label">Primary IP</div>
-              <div class="pm-value" style="color:var(--green);font-size:16px;">🟢 Green</div>
-              <div class="pm-sub">198.51.100.25</div>
-            </div>
-            <div class="pm-metric">
-              <div class="pm-label">Secondary IP</div>
-              <div class="pm-value" style="color:var(--green);font-size:16px;">🟢 Green</div>
-              <div class="pm-sub">198.51.100.26</div>
-            </div>
-            <div class="pm-metric">
-              <div class="pm-label">Warm-up IP</div>
-              <div class="pm-value" style="color:var(--yellow);font-size:16px;">🟡 Yellow</div>
-              <div class="pm-sub">198.51.100.30</div>
-            </div>
+          <div class="pm-grid" id="ms-ip-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));">
+            <!-- Dynamically populated -->
           </div>
 
           <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
@@ -851,18 +852,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);">
               <div class="pm-metric">
                 <div class="pm-label">Complaint Rate</div>
-                <div class="pm-value" style="color:var(--green);">0.05%</div>
+                <div class="pm-value" id="ms-complaint-rate" style="color:var(--green);">—</div>
                 <div class="pm-sub">JMRP reports</div>
               </div>
               <div class="pm-metric">
                 <div class="pm-label">Spam Trap Hits</div>
-                <div class="pm-value" style="color:var(--green);">0</div>
-                <div class="pm-sub">Last 48h</div>
+                <div class="pm-value" id="ms-trap-hits" style="color:var(--green);">—</div>
+                <div class="pm-sub">Last 30 days</div>
               </div>
               <div class="pm-metric">
-                <div class="pm-label">Junk Reports</div>
-                <div class="pm-value" style="color:var(--yellow);">7</div>
-                <div class="pm-sub">Last 48h</div>
+                <div class="pm-label">Total Messages</div>
+                <div class="pm-value" id="ms-total-messages" style="color:var(--text);">—</div>
+                <div class="pm-sub">Last 30 days</div>
               </div>
             </div>
 
@@ -870,26 +871,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               <div class="pm-trend-title">Complaint Rate Trend (30 days)</div>
               <div class="pm-trend-bars" id="eh-ms-trend"></div>
               <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);">
-                <span>Feb 6</span>
-                <span style="color:var(--green);font-weight:600;">▼ Below 0.1% threshold</span>
-                <span>Mar 7</span>
+                <span id="ms-trend-start"></span>
+                <span id="ms-trend-status" style="font-weight:600;"></span>
+                <span id="ms-trend-end"></span>
               </div>
             </div>
           </div><!-- /complaint section -->
 
           <div class="pm-errors" style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
-            <div class="pm-errors-title">Recent Junk Mail Reports (JMRP Samples)</div>
-            <div class="pm-error-row">
-              <span class="pm-error-label">Subject: "March Newsletter - New Features"</span>
-              <span class="pm-error-count" style="color:var(--yellow);">Mar 6</span>
-            </div>
-            <div class="pm-error-row">
-              <span class="pm-error-label">Subject: "Your Weekly Digest"</span>
-              <span class="pm-error-count" style="color:var(--yellow);">Mar 5</span>
-            </div>
-            <div class="pm-error-row">
-              <span class="pm-error-label">Subject: "Special Offer Inside"</span>
-              <span class="pm-error-count" style="color:var(--red);">Mar 4</span>
+            <div class="pm-errors-title">Recent SNDS Sample Data</div>
+            <div id="ms-samples-container">
+              <!-- Dynamically populated -->
             </div>
           </div>
         </div>
@@ -903,10 +895,35 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
             <div class="cta-title">Connect Microsoft SNDS</div>
             <div class="cta-desc">Get IP reputation data, complaint rates, and spam trap hits from Microsoft's Smart Network Data Services for Outlook & Hotmail delivery.</div>
-            <button class="cta-btn">Connect Microsoft SNDS</button>
-            <a class="cta-btn-outline" href="#">Learn More</a>
+            <button class="cta-btn" onclick="openMsSndsModal()">Connect Microsoft SNDS</button>
+            <a class="cta-btn-outline" href="https://postmaster.live.com/snds" target="_blank">Learn More</a>
           </div>
         </div><!-- /ms-state-disconnected -->
+
+        <!-- SNDS Connect Modal (shared with settings) -->
+        <div id="ms-snds-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:480px;width:90%;position:relative;">
+            <button onclick="closeMsSndsModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">&times;</button>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+              <svg width="28" height="28" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+              <div>
+                <div style="font-size:16px;font-weight:600;">Connect Microsoft SNDS</div>
+                <div style="font-size:12px;color:var(--text-muted);">Smart Network Data Services</div>
+              </div>
+            </div>
+            <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
+              <strong>How to get your SNDS key:</strong><br>
+              1. Go to <a href="https://postmaster.live.com/snds" target="_blank" style="color:var(--accent);">postmaster.live.com/snds</a><br>
+              2. Sign in with your Microsoft account<br>
+              3. Request access for your sending IPs<br>
+              4. Enable <strong>"Automated Data Access"</strong><br>
+              5. Copy the unique key URL provided
+            </div>
+            <input type="text" id="ms-snds-key-input" placeholder="Paste your SNDS automated access key here..." style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:12px;box-sizing:border-box;">
+            <div id="ms-snds-modal-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px;"></div>
+            <button id="ms-snds-connect-btn" onclick="msSndsConnect()" style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Connect & Validate</button>
+          </div>
+        </div>
 
         </div><!-- /eh-sec-microsoft -->
 
@@ -1309,6 +1326,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Load Google Postmaster status + metrics
   loadGpmStatus();
+
+  // Load Microsoft SNDS status + metrics
+  loadSndsStatus();
 
   // Close sidebar on mobile when clicking main
   document.querySelector('.main').addEventListener('click', () => {
@@ -2229,6 +2249,291 @@ async function loadGpmStatus() {
   } catch (e) {
     console.error('[GPM] Status check failed:', e);
     setGpmState('disconnected');
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   MICROSOFT SNDS — Status, Metrics, Connect/Disconnect
+   ═══════════════════════════════════════════════════════════ */
+
+function setMsState(state) {
+  // state: 'free', 'disconnected', 'data'
+  ['ms-state-free', 'ms-state-disconnected', 'ms-state-data'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  const target = document.getElementById('ms-state-' + state);
+  if (target) target.classList.add('active');
+}
+
+async function loadSndsStatus() {
+  const token = getToken();
+  if (!token) { setMsState('disconnected'); return; }
+
+  try {
+    const resp = await fetch('/api/snds/status', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+    if (resp.status === 403) {
+      setMsState('free');
+      return;
+    }
+
+    const data = await resp.json();
+
+    if (!data.is_pro) {
+      setMsState('free');
+    } else if (data.connected) {
+      setMsState('data');
+      loadSndsMetrics();
+    } else {
+      setMsState('disconnected');
+    }
+  } catch (e) {
+    console.error('[SNDS] Status check failed:', e);
+    setMsState('disconnected');
+  }
+}
+
+async function loadSndsMetrics() {
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    const resp = await fetch('/api/snds/metrics?days=30', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    if (!data.metrics || data.metrics.length === 0) {
+      document.getElementById('ms-ip-grid').innerHTML =
+        '<div style="color:var(--text-muted);font-size:13px;padding:10px;">No SNDS data available yet. Data will appear after the next sync.</div>';
+      return;
+    }
+
+    renderSndsData(data.metrics);
+  } catch (e) {
+    console.error('[SNDS] Metrics load failed:', e);
+  }
+}
+
+function renderSndsData(metrics) {
+  // Group by IP — get latest status per IP
+  const ipMap = {};
+  let totalComplaints = 0;
+  let totalTraps = 0;
+  let totalMessages = 0;
+  const dailyRates = {};
+
+  metrics.forEach(m => {
+    const ip = m.ip_address;
+    if (!ipMap[ip] || m.metric_date > ipMap[ip].metric_date) {
+      ipMap[ip] = m;
+    }
+    totalTraps += (m.trap_hits || 0);
+    totalMessages += (m.message_count || 0);
+
+    // Build daily complaint rate data
+    const date = m.metric_date;
+    if (!dailyRates[date]) {
+      dailyRates[date] = { totalRate: 0, count: 0 };
+    }
+    if (m.complaint_rate != null) {
+      dailyRates[date].totalRate += m.complaint_rate;
+      dailyRates[date].count += 1;
+    }
+  });
+
+  // Render IP status grid
+  const ipGrid = document.getElementById('ms-ip-grid');
+  const ips = Object.values(ipMap);
+  ipGrid.innerHTML = ips.map((ip, i) => {
+    const status = ip.ip_status || 'green';
+    const emoji = status === 'green' ? '🟢' : status === 'yellow' ? '🟡' : '🔴';
+    const color = status === 'green' ? 'var(--green)' : status === 'yellow' ? 'var(--yellow)' : 'var(--red)';
+    const label = i === 0 ? 'Primary IP' : i === 1 ? 'Secondary IP' : `IP ${i + 1}`;
+    return `<div class="pm-metric">
+      <div class="pm-label">${label}</div>
+      <div class="pm-value" style="color:${color};font-size:16px;">${emoji} ${status.charAt(0).toUpperCase() + status.slice(1)}</div>
+      <div class="pm-sub">${ip.ip_address}</div>
+    </div>`;
+  }).join('');
+
+  // Compute average complaint rate
+  let avgComplaint = null;
+  const latestIps = Object.values(ipMap);
+  const ratesArr = latestIps.map(ip => ip.complaint_rate).filter(r => r != null);
+  if (ratesArr.length > 0) {
+    avgComplaint = ratesArr.reduce((a, b) => a + b, 0) / ratesArr.length;
+  }
+
+  // Render complaint & trap summary
+  const crEl = document.getElementById('ms-complaint-rate');
+  if (avgComplaint != null) {
+    const pct = (avgComplaint * 100).toFixed(2) + '%';
+    crEl.textContent = pct;
+    crEl.style.color = avgComplaint < 0.001 ? 'var(--green)' : avgComplaint < 0.005 ? 'var(--yellow)' : 'var(--red)';
+  } else {
+    crEl.textContent = 'N/A';
+    crEl.style.color = 'var(--text-muted)';
+  }
+
+  const trapEl = document.getElementById('ms-trap-hits');
+  trapEl.textContent = totalTraps.toLocaleString();
+  trapEl.style.color = totalTraps === 0 ? 'var(--green)' : totalTraps <= 5 ? 'var(--yellow)' : 'var(--red)';
+
+  const msgEl = document.getElementById('ms-total-messages');
+  msgEl.textContent = totalMessages.toLocaleString();
+
+  // Render complaint rate trend chart
+  renderMsTrend(dailyRates);
+
+  // Render sample data
+  renderMsSamples(metrics.slice(-5).reverse());
+}
+
+function renderMsTrend(dailyRates) {
+  const trendEl = document.getElementById('eh-ms-trend');
+  const dates = Object.keys(dailyRates).sort();
+
+  if (dates.length === 0) {
+    trendEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">No trend data available</div>';
+    return;
+  }
+
+  const rates = dates.map(d => {
+    const dr = dailyRates[d];
+    return dr.count > 0 ? (dr.totalRate / dr.count) : 0;
+  });
+
+  const maxRate = Math.max(...rates, 0.001); // Ensure non-zero for scaling
+
+  trendEl.innerHTML = rates.map((rate, i) => {
+    const pct = Math.max((rate / maxRate) * 100, 2);
+    const color = rate < 0.001 ? 'var(--green)' : rate < 0.005 ? 'var(--yellow)' : 'var(--red)';
+    return `<div class="pm-trend-bar" style="height:${pct}%;background:${color};" title="${dates[i]}: ${(rate * 100).toFixed(3)}%"></div>`;
+  }).join('');
+
+  // Date labels
+  document.getElementById('ms-trend-start').textContent = formatDate(dates[0]);
+  document.getElementById('ms-trend-end').textContent = formatDate(dates[dates.length - 1]);
+
+  // Status text
+  const latestRate = rates[rates.length - 1];
+  const statusEl = document.getElementById('ms-trend-status');
+  if (latestRate < 0.001) {
+    statusEl.textContent = '▼ Below 0.1% threshold';
+    statusEl.style.color = 'var(--green)';
+  } else if (latestRate < 0.005) {
+    statusEl.textContent = '⚠ Approaching threshold';
+    statusEl.style.color = 'var(--yellow)';
+  } else {
+    statusEl.textContent = '▲ Above 0.1% threshold';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+function renderMsSamples(recent) {
+  const container = document.getElementById('ms-samples-container');
+  if (!recent || recent.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">No recent data</div>';
+    return;
+  }
+
+  container.innerHTML = recent.map(m => {
+    const samples = typeof m.sample_helos === 'string' ? JSON.parse(m.sample_helos || '{}') : (m.sample_helos || {});
+    const helo = samples.helo || samples.mail_from || m.ip_address;
+    const status = m.ip_status || 'green';
+    const color = status === 'green' ? 'var(--green)' : status === 'yellow' ? 'var(--yellow)' : 'var(--red)';
+    return `<div class="pm-error-row">
+      <span class="pm-error-label">${m.ip_address} — HELO: ${escapeHtml(helo)}</span>
+      <span class="pm-error-count" style="color:${color};">${formatDate(m.metric_date)}</span>
+    </div>`;
+  }).join('');
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// SNDS Connect modal (from email-health page)
+function openMsSndsModal() {
+  const modal = document.getElementById('ms-snds-modal');
+  modal.style.display = 'flex';
+  document.getElementById('ms-snds-key-input').value = '';
+  document.getElementById('ms-snds-modal-error').style.display = 'none';
+}
+
+function closeMsSndsModal() {
+  document.getElementById('ms-snds-modal').style.display = 'none';
+}
+
+async function msSndsConnect() {
+  const key = document.getElementById('ms-snds-key-input').value.trim();
+  if (!key) {
+    document.getElementById('ms-snds-modal-error').textContent = 'Please enter your SNDS key';
+    document.getElementById('ms-snds-modal-error').style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('ms-snds-connect-btn');
+  btn.textContent = 'Validating...';
+  btn.disabled = true;
+  document.getElementById('ms-snds-modal-error').style.display = 'none';
+
+  try {
+    const token = getToken();
+    const resp = await fetch('/api/snds/connect', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snds_key: key }),
+    });
+    const data = await resp.json();
+
+    if (resp.ok && data.success) {
+      closeMsSndsModal();
+      loadSndsStatus();
+    } else {
+      document.getElementById('ms-snds-modal-error').textContent = data.detail || 'Failed to connect';
+      document.getElementById('ms-snds-modal-error').style.display = 'block';
+    }
+  } catch (e) {
+    document.getElementById('ms-snds-modal-error').textContent = 'Connection error. Please try again.';
+    document.getElementById('ms-snds-modal-error').style.display = 'block';
+  } finally {
+    btn.textContent = 'Connect & Validate';
+    btn.disabled = false;
+  }
+}
+
+async function msSyncNow() {
+  const btn = document.getElementById('ms-sync-btn');
+  btn.textContent = 'Syncing...';
+  btn.disabled = true;
+  try {
+    const token = getToken();
+    const resp = await fetch('/api/snds/sync', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (resp.ok) {
+      loadSndsMetrics();
+    }
+  } catch (e) {
+    console.error('[SNDS] Sync failed:', e);
+  } finally {
+    btn.textContent = 'Sync Now';
+    btn.disabled = false;
   }
 }
 </script>

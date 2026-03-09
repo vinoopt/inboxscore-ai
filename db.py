@@ -908,3 +908,147 @@ def log_postmaster_sync(user_id: str, status: str, domains_synced: int = 0,
     except Exception as e:
         print(f"Error logging postmaster sync: {e}")
         return None
+
+
+# ─── MICROSOFT SNDS OPERATIONS ──────────────────────────────────
+
+def save_snds_connection(user_id: str, snds_key: str) -> dict:
+    """Save or update Microsoft SNDS connection for a user"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        data = {
+            "user_id": user_id,
+            "snds_key": snds_key,
+            "connected_at": datetime.utcnow().isoformat(),
+        }
+        result = sb.table("snds_connections").upsert(
+            data, on_conflict="user_id"
+        ).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error saving SNDS connection: {e}")
+        return None
+
+
+def get_snds_connection(user_id: str) -> dict:
+    """Get SNDS connection for a user"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("snds_connections").select("*").eq(
+            "user_id", user_id
+        ).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error getting SNDS connection: {e}")
+        return None
+
+
+def delete_snds_connection(user_id: str) -> bool:
+    """Remove SNDS connection and all associated metrics"""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        # Delete metrics first, then connection
+        sb.table("snds_metrics").delete().eq("user_id", user_id).execute()
+        sb.table("snds_connections").delete().eq("user_id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Error deleting SNDS connection: {e}")
+        return False
+
+
+def get_all_snds_connections() -> list:
+    """Get all active SNDS connections (for scheduler sync)"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        result = sb.table("snds_connections").select("*").execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error getting all SNDS connections: {e}")
+        return []
+
+
+def update_snds_sync_status(user_id: str, ip_count: int) -> bool:
+    """Update last_sync_at and ip_count after a successful sync"""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("snds_connections").update({
+            "last_sync_at": datetime.utcnow().isoformat(),
+            "ip_count": ip_count,
+        }).eq("user_id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Error updating SNDS sync status: {e}")
+        return False
+
+
+def upsert_snds_metrics(user_id: str, ip_address: str, metric_date: str, metrics: dict) -> dict:
+    """Insert or update daily SNDS metrics for an IP"""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        data = {
+            "user_id": user_id,
+            "ip_address": ip_address,
+            "metric_date": metric_date,
+            "ip_status": metrics.get("ip_status"),
+            "complaint_rate": metrics.get("complaint_rate"),
+            "trap_hits": metrics.get("trap_hits", 0),
+            "message_count": metrics.get("message_count", 0),
+            "filter_results": json.dumps(metrics.get("filter_results", {})),
+            "sample_helos": json.dumps(metrics.get("sample_helos", [])),
+            "raw_data": metrics.get("raw_data", ""),
+        }
+        result = sb.table("snds_metrics").upsert(
+            data, on_conflict="user_id,ip_address,metric_date"
+        ).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"Error upserting SNDS metrics: {e}")
+        return None
+
+
+def get_snds_metrics(user_id: str, days: int = 30) -> list:
+    """Get all SNDS IP metrics for a user (last N days)"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        from datetime import timedelta
+        cutoff = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+        result = sb.table("snds_metrics").select("*").eq(
+            "user_id", user_id
+        ).gte("metric_date", cutoff).order("metric_date", desc=False).execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error getting SNDS metrics: {e}")
+        return []
+
+
+def get_snds_metrics_for_ip(user_id: str, ip_address: str, days: int = 30) -> list:
+    """Get SNDS metrics for a specific IP (last N days)"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        from datetime import timedelta
+        cutoff = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+        result = sb.table("snds_metrics").select("*").eq(
+            "user_id", user_id
+        ).eq("ip_address", ip_address).gte(
+            "metric_date", cutoff
+        ).order("metric_date", desc=False).execute()
+        return result.data if result.data else []
+    except Exception as e:
+        print(f"Error getting SNDS metrics for IP: {e}")
+        return []

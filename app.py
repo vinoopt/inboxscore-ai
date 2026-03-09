@@ -36,6 +36,9 @@ from db import (
     update_domain_monitoring, get_monitored_domains, get_monitoring_logs,
     save_postmaster_connection, get_postmaster_connection,
     delete_postmaster_connection, get_postmaster_metrics as db_get_postmaster_metrics,
+    save_snds_connection, get_snds_connection, delete_snds_connection,
+    get_snds_metrics as db_get_snds_metrics, update_snds_sync_status,
+    upsert_snds_metrics,
 )
 
 # Auth
@@ -62,6 +65,7 @@ app.add_middleware(
 from apscheduler.schedulers.background import BackgroundScheduler
 from monitor import run_monitoring_cycle
 from postmaster_scheduler import sync_all_postmaster_users
+from snds_scheduler import sync_all_snds_users
 
 scheduler = BackgroundScheduler()
 # Run monitoring check every 15 minutes to find domains due for their scan
@@ -70,6 +74,9 @@ scheduler.add_job(run_monitoring_cycle, 'interval', minutes=15, id='monitoring_c
 # Sync Google Postmaster data daily at 6 AM UTC
 scheduler.add_job(sync_all_postmaster_users, 'cron', hour=6, minute=0,
                   id='postmaster_sync', max_instances=1, replace_existing=True)
+# Sync Microsoft SNDS data daily at 7 AM UTC
+scheduler.add_job(sync_all_snds_users, 'cron', hour=7, minute=0,
+                  id='snds_sync', max_instances=1, replace_existing=True)
 
 
 @app.on_event("startup")
@@ -3042,6 +3049,205 @@ async def api_postmaster_sync(req: Request):
         "domains_synced": result["domains_synced"],
         "metrics_saved": result["metrics_saved"],
         "errors": result["errors"] if result["errors"] else None,
+    }
+
+
+# ─── MICROSOFT SNDS ENDPOINTS ────────────────────────────────────
+
+@app.post("/api/snds/connect")
+async def api_snds_connect(req: Request):
+    """Connect Microsoft SNDS — validate key and save connection"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    body = await req.json()
+    snds_key = body.get("snds_key", "").strip()
+    if not snds_key:
+        raise HTTPException(status_code=400, detail="SNDS key is required")
+
+    # Validate the key by fetching data
+    from snds import validate_snds_key, fetch_snds_data
+    validation = await validate_snds_key(snds_key)
+
+    if not validation["valid"]:
+        raise HTTPException(
+            status_code=400,
+            detail=validation["error"] or "Invalid SNDS key"
+        )
+
+    # Save connection
+    save_snds_connection(user_id, snds_key)
+
+    # Trigger initial sync
+    try:
+        result = await fetch_snds_data(snds_key)
+        if result["success"] and result["data"]:
+            ip_set = set()
+            for row in result["data"]:
+                ip_set.add(row["ip_address"])
+                upsert_snds_metrics(
+                    user_id=user_id,
+                    ip_address=row["ip_address"],
+                    metric_date=row["metric_date"],
+                    metrics=row,
+                )
+            update_snds_sync_status(user_id, ip_count=len(ip_set))
+    except Exception as e:
+        print(f"[SNDS] Initial sync error: {e}")
+
+    return {
+        "success": True,
+        "message": "Microsoft SNDS connected successfully",
+        "ip_count": validation["ip_count"],
+    }
+
+
+@app.get("/api/snds/status")
+async def api_snds_status(req: Request):
+    """Get SNDS connection status for the current user"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    plan = get_user_plan(user_id)
+    is_pro = plan in ("pro", "growth", "enterprise")
+
+    connection = get_snds_connection(user_id)
+
+    if connection:
+        return {
+            "connected": True,
+            "connected_at": connection.get("connected_at", ""),
+            "last_sync_at": connection.get("last_sync_at"),
+            "ip_count": connection.get("ip_count", 0),
+            "is_pro": is_pro,
+        }
+    else:
+        return {
+            "connected": False,
+            "connected_at": None,
+            "last_sync_at": None,
+            "ip_count": 0,
+            "is_pro": is_pro,
+        }
+
+
+@app.post("/api/snds/disconnect")
+async def api_snds_disconnect(req: Request):
+    """Disconnect Microsoft SNDS (remove key + metrics)"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    success = delete_snds_connection(user_id)
+
+    if success:
+        return {"success": True, "message": "Microsoft SNDS disconnected"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to disconnect")
+
+
+@app.post("/api/snds/sync")
+async def api_snds_sync(req: Request):
+    """Manually trigger an SNDS data sync for the current user"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    connection = get_snds_connection(user_id)
+    if not connection:
+        raise HTTPException(status_code=400, detail="Microsoft SNDS not connected")
+
+    from snds import fetch_snds_data
+    result = await fetch_snds_data(connection["snds_key"])
+
+    if not result["success"]:
+        return {
+            "success": False,
+            "error": result["error"],
+            "ips_synced": 0,
+            "metrics_saved": 0,
+        }
+
+    ip_set = set()
+    metrics_saved = 0
+    for row in result["data"]:
+        ip_set.add(row["ip_address"])
+        upsert_snds_metrics(
+            user_id=user_id,
+            ip_address=row["ip_address"],
+            metric_date=row["metric_date"],
+            metrics=row,
+        )
+        metrics_saved += 1
+
+    update_snds_sync_status(user_id, ip_count=len(ip_set))
+
+    return {
+        "success": True,
+        "ips_synced": len(ip_set),
+        "metrics_saved": metrics_saved,
+    }
+
+
+@app.get("/api/snds/metrics")
+async def api_snds_metrics(req: Request, days: int = 30):
+    """Get all SNDS IP metrics for the current user"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    connection = get_snds_connection(user_id)
+    if not connection:
+        return {
+            "connected": False,
+            "metrics": [],
+            "message": "Connect Microsoft SNDS in Settings to see metrics",
+        }
+
+    metrics = db_get_snds_metrics(user_id, days=min(days, 90))
+    return {
+        "connected": True,
+        "metrics": metrics,
+        "ip_count": connection.get("ip_count", 0),
+        "last_sync_at": connection.get("last_sync_at"),
     }
 
 

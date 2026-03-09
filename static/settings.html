@@ -241,14 +241,46 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
           </div>
 
-          <!-- Microsoft SNDS (future) -->
-          <div class="connection-card" style="border-style:dashed;opacity:0.6;">
+          <!-- Microsoft SNDS -->
+          <div class="connection-card" id="snds-card">
             <div class="connection-icon" style="background:rgba(0,164,239,0.15);">
               <svg width="20" height="20" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
             </div>
             <div class="connection-info">
               <div class="connection-name">Microsoft SNDS</div>
-              <div class="connection-status">IP reputation & junk mail data · Coming soon</div>
+              <div class="connection-status" id="snds-status-text">Checking...</div>
+            </div>
+            <div id="snds-actions-disconnected" style="display:none;gap:8px;">
+              <button class="btn btn-sm" onclick="openSndsModal()">Connect</button>
+            </div>
+            <div id="snds-actions-connected" style="display:none;gap:8px;">
+              <button class="btn btn-sm" id="snds-sync-btn" onclick="sndsSyncNow()">Sync Now</button>
+              <button class="btn btn-sm" style="color:var(--red);border-color:rgba(239,68,68,0.3);" onclick="sndsDisconnect()">Disconnect</button>
+            </div>
+          </div>
+
+          <!-- SNDS Connect Modal -->
+          <div id="snds-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;display:none;align-items:center;justify-content:center;">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:480px;width:90%;position:relative;">
+              <button onclick="closeSndsModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">&times;</button>
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                <svg width="28" height="28" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+                <div>
+                  <div style="font-size:16px;font-weight:600;">Connect Microsoft SNDS</div>
+                  <div style="font-size:12px;color:var(--text-muted);">Smart Network Data Services</div>
+                </div>
+              </div>
+              <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
+                <strong>How to get your SNDS key:</strong><br>
+                1. Go to <a href="https://postmaster.live.com/snds" target="_blank" style="color:var(--accent);">postmaster.live.com/snds</a><br>
+                2. Sign in with your Microsoft account<br>
+                3. Request access for your sending IPs<br>
+                4. Enable <strong>"Automated Data Access"</strong><br>
+                5. Copy the unique key URL provided
+              </div>
+              <input type="text" id="snds-key-input" placeholder="Paste your SNDS automated access key here..." style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:12px;box-sizing:border-box;">
+              <div id="snds-modal-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px;"></div>
+              <button id="snds-connect-btn" onclick="sndsConnect()" style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Connect & Validate</button>
             </div>
           </div>
 
@@ -762,8 +794,157 @@ window.addEventListener('DOMContentLoaded', () => {
           badge.style.display = 'inline';
         }
       }).catch(() => {});
+
+    // Load SNDS connection status
+    loadSndsStatus();
   }
 });
+
+// ─── MICROSOFT SNDS FUNCTIONS ──────────────────────────────
+
+function loadSndsStatus() {
+  const token = getToken();
+  if (!token) return;
+  fetch('/api/snds/status', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => {
+      if (r.status === 403) return { connected: false, is_pro: false };
+      return r.ok ? r.json() : { connected: false, is_pro: true };
+    })
+    .then(data => {
+      const card = document.getElementById('snds-card');
+      const statusText = document.getElementById('snds-status-text');
+      const actionsDisc = document.getElementById('snds-actions-disconnected');
+      const actionsConn = document.getElementById('snds-actions-connected');
+
+      if (!data.is_pro) {
+        statusText.textContent = 'Requires Pro plan';
+        card.style.borderStyle = 'dashed';
+        card.style.opacity = '0.6';
+        actionsDisc.style.display = 'none';
+        actionsConn.style.display = 'none';
+      } else if (data.connected) {
+        const ipText = data.ip_count ? `${data.ip_count} IP${data.ip_count > 1 ? 's' : ''} monitored` : 'Connected';
+        let syncText = '';
+        if (data.last_sync_at) {
+          const ago = timeAgo(data.last_sync_at);
+          syncText = ` · Last sync: ${ago}`;
+        }
+        statusText.innerHTML = `<span style="color:var(--green);">● Connected</span> · ${ipText}${syncText}`;
+        card.style.borderStyle = 'solid';
+        card.style.opacity = '1';
+        actionsDisc.style.display = 'none';
+        actionsConn.style.display = 'flex';
+      } else {
+        statusText.textContent = 'IP reputation & junk mail data · Not connected';
+        card.style.borderStyle = 'dashed';
+        card.style.opacity = '1';
+        actionsDisc.style.display = 'flex';
+        actionsConn.style.display = 'none';
+      }
+    })
+    .catch(() => {
+      document.getElementById('snds-status-text').textContent = 'Unable to check status';
+    });
+}
+
+function openSndsModal() {
+  const modal = document.getElementById('snds-modal');
+  modal.style.display = 'flex';
+  document.getElementById('snds-key-input').value = '';
+  document.getElementById('snds-modal-error').style.display = 'none';
+}
+
+function closeSndsModal() {
+  document.getElementById('snds-modal').style.display = 'none';
+}
+
+async function sndsConnect() {
+  const key = document.getElementById('snds-key-input').value.trim();
+  if (!key) {
+    document.getElementById('snds-modal-error').textContent = 'Please enter your SNDS key';
+    document.getElementById('snds-modal-error').style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('snds-connect-btn');
+  btn.textContent = 'Validating...';
+  btn.disabled = true;
+  document.getElementById('snds-modal-error').style.display = 'none';
+
+  try {
+    const token = getToken();
+    const resp = await fetch('/api/snds/connect', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snds_key: key }),
+    });
+    const data = await resp.json();
+
+    if (resp.ok && data.success) {
+      closeSndsModal();
+      loadSndsStatus();
+    } else {
+      document.getElementById('snds-modal-error').textContent = data.detail || data.error || 'Failed to connect';
+      document.getElementById('snds-modal-error').style.display = 'block';
+    }
+  } catch (e) {
+    document.getElementById('snds-modal-error').textContent = 'Connection error. Please try again.';
+    document.getElementById('snds-modal-error').style.display = 'block';
+  } finally {
+    btn.textContent = 'Connect & Validate';
+    btn.disabled = false;
+  }
+}
+
+async function sndsSyncNow() {
+  const btn = document.getElementById('snds-sync-btn');
+  btn.textContent = 'Syncing...';
+  btn.disabled = true;
+
+  try {
+    const token = getToken();
+    const resp = await fetch('/api/snds/sync', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (resp.ok) {
+      loadSndsStatus();
+    }
+  } catch (e) {
+    console.error('SNDS sync error:', e);
+  } finally {
+    btn.textContent = 'Sync Now';
+    btn.disabled = false;
+  }
+}
+
+async function sndsDisconnect() {
+  if (!confirm('Disconnect Microsoft SNDS? This will remove all stored SNDS data.')) return;
+
+  try {
+    const token = getToken();
+    await fetch('/api/snds/disconnect', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    loadSndsStatus();
+  } catch (e) {
+    console.error('SNDS disconnect error:', e);
+  }
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const now = new Date();
+  const then = new Date(dateStr);
+  const diffMs = now - then;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 </script>
 </body>
 </html>
