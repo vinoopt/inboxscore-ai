@@ -52,15 +52,19 @@ from auth import (
 # PDF report generation
 from pdf_report import generate_pdf_report
 
-app = FastAPI(title="InboxScore API", version="1.14.0")
+app = FastAPI(title="InboxScore API", version="1.15.0")
 
-# CORS for local development
+# CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
+    "ALLOWED_ORIGINS", "https://inboxscore.ai,https://www.inboxscore.ai"
+).split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # ─── BACKGROUND MONITORING SCHEDULER ─────────────────────────────
@@ -99,6 +103,23 @@ async def shutdown_event():
         print("[Scheduler] Monitoring scheduler stopped")
     except Exception as e:
         print(f"[Scheduler] Shutdown error: {e}")
+
+
+# ─── HEALTH CHECK ──────────────────────────────────────────────────
+
+@app.get("/health")
+async def health_check():
+    """Health check for Render / load balancers / monitoring"""
+    checks = {"status": "ok", "version": "1.15.0", "db": False, "auth": False}
+
+    if is_db_available():
+        checks["db"] = True
+    if is_auth_available():
+        checks["auth"] = True
+
+    status_code = 200 if checks["db"] else 503
+    return JSONResponse(content=checks, status_code=status_code)
+
 
 # ─── BLACKLISTS TO CHECK ───────────────────────────────────────────
 # Trimmed to the 20 most reliable/authoritative blacklists for speed
@@ -1841,6 +1862,21 @@ async def scan_domain(request: ScanRequest, req: Request):
         import traceback; traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
 
+def _is_safe_domain(domain: str) -> bool:
+    """SSRF protection: verify domain resolves to public (non-internal) IPs."""
+    import ipaddress as _ipa
+    try:
+        answers = dns.resolver.resolve(domain, "A")
+        for rdata in answers:
+            ip = _ipa.ip_address(str(rdata))
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                return False
+        return True
+    except Exception:
+        # If DNS fails, let individual checks handle it
+        return True
+
+
 async def _run_scan(request: ScanRequest, req: Request):
     """Internal scan logic — wrapped by scan_domain for error handling"""
     domain = request.domain.strip().lower()
@@ -1851,6 +1887,10 @@ async def _run_scan(request: ScanRequest, req: Request):
 
     if not domain or "." not in domain:
         raise HTTPException(status_code=400, detail="Please enter a valid domain name")
+
+    # SSRF protection — block internal/private/reserved domains
+    if not _is_safe_domain(domain):
+        raise HTTPException(status_code=400, detail="This domain cannot be scanned (resolves to a private/reserved IP)")
 
     # Get client IP for rate limiting
     client_ip = req.headers.get("x-forwarded-for", req.client.host if req.client else "0.0.0.0")
@@ -2023,6 +2063,38 @@ async def subscribe(request: SubscribeRequest):
     }
 
 
+# ─── AUTH RATE LIMITING ─────────────────────────────────────────────
+from collections import defaultdict
+import time as _time
+
+_login_attempts = defaultdict(list)  # ip -> [timestamp, ...]
+_LOGIN_RATE_LIMIT = 5   # max attempts
+_LOGIN_RATE_WINDOW = 300  # per 5 minutes (seconds)
+
+
+def _check_login_rate(ip: str) -> bool:
+    """Returns True if the IP is allowed to attempt login."""
+    now = _time.time()
+    _login_attempts[ip] = [t for t in _login_attempts[ip] if now - t < _LOGIN_RATE_WINDOW]
+    if len(_login_attempts[ip]) >= _LOGIN_RATE_LIMIT:
+        return False
+    _login_attempts[ip].append(now)
+    return True
+
+
+# ─── PASSWORD POLICY ───────────────────────────────────────────────
+
+def _validate_password(password: str) -> str | None:
+    """Returns error message if password is invalid, None if OK."""
+    if len(password) < 8:
+        return "Password must be at least 8 characters"
+    if not re.search(r'[A-Z]', password):
+        return "Password must contain at least one uppercase letter"
+    if not re.search(r'[0-9]', password):
+        return "Password must contain at least one number"
+    return None
+
+
 # ─── AUTH ENDPOINTS ────────────────────────────────────────────────
 
 @app.post("/api/auth/signup")
@@ -2033,8 +2105,9 @@ async def api_signup(request: SignupRequest):
     if not re.match(email_regex, request.email):
         raise HTTPException(status_code=400, detail="Invalid email address")
 
-    if len(request.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    pw_error = _validate_password(request.password)
+    if pw_error:
+        raise HTTPException(status_code=400, detail=pw_error)
 
     result = sign_up(request.email, request.password, request.name)
 
@@ -2045,8 +2118,19 @@ async def api_signup(request: SignupRequest):
 
 
 @app.post("/api/auth/login")
-async def api_login(request: LoginRequest):
+async def api_login(request: LoginRequest, req: Request):
     """Log in and get access token"""
+    # Rate limit by IP
+    client_ip = req.headers.get("x-forwarded-for", req.client.host if req.client else "0.0.0.0")
+    if "," in client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+
+    if not _check_login_rate(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts. Please wait 5 minutes and try again."
+        )
+
     if not request.email or not request.password:
         raise HTTPException(status_code=400, detail="Email and password required")
 
@@ -2237,8 +2321,9 @@ async def api_change_password(req: Request):
 
     body = await req.json()
     new_password = body.get("new_password", "")
-    if len(new_password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    pw_error = _validate_password(new_password)
+    if pw_error:
+        raise HTTPException(status_code=400, detail=pw_error)
 
     # Use Supabase service role to update password
     from db import get_supabase
@@ -2734,7 +2819,8 @@ async def api_scan_detail(req: Request, scan_id: str):
     if not user_result["success"]:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    scan = get_scan_detail(scan_id)
+    user_id = user_result["user"]["id"]
+    scan = get_scan_detail(scan_id, user_id=user_id)
     if scan:
         return {"scan": scan}
     else:
@@ -2755,7 +2841,8 @@ async def api_scan_pdf(req: Request, scan_id: str):
     if not user_result["success"]:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    scan = get_scan_detail(scan_id)
+    user_id = user_result["user"]["id"]
+    scan = get_scan_detail(scan_id, user_id=user_id)
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
 

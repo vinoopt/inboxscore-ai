@@ -211,14 +211,17 @@ def get_domain_scans(domain: str, user_id: str = None, limit: int = 50) -> list:
         return []
 
 
-def get_scan_detail(scan_id: str) -> dict:
-    """Get full scan details by ID"""
+def get_scan_detail(scan_id: str, user_id: str = None) -> dict:
+    """Get full scan details by ID, optionally filtered by user ownership (IDOR protection)."""
     sb = get_supabase()
     if not sb:
         return None
 
     try:
-        result = sb.table("scans").select("*").eq("id", scan_id).execute()
+        query = sb.table("scans").select("*").eq("id", scan_id)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        result = query.execute()
         return result.data[0] if result.data else None
     except Exception as e:
         print(f"Error fetching scan detail: {e}")
