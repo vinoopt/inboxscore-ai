@@ -2848,6 +2848,66 @@ async function loadProviderStatus(domain) {
 }
 
 /* === IP Reputation (dynamic from user_ips + SNDS + blacklists) === */
+function _renderIpCards(grid, ips, sndsMap, blMap) {
+  grid.innerHTML = ips.map(ip => {
+    const snds = sndsMap[ip];
+    const bl = blMap[ip];
+
+    // SNDS column
+    let sndsLabel = '—', sndsColor = 'var(--text-muted)', sndsSub = 'Not available';
+    if (snds) {
+      const st = snds.ip_status || 'unknown';
+      sndsLabel = st.charAt(0).toUpperCase() + st.slice(1);
+      sndsColor = st === 'green' ? 'var(--green)' : st === 'yellow' ? 'var(--yellow)' : st === 'red' ? 'var(--red)' : 'var(--text-muted)';
+      sndsSub = sndsLabel + ' status';
+    }
+
+    // Blacklist column
+    let blLabel = '—', blColor = 'var(--text-muted)', blSub = 'Not checked';
+    if (bl) {
+      const listed = bl.blacklisted_count || 0;
+      blLabel = listed === 0 ? 'Clear' : listed + ' Listed';
+      blColor = listed === 0 ? 'var(--green)' : 'var(--red)';
+      blSub = listed + ' of ' + (bl.blacklist_count || '1000+');
+    }
+
+    // Overall health badge
+    let badge = 'badge-muted', badgeText = 'No data';
+    if ((snds && snds.ip_status === 'red') || (bl && (bl.blacklisted_count || 0) > 2)) {
+      badge = 'badge-red'; badgeText = 'Critical';
+    } else if ((snds && snds.ip_status === 'yellow') || (bl && (bl.blacklisted_count || 0) > 0)) {
+      badge = 'badge-yellow'; badgeText = 'Warning';
+    } else if (snds || bl) {
+      badge = 'badge-green'; badgeText = 'Healthy';
+    }
+
+    const borderStyle = badge === 'badge-red' ? 'border-left:3px solid var(--red);' : badge === 'badge-yellow' ? 'border-left:3px solid var(--yellow);' : '';
+
+    return '<div style="background:var(--surface-2);border-radius:10px;padding:16px;' + borderStyle + '">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+      + '<span style="font-size:13px;font-weight:600;font-family:monospace;">' + ip + '</span>'
+      + '<span class="badge ' + badge + '">' + badgeText + '</span>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">'
+      + '<div style="text-align:center;">'
+      + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Microsoft SNDS</div>'
+      + '<div style="font-size:14px;font-weight:700;color:' + sndsColor + ';margin-top:4px;">' + sndsLabel + '</div>'
+      + '<div style="font-size:10px;color:var(--text-muted);">' + sndsSub + '</div>'
+      + '</div>'
+      + '<div style="text-align:center;">'
+      + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Blacklists</div>'
+      + '<div style="font-size:14px;font-weight:700;color:' + blColor + ';margin-top:4px;">' + blLabel + '</div>'
+      + '<div style="font-size:10px;color:var(--text-muted);">' + blSub + '</div>'
+      + '</div>'
+      + '<div style="text-align:center;">'
+      + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Spam Traps</div>'
+      + '<div style="font-size:14px;font-weight:700;color:' + (snds && snds.trap_hits > 0 ? 'var(--red)' : snds ? 'var(--green)' : 'var(--text-muted)') + ';margin-top:4px;">' + (snds ? (snds.trap_hits || 0) : '—') + '</div>'
+      + '<div style="font-size:10px;color:var(--text-muted);">' + (snds ? 'SNDS data' : 'Not available') + '</div>'
+      + '</div>'
+      + '</div></div>';
+  }).join('');
+}
+
 async function loadIpReputation(domain) {
   const token = getToken();
   if (!token) return;
@@ -2856,22 +2916,26 @@ async function loadIpReputation(domain) {
   const headers = { 'Authorization': 'Bearer ' + token };
 
   try {
-    // Fetch user's IPs for this domain
+    // 1) Fetch user's IPs for this domain
     let ips = [];
     if (domain) {
-      const ipResp = await fetch('/api/user/ips/by-domain/' + encodeURIComponent(domain), { headers });
-      if (ipResp.ok) {
-        const ipData = await ipResp.json();
-        ips = ipData.ips || [];
-      }
+      try {
+        const ipResp = await fetch('/api/user/ips/by-domain/' + encodeURIComponent(domain), { headers });
+        if (ipResp.ok) {
+          const ipData = await ipResp.json();
+          ips = ipData.ips || [];
+        }
+      } catch (e) { console.error('[EH] IP by-domain fetch error:', e); }
     }
     // Fallback: get all user IPs
     if (ips.length === 0) {
-      const allResp = await fetch('/api/user/ips', { headers });
-      if (allResp.ok) {
-        const allData = await allResp.json();
-        ips = (allData.ips || []).map(r => r.ip_address);
-      }
+      try {
+        const allResp = await fetch('/api/user/ips', { headers });
+        if (allResp.ok) {
+          const allData = await allResp.json();
+          ips = (allData.ips || []).map(r => r.ip_address);
+        }
+      } catch (e) { console.error('[EH] IP fetch error:', e); }
     }
 
     if (ips.length === 0) {
@@ -2881,97 +2945,54 @@ async function loadIpReputation(domain) {
       return;
     }
 
-    // Fetch SNDS metrics (for SNDS column)
+    // 2) Render immediately with "No data" state
     let sndsMap = {};
-    try {
-      let sndsUrl = '/api/snds/metrics?days=7';
-      if (domain) sndsUrl += '&domain=' + encodeURIComponent(domain);
-      const sndsResp = await fetch(sndsUrl, { headers });
-      if (sndsResp.ok) {
-        const sndsData = await sndsResp.json();
-        (sndsData.metrics || []).forEach(m => {
-          if (!sndsMap[m.ip_address] || m.metric_date > sndsMap[m.ip_address].metric_date) {
-            sndsMap[m.ip_address] = m;
-          }
-        });
-      }
-    } catch (e) { /* SNDS not connected — that's fine */ }
-
-    // Fetch blacklist data (for blacklist column)
     let blMap = {};
-    if (domain) {
+    _renderIpCards(grid, ips, sndsMap, blMap);
+
+    // 3) Fetch SNDS + Blacklist in parallel, then re-render
+    const fetches = [];
+
+    // SNDS fetch (with 10s timeout)
+    fetches.push((async () => {
       try {
-        const blResp = await fetch('/api/blacklist/check/' + encodeURIComponent(domain), { headers });
-        if (blResp.ok) {
-          const blData = await blResp.json();
-          (blData.ip_results || []).forEach(r => { blMap[r.ip] = r; });
+        let sndsUrl = '/api/snds/metrics?days=7';
+        if (domain) sndsUrl += '&domain=' + encodeURIComponent(domain);
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 10000);
+        const sndsResp = await fetch(sndsUrl, { headers, signal: ctrl.signal });
+        clearTimeout(timer);
+        if (sndsResp.ok) {
+          const sndsData = await sndsResp.json();
+          (sndsData.metrics || []).forEach(m => {
+            if (!sndsMap[m.ip_address] || m.metric_date > sndsMap[m.ip_address].metric_date) {
+              sndsMap[m.ip_address] = m;
+            }
+          });
         }
-      } catch (e) { /* blacklist check failed */ }
+      } catch (e) { /* SNDS not connected or timed out */ }
+    })());
+
+    // Blacklist fetch (with 15s timeout)
+    if (domain) {
+      fetches.push((async () => {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 15000);
+          const blResp = await fetch('/api/blacklist/check/' + encodeURIComponent(domain), { headers, signal: ctrl.signal });
+          clearTimeout(timer);
+          if (blResp.ok) {
+            const blData = await blResp.json();
+            (blData.ip_results || []).forEach(r => { blMap[r.ip] = r; });
+          }
+        } catch (e) { /* blacklist check failed or timed out */ }
+      })());
     }
 
-    // Render each IP card
-    grid.innerHTML = ips.map(ip => {
-      const snds = sndsMap[ip];
-      const bl = blMap[ip];
+    await Promise.all(fetches);
 
-      // SNDS column
-      let sndsLabel = '—';
-      let sndsColor = 'var(--text-muted)';
-      let sndsSub = 'Not available';
-      if (snds) {
-        const st = snds.ip_status || 'unknown';
-        sndsLabel = st.charAt(0).toUpperCase() + st.slice(1);
-        sndsColor = st === 'green' ? 'var(--green)' : st === 'yellow' ? 'var(--yellow)' : st === 'red' ? 'var(--red)' : 'var(--text-muted)';
-        sndsSub = st.charAt(0).toUpperCase() + st.slice(1) + ' status';
-      }
-
-      // Blacklist column
-      let blLabel = '—';
-      let blColor = 'var(--text-muted)';
-      let blSub = 'Not checked';
-      if (bl) {
-        const listed = bl.blacklisted_count || 0;
-        blLabel = listed === 0 ? 'Clear' : listed + ' Listed';
-        blColor = listed === 0 ? 'var(--green)' : 'var(--red)';
-        blSub = listed + ' of ' + (bl.blacklist_count || '1000+');
-      }
-
-      // Overall health badge
-      let badge = 'badge-green';
-      let badgeText = 'Healthy';
-      if (snds && snds.ip_status === 'red' || (bl && (bl.blacklisted_count || 0) > 2)) {
-        badge = 'badge-red'; badgeText = 'Critical';
-      } else if (snds && snds.ip_status === 'yellow' || (bl && (bl.blacklisted_count || 0) > 0)) {
-        badge = 'badge-yellow'; badgeText = 'Warning';
-      } else if (!snds && !bl) {
-        badge = 'badge-muted'; badgeText = 'No data';
-      }
-
-      const borderStyle = badge === 'badge-red' ? 'border-left:3px solid var(--red);' : badge === 'badge-yellow' ? 'border-left:3px solid var(--yellow);' : '';
-
-      return '<div style="background:var(--surface-2);border-radius:10px;padding:16px;' + borderStyle + '">'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
-        + '<span style="font-size:13px;font-weight:600;font-family:monospace;">' + ip + '</span>'
-        + '<span class="badge ' + badge + '">' + badgeText + '</span>'
-        + '</div>'
-        + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">'
-        + '<div style="text-align:center;">'
-        + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Microsoft SNDS</div>'
-        + '<div style="font-size:14px;font-weight:700;color:' + sndsColor + ';margin-top:4px;">' + sndsLabel + '</div>'
-        + '<div style="font-size:10px;color:var(--text-muted);">' + sndsSub + '</div>'
-        + '</div>'
-        + '<div style="text-align:center;">'
-        + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Blacklists</div>'
-        + '<div style="font-size:14px;font-weight:700;color:' + blColor + ';margin-top:4px;">' + blLabel + '</div>'
-        + '<div style="font-size:10px;color:var(--text-muted);">' + blSub + '</div>'
-        + '</div>'
-        + '<div style="text-align:center;">'
-        + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Spam Traps</div>'
-        + '<div style="font-size:14px;font-weight:700;color:' + (snds && snds.trap_hits > 0 ? 'var(--red)' : snds ? 'var(--green)' : 'var(--text-muted)') + ';margin-top:4px;">' + (snds ? (snds.trap_hits || 0) : '—') + '</div>'
-        + '<div style="font-size:10px;color:var(--text-muted);">' + (snds ? 'SNDS data' : 'Not available') + '</div>'
-        + '</div>'
-        + '</div></div>';
-    }).join('');
+    // 4) Re-render with actual data
+    _renderIpCards(grid, ips, sndsMap, blMap);
 
   } catch (e) {
     console.error('[EH] IP reputation load error:', e);
