@@ -209,9 +209,14 @@ async def query_domain_stats(access_token: str, domain_resource: str,
                 timeout=30.0,
             )
 
+            print(f"[Postmaster v2] domainStats:query for {domain_resource} status={response.status_code}")
             if response.status_code == 200:
                 data = response.json()
+                print(f"[Postmaster v2] Response keys: {list(data.keys())}")
                 stats = data.get("domainStats", [])
+                print(f"[Postmaster v2] Got {len(stats)} stat entries for {domain_resource}")
+                if not stats:
+                    print(f"[Postmaster v2] Full 200 response (no stats): {json.dumps(data)[:1000]}")
                 all_stats.extend(stats)
 
                 page_token = data.get("nextPageToken")
@@ -221,9 +226,10 @@ async def query_domain_stats(access_token: str, domain_resource: str,
                 raise Exception("TOKEN_EXPIRED")
             elif response.status_code == 404:
                 # No data for this domain/range
+                print(f"[Postmaster v2] 404 for {domain_resource}: {response.text[:500]}")
                 return []
             else:
-                print(f"[Postmaster v2] domainStats query error {response.status_code}: {response.text}")
+                print(f"[Postmaster v2] domainStats query error {response.status_code} for {domain_resource}: {response.text[:500]}")
                 return []
 
     return parse_v2_domain_stats(all_stats)
@@ -415,20 +421,23 @@ async def fetch_metrics_for_user(user_id: str, connection: dict, days: int = 7) 
     Fetch Postmaster metrics for all domains of a user for the last N days.
     Uses v2 date-range query for efficiency (single call per domain instead
     of one call per day).
-    Returns { "domains_synced": int, "metrics_saved": int, "errors": list }
+    Returns { "domains_synced": int, "metrics_saved": int, "errors": list, "debug": dict }
     """
     from db import upsert_postmaster_metrics
 
-    result = {"domains_synced": 0, "metrics_saved": 0, "errors": []}
+    result = {"domains_synced": 0, "metrics_saved": 0, "errors": [], "debug": {}}
 
     try:
         access_token = await ensure_valid_token(user_id, connection)
+        result["debug"]["token_status"] = "valid"
     except Exception as e:
         result["errors"].append(f"Token error: {e}")
+        result["debug"]["token_status"] = f"error: {e}"
         return result
 
     try:
         domain_resources = await get_postmaster_domains(access_token)
+        result["debug"]["domains_found"] = domain_resources
     except Exception as e:
         error_msg = str(e)
         if "TOKEN_EXPIRED" in error_msg:
@@ -453,16 +462,23 @@ async def fetch_metrics_for_user(user_id: str, connection: dict, days: int = 7) 
     # v2 advantage: fetch entire date range in one API call per domain
     end_date = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
     start_date = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+    result["debug"]["date_range"] = {"start": start_date, "end": end_date}
 
+    domain_debug = []
     for domain_resource in domain_resources:
         domain_name = domain_resource.replace("domains/", "")
+        d_info = {"domain": domain_name, "resource": domain_resource}
 
         try:
             daily_metrics = await query_domain_stats(
                 access_token, domain_resource, start_date, end_date
             )
+            d_info["metrics_count"] = len(daily_metrics) if daily_metrics else 0
+            d_info["status"] = "ok" if daily_metrics else "no_data"
 
             if daily_metrics:
+                d_info["first_date"] = daily_metrics[0].get("date", "")
+                d_info["last_date"] = daily_metrics[-1].get("date", "")
                 for day_data in daily_metrics:
                     metric_date = day_data.get("date", "")
                     if metric_date:
@@ -471,6 +487,7 @@ async def fetch_metrics_for_user(user_id: str, connection: dict, days: int = 7) 
                 result["domains_synced"] += 1
 
         except Exception as e:
+            d_info["status"] = f"error: {e}"
             if "TOKEN_EXPIRED" in str(e):
                 # Try refreshing once
                 try:
@@ -485,9 +502,13 @@ async def fetch_metrics_for_user(user_id: str, connection: dict, days: int = 7) 
                                 upsert_postmaster_metrics(user_id, domain_name, metric_date, day_data)
                                 result["metrics_saved"] += 1
                         result["domains_synced"] += 1
+                        d_info["status"] = "ok_after_refresh"
                 except Exception:
                     result["errors"].append(f"Token expired for {domain_name}")
             else:
                 result["errors"].append(f"Error fetching {domain_name}: {e}")
 
+        domain_debug.append(d_info)
+
+    result["debug"]["per_domain"] = domain_debug
     return result

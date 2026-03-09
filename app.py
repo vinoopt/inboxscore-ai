@@ -3185,6 +3185,7 @@ async def api_postmaster_sync(req: Request):
         "domains_synced": result["domains_synced"],
         "metrics_saved": result["metrics_saved"],
         "errors": result["errors"] if result["errors"] else None,
+        "debug": result.get("debug"),
     }
 
 
