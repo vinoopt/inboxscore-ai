@@ -3188,6 +3188,107 @@ async def api_postmaster_sync(req: Request):
     }
 
 
+@app.get("/api/postmaster/debug-sync")
+async def api_postmaster_debug_sync(req: Request):
+    """Debug endpoint: show raw Google Postmaster API responses"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    connection = get_postmaster_connection(user_id)
+    if not connection:
+        return {"error": "Not connected"}
+
+    from postmaster import ensure_valid_token, get_postmaster_domains, query_domain_stats, POSTMASTER_API_BASE
+    from datetime import datetime, timedelta
+    import httpx
+
+    debug_info = {"steps": []}
+
+    # Step 1: Get valid token
+    try:
+        access_token = await ensure_valid_token(user_id, connection)
+        debug_info["steps"].append({"step": "token", "status": "ok", "token_prefix": access_token[:20] + "..."})
+    except Exception as e:
+        debug_info["steps"].append({"step": "token", "status": "error", "error": str(e)})
+        return debug_info
+
+    # Step 2: List domains (raw)
+    try:
+        async with httpx.AsyncClient() as client:
+            raw_resp = await client.get(
+                f"{POSTMASTER_API_BASE}/domains",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={"pageSize": 200},
+                timeout=30.0,
+            )
+            debug_info["steps"].append({
+                "step": "list_domains",
+                "status_code": raw_resp.status_code,
+                "raw_response": raw_resp.json() if raw_resp.status_code == 200 else raw_resp.text[:500],
+            })
+
+        domain_resources = await get_postmaster_domains(access_token)
+        debug_info["domain_resources"] = domain_resources
+    except Exception as e:
+        debug_info["steps"].append({"step": "list_domains", "status": "error", "error": str(e)})
+        return debug_info
+
+    if not domain_resources:
+        debug_info["steps"].append({"step": "domains_empty", "message": "No domains returned by Google"})
+        return debug_info
+
+    # Step 3: Query stats for each domain (raw)
+    end_date = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+    start_date = (datetime.utcnow() - timedelta(days=14)).strftime("%Y-%m-%d")
+    debug_info["date_range"] = {"start": start_date, "end": end_date}
+
+    domain_stats_debug = []
+    for dr in domain_resources[:5]:  # limit to 5 domains
+        domain_name = dr.replace("domains/", "")
+        try:
+            # Raw API call to see exactly what Google returns
+            url = f"{POSTMASTER_API_BASE}/{dr}/domainStats:query"
+            request_body = {
+                "metricDefinitions": [
+                    {"name": "spam_rate", "baseMetric": {"standardMetric": "SPAM_RATE"}},
+                    {"name": "delivery_error_rate", "baseMetric": {"standardMetric": "DELIVERY_ERROR_RATE"}},
+                ],
+                "timeQuery": {
+                    "dateRanges": [{
+                        "start": {"year": int(start_date[:4]), "month": int(start_date[5:7]), "day": int(start_date[8:10])},
+                        "end": {"year": int(end_date[:4]), "month": int(end_date[5:7]), "day": int(end_date[8:10])},
+                    }]
+                },
+                "aggregationGranularity": "DAILY",
+                "pageSize": 200,
+            }
+            async with httpx.AsyncClient() as client:
+                raw_resp = await client.post(
+                    url, headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+                    json=request_body, timeout=30.0,
+                )
+                domain_stats_debug.append({
+                    "domain": domain_name,
+                    "resource": dr,
+                    "status_code": raw_resp.status_code,
+                    "raw_response": raw_resp.json() if raw_resp.status_code == 200 else raw_resp.text[:1000],
+                })
+        except Exception as e:
+            domain_stats_debug.append({"domain": domain_name, "error": str(e)})
+
+    debug_info["domain_stats"] = domain_stats_debug
+    return debug_info
+
+
 # ─── MICROSOFT SNDS ENDPOINTS ────────────────────────────────────
 
 @app.post("/api/snds/connect")
