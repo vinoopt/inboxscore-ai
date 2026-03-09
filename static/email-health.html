@@ -2146,8 +2146,23 @@ async function gpmSyncNow(btn) {
     }
     const data = await res.json();
     if (btn) { btn.textContent = 'Sync Complete'; }
-    // Reload status to switch to data state if metrics arrived
-    setTimeout(() => loadGpmStatus(), 1000);
+    // Update Last Sync timestamp to now
+    const ndSync = document.getElementById('gpm-nodata-sync');
+    if (ndSync) {
+      const now = new Date();
+      ndSync.textContent = now.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' ' + now.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+    }
+    // Show result info
+    const synced = data.domains_synced || 0;
+    const saved = data.metrics_saved || 0;
+    if (synced === 0 && saved === 0 && btn) {
+      btn.textContent = 'No data from Google yet';
+      setTimeout(() => { btn.textContent = 'Sync Now'; btn.disabled = false; }, 4000);
+    } else {
+      // Reload status to switch to data state if metrics arrived
+      setTimeout(() => loadGpmStatus(), 1000);
+      if (btn) setTimeout(() => { btn.textContent = 'Sync Now'; btn.disabled = false; }, 3000);
+    }
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Sync Now'; }
     alert('Sync failed: ' + e.message);
@@ -2177,7 +2192,16 @@ async function loadGpmStatus() {
       return;
     }
 
-    // Connected — load user's domains into the dropdown
+    // Connected — always populate the nodata info fields (in case we land there)
+    const ndEmail = document.getElementById('gpm-nodata-email');
+    if (ndEmail && data.google_email) ndEmail.textContent = data.google_email;
+    const ndSync = document.getElementById('gpm-nodata-sync');
+    if (ndSync && data.connected_at) {
+      const d = new Date(data.connected_at);
+      ndSync.textContent = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    }
+
+    // Load user's domains into the dropdown
     const domRes = await fetch('/api/user/domains', { headers });
     if (!domRes.ok) throw new Error('domains-fail');
     const domData = await domRes.json();
@@ -2188,14 +2212,6 @@ async function loadGpmStatus() {
 
     if (domains.length === 0) {
       select.innerHTML = '<option value="">No domains added</option>';
-      // Populate no-data state info
-      const ndEmail = document.getElementById('gpm-nodata-email');
-      if (ndEmail && data.google_email) ndEmail.textContent = data.google_email;
-      const ndSync = document.getElementById('gpm-nodata-sync');
-      if (ndSync && data.connected_at) {
-        const d = new Date(data.connected_at);
-        ndSync.textContent = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-      }
       setGpmState('nodata');
       return;
     }
