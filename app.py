@@ -38,7 +38,7 @@ from db import (
     delete_postmaster_connection, get_postmaster_metrics as db_get_postmaster_metrics,
     save_snds_connection, get_snds_connection, delete_snds_connection,
     get_snds_metrics as db_get_snds_metrics, update_snds_sync_status,
-    upsert_snds_metrics,
+    upsert_snds_metrics, update_snds_tracked_ips, get_snds_all_ips,
 )
 
 # Auth
@@ -3130,11 +3130,17 @@ async def api_snds_status(req: Request):
     connection = get_snds_connection(user_id)
 
     if connection:
+        import json
+        tracked_ips_raw = connection.get("tracked_ips")
+        tracked_ips = None
+        if tracked_ips_raw:
+            tracked_ips = json.loads(tracked_ips_raw) if isinstance(tracked_ips_raw, str) else tracked_ips_raw
         return {
             "connected": True,
             "connected_at": connection.get("connected_at", ""),
             "last_sync_at": connection.get("last_sync_at"),
             "ip_count": connection.get("ip_count", 0),
+            "tracked_ips": tracked_ips,
             "is_pro": is_pro,
         }
     else:
@@ -3143,6 +3149,7 @@ async def api_snds_status(req: Request):
             "connected_at": None,
             "last_sync_at": None,
             "ip_count": 0,
+            "tracked_ips": None,
             "is_pro": is_pro,
         }
 
@@ -3243,12 +3250,158 @@ async def api_snds_metrics(req: Request, days: int = 30):
         }
 
     metrics = db_get_snds_metrics(user_id, days=min(days, 90))
+
+    # Filter by tracked IPs if set
+    import json
+    tracked_ips_raw = connection.get("tracked_ips")
+    if tracked_ips_raw:
+        tracked = json.loads(tracked_ips_raw) if isinstance(tracked_ips_raw, str) else tracked_ips_raw
+        if tracked:
+            metrics = [m for m in metrics if m.get("ip_address") in tracked]
+
     return {
         "connected": True,
         "metrics": metrics,
         "ip_count": connection.get("ip_count", 0),
         "last_sync_at": connection.get("last_sync_at"),
     }
+
+
+@app.get("/api/snds/all-ips")
+async def api_snds_all_ips(req: Request):
+    """Get all IPs seen in SNDS data (for IP selection UI)"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    connection = get_snds_connection(user_id)
+    if not connection:
+        return {"ips": [], "tracked_ips": None}
+
+    all_ips = get_snds_all_ips(user_id)
+
+    import json
+    tracked_ips_raw = connection.get("tracked_ips")
+    tracked_ips = None
+    if tracked_ips_raw:
+        tracked_ips = json.loads(tracked_ips_raw) if isinstance(tracked_ips_raw, str) else tracked_ips_raw
+
+    return {"ips": all_ips, "tracked_ips": tracked_ips}
+
+
+@app.post("/api/snds/tracked-ips")
+async def api_snds_tracked_ips(req: Request):
+    """Set which IPs to track (null = track all)"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    body = await req.json()
+    tracked_ips = body.get("tracked_ips")  # null = track all, [] = none, [...] = specific
+
+    success = update_snds_tracked_ips(user_id, tracked_ips)
+    if success:
+        return {"success": True, "tracked_ips": tracked_ips}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to update tracked IPs")
+
+
+@app.get("/api/snds/detect-ips")
+async def api_snds_detect_ips(req: Request, domain: str = ""):
+    """Detect sending IPs from a domain's SPF record"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    if not domain:
+        return {"ips": [], "error": "Domain parameter required"}
+
+    # Look up SPF record to find IPs
+    detected_ips = _extract_ips_from_spf(domain)
+
+    return {"domain": domain, "ips": detected_ips}
+
+
+def _extract_ips_from_spf(domain: str, depth: int = 0) -> list:
+    """Recursively extract IP addresses from SPF record (including includes)"""
+    if depth > 5:
+        return []
+
+    import re
+    ips = []
+
+    spf_records = safe_dns_query(domain, "TXT")
+    if not spf_records:
+        return []
+
+    spf_txt = ""
+    for record in spf_records:
+        r = record.strip('"').strip("'")
+        if r.startswith("v=spf1"):
+            spf_txt = r
+            break
+
+    if not spf_txt:
+        return []
+
+    # Extract ip4: entries
+    for match in re.finditer(r'ip4:(\d+\.\d+\.\d+\.\d+(?:/\d+)?)', spf_txt):
+        ip_or_cidr = match.group(1)
+        if '/' in ip_or_cidr:
+            # Expand CIDR to individual IPs (only for /24 and above to stay sane)
+            ips.extend(_expand_cidr(ip_or_cidr))
+        else:
+            ips.append(ip_or_cidr)
+
+    # Follow include: directives
+    for match in re.finditer(r'include:(\S+)', spf_txt):
+        included_domain = match.group(1)
+        ips.extend(_extract_ips_from_spf(included_domain, depth + 1))
+
+    # Follow a: directives (resolve hostname to IPs)
+    for match in re.finditer(r'\ba:(\S+)', spf_txt):
+        hostname = match.group(1)
+        a_records = safe_dns_query(hostname, "A")
+        if a_records:
+            ips.extend(a_records)
+
+    return list(set(ips))
+
+
+def _expand_cidr(cidr: str) -> list:
+    """Expand a CIDR notation to individual IPs (limited to /24+)"""
+    try:
+        import ipaddress
+        network = ipaddress.ip_network(cidr, strict=False)
+        # Only expand if /24 or smaller (max 256 IPs)
+        if network.prefixlen >= 24:
+            return [str(ip) for ip in network.hosts()]
+        else:
+            # For larger ranges, return the network notation as-is
+            return [cidr]
+    except Exception:
+        return [cidr.split('/')[0]]
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)

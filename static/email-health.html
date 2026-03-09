@@ -13,6 +13,7 @@
   --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+@keyframes snds-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* Top Nav */
 .topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 10; }
@@ -810,6 +811,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
               <span class="pm-date-range" id="ms-date-range">Last 30 days</span>
+              <button class="btn btn-sm" onclick="openIpModal()" style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--text-muted);">Manage IPs</button>
               <button class="btn btn-sm" id="ms-sync-btn" onclick="msSyncNow()" style="font-size:11px;padding:4px 10px;">Sync Now</button>
             </div>
           </div>
@@ -872,10 +874,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
           </div>
         </div><!-- /ms-state-disconnected -->
 
-        <!-- SNDS Connect Modal (shared with settings) -->
+        <!-- SNDS Connect Modal -->
         <div id="ms-snds-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:480px;width:90%;position:relative;">
-            <button onclick="closeMsSndsModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">&times;</button>
+            <button onclick="closeMsSndsModal()" id="ms-snds-modal-close" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">&times;</button>
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
               <svg width="28" height="28" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
               <div>
@@ -883,17 +885,81 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <div style="font-size:12px;color:var(--text-muted);">Smart Network Data Services</div>
               </div>
             </div>
-            <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
-              <strong>How to get your SNDS key:</strong><br>
-              1. Go to <a href="https://postmaster.live.com/snds" target="_blank" style="color:var(--accent);">postmaster.live.com/snds</a><br>
-              2. Sign in with your Microsoft account<br>
-              3. Request access for your sending IPs<br>
-              4. Enable <strong>"Automated Data Access"</strong><br>
-              5. Copy the unique key URL provided
+            <!-- Step 1: Key input -->
+            <div id="ms-snds-step-input">
+              <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
+                <strong>How to get your SNDS key:</strong><br>
+                1. Go to <a href="https://postmaster.live.com/snds" target="_blank" style="color:var(--accent);">postmaster.live.com/snds</a><br>
+                2. Sign in with your Microsoft account<br>
+                3. Request access for your sending IPs<br>
+                4. Enable <strong>"Automated Data Access"</strong><br>
+                5. Copy the unique key URL provided
+              </div>
+              <input type="text" id="ms-snds-key-input" placeholder="Paste your SNDS automated access key here..." style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:12px;box-sizing:border-box;">
+              <div id="ms-snds-modal-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px;"></div>
+              <button id="ms-snds-connect-btn" onclick="msSndsConnect()" style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Connect & Validate</button>
             </div>
-            <input type="text" id="ms-snds-key-input" placeholder="Paste your SNDS automated access key here..." style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:12px;box-sizing:border-box;">
-            <div id="ms-snds-modal-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px;"></div>
-            <button id="ms-snds-connect-btn" onclick="msSndsConnect()" style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Connect & Validate</button>
+            <!-- Step 2: Progress -->
+            <div id="ms-snds-step-progress" style="display:none;">
+              <div style="font-size:14px;font-weight:600;margin-bottom:16px;">Setting up your connection...</div>
+              <div id="ms-snds-progress-steps" style="display:flex;flex-direction:column;gap:12px;">
+                <div class="ms-prog-step" id="ms-prog-1" style="display:flex;align-items:center;gap:10px;font-size:13px;">
+                  <span class="ms-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
+                  <span>Connecting to Microsoft SNDS...</span>
+                </div>
+                <div class="ms-prog-step" id="ms-prog-2" style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted);">
+                  <span class="ms-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
+                  <span>Validating your access key...</span>
+                </div>
+                <div class="ms-prog-step" id="ms-prog-3" style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted);">
+                  <span class="ms-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
+                  <span>Fetching IP reputation data...</span>
+                </div>
+              </div>
+              <div style="margin-top:16px;padding:10px;background:var(--surface-2);border-radius:8px;font-size:12px;color:var(--text-muted);text-align:center;">
+                This may take 10-15 seconds — Microsoft's servers can be slow to respond
+              </div>
+            </div>
+            <!-- Step 3: Success -->
+            <div id="ms-snds-step-success" style="display:none;text-align:center;">
+              <div style="font-size:40px;margin-bottom:12px;">&#10003;</div>
+              <div style="font-size:16px;font-weight:600;color:var(--green);margin-bottom:8px;">Connected Successfully!</div>
+              <div id="ms-snds-success-detail" style="font-size:13px;color:var(--text-muted);margin-bottom:16px;"></div>
+              <button onclick="closeMsSndsModal();loadSndsStatus();" style="padding:10px 24px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- IP Selection Modal -->
+        <div id="ms-ip-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:520px;width:90%;position:relative;max-height:80vh;overflow-y:auto;">
+            <button onclick="closeIpModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">&times;</button>
+            <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Manage Tracked IPs</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Select which sending IPs to monitor. Unselected IPs will be hidden from your dashboard.</div>
+
+            <!-- Auto-detect section -->
+            <div id="ip-detect-section" style="display:none;margin-bottom:16px;padding:12px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;">
+              <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;">Auto-detected from your domain's SPF record</div>
+              <div id="ip-detect-list" style="font-size:12px;color:var(--text-muted);"></div>
+              <button onclick="selectDetectedIps()" style="margin-top:8px;padding:5px 12px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">Select detected IPs only</button>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="ip-select-all" onchange="toggleAllIps(this.checked)" style="accent-color:var(--accent);">
+                Select All
+              </label>
+              <span id="ip-selected-count" style="font-size:12px;color:var(--text-muted);"></span>
+            </div>
+
+            <div id="ip-checkbox-list" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;">
+              <!-- Dynamically populated -->
+            </div>
+
+            <div style="margin-top:16px;display:flex;gap:10px;">
+              <button onclick="saveTrackedIps()" style="flex:1;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Save Selection</button>
+              <button onclick="closeIpModal()" style="padding:10px 20px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
+            </div>
           </div>
         </div>
 
@@ -2454,16 +2520,47 @@ function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// SNDS Connect modal (from email-health page)
+// ─── SNDS Connect Modal (3-step progress) ───────────────
 function openMsSndsModal() {
   const modal = document.getElementById('ms-snds-modal');
   modal.style.display = 'flex';
+  document.getElementById('ms-snds-step-input').style.display = 'block';
+  document.getElementById('ms-snds-step-progress').style.display = 'none';
+  document.getElementById('ms-snds-step-success').style.display = 'none';
+  document.getElementById('ms-snds-modal-close').style.display = 'block';
   document.getElementById('ms-snds-key-input').value = '';
   document.getElementById('ms-snds-modal-error').style.display = 'none';
+  document.getElementById('ms-snds-connect-btn').disabled = false;
+  document.getElementById('ms-snds-connect-btn').textContent = 'Connect & Validate';
 }
 
 function closeMsSndsModal() {
   document.getElementById('ms-snds-modal').style.display = 'none';
+}
+
+function setMsProgress(step, status) {
+  const el = document.getElementById('ms-prog-' + step);
+  if (!el) return;
+  const icon = el.querySelector('.ms-prog-icon');
+  if (status === 'active') {
+    el.style.color = 'var(--text)';
+    icon.style.borderColor = 'var(--accent)';
+    icon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" style="animation:snds-spin 1s linear infinite;"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="30 70" stroke-linecap="round"/></svg>';
+  } else if (status === 'done') {
+    el.style.color = 'var(--green)';
+    icon.style.borderColor = 'var(--green)';
+    icon.style.background = 'var(--green)';
+    icon.innerHTML = '<span style="color:white;font-size:11px;font-weight:700;">&#10003;</span>';
+  } else if (status === 'error') {
+    el.style.color = 'var(--red)';
+    icon.style.borderColor = 'var(--red)';
+    icon.innerHTML = '<span style="color:var(--red);font-size:12px;font-weight:700;">&times;</span>';
+  } else {
+    el.style.color = 'var(--text-muted)';
+    icon.style.borderColor = 'var(--border)';
+    icon.style.background = 'transparent';
+    icon.innerHTML = '';
+  }
 }
 
 async function msSndsConnect() {
@@ -2474,10 +2571,19 @@ async function msSndsConnect() {
     return;
   }
 
-  const btn = document.getElementById('ms-snds-connect-btn');
-  btn.textContent = 'Validating...';
-  btn.disabled = true;
-  document.getElementById('ms-snds-modal-error').style.display = 'none';
+  // Switch to progress view
+  document.getElementById('ms-snds-step-input').style.display = 'none';
+  document.getElementById('ms-snds-step-progress').style.display = 'block';
+  document.getElementById('ms-snds-modal-close').style.display = 'none';
+
+  // Animate progress steps
+  setMsProgress(1, 'active');
+  setMsProgress(2, 'pending');
+  setMsProgress(3, 'pending');
+
+  await new Promise(r => setTimeout(r, 800));
+  setMsProgress(1, 'done');
+  setMsProgress(2, 'active');
 
   try {
     const token = getToken();
@@ -2489,18 +2595,166 @@ async function msSndsConnect() {
     const data = await resp.json();
 
     if (resp.ok && data.success) {
-      closeMsSndsModal();
-      loadSndsStatus();
+      setMsProgress(2, 'done');
+      setMsProgress(3, 'active');
+      await new Promise(r => setTimeout(r, 600));
+      setMsProgress(3, 'done');
+      await new Promise(r => setTimeout(r, 400));
+
+      // Show success
+      document.getElementById('ms-snds-step-progress').style.display = 'none';
+      document.getElementById('ms-snds-step-success').style.display = 'block';
+      document.getElementById('ms-snds-modal-close').style.display = 'block';
+      const ipCount = data.ip_count || 0;
+      document.getElementById('ms-snds-success-detail').textContent = ipCount > 0
+        ? `Found ${ipCount} sending IP${ipCount !== 1 ? 's' : ''} with reputation data.`
+        : 'Connected successfully. Data will appear after the next sync.';
     } else {
-      document.getElementById('ms-snds-modal-error').textContent = data.detail || 'Failed to connect';
-      document.getElementById('ms-snds-modal-error').style.display = 'block';
+      setMsProgress(2, 'error');
+      document.getElementById('ms-snds-modal-close').style.display = 'block';
+      // Show error with retry option
+      const errDiv = document.getElementById('ms-snds-progress-steps');
+      errDiv.insertAdjacentHTML('afterend',
+        `<div style="margin-top:16px;padding:12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;">
+          <div style="font-size:13px;color:var(--red);margin-bottom:8px;">${data.detail || 'Failed to validate SNDS key'}</div>
+          <button onclick="openMsSndsModal()" style="padding:6px 16px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">Try Again</button>
+        </div>`
+      );
     }
   } catch (e) {
-    document.getElementById('ms-snds-modal-error').textContent = 'Connection error. Please try again.';
-    document.getElementById('ms-snds-modal-error').style.display = 'block';
-  } finally {
-    btn.textContent = 'Connect & Validate';
-    btn.disabled = false;
+    setMsProgress(2, 'error');
+    document.getElementById('ms-snds-modal-close').style.display = 'block';
+    const errDiv = document.getElementById('ms-snds-progress-steps');
+    errDiv.insertAdjacentHTML('afterend',
+      `<div style="margin-top:16px;padding:12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;">
+        <div style="font-size:13px;color:var(--red);margin-bottom:8px;">Connection error. Please try again.</div>
+        <button onclick="openMsSndsModal()" style="padding:6px 16px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">Try Again</button>
+      </div>`
+    );
+  }
+}
+
+// ─── IP Selection Modal ──────────────────────────────────
+let msDetectedIps = [];
+let msAllIps = [];
+
+function openIpModal() {
+  document.getElementById('ms-ip-modal').style.display = 'flex';
+  loadIpSelectionData();
+}
+
+function closeIpModal() {
+  document.getElementById('ms-ip-modal').style.display = 'none';
+}
+
+async function loadIpSelectionData() {
+  const listEl = document.getElementById('ip-checkbox-list');
+  listEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Loading IPs...</div>';
+  document.getElementById('ip-detect-section').style.display = 'none';
+
+  try {
+    const token = getToken();
+
+    // Fetch all IPs and tracked IPs in parallel
+    const [ipsResp, detectResp] = await Promise.all([
+      fetch('/api/snds/all-ips', { headers: { 'Authorization': 'Bearer ' + token } }),
+      // Try auto-detect using the first user domain (from the domain dropdown)
+      (async () => {
+        const domain = ehCurrentDomain;
+        if (!domain) return { ok: false };
+        return fetch(`/api/snds/detect-ips?domain=${encodeURIComponent(domain)}`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+      })()
+    ]);
+
+    if (!ipsResp.ok) {
+      listEl.innerHTML = '<div style="color:var(--red);font-size:12px;">Failed to load IPs</div>';
+      return;
+    }
+
+    const ipsData = await ipsResp.json();
+    msAllIps = ipsData.ips || [];
+    const trackedIps = ipsData.tracked_ips; // null = all tracked
+
+    // Handle auto-detected IPs
+    if (detectResp.ok) {
+      const detectData = await detectResp.json();
+      msDetectedIps = detectData.ips || [];
+      if (msDetectedIps.length > 0) {
+        document.getElementById('ip-detect-section').style.display = 'block';
+        document.getElementById('ip-detect-list').textContent = msDetectedIps.join(', ');
+      }
+    }
+
+    // Build checkbox list
+    if (msAllIps.length === 0) {
+      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">No IPs found yet. SNDS data will appear after the next sync.</div>';
+      return;
+    }
+
+    listEl.innerHTML = msAllIps.map(ip => {
+      const isChecked = trackedIps === null || (Array.isArray(trackedIps) && trackedIps.includes(ip.ip_address));
+      const statusColor = ip.ip_status === 'green' ? 'var(--green)' : ip.ip_status === 'yellow' ? 'var(--yellow)' : 'var(--red)';
+      return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface-2);border-radius:8px;cursor:pointer;font-size:13px;">
+        <input type="checkbox" class="ip-cb" value="${ip.ip_address}" ${isChecked ? 'checked' : ''} onchange="updateIpCount()" style="accent-color:var(--accent);">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColor};flex-shrink:0;"></span>
+        <span style="font-family:monospace;">${ip.ip_address}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${ip.message_count ? ip.message_count.toLocaleString() + ' msgs' : ''}</span>
+      </label>`;
+    }).join('');
+
+    updateIpCount();
+
+  } catch (e) {
+    console.error('[SNDS] IP load error:', e);
+    listEl.innerHTML = '<div style="color:var(--red);font-size:12px;">Error loading IP data</div>';
+  }
+}
+
+function updateIpCount() {
+  const cbs = document.querySelectorAll('.ip-cb');
+  const checked = document.querySelectorAll('.ip-cb:checked');
+  document.getElementById('ip-selected-count').textContent = `${checked.length} of ${cbs.length} selected`;
+  document.getElementById('ip-select-all').checked = checked.length === cbs.length;
+}
+
+function toggleAllIps(checked) {
+  document.querySelectorAll('.ip-cb').forEach(cb => cb.checked = checked);
+  updateIpCount();
+}
+
+function selectDetectedIps() {
+  document.querySelectorAll('.ip-cb').forEach(cb => {
+    cb.checked = msDetectedIps.includes(cb.value);
+  });
+  updateIpCount();
+}
+
+async function saveTrackedIps() {
+  const cbs = document.querySelectorAll('.ip-cb');
+  const checked = document.querySelectorAll('.ip-cb:checked');
+
+  // If all are checked, save null (track all)
+  let trackedIps = null;
+  if (checked.length < cbs.length) {
+    trackedIps = Array.from(checked).map(cb => cb.value);
+  }
+
+  try {
+    const token = getToken();
+    const resp = await fetch('/api/snds/tracked-ips', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tracked_ips: trackedIps }),
+    });
+
+    if (resp.ok) {
+      closeIpModal();
+      loadSndsMetrics(); // Reload metrics with filtered IPs
+    }
+  } catch (e) {
+    console.error('[SNDS] Save tracked IPs error:', e);
   }
 }
 

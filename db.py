@@ -1052,3 +1052,51 @@ def get_snds_metrics_for_ip(user_id: str, ip_address: str, days: int = 30) -> li
     except Exception as e:
         print(f"Error getting SNDS metrics for IP: {e}")
         return []
+
+
+def update_snds_tracked_ips(user_id: str, tracked_ips: list) -> bool:
+    """Update the tracked IPs list for SNDS (None = track all)"""
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        import json
+        sb.table("snds_connections").update({
+            "tracked_ips": json.dumps(tracked_ips) if tracked_ips else None,
+        }).eq("user_id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Error updating SNDS tracked IPs: {e}")
+        return False
+
+
+def get_snds_all_ips(user_id: str) -> list:
+    """Get distinct IPs from SNDS metrics for a user (all IPs ever seen)"""
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        result = sb.table("snds_metrics").select(
+            "ip_address, ip_status, metric_date, message_count"
+        ).eq("user_id", user_id).order(
+            "metric_date", desc=True
+        ).execute()
+
+        if not result.data:
+            return []
+
+        # Get latest status per IP
+        ip_map = {}
+        for row in result.data:
+            ip = row["ip_address"]
+            if ip not in ip_map:
+                ip_map[ip] = {
+                    "ip_address": ip,
+                    "ip_status": row.get("ip_status", "green"),
+                    "last_seen": row.get("metric_date", ""),
+                    "message_count": row.get("message_count", 0),
+                }
+        return list(ip_map.values())
+    except Exception as e:
+        print(f"Error getting all SNDS IPs: {e}")
+        return []

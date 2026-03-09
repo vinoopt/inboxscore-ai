@@ -112,6 +112,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   .settings-sidebar a.s-active { border-left-color: transparent; border-bottom-color: var(--accent); }
   .settings-content { padding-left: 0; }
 }
+@keyframes snds-spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -253,7 +254,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
           <!-- SNDS Connect Modal -->
           <div id="snds-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:480px;width:90%;position:relative;">
-              <button onclick="closeSndsModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">&times;</button>
+              <button onclick="closeSndsModal()" id="snds-modal-close" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">&times;</button>
               <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
                 <svg width="28" height="28" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
                 <div>
@@ -261,17 +262,48 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                   <div style="font-size:12px;color:var(--text-muted);">Smart Network Data Services</div>
                 </div>
               </div>
-              <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
-                <strong>How to get your SNDS key:</strong><br>
-                1. Go to <a href="https://postmaster.live.com/snds" target="_blank" style="color:var(--accent);">postmaster.live.com/snds</a><br>
-                2. Sign in with your Microsoft account<br>
-                3. Request access for your sending IPs<br>
-                4. Enable <strong>"Automated Data Access"</strong><br>
-                5. Copy the unique key URL provided
+              <!-- Step 1: Key input -->
+              <div id="snds-step-input">
+                <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
+                  <strong>How to get your SNDS key:</strong><br>
+                  1. Go to <a href="https://postmaster.live.com/snds" target="_blank" style="color:var(--accent);">postmaster.live.com/snds</a><br>
+                  2. Sign in with your Microsoft account<br>
+                  3. Request access for your sending IPs<br>
+                  4. Enable <strong>"Automated Data Access"</strong><br>
+                  5. Copy the unique key URL provided
+                </div>
+                <input type="text" id="snds-key-input" placeholder="Paste your SNDS automated access key here..." style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:12px;box-sizing:border-box;">
+                <div id="snds-modal-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px;"></div>
+                <button id="snds-connect-btn" onclick="sndsConnect()" style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Connect & Validate</button>
               </div>
-              <input type="text" id="snds-key-input" placeholder="Paste your SNDS automated access key here..." style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:12px;box-sizing:border-box;">
-              <div id="snds-modal-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px;"></div>
-              <button id="snds-connect-btn" onclick="sndsConnect()" style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Connect & Validate</button>
+              <!-- Step 2: Progress steps (shown during validation) -->
+              <div id="snds-step-progress" style="display:none;">
+                <div style="font-size:14px;font-weight:600;margin-bottom:16px;">Setting up your connection...</div>
+                <div id="snds-progress-steps" style="display:flex;flex-direction:column;gap:12px;">
+                  <div class="snds-prog-step" id="snds-prog-1" style="display:flex;align-items:center;gap:10px;font-size:13px;">
+                    <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
+                    <span>Connecting to Microsoft SNDS...</span>
+                  </div>
+                  <div class="snds-prog-step" id="snds-prog-2" style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted);">
+                    <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
+                    <span>Validating your access key...</span>
+                  </div>
+                  <div class="snds-prog-step" id="snds-prog-3" style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted);">
+                    <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
+                    <span>Fetching IP reputation data...</span>
+                  </div>
+                </div>
+                <div style="margin-top:16px;padding:10px;background:var(--surface-2);border-radius:8px;font-size:12px;color:var(--text-muted);text-align:center;">
+                  This may take 10-15 seconds — Microsoft's servers can be slow to respond
+                </div>
+              </div>
+              <!-- Step 3: Success -->
+              <div id="snds-step-success" style="display:none;text-align:center;">
+                <div style="font-size:40px;margin-bottom:12px;">&#10003;</div>
+                <div style="font-size:16px;font-weight:600;color:var(--green);margin-bottom:8px;">Connected Successfully!</div>
+                <div id="snds-success-detail" style="font-size:13px;color:var(--text-muted);margin-bottom:16px;"></div>
+                <button onclick="closeSndsModal();loadSndsStatus();" style="padding:10px 24px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Done</button>
+              </div>
             </div>
           </div>
 
@@ -841,12 +873,45 @@ function loadSndsStatus() {
 function openSndsModal() {
   const modal = document.getElementById('snds-modal');
   modal.style.display = 'flex';
+  // Reset to input step
+  document.getElementById('snds-step-input').style.display = 'block';
+  document.getElementById('snds-step-progress').style.display = 'none';
+  document.getElementById('snds-step-success').style.display = 'none';
+  document.getElementById('snds-modal-close').style.display = 'block';
   document.getElementById('snds-key-input').value = '';
   document.getElementById('snds-modal-error').style.display = 'none';
+  document.getElementById('snds-connect-btn').disabled = false;
+  document.getElementById('snds-connect-btn').textContent = 'Connect & Validate';
 }
 
 function closeSndsModal() {
   document.getElementById('snds-modal').style.display = 'none';
+}
+
+function setSndsProgress(step, status) {
+  // status: 'active' (spinning), 'done' (checkmark), 'pending' (empty), 'error' (red X)
+  const el = document.getElementById('snds-prog-' + step);
+  if (!el) return;
+  const icon = el.querySelector('.snds-prog-icon');
+  if (status === 'active') {
+    el.style.color = 'var(--text)';
+    icon.style.borderColor = 'var(--accent)';
+    icon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" style="animation:snds-spin 1s linear infinite;"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="30 70" stroke-linecap="round"/></svg>';
+  } else if (status === 'done') {
+    el.style.color = 'var(--green)';
+    icon.style.borderColor = 'var(--green)';
+    icon.style.background = 'var(--green)';
+    icon.innerHTML = '<span style="color:white;font-size:11px;font-weight:700;">&#10003;</span>';
+  } else if (status === 'error') {
+    el.style.color = 'var(--red)';
+    icon.style.borderColor = 'var(--red)';
+    icon.innerHTML = '<span style="color:var(--red);font-size:12px;font-weight:700;">&times;</span>';
+  } else {
+    el.style.color = 'var(--text-muted)';
+    icon.style.borderColor = 'var(--border)';
+    icon.style.background = 'transparent';
+    icon.innerHTML = '';
+  }
 }
 
 async function sndsConnect() {
@@ -857,10 +922,20 @@ async function sndsConnect() {
     return;
   }
 
-  const btn = document.getElementById('snds-connect-btn');
-  btn.textContent = 'Validating...';
-  btn.disabled = true;
-  document.getElementById('snds-modal-error').style.display = 'none';
+  // Switch to progress view
+  document.getElementById('snds-step-input').style.display = 'none';
+  document.getElementById('snds-step-progress').style.display = 'block';
+  document.getElementById('snds-modal-close').style.display = 'none'; // prevent closing during validation
+
+  // Animate progress steps
+  setSndsProgress(1, 'active');
+  setSndsProgress(2, 'pending');
+  setSndsProgress(3, 'pending');
+
+  // Small delay so user sees step 1
+  await new Promise(r => setTimeout(r, 800));
+  setSndsProgress(1, 'done');
+  setSndsProgress(2, 'active');
 
   try {
     const token = getToken();
@@ -872,18 +947,47 @@ async function sndsConnect() {
     const data = await resp.json();
 
     if (resp.ok && data.success) {
-      closeSndsModal();
-      loadSndsStatus();
+      setSndsProgress(2, 'done');
+      setSndsProgress(3, 'active');
+      await new Promise(r => setTimeout(r, 600));
+      setSndsProgress(3, 'done');
+      await new Promise(r => setTimeout(r, 400));
+
+      // Show success
+      document.getElementById('snds-step-progress').style.display = 'none';
+      document.getElementById('snds-step-success').style.display = 'block';
+      document.getElementById('snds-modal-close').style.display = 'block';
+      const ipCount = data.ip_count || 0;
+      document.getElementById('snds-success-detail').textContent =
+        ipCount > 0 ? `Found ${ipCount} sending IP${ipCount > 1 ? 's' : ''} in your SNDS data.` : 'Connected! Data will appear after the next sync.';
     } else {
-      document.getElementById('snds-modal-error').textContent = data.detail || data.error || 'Failed to connect';
-      document.getElementById('snds-modal-error').style.display = 'block';
+      setSndsProgress(2, 'error');
+      document.getElementById('snds-modal-close').style.display = 'block';
+      // Show error in progress view
+      const errDiv = document.createElement('div');
+      errDiv.style.cssText = 'margin-top:16px;padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:12px;color:var(--red);';
+      errDiv.textContent = data.detail || data.error || 'Failed to validate key. Please check and try again.';
+      const retryBtn = document.createElement('button');
+      retryBtn.textContent = 'Try Again';
+      retryBtn.style.cssText = 'margin-top:10px;padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;';
+      retryBtn.onclick = () => openSndsModal();
+      errDiv.appendChild(document.createElement('br'));
+      errDiv.appendChild(retryBtn);
+      document.getElementById('snds-progress-steps').appendChild(errDiv);
     }
   } catch (e) {
-    document.getElementById('snds-modal-error').textContent = 'Connection error. Please try again.';
-    document.getElementById('snds-modal-error').style.display = 'block';
-  } finally {
-    btn.textContent = 'Connect & Validate';
-    btn.disabled = false;
+    setSndsProgress(2, 'error');
+    document.getElementById('snds-modal-close').style.display = 'block';
+    const errDiv = document.createElement('div');
+    errDiv.style.cssText = 'margin-top:16px;padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:12px;color:var(--red);';
+    errDiv.textContent = 'Connection error. Please check your network and try again.';
+    const retryBtn = document.createElement('button');
+    retryBtn.textContent = 'Try Again';
+    retryBtn.style.cssText = 'margin-top:10px;padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;';
+    retryBtn.onclick = () => openSndsModal();
+    errDiv.appendChild(document.createElement('br'));
+    errDiv.appendChild(retryBtn);
+    document.getElementById('snds-progress-steps').appendChild(errDiv);
   }
 }
 
