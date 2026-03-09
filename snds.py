@@ -33,7 +33,7 @@ async def validate_snds_key(key: str) -> dict:
 
     try:
         url = f"{SNDS_DATA_URL}?key={key}"
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             response = await client.get(url)
 
         if response.status_code != 200:
@@ -76,7 +76,7 @@ async def fetch_snds_data(key: str) -> dict:
     """
     try:
         url = f"{SNDS_DATA_URL}?key={key}"
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             response = await client.get(url)
 
         if response.status_code != 200:
