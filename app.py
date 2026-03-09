@@ -3188,6 +3188,94 @@ async def api_postmaster_sync(req: Request):
     }
 
 
+# ─── TEMP: RAW API DEBUG (remove after testing) ──────────────────
+
+@app.get("/api/postmaster/raw-debug/{domain}")
+async def api_postmaster_raw_debug(domain: str, req: Request, days: int = 14):
+    """TEMPORARY: Return raw Google API response for debugging SPF mismatch"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    connection = get_postmaster_connection(user_id)
+    if not connection:
+        raise HTTPException(status_code=400, detail="Google Postmaster not connected")
+
+    from postmaster import ensure_valid_token, POSTMASTER_API_BASE, _make_date_obj
+    from datetime import datetime, timedelta
+    import httpx
+
+    google_token = await ensure_valid_token(user_id, connection)
+
+    end_date = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+    start_date = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+    url = f"{POSTMASTER_API_BASE}/domains/{domain}/domainStats:query"
+
+    # Test with different SPF filter approaches
+    results = {}
+
+    # Approach 1: Current filter (lowercase)
+    body1 = {
+        "metricDefinitions": [
+            {"name": "spf_lowercase", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"},
+             "filter": 'auth_type = "spf"'},
+            {"name": "dkim_lowercase", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"},
+             "filter": 'auth_type = "dkim"'},
+        ],
+        "timeQuery": {"dateRanges": {"dateRanges": [{"start": _make_date_obj(start_date), "end": _make_date_obj(end_date)}]}},
+        "aggregationGranularity": "DAILY",
+        "pageSize": 200,
+    }
+
+    # Approach 2: Uppercase filter
+    body2 = {
+        "metricDefinitions": [
+            {"name": "spf_upper", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"},
+             "filter": 'auth_type = "SPF"'},
+            {"name": "dkim_upper", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"},
+             "filter": 'auth_type = "DKIM"'},
+        ],
+        "timeQuery": {"dateRanges": {"dateRanges": [{"start": _make_date_obj(start_date), "end": _make_date_obj(end_date)}]}},
+        "aggregationGranularity": "DAILY",
+        "pageSize": 200,
+    }
+
+    # Approach 3: No filter at all (just AUTH_SUCCESS_RATE raw)
+    body3 = {
+        "metricDefinitions": [
+            {"name": "auth_no_filter", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"}},
+        ],
+        "timeQuery": {"dateRanges": {"dateRanges": [{"start": _make_date_obj(start_date), "end": _make_date_obj(end_date)}]}},
+        "aggregationGranularity": "DAILY",
+        "pageSize": 200,
+    }
+
+    async with httpx.AsyncClient() as client:
+        headers = {"Authorization": f"Bearer {google_token}", "Content-Type": "application/json"}
+
+        r1 = await client.post(url, headers=headers, json=body1, timeout=30.0)
+        results["lowercase_filter"] = {"status": r1.status_code, "data": r1.json() if r1.status_code == 200 else r1.text[:500]}
+
+        r2 = await client.post(url, headers=headers, json=body2, timeout=30.0)
+        results["uppercase_filter"] = {"status": r2.status_code, "data": r2.json() if r2.status_code == 200 else r2.text[:500]}
+
+        r3 = await client.post(url, headers=headers, json=body3, timeout=30.0)
+        results["no_filter"] = {"status": r3.status_code, "data": r3.json() if r3.status_code == 200 else r3.text[:500]}
+
+    return {
+        "domain": domain,
+        "date_range": {"start": start_date, "end": end_date},
+        "results": results
+    }
+
+
 # ─── MICROSOFT SNDS ENDPOINTS ────────────────────────────────────
 
 @app.post("/api/snds/connect")
