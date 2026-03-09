@@ -1991,7 +1991,8 @@ async function loadGpmStatus() {
     }
 
     gpmCurrentDomain = activeDomain;
-    setGpmState('data');
+    // Don't set state to 'data' yet — let loadGpmMetrics decide
+    // based on whether the API actually returns metrics
     loadGpmMetrics(activeDomain);
 
   } catch (e) {
