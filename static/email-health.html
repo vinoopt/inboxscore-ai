@@ -486,66 +486,33 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
           </div>
 
-          <!-- Tab Navigation -->
+          <!-- Tab Navigation (mirrors Google Postmaster sidebar) -->
           <div class="gpm-tabs">
-            <button class="gpm-tab active" onclick="switchGpmTab('overview')">Overview</button>
-            <button class="gpm-tab" onclick="switchGpmTab('spam')">Spam & Feedback</button>
+            <button class="gpm-tab active" onclick="switchGpmTab('compliance')">Compliance status</button>
+            <button class="gpm-tab" onclick="switchGpmTab('spam')">Spam</button>
+            <button class="gpm-tab" onclick="switchGpmTab('fbl')">Feedback Loop</button>
             <button class="gpm-tab" onclick="switchGpmTab('auth')">Authentication</button>
-            <button class="gpm-tab" onclick="switchGpmTab('encryption')">Encryption & Errors</button>
-            <button class="gpm-tab" onclick="switchGpmTab('compliance')">Compliance</button>
+            <button class="gpm-tab" onclick="switchGpmTab('encryption')">Encryption</button>
+            <button class="gpm-tab" onclick="switchGpmTab('errors')">Delivery Error</button>
           </div>
 
-          <!-- TAB 1: Overview -->
-          <div class="gpm-panel active" id="gpm-overview">
-            <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);margin-top:16px;">
-              <div class="pm-metric">
-                <div class="pm-label">Spam Rate</div>
-                <div class="pm-value" id="gpm-ov-spam">—</div>
-                <div class="pm-sub" id="gpm-ov-spam-sub">Loading...</div>
-              </div>
-              <div class="pm-metric">
-                <div class="pm-label">TLS Encrypted</div>
-                <div class="pm-value" id="gpm-ov-tls">—</div>
-                <div class="pm-sub">Inbound TLS</div>
-              </div>
-              <div class="pm-metric">
-                <div class="pm-label">Delivery Errors</div>
-                <div class="pm-value" id="gpm-ov-errors">—</div>
-                <div class="pm-sub" id="gpm-ov-errors-sub">Loading...</div>
-              </div>
-            </div>
-
-            <div class="pm-auth-bars">
-              <div class="pm-auth-title">Authentication Rates</div>
-              <div class="pm-auth-row">
-                <span class="pm-auth-label info-hint" data-hint="SPF DMARC Alignment — measures if Return-Path domain matches From: domain">SPF Alignment</span>
-                <div class="pm-bar"><div class="pm-bar-fill" id="bar-spf" style="width:0%;background:var(--green);"></div></div>
-                <span class="pm-pct" id="gpm-ov-spf-pct">—</span>
-              </div>
-              <div class="pm-auth-row">
-                <span class="pm-auth-label">DKIM</span>
-                <div class="pm-bar"><div class="pm-bar-fill" id="bar-dkim" style="width:0%;background:var(--green);"></div></div>
-                <span class="pm-pct" id="gpm-ov-dkim-pct">—</span>
-              </div>
-              <div class="pm-auth-row">
-                <span class="pm-auth-label">DMARC</span>
-                <div class="pm-bar"><div class="pm-bar-fill" id="bar-dmarc" style="width:0%;background:var(--green);"></div></div>
-                <span class="pm-pct" id="gpm-ov-dmarc-pct">—</span>
-              </div>
-            </div>
-
+          <!-- TAB 1: Compliance Status (default/first tab) -->
+          <div class="gpm-panel active" id="gpm-compliance">
             <div style="margin-top:16px;">
-              <div class="pm-compliance-title">Quick Compliance</div>
-              <div class="pm-compliance-grid" style="grid-template-columns:repeat(4,1fr);">
-                <div class="pm-compliance-item"><div class="pm-compliance-label">Auth (SPF+DKIM)</div><div class="pm-compliance-status" id="gpm-ov-comp-auth">—</div></div>
-                <div class="pm-compliance-item"><div class="pm-compliance-label">DMARC</div><div class="pm-compliance-status" id="gpm-ov-comp-dmarc">—</div></div>
-                <div class="pm-compliance-item"><div class="pm-compliance-label">Encryption</div><div class="pm-compliance-status" id="gpm-ov-comp-tls">—</div></div>
-                <div class="pm-compliance-item"><div class="pm-compliance-label">Spam Rate</div><div class="pm-compliance-status" id="gpm-ov-comp-spam">—</div></div>
-              </div>
+              <div class="pm-trend-title">Compliance Status <span style="font-size:11px;color:var(--text-muted);font-weight:400;" id="gpm-comp-updated">Loading...</span></div>
+              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
+                <thead><tr style="border-bottom:1px solid var(--border);">
+                  <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Requirement</th>
+                  <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Status</th>
+                </tr></thead>
+                <tbody id="gpm-comp-table-body">
+                  <tr><td colspan="2" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <!-- TAB 2: Spam & Feedback Loop -->
+          <!-- TAB 2: Spam -->
           <div class="gpm-panel" id="gpm-spam">
             <div style="margin-top:16px;">
               <div class="pm-trend-title">User-Reported Spam Rate</div>
@@ -577,7 +544,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               </table>
             </div>
 
-            <div style="margin-top:24px;padding-top:20px;border-top:1px dashed var(--border);">
+          </div>
+
+          <!-- TAB 3: Feedback Loop -->
+          <div class="gpm-panel" id="gpm-fbl">
+            <div style="margin-top:16px;">
               <div class="pm-trend-title">Feedback Loop <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(FBL spam rate by identifier)</span></div>
               <div id="gpm-fbl-bars" style="display:flex;gap:3px;align-items:flex-end;height:100px;margin-top:8px;background:var(--surface-2);border-radius:8px;padding:12px;">
               </div>
@@ -634,7 +605,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
           </div>
 
-          <!-- TAB 4: Encryption & Delivery Errors -->
+          <!-- TAB 5: Encryption -->
           <div class="gpm-panel" id="gpm-encryption">
             <div style="margin-top:16px;">
               <div class="pm-trend-title">TLS Encryption Rate</div>
@@ -661,8 +632,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 </tbody>
               </table>
             </div>
+          </div>
 
-            <div style="margin-top:24px;padding-top:20px;border-top:1px dashed var(--border);">
+          <!-- TAB 6: Delivery Error -->
+          <div class="gpm-panel" id="gpm-errors">
+            <div style="margin-top:16px;">
               <div class="pm-trend-title">Delivery Errors</div>
               <div class="pm-grid" style="grid-template-columns:1fr;margin-top:8px;">
                 <div class="pm-metric">
@@ -680,22 +654,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 </tr></thead>
                 <tbody id="gpm-enc-err-table-body">
                   <tr><td colspan="4" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- TAB 5: Compliance Status -->
-          <div class="gpm-panel" id="gpm-compliance">
-            <div style="margin-top:16px;">
-              <div class="pm-trend-title">Compliance Status <span style="font-size:11px;color:var(--text-muted);font-weight:400;" id="gpm-comp-updated">Loading...</span></div>
-              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
-                <thead><tr style="border-bottom:1px solid var(--border);">
-                  <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Requirement</th>
-                  <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Status</th>
-                </tr></thead>
-                <tbody id="gpm-comp-table-body">
-                  <tr><td colspan="2" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1264,40 +1222,12 @@ function switchGpmTab(tab) {
   document.querySelectorAll('.gpm-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.gpm-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('gpm-' + tab).classList.add('active');
-  const tabs = ['overview','spam','auth','encryption','compliance'];
+  const tabs = ['compliance','spam','fbl','auth','encryption','errors'];
   document.querySelectorAll('.gpm-tab').forEach((t, i) => {
     if (tabs[i] === tab) t.classList.add('active');
   });
-  // Animate bars when switching to overview tab
-  if (tab === 'overview') animateAuthBars();
-  // Animate FBL bars when switching to spam tab
-  if (tab === 'spam') animateFblBars();
-}
-
-/* === Animate auth bar fills on load/tab switch === */
-function animateAuthBars() {
-  // If real data is cached, use it; otherwise fall back to placeholder values
-  if (gpmMetricsCache && gpmMetricsCache.length > 0) {
-    const latest = gpmMetricsCache[gpmMetricsCache.length - 1];
-    const bars = {
-      'bar-spf':   latest.auth_success_spf != null ? latest.auth_success_spf * 100 : 0,
-      'bar-dkim':  latest.auth_success_dkim != null ? latest.auth_success_dkim * 100 : 0,
-      'bar-dmarc': latest.auth_success_dmarc != null ? latest.auth_success_dmarc * 100 : 0
-    };
-    Object.entries(bars).forEach(([id, pct]) => {
-      const el = document.getElementById(id);
-      if (el) {
-        const color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)';
-        setTimeout(() => { el.style.width = pct + '%'; el.style.background = color; }, 100);
-      }
-    });
-  } else {
-    const bars = { 'bar-spf': 98.5, 'bar-dkim': 99.8, 'bar-dmarc': 100 };
-    Object.entries(bars).forEach(([id, pct]) => {
-      const el = document.getElementById(id);
-      if (el) setTimeout(() => { el.style.width = pct + '%'; }, 100);
-    });
-  }
+  // Animate FBL bars when switching to fbl tab
+  if (tab === 'fbl') animateFblBars();
 }
 
 /* === Animate FBL bars === */
@@ -1307,12 +1237,6 @@ function animateFblBars() {
     if (h) setTimeout(() => { bar.style.height = h; }, 100);
   });
 }
-
-/* === Trigger auth bar animation on page load === */
-document.addEventListener('DOMContentLoaded', () => {
-  // Delay slightly so bars animate visibly when user navigates to Google section
-  setTimeout(animateAuthBars, 500);
-});
 
 /* === GPM Spam Rate Bars + FBL animation (uses real data from gpmMetricsCache) === */
 function animateGpmSpam() {
@@ -1677,6 +1601,7 @@ function animateEmailHealthTrends() {
   switchGpmTab = function(tab) {
     origSwitch(tab);
     if (tab === 'spam') animateGpmSpam();
+    if (tab === 'fbl') animateFblBars();
     if (tab === 'auth') animateGpmAuth();
   };
 })();
@@ -1723,90 +1648,6 @@ async function loadGpmMetrics(domain) {
     // Cache for other tabs (B4-B7)
     gpmMetricsCache = metrics;
     setGpmState('data');
-
-    // Use the latest day's data for headline numbers
-    const latest = metrics[metrics.length - 1];
-
-    // --- Spam Rate ---
-    const spamEl = document.getElementById('gpm-ov-spam');
-    const spamSub = document.getElementById('gpm-ov-spam-sub');
-    const spamPct = latest.spam_rate != null ? (latest.spam_rate * 100) : null;
-    if (spamPct != null) {
-      spamEl.textContent = spamPct.toFixed(2) + '%';
-      spamEl.style.color = spamPct < 0.1 ? 'var(--green)' : spamPct < 0.3 ? 'var(--yellow)' : 'var(--red)';
-      spamSub.textContent = spamPct < 0.1 ? 'Excellent' : spamPct < 0.3 ? 'Watch closely' : 'Above threshold';
-    } else {
-      spamEl.textContent = 'N/A';
-      spamEl.style.color = 'var(--text-muted)';
-      spamSub.textContent = 'No data';
-    }
-
-    // --- TLS Encrypted ---
-    const tlsEl = document.getElementById('gpm-ov-tls');
-    const tlsPct = latest.encrypted_traffic_tls != null ? (latest.encrypted_traffic_tls * 100) : null;
-    if (tlsPct != null) {
-      tlsEl.textContent = tlsPct.toFixed(1) + '%';
-      tlsEl.style.color = tlsPct >= 95 ? 'var(--green)' : tlsPct >= 80 ? 'var(--yellow)' : 'var(--red)';
-    } else {
-      tlsEl.textContent = 'N/A';
-      tlsEl.style.color = 'var(--text-muted)';
-    }
-
-    // --- Delivery Errors ---
-    const errEl = document.getElementById('gpm-ov-errors');
-    const errSub = document.getElementById('gpm-ov-errors-sub');
-    const errors = latest.delivery_errors;
-    if (errors && typeof errors === 'object') {
-      const totalErrors = Object.values(errors).reduce((sum, v) => sum + (Number(v) || 0), 0);
-      errEl.textContent = totalErrors;
-      errEl.style.color = totalErrors === 0 ? 'var(--green)' : totalErrors < 5 ? 'var(--yellow)' : 'var(--red)';
-      errSub.textContent = totalErrors === 0 ? 'No errors' : Object.keys(errors).join(', ');
-    } else {
-      errEl.textContent = '0';
-      errEl.style.color = 'var(--green)';
-      errSub.textContent = 'No errors';
-    }
-
-    // --- Authentication Bars (SPF / DKIM / DMARC) ---
-    const spfPct = latest.auth_success_spf != null ? (latest.auth_success_spf * 100) : null;
-    const dkimPct = latest.auth_success_dkim != null ? (latest.auth_success_dkim * 100) : null;
-    const dmarcPct = latest.auth_success_dmarc != null ? (latest.auth_success_dmarc * 100) : null;
-
-    function setAuthBar(barId, labelId, pct) {
-      const bar = document.getElementById(barId);
-      const label = document.getElementById(labelId);
-      if (pct != null) {
-        const color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)';
-        if (bar) { bar.style.width = pct + '%'; bar.style.background = color; }
-        if (label) label.textContent = pct.toFixed(1) + '%';
-      } else {
-        if (bar) bar.style.width = '0%';
-        if (label) label.textContent = 'N/A';
-      }
-    }
-
-    setAuthBar('bar-spf', 'gpm-ov-spf-pct', spfPct);
-    setAuthBar('bar-dkim', 'gpm-ov-dkim-pct', dkimPct);
-    setAuthBar('bar-dmarc', 'gpm-ov-dmarc-pct', dmarcPct);
-
-    // --- Quick Compliance Checks ---
-    function setComp(id, pass) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (pass === null) { el.textContent = '—'; el.style.color = 'var(--text-muted)'; return; }
-      el.textContent = pass ? '✓' : '✗';
-      el.style.color = pass ? 'var(--green)' : 'var(--red)';
-    }
-
-    const authPass = (spfPct != null && dkimPct != null) ? (spfPct >= 95 && dkimPct >= 95) : null;
-    const dmarcPass = dmarcPct != null ? dmarcPct >= 95 : null;
-    const tlsPass = tlsPct != null ? tlsPct >= 95 : null;
-    const spamPass = spamPct != null ? spamPct < 0.3 : null;
-
-    setComp('gpm-ov-comp-auth', authPass);
-    setComp('gpm-ov-comp-dmarc', dmarcPass);
-    setComp('gpm-ov-comp-tls', tlsPass);
-    setComp('gpm-ov-comp-spam', spamPass);
 
     // Update date range label
     const dateRange = document.getElementById('gpm-date-range');
