@@ -3158,6 +3158,35 @@ async def api_postmaster_metrics(domain: str, req: Request, days: int = 30):
     }
 
 
+@app.get("/api/postmaster/compliance/{domain}")
+async def api_postmaster_compliance(domain: str, req: Request):
+    """Get Google Postmaster compliance status for a domain (v2 API)"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    connection = get_postmaster_connection(user_id)
+    if not connection:
+        return {"connected": False, "compliance": None}
+
+    try:
+        from postmaster import ensure_valid_token, get_compliance_status
+        access_token = await ensure_valid_token(user_id, connection)
+        compliance = await get_compliance_status(access_token, domain)
+        return {"connected": True, "domain": domain, "compliance": compliance}
+    except Exception as e:
+        print(f"[Postmaster] Compliance status error for {domain}: {e}")
+        return {"connected": True, "domain": domain, "compliance": None, "error": str(e)}
+
+
 @app.post("/api/postmaster/sync")
 async def api_postmaster_sync(req: Request):
     """Manually trigger a Postmaster data sync for the current user"""

@@ -1457,8 +1457,8 @@ function populateGpmEncryption() {
   }
 }
 
-/* === GPM Compliance tab (uses real data from gpmMetricsCache) === */
-function populateGpmCompliance() {
+/* === GPM Compliance tab — fetches real compliance from Google v2 API === */
+async function populateGpmCompliance() {
   const metrics = gpmMetricsCache || [];
   if (metrics.length === 0) return;
 
@@ -1470,47 +1470,108 @@ function populateGpmCompliance() {
     updatedEl.textContent = 'Last updated: ' + latest.date;
   }
 
-  // Compute compliance from latest metrics
+  // ── Fetch real compliance status from Google's getComplianceStatus API ──
+  const domain = gpmCurrentDomain || ehCurrentDomain;
+  const token = getToken();
+  let apiCompliance = null;
+  if (domain && token) {
+    try {
+      const res = await fetch('/api/postmaster/compliance/' + encodeURIComponent(domain), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        apiCompliance = data.compliance;
+      }
+    } catch (e) {
+      console.warn('[GPM] Compliance API fetch failed, using computed fallback:', e);
+    }
+  }
+
+  // ── Parse API compliance into a lookup map ──
+  // API returns: { complianceData: { rowData: [{requirement, status:{status}}], oneClickUnsubscribeVerdict, honorUnsubscribeVerdict }, subdomainComplianceData: ... }
+  const compMap = {};   // requirement -> 'COMPLIANT' | 'NEEDS_WORK'
+  let oneClickVerdict = null;
+  let honorVerdict = null;
+  const compData = apiCompliance
+    ? (apiCompliance.subdomainComplianceData || apiCompliance.complianceData)
+    : null;
+  if (compData) {
+    (compData.rowData || []).forEach(r => {
+      compMap[r.requirement] = r.status?.status || null;
+    });
+    oneClickVerdict = compData.oneClickUnsubscribeVerdict?.status?.status || null;
+    honorVerdict = compData.honorUnsubscribeVerdict?.status?.status || null;
+  }
+
+  // ── Metrics-based fallback values ──
   const spf   = latest.auth_success_spf   != null ? latest.auth_success_spf   * 100 : null;
   const dkim  = latest.auth_success_dkim  != null ? latest.auth_success_dkim  * 100 : null;
   const dmarc = latest.auth_success_dmarc != null ? latest.auth_success_dmarc * 100 : null;
   const tls   = latest.encrypted_traffic_tls != null ? latest.encrypted_traffic_tls * 100 : null;
   const spam  = latest.spam_rate != null ? latest.spam_rate * 100 : null;
 
-  // Build compliance checks
-  const checks = [
-    {
-      label: 'SPF Alignment & DKIM authentication',
-      pass: (spf != null && dkim != null) ? (spf >= 95 && dkim >= 95) : null,
-      failMsg: 'SPF Alignment: ' + (spf != null ? spf.toFixed(1) + '%' : 'N/A') + ', DKIM: ' + (dkim != null ? dkim.toFixed(1) + '%' : 'N/A') + '. Note: SPF Alignment measures Return-Path ↔ From domain match, not basic SPF pass.'
-    },
-    {
-      label: 'From: header alignment',
-      pass: (dmarc != null) ? dmarc >= 90 : null,
-      failMsg: 'DMARC alignment indicates From: header may not be fully aligned.'
-    },
-    {
-      label: 'DMARC authentication',
-      pass: dmarc != null ? dmarc >= 95 : null,
-      failMsg: 'DMARC pass rate is ' + (dmarc != null ? dmarc.toFixed(1) + '%' : 'N/A') + '. Should be above 95%.'
-    },
-    {
-      label: 'Encryption',
-      pass: tls != null ? tls >= 95 : null,
-      failMsg: 'TLS encryption is ' + (tls != null ? tls.toFixed(1) + '%' : 'N/A') + '. Should be above 95%.'
-    },
-    {
-      label: 'User-reported spam rate',
-      pass: spam != null ? spam < 0.3 : null,
-      failMsg: 'Spam rate is ' + (spam != null ? spam.toFixed(2) + '%' : 'N/A') + '. Must stay below 0.3%.'
-    },
-    {
-      label: 'DNS records',
-      pass: (spf != null && dkim != null && dmarc != null) ? (spf > 0 && dkim > 0 && dmarc > 0) : null,
-      failMsg: 'Some DNS authentication records may be missing or misconfigured.'
+  // Helper: resolve status — prefer API, fall back to computed
+  function resolve(apiKey, computedPass, failMsg) {
+    if (compMap[apiKey]) {
+      return { pass: compMap[apiKey] === 'COMPLIANT', failMsg: failMsg };
     }
+    return { pass: computedPass, failMsg: failMsg };
+  }
+
+  // ── Build all 8 compliance checks matching Google Postmaster UI ──
+  const checks = [
+    resolve('SPF_AND_DKIM', (spf != null && dkim != null) ? (spf >= 95 && dkim >= 95) : null,
+      'SPF Alignment: ' + (spf != null ? spf.toFixed(1) + '%' : 'N/A') + ', DKIM: ' + (dkim != null ? dkim.toFixed(1) + '%' : 'N/A') + '. Note: SPF Alignment measures Return-Path \u2194 From domain match, not basic SPF pass.'),
+    resolve('DMARC_ALIGNMENT', (dmarc != null) ? dmarc >= 90 : null,
+      'DMARC alignment indicates From: header may not be fully aligned.'),
+    resolve('DMARC_POLICY', dmarc != null ? dmarc >= 95 : null,
+      'DMARC pass rate is ' + (dmarc != null ? dmarc.toFixed(1) + '%' : 'N/A') + '. Should be above 95%.'),
+    resolve('ENCRYPTION', tls != null ? tls >= 95 : null,
+      'TLS encryption is ' + (tls != null ? tls.toFixed(1) + '%' : 'N/A') + '. Should be above 95%.'),
+    resolve('USER_REPORTED_SPAM_RATE', spam != null ? spam < 0.3 : null,
+      'Spam rate is ' + (spam != null ? spam.toFixed(2) + '%' : 'N/A') + '. Must stay below 0.3%.'),
+    resolve('DNS_RECORDS', (spf != null && dkim != null && dmarc != null) ? (spf > 0 && dkim > 0 && dmarc > 0) : null,
+      'Some DNS authentication records may be missing or misconfigured.'),
   ];
 
+  // Labels matching Google Postmaster UI order
+  const labels = [
+    'SPF Alignment & DKIM authentication',
+    'From: header alignment',
+    'DMARC authentication',
+    'Encryption',
+    'User-reported spam rate',
+    'DNS records',
+  ];
+
+  // ── Add One-click unsubscribe ──
+  const oneClickReasons = {
+    'NO_UNSUB_GENERAL': 'Ensure one-click unsubscribe is correctly implemented for your subscription messages.',
+    'NO_UNSUB_SPAM_REPORTS': 'Messages receiving spam reports lack one-click unsubscribe headers.',
+    'NO_UNSUB_PROMO_SPAM_REPORTS': 'Promotional messages receiving spam reports lack one-click unsubscribe headers.'
+  };
+  const oneClickReason = compData?.oneClickUnsubscribeVerdict?.reason;
+  checks.push({
+    pass: oneClickVerdict ? oneClickVerdict === 'COMPLIANT' : null,
+    failMsg: oneClickReasons[oneClickReason] || 'Ensure one-click unsubscribe is correctly implemented for your subscription messages.'
+  });
+  labels.push('One-click unsubscribe');
+
+  // ── Add Honor unsubscribe ──
+  const honorReasons = {
+    'NOT_HONORING': 'Unsubscribe requests are not being honored within 2 days.',
+    'NOT_HONORING_TOO_FEW_CAMPAIGNS': 'Insufficient data — too few campaigns to evaluate unsubscribe honoring.',
+    'NOT_HONORING_TOO_MANY_CAMPAIGNS': 'Multiple campaigns are not honoring unsubscribe requests within 2 days.'
+  };
+  const honorReason = compData?.honorUnsubscribeVerdict?.reason;
+  checks.push({
+    pass: honorVerdict ? honorVerdict === 'COMPLIANT' : null,
+    failMsg: honorReasons[honorReason] || 'Ensure unsubscribe requests are honored within 2 days as required by Google.'
+  });
+  labels.push('Honor unsubscribe');
+
+  // ── Render the compliance table ──
   const tbody = document.getElementById('gpm-comp-table-body');
   tbody.innerHTML = '';
 
@@ -1519,14 +1580,14 @@ function populateGpmCompliance() {
     if (i < checks.length - 1) tr.style.borderBottom = '1px solid var(--border)';
 
     if (check.pass === null) {
-      tr.innerHTML = '<td style="padding:12px;">' + check.label + '</td>'
-        + '<td style="padding:12px;"><span style="color:var(--text-muted);">— No data</span></td>';
+      tr.innerHTML = '<td style="padding:12px;">' + labels[i] + '</td>'
+        + '<td style="padding:12px;"><span style="color:var(--text-muted);">\u2014 No data</span></td>';
     } else if (check.pass) {
-      tr.innerHTML = '<td style="padding:12px;">' + check.label + '</td>'
-        + '<td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">✓ Compliant</span></td>';
+      tr.innerHTML = '<td style="padding:12px;">' + labels[i] + '</td>'
+        + '<td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">\u2713 Compliant</span></td>';
     } else {
-      tr.innerHTML = '<td style="padding:12px;">' + check.label + '</td>'
-        + '<td style="padding:12px;"><div style="color:var(--red);font-weight:600;">✗ Needs work</div>'
+      tr.innerHTML = '<td style="padding:12px;">' + labels[i] + '</td>'
+        + '<td style="padding:12px;"><div style="color:var(--red);font-weight:600;">\u2717 Needs work</div>'
         + '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">' + check.failMsg + '</div></td>';
     }
     tbody.appendChild(tr);
@@ -1696,7 +1757,7 @@ async function loadGpmMetrics(domain) {
     animateGpmSpam();
     animateGpmAuth();
     populateGpmEncryption();
-    populateGpmCompliance();
+    await populateGpmCompliance();
 
   } catch (e) {
     console.error('[GPM] Failed to load metrics:', e);
