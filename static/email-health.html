@@ -13,6 +13,9 @@
   --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+.info-hint { position:relative; cursor:help; border-bottom:1px dotted var(--text-muted); }
+.info-hint::after { content:attr(data-hint); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:#1e1e2e; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:11px; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .15s; z-index:99; }
+.info-hint:hover::after { opacity:1; }
 @keyframes snds-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* Top Nav */
@@ -515,7 +518,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div class="pm-auth-bars">
               <div class="pm-auth-title">Authentication Rates</div>
               <div class="pm-auth-row">
-                <span class="pm-auth-label">SPF</span>
+                <span class="pm-auth-label info-hint" data-hint="SPF DMARC Alignment — measures if Return-Path domain matches From: domain">SPF Alignment</span>
                 <div class="pm-bar"><div class="pm-bar-fill" id="bar-spf" style="width:0%;background:var(--green);"></div></div>
                 <span class="pm-pct" id="gpm-ov-spf-pct">—</span>
               </div>
@@ -534,7 +537,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div style="margin-top:16px;">
               <div class="pm-compliance-title">Quick Compliance</div>
               <div class="pm-compliance-grid" style="grid-template-columns:repeat(4,1fr);">
-                <div class="pm-compliance-item"><div class="pm-compliance-label">SPF/DKIM</div><div class="pm-compliance-status" id="gpm-ov-comp-auth">—</div></div>
+                <div class="pm-compliance-item"><div class="pm-compliance-label">Auth (SPF+DKIM)</div><div class="pm-compliance-status" id="gpm-ov-comp-auth">—</div></div>
                 <div class="pm-compliance-item"><div class="pm-compliance-label">DMARC</div><div class="pm-compliance-status" id="gpm-ov-comp-dmarc">—</div></div>
                 <div class="pm-compliance-item"><div class="pm-compliance-label">Encryption</div><div class="pm-compliance-status" id="gpm-ov-comp-tls">—</div></div>
                 <div class="pm-compliance-item"><div class="pm-compliance-label">Spam Rate</div><div class="pm-compliance-status" id="gpm-ov-comp-spam">—</div></div>
@@ -596,7 +599,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
           <!-- TAB 3: Authentication -->
           <div class="gpm-panel" id="gpm-auth">
             <div style="margin-top:16px;">
-              <div class="pm-trend-title">Authentication Rates (SPF, DKIM, DMARC)</div>
+              <div class="pm-trend-title">Authentication Rates (SPF Alignment, DKIM, DMARC)</div>
               <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;">
                 <div style="display:flex;align-items:flex-end;height:140px;position:relative;border-left:1px solid var(--border);border-bottom:1px solid var(--border);">
                   <div style="position:absolute;left:-36px;top:0;font-size:9px;color:var(--text-muted);">100%</div>
@@ -613,7 +616,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:11px;">
                   <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#4285F4;border-radius:2px;display:inline-block;"></span> DMARC</span>
                   <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#EA4335;border-radius:2px;display:inline-block;"></span> DKIM</span>
-                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#FBBC05;border-radius:2px;display:inline-block;"></span> SPF</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#FBBC05;border-radius:2px;display:inline-block;"></span> SPF Alignment</span>
                 </div>
               </div>
 
@@ -621,7 +624,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <thead><tr style="border-bottom:1px solid var(--border);">
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DKIM Rate</th>
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">SPF Rate</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">SPF Alignment</th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DMARC Rate</th>
                 </tr></thead>
                 <tbody id="gpm-auth-table-body">
@@ -765,7 +768,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <div class="pm-metric"><div class="pm-label">Delivery Errors</div><div class="pm-value" style="color:var(--green);">0%</div></div>
               </div>
               <div class="pm-auth-bars" style="margin-top:16px;">
-                <div class="pm-auth-row"><span class="pm-auth-label">SPF</span><div class="pm-bar"><div class="pm-bar-fill" style="width:85%;background:var(--green);"></div></div><span class="pm-pct">98.5%</span></div>
+                <div class="pm-auth-row"><span class="pm-auth-label">SPF Alignment</span><div class="pm-bar"><div class="pm-bar-fill" style="width:85%;background:var(--green);"></div></div><span class="pm-pct">98.5%</span></div>
                 <div class="pm-auth-row"><span class="pm-auth-label">DKIM</span><div class="pm-bar"><div class="pm-bar-fill" style="width:90%;background:var(--green);"></div></div><span class="pm-pct">99.8%</span></div>
                 <div class="pm-auth-row"><span class="pm-auth-label">DMARC</span><div class="pm-bar"><div class="pm-bar-fill" style="width:95%;background:var(--green);"></div></div><span class="pm-pct">100%</span></div>
               </div>
@@ -1564,9 +1567,9 @@ function populateGpmCompliance() {
   // Build compliance checks
   const checks = [
     {
-      label: 'SPF and DKIM authentication',
+      label: 'SPF Alignment & DKIM authentication',
       pass: (spf != null && dkim != null) ? (spf >= 95 && dkim >= 95) : null,
-      failMsg: 'SPF: ' + (spf != null ? spf.toFixed(1) + '%' : 'N/A') + ', DKIM: ' + (dkim != null ? dkim.toFixed(1) + '%' : 'N/A') + '. Both should be above 95%.'
+      failMsg: 'SPF Alignment: ' + (spf != null ? spf.toFixed(1) + '%' : 'N/A') + ', DKIM: ' + (dkim != null ? dkim.toFixed(1) + '%' : 'N/A') + '. Note: SPF Alignment measures Return-Path ↔ From domain match, not basic SPF pass.'
     },
     {
       label: 'From: header alignment',
