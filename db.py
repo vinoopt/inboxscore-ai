@@ -1054,49 +1054,133 @@ def get_snds_metrics_for_ip(user_id: str, ip_address: str, days: int = 30) -> li
         return []
 
 
-def update_snds_tracked_ips(user_id: str, tracked_ips: list) -> bool:
-    """Update the tracked IPs list for SNDS (None = track all)"""
-    sb = get_supabase()
-    if not sb:
-        return False
-    try:
-        import json
-        sb.table("snds_connections").update({
-            "tracked_ips": json.dumps(tracked_ips) if tracked_ips else None,
-        }).eq("user_id", user_id).execute()
-        return True
-    except Exception as e:
-        print(f"Error updating SNDS tracked IPs: {e}")
-        return False
+# ─── SENDING IP OPERATIONS ──────────────────────────────────────
 
-
-def get_snds_all_ips(user_id: str) -> list:
-    """Get distinct IPs from SNDS metrics for a user (all IPs ever seen)"""
+def add_user_ips(user_id: str, ip_addresses: list) -> list:
+    """Add one or more IPs to user's sending IP list. Skips duplicates."""
     sb = get_supabase()
     if not sb:
         return []
+
+    added = []
+    for ip in ip_addresses:
+        ip = ip.strip()
+        if not ip:
+            continue
+        try:
+            result = sb.table("user_ips").upsert(
+                {"user_id": user_id, "ip_address": ip},
+                on_conflict="user_id,ip_address"
+            ).execute()
+            if result.data:
+                added.append(result.data[0])
+        except Exception as e:
+            print(f"Error adding IP {ip}: {e}")
+    return added
+
+
+def get_user_ips(user_id: str) -> list:
+    """Get all IPs for a user with their domain mappings."""
+    sb = get_supabase()
+    if not sb:
+        return []
+
     try:
-        result = sb.table("snds_metrics").select(
-            "ip_address, ip_status, metric_date, message_count"
-        ).eq("user_id", user_id).order(
-            "metric_date", desc=True
+        # Get all IPs
+        ips_result = sb.table("user_ips").select("*").eq(
+            "user_id", user_id
+        ).order("added_at", desc=True).execute()
+
+        if not ips_result.data:
+            return []
+
+        # Get all domain mappings for this user
+        domains_result = sb.table("user_ip_domains").select("*").eq(
+            "user_id", user_id
         ).execute()
+
+        # Build domain map: ip_address -> [domain1, domain2, ...]
+        domain_map = {}
+        if domains_result.data:
+            for row in domains_result.data:
+                ip = row["ip_address"]
+                if ip not in domain_map:
+                    domain_map[ip] = []
+                domain_map[ip].append(row["domain"])
+
+        # Merge
+        for ip_row in ips_result.data:
+            ip_row["domains"] = domain_map.get(ip_row["ip_address"], [])
+
+        return ips_result.data
+    except Exception as e:
+        print(f"Error fetching user IPs: {e}")
+        return []
+
+
+def remove_user_ip(user_id: str, ip_address: str) -> bool:
+    """Remove an IP and its domain mappings."""
+    sb = get_supabase()
+    if not sb:
+        return False
+
+    try:
+        # Delete domain mappings first
+        sb.table("user_ip_domains").delete().eq(
+            "user_id", user_id
+        ).eq("ip_address", ip_address).execute()
+
+        # Delete the IP
+        sb.table("user_ips").delete().eq(
+            "user_id", user_id
+        ).eq("ip_address", ip_address).execute()
+        return True
+    except Exception as e:
+        print(f"Error removing IP {ip_address}: {e}")
+        return False
+
+
+def set_ip_domains(user_id: str, ip_address: str, domains: list) -> bool:
+    """Replace domain mappings for an IP. Pass empty list to clear."""
+    sb = get_supabase()
+    if not sb:
+        return False
+
+    try:
+        # Delete existing mappings
+        sb.table("user_ip_domains").delete().eq(
+            "user_id", user_id
+        ).eq("ip_address", ip_address).execute()
+
+        # Insert new mappings
+        for domain in domains:
+            domain = domain.strip()
+            if not domain:
+                continue
+            sb.table("user_ip_domains").upsert(
+                {"user_id": user_id, "ip_address": ip_address, "domain": domain},
+                on_conflict="user_id,ip_address,domain"
+            ).execute()
+        return True
+    except Exception as e:
+        print(f"Error setting IP domains: {e}")
+        return False
+
+
+def get_ips_for_domain(user_id: str, domain: str) -> list:
+    """Get IPs mapped to a specific domain (for email-health dropdown)."""
+    sb = get_supabase()
+    if not sb:
+        return []
+
+    try:
+        result = sb.table("user_ip_domains").select("ip_address").eq(
+            "user_id", user_id
+        ).eq("domain", domain).execute()
 
         if not result.data:
             return []
-
-        # Get latest status per IP
-        ip_map = {}
-        for row in result.data:
-            ip = row["ip_address"]
-            if ip not in ip_map:
-                ip_map[ip] = {
-                    "ip_address": ip,
-                    "ip_status": row.get("ip_status", "green"),
-                    "last_seen": row.get("metric_date", ""),
-                    "message_count": row.get("message_count", 0),
-                }
-        return list(ip_map.values())
+        return [row["ip_address"] for row in result.data]
     except Exception as e:
-        print(f"Error getting all SNDS IPs: {e}")
+        print(f"Error fetching IPs for domain {domain}: {e}")
         return []

@@ -38,7 +38,8 @@ from db import (
     delete_postmaster_connection, get_postmaster_metrics as db_get_postmaster_metrics,
     save_snds_connection, get_snds_connection, delete_snds_connection,
     get_snds_metrics as db_get_snds_metrics, update_snds_sync_status,
-    upsert_snds_metrics, update_snds_tracked_ips, get_snds_all_ips,
+    upsert_snds_metrics,
+    add_user_ips, get_user_ips, remove_user_ip, set_ip_domains, get_ips_for_domain,
 )
 
 # Auth
@@ -2496,6 +2497,127 @@ async def api_remove_domain(req: Request, domain_id: str):
         raise HTTPException(status_code=500, detail="Failed to remove domain")
 
 
+# ─── SENDING IP ENDPOINTS ─────────────────────────────────────────
+
+
+@app.get("/api/user/ips")
+async def api_get_ips(req: Request):
+    """Get all sending IPs for authenticated user (with domain mappings)"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    ips = get_user_ips(user_id)
+    return {"ips": ips}
+
+
+class AddIpsRequest(BaseModel):
+    ips: list
+
+
+@app.post("/api/user/ips")
+async def api_add_ips(req: Request, body: AddIpsRequest):
+    """Add one or more sending IPs"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+
+    # Validate and clean IPs
+    import ipaddress
+    clean_ips = []
+    invalid = []
+    for ip_str in body.ips:
+        ip_str = str(ip_str).strip()
+        if not ip_str:
+            continue
+        try:
+            ipaddress.ip_address(ip_str)
+            clean_ips.append(ip_str)
+        except ValueError:
+            invalid.append(ip_str)
+
+    if not clean_ips and invalid:
+        raise HTTPException(status_code=400, detail=f"Invalid IP addresses: {', '.join(invalid)}")
+
+    added = add_user_ips(user_id, clean_ips)
+    return {"added": added, "invalid": invalid}
+
+
+@app.get("/api/user/ips/by-domain/{domain}")
+async def api_get_ips_by_domain(req: Request, domain: str):
+    """Get sending IPs mapped to a specific domain"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    ips = get_ips_for_domain(user_id, domain.strip().lower())
+    return {"ips": ips, "domain": domain}
+
+
+class SetIpDomainsRequest(BaseModel):
+    domains: list
+
+
+@app.put("/api/user/ips/{ip}/domains")
+async def api_set_ip_domains(req: Request, ip: str, body: SetIpDomainsRequest):
+    """Set domain mappings for a sending IP"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    domains = [d.strip().lower() for d in body.domains if d.strip()]
+    success = set_ip_domains(user_id, ip, domains)
+    if success:
+        return {"ok": True, "domains": domains}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to update IP domains")
+
+
+@app.delete("/api/user/ips/{ip}")
+async def api_remove_ip(req: Request, ip: str):
+    """Remove a sending IP and its domain mappings"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    success = remove_user_ip(user_id, ip)
+    if success:
+        return {"ok": True}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to remove IP")
+
+
 # ─── MONITORING API ENDPOINTS ─────────────────────────────────────
 
 
@@ -2827,10 +2949,19 @@ async def api_blacklist_check(domain: str, req: Request):
     if not HETRIX_API_KEY:
         raise HTTPException(status_code=503, detail="Blacklist monitoring not configured")
 
-    # Resolve sending IPs from MX + A records
+    user_id = user_result["user"]["id"]
+
+    # 1) Use centralized user_ips mapped to this domain (if any)
     ips = set()
-    mx_records = safe_dns_query(domain, "MX")
     ip_sources = {}  # ip -> source label
+    user_domain_ips = get_ips_for_domain(user_id, domain)
+    if user_domain_ips:
+        for ip in user_domain_ips:
+            ips.add(ip)
+            ip_sources[ip] = "Sending IPs"
+
+    # 2) Also resolve from DNS as additional sources
+    mx_records = safe_dns_query(domain, "MX")
     if mx_records:
         for mx in mx_records:
             mx_host = mx.split()[-1].rstrip(".")
@@ -2838,7 +2969,8 @@ async def api_blacklist_check(domain: str, req: Request):
             if a_records:
                 for ip in a_records:
                     ips.add(ip)
-                    ip_sources[ip] = f"MX: {mx_host}"
+                    if ip not in ip_sources:
+                        ip_sources[ip] = f"MX: {mx_host}"
 
     a_records = safe_dns_query(domain, "A")
     if a_records:
@@ -3231,8 +3363,8 @@ async def api_snds_sync(req: Request):
 
 
 @app.get("/api/snds/metrics")
-async def api_snds_metrics(req: Request, days: int = 30):
-    """Get all SNDS IP metrics for the current user"""
+async def api_snds_metrics(req: Request, days: int = 30, domain: str = ""):
+    """Get SNDS IP metrics, optionally filtered by domain-mapped IPs from user_ips."""
     auth_header = req.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing authorization")
@@ -3250,18 +3382,21 @@ async def api_snds_metrics(req: Request, days: int = 30):
         return {
             "connected": False,
             "metrics": [],
-            "message": "Connect Microsoft SNDS in Settings to see metrics",
+            "message": "Connect Microsoft SNDS in Settings or Sending IPs to see metrics",
         }
 
     metrics = db_get_snds_metrics(user_id, days=min(days, 90))
 
-    # Filter by tracked IPs if set
-    import json
-    tracked_ips_raw = connection.get("tracked_ips")
-    if tracked_ips_raw:
-        tracked = json.loads(tracked_ips_raw) if isinstance(tracked_ips_raw, str) else tracked_ips_raw
-        if tracked:
-            metrics = [m for m in metrics if m.get("ip_address") in tracked]
+    # Filter by centralized user_ips (domain-mapped if domain param given)
+    if domain:
+        allowed_ips = set(get_ips_for_domain(user_id, domain))
+    else:
+        user_ip_rows = get_user_ips(user_id)
+        allowed_ips = {row["ip_address"] for row in user_ip_rows} if user_ip_rows else set()
+
+    # Only filter if user has IPs configured; if none configured, show all SNDS data
+    if allowed_ips:
+        metrics = [m for m in metrics if m.get("ip_address") in allowed_ips]
 
     return {
         "connected": True,
@@ -3269,143 +3404,6 @@ async def api_snds_metrics(req: Request, days: int = 30):
         "ip_count": connection.get("ip_count", 0),
         "last_sync_at": connection.get("last_sync_at"),
     }
-
-
-@app.get("/api/snds/all-ips")
-async def api_snds_all_ips(req: Request):
-    """Get all IPs seen in SNDS data (for IP selection UI)"""
-    auth_header = req.headers.get("authorization", "")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing authorization")
-
-    token = auth_header.replace("Bearer ", "")
-    user_result = get_user_from_token(token)
-    if not user_result["success"]:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    user_id = user_result["user"]["id"]
-    _require_pro_plan(user_id)
-
-    connection = get_snds_connection(user_id)
-    if not connection:
-        return {"ips": [], "tracked_ips": None}
-
-    all_ips = get_snds_all_ips(user_id)
-
-    import json
-    tracked_ips_raw = connection.get("tracked_ips")
-    tracked_ips = None
-    if tracked_ips_raw:
-        tracked_ips = json.loads(tracked_ips_raw) if isinstance(tracked_ips_raw, str) else tracked_ips_raw
-
-    return {"ips": all_ips, "tracked_ips": tracked_ips}
-
-
-@app.post("/api/snds/tracked-ips")
-async def api_snds_tracked_ips(req: Request):
-    """Set which IPs to track (null = track all)"""
-    auth_header = req.headers.get("authorization", "")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing authorization")
-
-    token = auth_header.replace("Bearer ", "")
-    user_result = get_user_from_token(token)
-    if not user_result["success"]:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    user_id = user_result["user"]["id"]
-    _require_pro_plan(user_id)
-
-    body = await req.json()
-    tracked_ips = body.get("tracked_ips")  # null = track all, [] = none, [...] = specific
-
-    success = update_snds_tracked_ips(user_id, tracked_ips)
-    if success:
-        return {"success": True, "tracked_ips": tracked_ips}
-    else:
-        raise HTTPException(status_code=500, detail="Failed to update tracked IPs")
-
-
-@app.get("/api/snds/detect-ips")
-async def api_snds_detect_ips(req: Request, domain: str = ""):
-    """Detect sending IPs from a domain's SPF record"""
-    auth_header = req.headers.get("authorization", "")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing authorization")
-
-    token = auth_header.replace("Bearer ", "")
-    user_result = get_user_from_token(token)
-    if not user_result["success"]:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    if not domain:
-        return {"ips": [], "error": "Domain parameter required"}
-
-    # Look up SPF record to find IPs
-    detected_ips = _extract_ips_from_spf(domain)
-
-    return {"domain": domain, "ips": detected_ips}
-
-
-def _extract_ips_from_spf(domain: str, depth: int = 0) -> list:
-    """Recursively extract IP addresses from SPF record (including includes)"""
-    if depth > 5:
-        return []
-
-    import re
-    ips = []
-
-    spf_records = safe_dns_query(domain, "TXT")
-    if not spf_records:
-        return []
-
-    spf_txt = ""
-    for record in spf_records:
-        r = record.strip('"').strip("'")
-        if r.startswith("v=spf1"):
-            spf_txt = r
-            break
-
-    if not spf_txt:
-        return []
-
-    # Extract ip4: entries
-    for match in re.finditer(r'ip4:(\d+\.\d+\.\d+\.\d+(?:/\d+)?)', spf_txt):
-        ip_or_cidr = match.group(1)
-        if '/' in ip_or_cidr:
-            # Expand CIDR to individual IPs (only for /24 and above to stay sane)
-            ips.extend(_expand_cidr(ip_or_cidr))
-        else:
-            ips.append(ip_or_cidr)
-
-    # Follow include: directives
-    for match in re.finditer(r'include:(\S+)', spf_txt):
-        included_domain = match.group(1)
-        ips.extend(_extract_ips_from_spf(included_domain, depth + 1))
-
-    # Follow a: directives (resolve hostname to IPs)
-    for match in re.finditer(r'\ba:(\S+)', spf_txt):
-        hostname = match.group(1)
-        a_records = safe_dns_query(hostname, "A")
-        if a_records:
-            ips.extend(a_records)
-
-    return list(set(ips))
-
-
-def _expand_cidr(cidr: str) -> list:
-    """Expand a CIDR notation to individual IPs (limited to /24+)"""
-    try:
-        import ipaddress
-        network = ipaddress.ip_network(cidr, strict=False)
-        # Only expand if /24 or smaller (max 256 IPs)
-        if network.prefixlen >= 24:
-            return [str(ip) for ip in network.hosts()]
-        else:
-            # For larger ranges, return the network notation as-is
-            return [cidr]
-    except Exception:
-        return [cidr.split('/')[0]]
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
@@ -3465,6 +3463,11 @@ async def serve_forgot_password():
 @app.get("/dashboard")
 async def serve_dashboard():
     return FileResponse("static/dashboard.html")
+
+
+@app.get("/sending-ips")
+async def serve_sending_ips():
+    return FileResponse("static/sending-ips.html")
 
 
 @app.get("/domains")

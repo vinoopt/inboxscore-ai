@@ -221,6 +221,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
       <li><a href="/email-health" class="active"><span class="nav-icon">🛡️</span> Email Health</a></li>
       <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
+      <li><a href="/sending-ips"><span class="nav-icon">🖥️</span> Sending IPs</a></li>
       <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
       <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
     </ul>
@@ -811,7 +812,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
               <span class="pm-date-range" id="ms-date-range">Last 30 days</span>
-              <button class="btn btn-sm" onclick="openIpModal()" style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--text-muted);">Manage IPs</button>
               <button class="btn btn-sm" id="ms-sync-btn" onclick="msSyncNow()" style="font-size:11px;padding:4px 10px;">Sync Now</button>
             </div>
           </div>
@@ -926,39 +926,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               <div style="font-size:16px;font-weight:600;color:var(--green);margin-bottom:8px;">Connected Successfully!</div>
               <div id="ms-snds-success-detail" style="font-size:13px;color:var(--text-muted);margin-bottom:16px;"></div>
               <button onclick="closeMsSndsModal();loadSndsStatus();" style="padding:10px 24px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Done</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- IP Selection Modal -->
-        <div id="ms-ip-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:520px;width:90%;position:relative;max-height:80vh;overflow-y:auto;">
-            <button onclick="closeIpModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">&times;</button>
-            <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Manage Tracked IPs</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Select which sending IPs to monitor. Unselected IPs will be hidden from your dashboard.</div>
-
-            <!-- Auto-detect section -->
-            <div id="ip-detect-section" style="display:none;margin-bottom:16px;padding:12px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;">
-              <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:6px;">Auto-detected from your domain's SPF record</div>
-              <div id="ip-detect-list" style="font-size:12px;color:var(--text-muted);"></div>
-              <button onclick="selectDetectedIps()" style="margin-top:8px;padding:5px 12px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:12px;cursor:pointer;">Select detected IPs only</button>
-            </div>
-
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-              <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;cursor:pointer;">
-                <input type="checkbox" id="ip-select-all" onchange="toggleAllIps(this.checked)" style="accent-color:var(--accent);">
-                Select All
-              </label>
-              <span id="ip-selected-count" style="font-size:12px;color:var(--text-muted);"></span>
-            </div>
-
-            <div id="ip-checkbox-list" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;">
-              <!-- Dynamically populated -->
-            </div>
-
-            <div style="margin-top:16px;display:flex;gap:10px;">
-              <button onclick="saveTrackedIps()" style="flex:1;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Save Selection</button>
-              <button onclick="closeIpModal()" style="padding:10px 20px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;">Cancel</button>
             </div>
           </div>
         </div>
@@ -1172,121 +1139,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
             <span class="pm-date-range">Consolidated from all sources</span>
           </div>
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Each IP's health across third-party reputation services, Microsoft SNDS, and blacklist databases — all in one view.</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Each IP's health across Microsoft SNDS and blacklist databases — powered by your <a href="/sending-ips" style="color:var(--accent);">Sending IPs</a>.</div>
 
-          <div style="display:flex;flex-direction:column;gap:10px;">
-
-            <!-- IP 1: 198.51.100.25 (Primary) — Healthy -->
-            <div style="background:var(--surface-2);border-radius:10px;padding:16px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <span style="font-size:13px;font-weight:600;">198.51.100.25 <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(Primary)</span></span>
-                <span class="badge badge-green">Healthy</span>
-              </div>
-              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Sender Score</div>
-                  <div style="font-size:18px;font-weight:700;color:var(--green);margin-top:2px;">92</div>
-                  <div style="font-size:10px;color:var(--text-muted);">Validity (DNS)</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Cisco Talos</div>
-                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Good</div>
-                  <div style="font-size:10px;color:var(--text-muted);">Neutral → Good</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Barracuda BRBL</div>
-                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Good</div>
-                  <div style="font-size:10px;color:var(--text-muted);">DNSBL clear</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Microsoft SNDS</div>
-                  <div style="margin-top:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:middle;"></span><span style="font-size:14px;font-weight:700;color:var(--green);">Normal</span></div>
-                  <div style="font-size:10px;color:var(--text-muted);">Green status</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Blacklists</div>
-                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Clear</div>
-                  <div style="font-size:10px;color:var(--text-muted);">0 of 1000+</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- IP 2: 198.51.100.26 (Secondary) — Healthy -->
-            <div style="background:var(--surface-2);border-radius:10px;padding:16px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <span style="font-size:13px;font-weight:600;">198.51.100.26 <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(Secondary)</span></span>
-                <span class="badge badge-green">Healthy</span>
-              </div>
-              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Sender Score</div>
-                  <div style="font-size:18px;font-weight:700;color:var(--green);margin-top:2px;">88</div>
-                  <div style="font-size:10px;color:var(--text-muted);">Validity (DNS)</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Cisco Talos</div>
-                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Good</div>
-                  <div style="font-size:10px;color:var(--text-muted);">Stable</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Barracuda BRBL</div>
-                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Good</div>
-                  <div style="font-size:10px;color:var(--text-muted);">DNSBL clear</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Microsoft SNDS</div>
-                  <div style="margin-top:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green);margin-right:4px;vertical-align:middle;"></span><span style="font-size:14px;font-weight:700;color:var(--green);">Normal</span></div>
-                  <div style="font-size:10px;color:var(--text-muted);">Green status</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Blacklists</div>
-                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Clear</div>
-                  <div style="font-size:10px;color:var(--text-muted);">0 of 1000+</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- IP 3: 198.51.100.30 (Warm-up) — Warning -->
-            <div style="background:var(--surface-2);border-radius:10px;padding:16px;border-left:3px solid var(--yellow);">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                <span style="font-size:13px;font-weight:600;">198.51.100.30 <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(Warm-up)</span></span>
-                <span class="badge badge-yellow">Warming</span>
-              </div>
-              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Sender Score</div>
-                  <div style="font-size:18px;font-weight:700;color:var(--yellow);margin-top:2px;">61</div>
-                  <div style="font-size:10px;color:var(--text-muted);">Validity (DNS)</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Cisco Talos</div>
-                  <div style="font-size:14px;font-weight:700;color:var(--yellow);margin-top:4px;">Neutral</div>
-                  <div style="font-size:10px;color:var(--text-muted);">Building rep</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Barracuda BRBL</div>
-                  <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:4px;">Good</div>
-                  <div style="font-size:10px;color:var(--text-muted);">DNSBL clear</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Microsoft SNDS</div>
-                  <div style="margin-top:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--yellow);margin-right:4px;vertical-align:middle;"></span><span style="font-size:14px;font-weight:700;color:var(--yellow);">Elevated</span></div>
-                  <div style="font-size:10px;color:var(--text-muted);">Yellow status</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Blacklists</div>
-                  <div style="font-size:14px;font-weight:700;color:var(--red);margin-top:4px;">1 Listed</div>
-                  <div style="font-size:10px;color:var(--text-muted);cursor:pointer;text-decoration:underline;" onclick="switchEhSection('blacklist')">SORBS DUHL →</div>
-                </div>
-              </div>
-            </div>
-
+          <div id="ip-rep-grid" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="color:var(--text-muted);font-size:13px;padding:20px;text-align:center;">Loading IP reputation data...</div>
           </div>
 
           <!-- Legend / Sources -->
           <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border);display:flex;gap:20px;flex-wrap:wrap;">
             <div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
-              <span style="font-weight:600;">Sources:</span> Validity Sender Score (DNS) · Cisco Talos · Barracuda BRBL (DNSBL) · Microsoft SNDS · HetrixTools (1000+ blacklists)
+              <span style="font-weight:600;">Sources:</span> Microsoft SNDS · HetrixTools (1000+ blacklists) · Your <a href="/sending-ips" style="color:var(--accent);">Sending IPs</a>
             </div>
           </div>
         </div>
@@ -2356,7 +2218,9 @@ async function loadSndsMetrics() {
   if (!token) return;
 
   try {
-    const resp = await fetch('/api/snds/metrics?days=30', {
+    let url = '/api/snds/metrics?days=30';
+    if (ehCurrentDomain) url += '&domain=' + encodeURIComponent(ehCurrentDomain);
+    const resp = await fetch(url, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
     if (!resp.ok) return;
@@ -2634,130 +2498,6 @@ async function msSndsConnect() {
   }
 }
 
-// ─── IP Selection Modal ──────────────────────────────────
-let msDetectedIps = [];
-let msAllIps = [];
-
-function openIpModal() {
-  document.getElementById('ms-ip-modal').style.display = 'flex';
-  loadIpSelectionData();
-}
-
-function closeIpModal() {
-  document.getElementById('ms-ip-modal').style.display = 'none';
-}
-
-async function loadIpSelectionData() {
-  const listEl = document.getElementById('ip-checkbox-list');
-  listEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Loading IPs...</div>';
-  document.getElementById('ip-detect-section').style.display = 'none';
-
-  try {
-    const token = getToken();
-
-    // Fetch all IPs and tracked IPs in parallel
-    const [ipsResp, detectResp] = await Promise.all([
-      fetch('/api/snds/all-ips', { headers: { 'Authorization': 'Bearer ' + token } }),
-      // Try auto-detect using the first user domain (from the domain dropdown)
-      (async () => {
-        const domain = ehCurrentDomain;
-        if (!domain) return { ok: false };
-        return fetch(`/api/snds/detect-ips?domain=${encodeURIComponent(domain)}`, {
-          headers: { 'Authorization': 'Bearer ' + token }
-        });
-      })()
-    ]);
-
-    if (!ipsResp.ok) {
-      listEl.innerHTML = '<div style="color:var(--red);font-size:12px;">Failed to load IPs</div>';
-      return;
-    }
-
-    const ipsData = await ipsResp.json();
-    msAllIps = ipsData.ips || [];
-    const trackedIps = ipsData.tracked_ips; // null = all tracked
-
-    // Handle auto-detected IPs
-    if (detectResp.ok) {
-      const detectData = await detectResp.json();
-      msDetectedIps = detectData.ips || [];
-      if (msDetectedIps.length > 0) {
-        document.getElementById('ip-detect-section').style.display = 'block';
-        document.getElementById('ip-detect-list').textContent = msDetectedIps.join(', ');
-      }
-    }
-
-    // Build checkbox list
-    if (msAllIps.length === 0) {
-      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">No IPs found yet. SNDS data will appear after the next sync.</div>';
-      return;
-    }
-
-    listEl.innerHTML = msAllIps.map(ip => {
-      const isChecked = trackedIps === null || (Array.isArray(trackedIps) && trackedIps.includes(ip.ip_address));
-      const statusColor = ip.ip_status === 'green' ? 'var(--green)' : ip.ip_status === 'yellow' ? 'var(--yellow)' : 'var(--red)';
-      return `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface-2);border-radius:8px;cursor:pointer;font-size:13px;">
-        <input type="checkbox" class="ip-cb" value="${ip.ip_address}" ${isChecked ? 'checked' : ''} onchange="updateIpCount()" style="accent-color:var(--accent);">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColor};flex-shrink:0;"></span>
-        <span style="font-family:monospace;">${ip.ip_address}</span>
-        <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${ip.message_count ? ip.message_count.toLocaleString() + ' msgs' : ''}</span>
-      </label>`;
-    }).join('');
-
-    updateIpCount();
-
-  } catch (e) {
-    console.error('[SNDS] IP load error:', e);
-    listEl.innerHTML = '<div style="color:var(--red);font-size:12px;">Error loading IP data</div>';
-  }
-}
-
-function updateIpCount() {
-  const cbs = document.querySelectorAll('.ip-cb');
-  const checked = document.querySelectorAll('.ip-cb:checked');
-  document.getElementById('ip-selected-count').textContent = `${checked.length} of ${cbs.length} selected`;
-  document.getElementById('ip-select-all').checked = checked.length === cbs.length;
-}
-
-function toggleAllIps(checked) {
-  document.querySelectorAll('.ip-cb').forEach(cb => cb.checked = checked);
-  updateIpCount();
-}
-
-function selectDetectedIps() {
-  document.querySelectorAll('.ip-cb').forEach(cb => {
-    cb.checked = msDetectedIps.includes(cb.value);
-  });
-  updateIpCount();
-}
-
-async function saveTrackedIps() {
-  const cbs = document.querySelectorAll('.ip-cb');
-  const checked = document.querySelectorAll('.ip-cb:checked');
-
-  // If all are checked, save null (track all)
-  let trackedIps = null;
-  if (checked.length < cbs.length) {
-    trackedIps = Array.from(checked).map(cb => cb.value);
-  }
-
-  try {
-    const token = getToken();
-    const resp = await fetch('/api/snds/tracked-ips', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tracked_ips: trackedIps }),
-    });
-
-    if (resp.ok) {
-      closeIpModal();
-      loadSndsMetrics(); // Reload metrics with filtered IPs
-    }
-  } catch (e) {
-    console.error('[SNDS] Save tracked IPs error:', e);
-  }
-}
-
 async function msSyncNow() {
   const btn = document.getElementById('ms-sync-btn');
   btn.textContent = 'Syncing...';
@@ -2875,6 +2615,12 @@ async function onEhDomainChange(domain) {
 
   // Load real alerts
   loadActiveAlerts(domain);
+
+  // Reload SNDS metrics filtered by new domain
+  loadSndsMetrics();
+
+  // Reload IP Reputation with domain-mapped IPs
+  loadIpReputation(domain);
 }
 
 function resetOverview() {
@@ -3049,7 +2795,9 @@ async function loadProviderStatus(domain) {
     if (resp.ok) {
       const data = await resp.json();
       if (data.connected) {
-        const mResp = await fetch('/api/snds/metrics?days=7', { headers });
+        let sndsUrl = '/api/snds/metrics?days=7';
+        if (ehCurrentDomain) sndsUrl += '&domain=' + encodeURIComponent(ehCurrentDomain);
+        const mResp = await fetch(sndsUrl, { headers });
         if (mResp.ok) {
           const mData = await mResp.json();
           const metrics = mData.metrics || [];
@@ -3096,6 +2844,138 @@ async function loadProviderStatus(domain) {
     }
   } catch (e) {
     console.error('[EH] MS provider load error:', e);
+  }
+}
+
+/* === IP Reputation (dynamic from user_ips + SNDS + blacklists) === */
+async function loadIpReputation(domain) {
+  const token = getToken();
+  if (!token) return;
+  const grid = document.getElementById('ip-rep-grid');
+  if (!grid) return;
+  const headers = { 'Authorization': 'Bearer ' + token };
+
+  try {
+    // Fetch user's IPs for this domain
+    let ips = [];
+    if (domain) {
+      const ipResp = await fetch('/api/user/ips/by-domain/' + encodeURIComponent(domain), { headers });
+      if (ipResp.ok) {
+        const ipData = await ipResp.json();
+        ips = ipData.ips || [];
+      }
+    }
+    // Fallback: get all user IPs
+    if (ips.length === 0) {
+      const allResp = await fetch('/api/user/ips', { headers });
+      if (allResp.ok) {
+        const allData = await allResp.json();
+        ips = (allData.ips || []).map(r => r.ip_address);
+      }
+    }
+
+    if (ips.length === 0) {
+      grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px;">'
+        + '<div style="font-size:28px;margin-bottom:8px;">🖥️</div>'
+        + 'No sending IPs configured yet.<br><a href="/sending-ips" style="color:var(--accent);">Add your IPs →</a></div>';
+      return;
+    }
+
+    // Fetch SNDS metrics (for SNDS column)
+    let sndsMap = {};
+    try {
+      let sndsUrl = '/api/snds/metrics?days=7';
+      if (domain) sndsUrl += '&domain=' + encodeURIComponent(domain);
+      const sndsResp = await fetch(sndsUrl, { headers });
+      if (sndsResp.ok) {
+        const sndsData = await sndsResp.json();
+        (sndsData.metrics || []).forEach(m => {
+          if (!sndsMap[m.ip_address] || m.metric_date > sndsMap[m.ip_address].metric_date) {
+            sndsMap[m.ip_address] = m;
+          }
+        });
+      }
+    } catch (e) { /* SNDS not connected — that's fine */ }
+
+    // Fetch blacklist data (for blacklist column)
+    let blMap = {};
+    if (domain) {
+      try {
+        const blResp = await fetch('/api/blacklist/check/' + encodeURIComponent(domain), { headers });
+        if (blResp.ok) {
+          const blData = await blResp.json();
+          (blData.ip_results || []).forEach(r => { blMap[r.ip] = r; });
+        }
+      } catch (e) { /* blacklist check failed */ }
+    }
+
+    // Render each IP card
+    grid.innerHTML = ips.map(ip => {
+      const snds = sndsMap[ip];
+      const bl = blMap[ip];
+
+      // SNDS column
+      let sndsLabel = '—';
+      let sndsColor = 'var(--text-muted)';
+      let sndsSub = 'Not available';
+      if (snds) {
+        const st = snds.ip_status || 'unknown';
+        sndsLabel = st.charAt(0).toUpperCase() + st.slice(1);
+        sndsColor = st === 'green' ? 'var(--green)' : st === 'yellow' ? 'var(--yellow)' : st === 'red' ? 'var(--red)' : 'var(--text-muted)';
+        sndsSub = st.charAt(0).toUpperCase() + st.slice(1) + ' status';
+      }
+
+      // Blacklist column
+      let blLabel = '—';
+      let blColor = 'var(--text-muted)';
+      let blSub = 'Not checked';
+      if (bl) {
+        const listed = bl.blacklisted_count || 0;
+        blLabel = listed === 0 ? 'Clear' : listed + ' Listed';
+        blColor = listed === 0 ? 'var(--green)' : 'var(--red)';
+        blSub = listed + ' of ' + (bl.blacklist_count || '1000+');
+      }
+
+      // Overall health badge
+      let badge = 'badge-green';
+      let badgeText = 'Healthy';
+      if (snds && snds.ip_status === 'red' || (bl && (bl.blacklisted_count || 0) > 2)) {
+        badge = 'badge-red'; badgeText = 'Critical';
+      } else if (snds && snds.ip_status === 'yellow' || (bl && (bl.blacklisted_count || 0) > 0)) {
+        badge = 'badge-yellow'; badgeText = 'Warning';
+      } else if (!snds && !bl) {
+        badge = 'badge-muted'; badgeText = 'No data';
+      }
+
+      const borderStyle = badge === 'badge-red' ? 'border-left:3px solid var(--red);' : badge === 'badge-yellow' ? 'border-left:3px solid var(--yellow);' : '';
+
+      return '<div style="background:var(--surface-2);border-radius:10px;padding:16px;' + borderStyle + '">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+        + '<span style="font-size:13px;font-weight:600;font-family:monospace;">' + ip + '</span>'
+        + '<span class="badge ' + badge + '">' + badgeText + '</span>'
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">'
+        + '<div style="text-align:center;">'
+        + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Microsoft SNDS</div>'
+        + '<div style="font-size:14px;font-weight:700;color:' + sndsColor + ';margin-top:4px;">' + sndsLabel + '</div>'
+        + '<div style="font-size:10px;color:var(--text-muted);">' + sndsSub + '</div>'
+        + '</div>'
+        + '<div style="text-align:center;">'
+        + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Blacklists</div>'
+        + '<div style="font-size:14px;font-weight:700;color:' + blColor + ';margin-top:4px;">' + blLabel + '</div>'
+        + '<div style="font-size:10px;color:var(--text-muted);">' + blSub + '</div>'
+        + '</div>'
+        + '<div style="text-align:center;">'
+        + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Spam Traps</div>'
+        + '<div style="font-size:14px;font-weight:700;color:' + (snds && snds.trap_hits > 0 ? 'var(--red)' : snds ? 'var(--green)' : 'var(--text-muted)') + ';margin-top:4px;">' + (snds ? (snds.trap_hits || 0) : '—') + '</div>'
+        + '<div style="font-size:10px;color:var(--text-muted);">' + (snds ? 'SNDS data' : 'Not available') + '</div>'
+        + '</div>'
+        + '</div></div>';
+    }).join('');
+
+  } catch (e) {
+    console.error('[EH] IP reputation load error:', e);
+    grid.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:10px;">Failed to load IP reputation data.</div>';
   }
 }
 

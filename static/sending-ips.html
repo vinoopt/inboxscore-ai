@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sending IPs — InboxScore</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26; --border: #2a2a3a;
+  --text: #e4e4ef; --text-muted: #8888a0; --accent: #6366f1; --accent-glow: rgba(99,102,241,0.3);
+  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* Top Nav */
+.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 10; }
+.logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+.logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.user-name { font-size: 13px; color: var(--text-muted); }
+.logout-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+
+/* Layout */
+.layout { display: flex; flex: 1; }
+
+/* Sidebar */
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
+.sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
+.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); }
+.sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
+.sidebar-bottom { margin-top: auto; padding: 16px 24px; border-top: 1px solid var(--border); }
+.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
+
+/* Main */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
+
+/* Page Header */
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+.page-title { font-size: 24px; font-weight: 700; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+
+/* Buttons */
+.btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border); background: transparent; color: var(--text-muted); }
+.btn:hover { border-color: var(--text-muted); color: var(--text); }
+.btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-primary:hover { background: #5558e6; border-color: #5558e6; }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+
+/* Card */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; }
+
+/* IP List */
+.ip-list { display: flex; flex-direction: column; gap: 10px; }
+.ip-card { padding: 16px 20px; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; }
+.ip-info { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+.ip-icon { width: 36px; height: 36px; border-radius: 8px; background: rgba(99,102,241,0.12); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.ip-address { font-size: 14px; font-weight: 600; font-family: 'SF Mono', Monaco, 'Fira Code', monospace; }
+.ip-date { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.ip-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Domain Pills */
+.domain-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.domain-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; background: rgba(99,102,241,0.12); color: var(--accent); border: 1px solid rgba(99,102,241,0.2); }
+.no-domains-hint { font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 4px; }
+
+.btn-remove { color: var(--red); border-color: rgba(239,68,68,0.3); }
+.btn-remove:hover { background: rgba(239,68,68,0.08); border-color: var(--red); color: var(--red); }
+
+/* Empty State */
+.empty-state { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 48px; text-align: center; }
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state h3 { font-size: 16px; margin-bottom: 6px; }
+.empty-state p { color: var(--text-muted); font-size: 14px; }
+
+/* Loading */
+.loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 100; animation: slideIn 0.3s ease; }
+.toast.success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: var(--green); }
+.toast.error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: var(--red); }
+@keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; width: 480px; max-width: 90vw; }
+.modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.modal .modal-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+.modal .form-group { margin-bottom: 16px; }
+.modal .form-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+.modal .form-group input, .modal .form-group textarea { width: 100%; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; outline: none; font-family: inherit; }
+.modal .form-group input:focus, .modal .form-group textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.modal .form-group textarea { min-height: 80px; resize: vertical; font-family: 'SF Mono', Monaco, 'Fira Code', monospace; font-size: 13px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* Domain Checkbox List */
+.domain-check-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+.domain-check-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.domain-check-item:hover { background: var(--surface-2); }
+.domain-check-item input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+.domain-check-empty { text-align: center; padding: 16px; color: var(--text-muted); font-size: 13px; }
+
+/* SNDS Card */
+.snds-section { margin-top: 32px; }
+.snds-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.snds-info { display: flex; align-items: center; gap: 14px; }
+.snds-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(99,102,241,0.12); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.snds-name { font-size: 14px; font-weight: 600; }
+.snds-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.snds-status { font-size: 12px; margin-top: 4px; }
+.snds-status.connected { color: var(--green); }
+.snds-status.disconnected { color: var(--text-muted); }
+.snds-actions { display: flex; gap: 8px; }
+
+/* SNDS Progress Steps */
+@keyframes snds-spin { to { transform: rotate(360deg); } }
+
+.sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
+.sidebar-backdrop.show { display: block; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar.open { left: 0; }
+  .mobile-toggle { display: block; }
+  .main { padding: 24px 16px; }
+  .page-header { flex-direction: column; gap: 12px; }
+  .page-header .btn-primary { align-self: flex-start; }
+  .ip-card { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .ip-actions { align-self: flex-end; }
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+    <a href="/dashboard" class="logo">
+      <div class="logo-icon" style="font-size:11px;font-weight:700;color:white;">IS</div>
+      InboxScore
+    </a>
+  </div>
+  <div class="nav-right">
+    <span class="user-name" id="user-name"></span>
+    <button class="logout-btn" onclick="logout()">Log Out</button>
+  </div>
+</nav>
+
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
+      <li><a href="/email-health"><span class="nav-icon">🛡️</span> Email Health</a></li>
+      <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
+      <li><a href="/sending-ips" class="active"><span class="nav-icon">🖥️</span> Sending IPs</a></li>
+      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
+      <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
+    </ul>
+    <div class="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Sending IPs</h1>
+        <p class="page-subtitle">Add and manage the IP addresses you use to send email. These IPs are used across SNDS, Blacklist Monitor, and IP Reputation.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openAddIpModal()">+ Add IPs</button>
+    </div>
+
+    <div id="ips-container">
+      <div class="loading"><div class="loading-spinner"></div>Loading your IPs...</div>
+    </div>
+
+    <!-- SNDS Connection Section -->
+    <div class="snds-section">
+      <div class="card snds-card" id="snds-card">
+        <div class="snds-info">
+          <div class="snds-icon">📧</div>
+          <div>
+            <div class="snds-name">Microsoft SNDS</div>
+            <div class="snds-desc">Connect to get Outlook/Hotmail deliverability data for your sending IPs.</div>
+            <div class="snds-status disconnected" id="snds-status-text">Checking...</div>
+          </div>
+        </div>
+        <div class="snds-actions" id="snds-actions">
+          <div id="snds-btn-disconnected" style="display:none;">
+            <button class="btn btn-primary btn-sm" onclick="openSndsModal()">Connect SNDS</button>
+          </div>
+          <div id="snds-btn-connected" style="display:none;gap:8px;display:none;">
+            <button class="btn btn-sm" onclick="sndsSyncNow()">Sync Now</button>
+            <button class="btn btn-sm" style="color:var(--red);border-color:rgba(239,68,68,0.3);" onclick="sndsDisconnect()">Disconnect</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add IPs Modal -->
+<div class="modal-overlay" id="add-ip-modal" onclick="if(event.target===this) closeAddIpModal()">
+  <div class="modal">
+    <h3>Add Sending IPs</h3>
+    <p class="modal-desc">Enter one or more IP addresses. You can paste multiple IPs separated by commas, spaces, or new lines.</p>
+    <div class="form-group">
+      <label>IP Addresses</label>
+      <textarea id="ip-input" placeholder="e.g. 198.51.100.1, 198.51.100.2&#10;or one per line:&#10;198.51.100.1&#10;198.51.100.2"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeAddIpModal()">Cancel</button>
+      <button class="btn btn-primary" id="add-ip-btn" onclick="addIps()">Add IPs</button>
+    </div>
+  </div>
+</div>
+
+<!-- Map Domains Modal -->
+<div class="modal-overlay" id="map-domains-modal" onclick="if(event.target===this) closeMapDomainsModal()">
+  <div class="modal">
+    <h3>Map Domains</h3>
+    <p class="modal-desc">Select which domains this IP sends email for: <strong id="map-ip-label"></strong></p>
+    <div id="domain-check-container">
+      <div class="loading" style="padding:20px;"><div class="loading-spinner"></div>Loading domains...</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeMapDomainsModal()">Cancel</button>
+      <button class="btn btn-primary" id="save-domains-btn" onclick="saveIpDomains()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- SNDS Connect Modal -->
+<div class="modal-overlay" id="snds-modal" onclick="if(event.target===this) closeSndsModal()">
+  <div class="modal" style="width:440px;">
+    <!-- Step 1: Input -->
+    <div id="snds-step-input">
+      <h3>Connect Microsoft SNDS</h3>
+      <p class="modal-desc">
+        <strong>How to get your SNDS key:</strong><br>
+        1. Go to <a href="https://postmaster.live.com/snds" target="_blank" style="color:var(--accent);">postmaster.live.com/snds</a><br>
+        2. Sign in with your Microsoft account<br>
+        3. Enable "Automated Data Access"<br>
+        4. Copy the generated key and paste it below
+      </p>
+      <div class="form-group">
+        <label>SNDS Automated Access Key</label>
+        <input type="text" id="snds-key-input" placeholder="Paste your SNDS automated access key here...">
+      </div>
+      <div id="snds-modal-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px;"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeSndsModal()">Cancel</button>
+        <button class="btn btn-primary" id="snds-connect-btn" onclick="sndsConnect()">Connect & Validate</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Progress -->
+    <div id="snds-step-progress" style="display:none;">
+      <h3 style="margin-bottom:20px;">Connecting...</h3>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="snds-prog-step" id="snds-prog-1" style="display:flex;align-items:center;gap:10px;font-size:13px;">
+          <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
+          <span>Connecting to Microsoft SNDS...</span>
+        </div>
+        <div class="snds-prog-step" id="snds-prog-2" style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted);">
+          <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
+          <span>Validating access key...</span>
+        </div>
+        <div class="snds-prog-step" id="snds-prog-3" style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted);">
+          <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
+          <span>Fetching IP data...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Success -->
+    <div id="snds-step-success" style="display:none;text-align:center;">
+      <div style="font-size:40px;margin-bottom:12px;">✅</div>
+      <h3 style="margin-bottom:4px;">SNDS Connected!</h3>
+      <p id="snds-success-detail" style="font-size:13px;color:var(--text-muted);margin-bottom:16px;"></p>
+      <button class="btn btn-primary" onclick="closeSndsModal(); loadSndsStatus();">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('show');
+}
+
+let headers = {};
+let allIps = [];
+let allDomains = [];
+let currentMapIp = null;
+
+function getToken() {
+  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+}
+
+function logout() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  sessionStorage.removeItem('access_token');
+  sessionStorage.removeItem('refresh_token');
+  sessionStorage.removeItem('user');
+  window.location.href = '/login';
+}
+
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function showToast(message, type = 'success') {
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ─── ADD IP MODAL ────────────────────────────────────────
+
+function openAddIpModal() {
+  document.getElementById('ip-input').value = '';
+  document.getElementById('add-ip-modal').classList.add('show');
+  setTimeout(() => document.getElementById('ip-input').focus(), 100);
+}
+
+function closeAddIpModal() {
+  document.getElementById('add-ip-modal').classList.remove('show');
+}
+
+// ─── MAP DOMAINS MODAL ──────────────────────────────────
+
+function openMapDomainsModal(ip, currentDomains) {
+  currentMapIp = ip;
+  document.getElementById('map-ip-label').textContent = ip;
+  document.getElementById('map-domains-modal').classList.add('show');
+
+  const container = document.getElementById('domain-check-container');
+  container.innerHTML = '<div class="loading" style="padding:20px;"><div class="loading-spinner"></div>Loading domains...</div>';
+
+  // Fetch user domains
+  fetch('/api/user/domains', { headers }).then(r => r.json()).then(data => {
+    const domains = data.domains || [];
+    if (domains.length === 0) {
+      container.innerHTML = '<div class="domain-check-empty">No domains added yet. <a href="/domains" style="color:var(--accent);">Add domains first →</a></div>';
+      return;
+    }
+
+    let html = '<div class="domain-check-list">';
+    domains.forEach(d => {
+      const checked = currentDomains.includes(d.domain) ? 'checked' : '';
+      html += `
+        <label class="domain-check-item">
+          <input type="checkbox" value="${d.domain}" ${checked}>
+          <span>${d.domain}</span>
+        </label>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  }).catch(() => {
+    container.innerHTML = '<div class="domain-check-empty">Failed to load domains. Please try again.</div>';
+  });
+}
+
+function closeMapDomainsModal() {
+  document.getElementById('map-domains-modal').classList.remove('show');
+  currentMapIp = null;
+}
+
+async function saveIpDomains() {
+  if (!currentMapIp) return;
+  const btn = document.getElementById('save-domains-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  const checkboxes = document.querySelectorAll('#domain-check-container input[type="checkbox"]');
+  const selectedDomains = [];
+  checkboxes.forEach(cb => { if (cb.checked) selectedDomains.push(cb.value); });
+
+  try {
+    const res = await fetch('/api/user/ips/' + encodeURIComponent(currentMapIp) + '/domains', {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domains: selectedDomains })
+    });
+    if (!res.ok) throw new Error('Failed to save');
+
+    closeMapDomainsModal();
+    showToast('Domain mapping updated');
+    loadIps();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+}
+
+// ─── IP LIST ─────────────────────────────────────────────
+
+async function loadIps() {
+  try {
+    const res = await fetch('/api/user/ips', { headers });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    allIps = data.ips || [];
+    renderIps(allIps);
+  } catch (e) {
+    document.getElementById('ips-container').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load IPs</h3><p>Something went wrong. Please try again.</p><button class="btn btn-primary" onclick="loadIps()" style="margin-top:12px;">Retry</button></div>';
+  }
+}
+
+function renderIps(ips) {
+  const container = document.getElementById('ips-container');
+  if (!ips || ips.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🖥️</div>
+        <h3>No sending IPs yet</h3>
+        <p>Add your sending IP addresses to start monitoring them across SNDS, Blacklist, and IP Reputation.</p>
+        <button class="btn btn-primary" onclick="openAddIpModal()" style="margin-top:16px;">+ Add IPs</button>
+      </div>`;
+    return;
+  }
+
+  let html = '<div class="ip-list">';
+  ips.forEach(ip => {
+    const dateAdded = ip.added_at ? 'Added ' + formatDate(ip.added_at) : '';
+    const domains = ip.domains || [];
+    const domainPillsHtml = domains.length > 0
+      ? '<div class="domain-pills">' + domains.map(d => `<span class="domain-pill">🌐 ${d}</span>`).join('') + '</div>'
+      : '<div class="no-domains-hint">No domains mapped — click "Map Domains" to assign</div>';
+
+    html += `
+      <div class="card ip-card">
+        <div class="ip-info">
+          <div class="ip-icon">🖥️</div>
+          <div style="min-width:0;">
+            <div class="ip-address">${ip.ip_address}</div>
+            <div class="ip-date">${dateAdded}</div>
+            ${domainPillsHtml}
+          </div>
+        </div>
+        <div class="ip-actions">
+          <button class="btn btn-sm" onclick="openMapDomainsModal('${ip.ip_address}', ${JSON.stringify(domains)})">Map Domains</button>
+          <button class="btn btn-sm btn-remove" onclick="removeIp('${ip.ip_address}')">Remove</button>
+        </div>
+      </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+async function addIps() {
+  const input = document.getElementById('ip-input');
+  const btn = document.getElementById('add-ip-btn');
+  const raw = input.value.trim();
+  if (!raw) return;
+
+  // Parse IPs: split on commas, spaces, newlines
+  const ipList = raw.split(/[\s,;\n]+/).map(s => s.trim()).filter(Boolean);
+  if (ipList.length === 0) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Adding...';
+
+  try {
+    const res = await fetch('/api/user/ips', {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ips: ipList })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to add IPs');
+
+    const addedCount = (data.added || []).length;
+    const invalidList = data.invalid || [];
+    let msg = addedCount + ' IP' + (addedCount !== 1 ? 's' : '') + ' added';
+    if (invalidList.length > 0) msg += '. Invalid: ' + invalidList.join(', ');
+
+    input.value = '';
+    closeAddIpModal();
+    showToast(msg, invalidList.length > 0 ? 'error' : 'success');
+    loadIps();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add IPs';
+  }
+}
+
+async function removeIp(ip) {
+  if (!confirm('Remove ' + ip + ' from your sending IPs? This will also remove its domain mappings.')) return;
+
+  try {
+    const res = await fetch('/api/user/ips/' + encodeURIComponent(ip), {
+      method: 'DELETE',
+      headers
+    });
+    if (!res.ok) throw new Error();
+    showToast('IP removed');
+    loadIps();
+  } catch (e) {
+    showToast('Failed to remove IP', 'error');
+  }
+}
+
+// ─── SNDS CONNECTION ─────────────────────────────────────
+
+function openSndsModal() {
+  document.getElementById('snds-key-input').value = '';
+  document.getElementById('snds-modal-error').style.display = 'none';
+  document.getElementById('snds-step-input').style.display = 'block';
+  document.getElementById('snds-step-progress').style.display = 'none';
+  document.getElementById('snds-step-success').style.display = 'none';
+  document.getElementById('snds-modal').classList.add('show');
+  setTimeout(() => document.getElementById('snds-key-input').focus(), 100);
+}
+
+function closeSndsModal() {
+  document.getElementById('snds-modal').classList.remove('show');
+}
+
+function setSndsProgress(step, status) {
+  const el = document.getElementById('snds-prog-' + step);
+  const icon = el.querySelector('.snds-prog-icon');
+  if (status === 'active') {
+    el.style.color = 'var(--text)';
+    icon.style.borderColor = 'var(--accent)';
+    icon.style.borderTopColor = 'transparent';
+    icon.style.animation = 'snds-spin 0.8s linear infinite';
+    icon.innerHTML = '';
+  } else if (status === 'done') {
+    el.style.color = 'var(--green)';
+    icon.style.borderColor = 'var(--green)';
+    icon.style.background = 'rgba(34,197,94,0.15)';
+    icon.style.animation = 'none';
+    icon.innerHTML = '✓';
+  } else if (status === 'error') {
+    el.style.color = 'var(--red)';
+    icon.style.borderColor = 'var(--red)';
+    icon.style.animation = 'none';
+    icon.innerHTML = '✗';
+  }
+}
+
+async function sndsConnect() {
+  const key = document.getElementById('snds-key-input').value.trim();
+  if (!key) {
+    document.getElementById('snds-modal-error').textContent = 'Please enter your SNDS key.';
+    document.getElementById('snds-modal-error').style.display = 'block';
+    return;
+  }
+
+  // Switch to progress
+  document.getElementById('snds-step-input').style.display = 'none';
+  document.getElementById('snds-step-progress').style.display = 'block';
+
+  // Reset progress steps
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('snds-prog-' + i);
+    el.style.color = i === 1 ? 'var(--text)' : 'var(--text-muted)';
+    const icon = el.querySelector('.snds-prog-icon');
+    icon.style.borderColor = 'var(--border)';
+    icon.style.background = 'none';
+    icon.style.animation = 'none';
+    icon.innerHTML = '';
+  }
+
+  setSndsProgress(1, 'active');
+  await new Promise(r => setTimeout(r, 600));
+  setSndsProgress(1, 'done');
+
+  setSndsProgress(2, 'active');
+
+  try {
+    const res = await fetch('/api/snds/connect', {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setSndsProgress(2, 'error');
+      await new Promise(r => setTimeout(r, 500));
+      // Go back to input with error
+      document.getElementById('snds-step-progress').style.display = 'none';
+      document.getElementById('snds-step-input').style.display = 'block';
+      document.getElementById('snds-modal-error').textContent = data.detail || 'Connection failed. Please check your key.';
+      document.getElementById('snds-modal-error').style.display = 'block';
+      return;
+    }
+
+    setSndsProgress(2, 'done');
+    setSndsProgress(3, 'active');
+    await new Promise(r => setTimeout(r, 800));
+    setSndsProgress(3, 'done');
+
+    await new Promise(r => setTimeout(r, 400));
+
+    // Show success
+    document.getElementById('snds-step-progress').style.display = 'none';
+    document.getElementById('snds-step-success').style.display = 'block';
+    const ipCount = data.ip_count || 0;
+    document.getElementById('snds-success-detail').textContent = 'Found data for ' + ipCount + ' IP' + (ipCount !== 1 ? 's' : '') + '. Data will sync daily.';
+
+  } catch (e) {
+    setSndsProgress(2, 'error');
+    await new Promise(r => setTimeout(r, 500));
+    document.getElementById('snds-step-progress').style.display = 'none';
+    document.getElementById('snds-step-input').style.display = 'block';
+    document.getElementById('snds-modal-error').textContent = 'Network error. Please try again.';
+    document.getElementById('snds-modal-error').style.display = 'block';
+  }
+}
+
+async function loadSndsStatus() {
+  try {
+    const res = await fetch('/api/snds/status', { headers });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+
+    const statusEl = document.getElementById('snds-status-text');
+    const btnDisconnected = document.getElementById('snds-btn-disconnected');
+    const btnConnected = document.getElementById('snds-btn-connected');
+
+    if (data.connected) {
+      statusEl.className = 'snds-status connected';
+      statusEl.textContent = '✓ Connected — ' + (data.ip_count || 0) + ' IPs tracked';
+      btnDisconnected.style.display = 'none';
+      btnConnected.style.display = 'flex';
+    } else {
+      statusEl.className = 'snds-status disconnected';
+      statusEl.textContent = 'Not connected';
+      btnDisconnected.style.display = 'block';
+      btnConnected.style.display = 'none';
+    }
+  } catch (e) {
+    document.getElementById('snds-status-text').textContent = 'Could not check status';
+  }
+}
+
+async function sndsSyncNow() {
+  try {
+    showToast('Syncing SNDS data...');
+    const res = await fetch('/api/snds/sync', { method: 'POST', headers });
+    if (!res.ok) throw new Error();
+    showToast('SNDS data synced!');
+    loadSndsStatus();
+  } catch (e) {
+    showToast('Sync failed', 'error');
+  }
+}
+
+async function sndsDisconnect() {
+  if (!confirm('Disconnect Microsoft SNDS? This will remove all SNDS data.')) return;
+  try {
+    const res = await fetch('/api/snds/disconnect', { method: 'POST', headers });
+    if (!res.ok) throw new Error();
+    showToast('SNDS disconnected');
+    loadSndsStatus();
+  } catch (e) {
+    showToast('Failed to disconnect', 'error');
+  }
+}
+
+// ─── INIT ────────────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', () => {
+  const token = getToken();
+  if (!token) { window.location.href = '/login'; return; }
+
+  headers = { 'Authorization': 'Bearer ' + token };
+
+  // Verify user
+  fetch('/api/auth/me', { headers }).then(r => {
+    if (!r.ok) throw new Error();
+    return r.json();
+  }).then(userData => {
+    const name = userData.user.name || userData.user.email.split('@')[0];
+    document.getElementById('user-name').textContent = name;
+    const plan = userData.user.plan || 'free';
+    document.getElementById('plan-name').textContent = plan;
+  }).catch(() => {
+    const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+    if (refresh) {
+      fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refresh })
+      }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
+        .then(data => {
+          const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+          storage.setItem('access_token', data.access_token);
+          storage.setItem('refresh_token', data.refresh_token);
+          location.reload();
+        }).catch(() => logout());
+    } else { logout(); }
+  });
+
+  loadIps();
+  loadSndsStatus();
+
+  // Load alert badge count
+  fetch('/api/user/alerts/count', { headers })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data && data.unread_count > 0) {
+        const badge = document.getElementById('sidebar-badge');
+        badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+        badge.style.display = 'inline';
+      }
+    }).catch(() => {});
+
+  // Close sidebar on mobile
+  document.querySelector('.main').addEventListener('click', () => {
+    document.querySelector('.sidebar').classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>
