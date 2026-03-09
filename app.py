@@ -3419,13 +3419,22 @@ async def api_snds_metrics(req: Request, days: int = 30, domain: str = ""):
     # Filter by centralized user_ips (domain-mapped if domain param given)
     if domain:
         allowed_ips = set(get_ips_for_domain(user_id, domain))
+        # If domain specified but has no mapped IPs, return empty (not all IPs)
+        if not allowed_ips:
+            return {
+                "connected": True,
+                "metrics": [],
+                "ip_count": connection.get("ip_count", 0),
+                "last_sync_at": connection.get("last_sync_at"),
+                "no_ips_mapped": True,
+            }
+        metrics = [m for m in metrics if m.get("ip_address") in allowed_ips]
     else:
         user_ip_rows = get_user_ips(user_id)
         allowed_ips = {row["ip_address"] for row in user_ip_rows} if user_ip_rows else set()
-
-    # Only filter if user has IPs configured; if none configured, show all SNDS data
-    if allowed_ips:
-        metrics = [m for m in metrics if m.get("ip_address") in allowed_ips]
+        # Only filter if user has IPs configured; if none configured, show all SNDS data
+        if allowed_ips:
+            metrics = [m for m in metrics if m.get("ip_address") in allowed_ips]
 
     return {
         "connected": True,

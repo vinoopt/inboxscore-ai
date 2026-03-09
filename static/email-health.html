@@ -2179,8 +2179,18 @@ async function loadSndsMetrics() {
     const data = await resp.json();
 
     if (!data.metrics || data.metrics.length === 0) {
+      const msg = data.no_ips_mapped
+        ? 'No sending IPs mapped to this domain. <a href="/sending-ips" style="color:var(--accent);">Map IPs →</a>'
+        : 'No SNDS data available yet. Data will appear after the next sync.';
       document.getElementById('ms-ip-grid').innerHTML =
-        '<div style="color:var(--text-muted);font-size:13px;padding:10px;">No SNDS data available yet. Data will appear after the next sync.</div>';
+        '<div style="color:var(--text-muted);font-size:13px;padding:10px;">' + msg + '</div>';
+      // Also clear the summary cards when no data
+      const compRate = document.getElementById('ms-complaint-rate');
+      const trapHits = document.getElementById('ms-trap-hits');
+      const totalMsg = document.getElementById('ms-total-messages');
+      if (compRate) compRate.textContent = '—';
+      if (trapHits) trapHits.textContent = '—';
+      if (totalMsg) totalMsg.textContent = '—';
       return;
     }
 
@@ -2875,17 +2885,19 @@ async function loadIpReputation(domain) {
   try {
     // 1) Fetch user's IPs for this domain
     let ips = [];
+    let domainHasNoIps = false;
     if (domain) {
       try {
         const ipResp = await fetch('/api/user/ips/by-domain/' + encodeURIComponent(domain), { headers });
         if (ipResp.ok) {
           const ipData = await ipResp.json();
           ips = ipData.ips || [];
+          if (ips.length === 0) domainHasNoIps = true;
         }
       } catch (e) { console.error('[EH] IP by-domain fetch error:', e); }
     }
-    // Fallback: get all user IPs
-    if (ips.length === 0) {
+    // Only fallback to all IPs if no domain was specified (not when domain has no mapped IPs)
+    if (!domain && ips.length === 0) {
       try {
         const allResp = await fetch('/api/user/ips', { headers });
         if (allResp.ok) {
@@ -2896,9 +2908,12 @@ async function loadIpReputation(domain) {
     }
 
     if (ips.length === 0) {
+      const msg = domainHasNoIps
+        ? 'No sending IPs mapped to this domain.<br><a href="/sending-ips" style="color:var(--accent);">Map IPs →</a>'
+        : 'No sending IPs configured yet.<br><a href="/sending-ips" style="color:var(--accent);">Add your IPs →</a>';
       grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px;">'
         + '<div style="font-size:28px;margin-bottom:8px;">🖥️</div>'
-        + 'No sending IPs configured yet.<br><a href="/sending-ips" style="color:var(--accent);">Add your IPs →</a></div>';
+        + msg + '</div>';
       return;
     }
 
