@@ -174,7 +174,7 @@ async def query_domain_stats(access_token: str, domain_resource: str,
         {"name": "auth_dmarc", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"},
          "filter": 'auth_type = "dmarc"'},
         {"name": "tls_rate", "baseMetric": {"standardMetric": "TLS_ENCRYPTION_RATE"},
-         "filter": 'traffic_direction = "outbound"'},
+         "filter": 'traffic_direction = "inbound"'},
         {"name": "delivery_error_rate", "baseMetric": {"standardMetric": "DELIVERY_ERROR_RATE"}},
         {"name": "delivery_error_count", "baseMetric": {"standardMetric": "DELIVERY_ERROR_COUNT"}},
     ]
