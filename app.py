@@ -3188,6 +3188,71 @@ async def api_postmaster_sync(req: Request):
     }
 
 
+# ─── TEMP: DIRECT API COMPARISON ENDPOINT (remove after testing) ──
+
+@app.get("/api/postmaster/direct-compare/{domain}")
+async def api_postmaster_direct_compare(domain: str, req: Request, days: int = 14):
+    """TEMPORARY: Make direct Google API call and return raw data for comparison"""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    connection = get_postmaster_connection(user_id)
+    if not connection:
+        raise HTTPException(status_code=400, detail="Google Postmaster not connected")
+
+    from postmaster import ensure_valid_token, query_domain_stats
+    from datetime import datetime, timedelta
+
+    # Get valid Google access token
+    google_token = await ensure_valid_token(user_id, connection)
+
+    end_date = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
+    start_date = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+    # Make direct API call
+    parsed_stats = await query_domain_stats(google_token, f"domains/{domain}", start_date, end_date)
+
+    # Also get stored InboxScore data for comparison
+    stored_metrics = db_get_postmaster_metrics(user_id, domain, days=days)
+
+    return {
+        "domain": domain,
+        "date_range": {"start": start_date, "end": end_date},
+        "direct_api": {
+            "total_days": len(parsed_stats),
+            "data": [{
+                "date": s["date"],
+                "spam_rate": s["spam_rate"],
+                "spf": s["auth_success_spf"],
+                "dkim": s["auth_success_dkim"],
+                "dmarc": s["auth_success_dmarc"],
+                "tls_inbound": s["encrypted_traffic_tls"],
+                "delivery_error_rate": s["delivery_error_rate"],
+                "delivery_error_count": s["delivery_error_count"],
+            } for s in parsed_stats]
+        },
+        "inboxscore_stored": {
+            "total_days": len(stored_metrics),
+            "data": [{
+                "date": m["date"],
+                "spam_rate": m["spam_rate"],
+                "spf": m["auth_success_spf"],
+                "dkim": m["auth_success_dkim"],
+                "dmarc": m["auth_success_dmarc"],
+                "tls_inbound": m["encrypted_traffic_tls"],
+                "delivery_errors": m["delivery_errors"],
+            } for m in stored_metrics]
+        }
+    }
+
+
 # ─── MICROSOFT SNDS ENDPOINTS ────────────────────────────────────
 
 @app.post("/api/snds/connect")
