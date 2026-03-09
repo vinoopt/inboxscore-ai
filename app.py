@@ -2815,9 +2815,13 @@ async def api_blacklist_check(domain: str, req: Request):
     Resolves MX/A record IPs and checks both domain + IPs.
     Requires authentication. Uses 1 credit per check (cached 30 min by HetrixTools).
     """
-    user = get_current_user(req)
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     from hetrix import full_blacklist_check, HETRIX_API_KEY
     if not HETRIX_API_KEY:
