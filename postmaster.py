@@ -164,16 +164,17 @@ async def query_domain_stats(access_token: str, domain_resource: str,
     url = f"{POSTMASTER_API_BASE}/{domain_resource}/domainStats:query"
 
     # Define the metrics we want to fetch
+    # NOTE: filter values MUST be lowercase per Google v2 API spec
     metric_definitions = [
         {"name": "spam_rate", "baseMetric": {"standardMetric": "SPAM_RATE"}},
         {"name": "auth_spf", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"},
-         "filter": 'auth_type = "SPF"'},
+         "filter": 'auth_type = "spf"'},
         {"name": "auth_dkim", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"},
-         "filter": 'auth_type = "DKIM"'},
+         "filter": 'auth_type = "dkim"'},
         {"name": "auth_dmarc", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"},
-         "filter": 'auth_type = "DMARC"'},
+         "filter": 'auth_type = "dmarc"'},
         {"name": "tls_rate", "baseMetric": {"standardMetric": "TLS_ENCRYPTION_RATE"},
-         "filter": 'traffic_direction = "OUTBOUND"'},
+         "filter": 'traffic_direction = "outbound"'},
         {"name": "delivery_error_rate", "baseMetric": {"standardMetric": "DELIVERY_ERROR_RATE"}},
         {"name": "delivery_error_count", "baseMetric": {"standardMetric": "DELIVERY_ERROR_COUNT"}},
     ]
