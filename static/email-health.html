@@ -1268,7 +1268,7 @@ function animateGpmSpam() {
     const rateColor = rate == null ? 'var(--text-muted)' : rate < 0.1 ? 'var(--green)' : rate < 0.3 ? 'var(--orange)' : 'var(--red)';
     const under = rate != null ? (rate < 0.3 ? 'Yes' : 'No') : '—';
     const underColor = rate != null ? (rate < 0.3 ? 'var(--green)' : 'var(--red)') : 'var(--text-muted)';
-    tr.innerHTML = '<td style="padding:8px 12px;">' + (m.date || '—') + '</td>'
+    tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(m.date || '—') + '</td>'
       + '<td style="padding:8px 12px;color:' + rateColor + ';">' + (rate != null ? rate.toFixed(2) + '%' : 'N/A') + '</td>'
       + '<td style="padding:8px 12px;text-align:right;color:' + underColor + ';">' + under + '</td>';
     tbody.appendChild(tr);
@@ -1313,8 +1313,8 @@ function animateGpmSpam() {
       const tr = document.createElement('tr');
       if (i < fblRows.length - 1) tr.style.borderBottom = '1px solid var(--border)';
       const rateColor = pct < 0.1 ? 'var(--green)' : pct < 0.3 ? 'var(--orange)' : 'var(--red)';
-      tr.innerHTML = '<td style="padding:8px 12px;">' + row.date + '</td>'
-        + '<td style="padding:8px 12px;">' + row.id + '</td>'
+      tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(row.date) + '</td>'
+        + '<td style="padding:8px 12px;">' + escapeHtml(row.id) + '</td>'
         + '<td style="padding:8px 12px;text-align:right;color:' + rateColor + ';">' + pct.toFixed(2) + '%</td>';
       fblBody.appendChild(tr);
     });
@@ -1370,7 +1370,7 @@ function animateGpmAuth() {
     const dmarc = m.auth_success_dmarc != null ? (m.auth_success_dmarc * 100) : null;
     const tr = document.createElement('tr');
     if (i < metrics.length - 1) tr.style.borderBottom = '1px solid var(--border)';
-    tr.innerHTML = '<td style="padding:8px 12px;">' + (m.date || '—') + '</td>'
+    tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(m.date || '—') + '</td>'
       + '<td style="padding:8px 12px;color:' + authColor(dkim) + ';">' + (dkim != null ? dkim.toFixed(2) + '%' : 'N/A') + '</td>'
       + '<td style="padding:8px 12px;color:' + authColor(spf) + ';">' + (spf != null ? spf.toFixed(2) + '%' : 'N/A') + '</td>'
       + '<td style="padding:8px 12px;color:' + authColor(dmarc) + ';">' + (dmarc != null ? dmarc.toFixed(2) + '%' : 'N/A') + '</td>';
@@ -1408,7 +1408,7 @@ function populateGpmEncryption() {
     const color = pct != null ? (pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-muted)';
     const tr = document.createElement('tr');
     if (i < metrics.length - 1) tr.style.borderBottom = '1px solid var(--border)';
-    tr.innerHTML = '<td style="padding:8px 12px;">' + (m.date || '—') + '</td>'
+    tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(m.date || '—') + '</td>'
       + '<td style="padding:8px 12px;color:' + color + ';">' + (pct != null ? pct.toFixed(2) + '%' : 'N/A') + '</td>'
       + '<td style="padding:8px 12px;color:var(--text-muted);">—</td>';
     tlsBody.appendChild(tr);
@@ -1448,8 +1448,8 @@ function populateGpmEncryption() {
       const tr = document.createElement('tr');
       if (i < allErrors.length - 1) tr.style.borderBottom = '1px solid var(--border)';
       const color = e.pct > 5 ? 'var(--red)' : e.pct > 1 ? 'var(--yellow)' : 'var(--text-muted)';
-      tr.innerHTML = '<td style="padding:8px 12px;">' + (e.date || '—') + '</td>'
-        + '<td style="padding:8px 12px;">' + e.type + '</td>'
+      tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(e.date || '—') + '</td>'
+        + '<td style="padding:8px 12px;">' + escapeHtml(e.type) + '</td>'
         + '<td style="padding:8px 12px;color:var(--text-muted);">—</td>'
         + '<td style="padding:8px 12px;text-align:right;color:' + color + ';">' + e.pct.toFixed(2) + '%</td>';
       errBody.appendChild(tr);
@@ -1580,15 +1580,15 @@ async function populateGpmCompliance() {
     if (i < checks.length - 1) tr.style.borderBottom = '1px solid var(--border)';
 
     if (check.pass === null) {
-      tr.innerHTML = '<td style="padding:12px;">' + labels[i] + '</td>'
+      tr.innerHTML = '<td style="padding:12px;">' + escapeHtml(labels[i]) + '</td>'
         + '<td style="padding:12px;"><span style="color:var(--text-muted);">\u2014 No data</span></td>';
     } else if (check.pass) {
-      tr.innerHTML = '<td style="padding:12px;">' + labels[i] + '</td>'
+      tr.innerHTML = '<td style="padding:12px;">' + escapeHtml(labels[i]) + '</td>'
         + '<td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">\u2713 Compliant</span></td>';
     } else {
-      tr.innerHTML = '<td style="padding:12px;">' + labels[i] + '</td>'
+      tr.innerHTML = '<td style="padding:12px;">' + escapeHtml(labels[i]) + '</td>'
         + '<td style="padding:12px;"><div style="color:var(--red);font-weight:600;">\u2717 Needs work</div>'
-        + '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">' + check.failMsg + '</div></td>';
+        + '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">' + escapeHtml(check.failMsg) + '</div></td>';
     }
     tbody.appendChild(tr);
   });
@@ -1946,12 +1946,12 @@ function renderBlacklistResults(data) {
       const badge = listed === 0
         ? '<span class="badge badge-green">Clean</span>'
         : `<span class="badge badge-${listed >= 3 ? 'red' : 'yellow'}">${listed} listed</span>`;
-      const source = ip.source ? `<span style="font-size:10px;color:var(--text-muted);">(${ip.source})</span>` : '';
+      const source = ip.source ? `<span style="font-size:10px;color:var(--text-muted);">(${escapeHtml(ip.source)})</span>` : '';
       const row = document.createElement('div');
       row.className = 'pm-error-row';
       row.style.alignItems = 'center';
       row.innerHTML = `
-        <span style="font-size:13px;font-weight:600;font-family:monospace;">${ip.ip || '—'}</span>
+        <span style="font-size:13px;font-weight:600;font-family:monospace;">${escapeHtml(ip.ip || '—')}</span>
         ${source}
         <span style="margin-left:auto;">${badge}</span>
       `;
@@ -1969,11 +1969,12 @@ function renderBlacklistResults(data) {
     const dBadge = dListed === 0
       ? '<span class="badge badge-green">Clean</span>'
       : `<span class="badge badge-${dListed >= 3 ? 'red' : 'yellow'}">${dListed} listed</span>`;
-    const reportLink = dr.report_link
-      ? `<a href="${dr.report_link}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);text-decoration:none;margin-left:8px;">Full Report ↗</a>`
+    const safeReportUrl = sanitizeUrl(dr.report_link);
+    const reportLink = safeReportUrl
+      ? `<a href="${escapeHtml(safeReportUrl)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);text-decoration:none;margin-left:8px;">Full Report ↗</a>`
       : '';
     domRow.innerHTML = `
-      <span style="font-size:13px;font-weight:600;">${data.domain || '—'}</span>
+      <span style="font-size:13px;font-weight:600;">${escapeHtml(data.domain || '—')}</span>
       ${reportLink}
       <span style="margin-left:auto;">${dBadge}</span>
     `;
@@ -2007,16 +2008,17 @@ function renderBlacklistResults(data) {
       const sevColor = l.severity === 'high' ? 'var(--red)' :
                        l.severity === 'medium' ? 'var(--yellow)' : 'var(--text-muted)';
       const sevLabel = l.severity.charAt(0).toUpperCase() + l.severity.slice(1);
-      const delistBtn = l.delist
-        ? `<a href="${l.delist}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);text-decoration:none;">Delist ↗</a>`
+      const safeDelistUrl = sanitizeUrl(l.delist);
+      const delistBtn = safeDelistUrl
+        ? `<a href="${escapeHtml(safeDelistUrl)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);text-decoration:none;">Delist ↗</a>`
         : '';
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface-2);border-radius:8px;font-size:12px;';
       row.innerHTML = `
         <span style="width:8px;height:8px;border-radius:50%;background:${sevColor};flex-shrink:0;"></span>
-        <span style="font-weight:600;min-width:180px;">${l.rbl}</span>
-        <span style="color:var(--text-muted);font-family:monospace;font-size:11px;">${l.target}</span>
-        <span style="color:${sevColor};font-size:11px;font-weight:600;margin-left:auto;">${sevLabel}</span>
+        <span style="font-weight:600;min-width:180px;">${escapeHtml(l.rbl)}</span>
+        <span style="color:var(--text-muted);font-family:monospace;font-size:11px;">${escapeHtml(l.target)}</span>
+        <span style="color:${sevColor};font-size:11px;font-weight:600;margin-left:auto;">${escapeHtml(sevLabel)}</span>
         ${delistBtn}
       `;
       listDetail.appendChild(row);
@@ -2257,7 +2259,7 @@ function renderSndsData(metrics) {
     return `<div class="pm-metric">
       <div class="pm-label">${label}</div>
       <div class="pm-value" style="color:${color};font-size:16px;">${emoji} ${status.charAt(0).toUpperCase() + status.slice(1)}</div>
-      <div class="pm-sub">${ip.ip_address}</div>
+      <div class="pm-sub">${escapeHtml(ip.ip_address)}</div>
     </div>`;
   }).join('');
 
@@ -2360,7 +2362,7 @@ function renderMsSamples(recent) {
     const status = m.ip_status || 'green';
     const color = status === 'green' ? 'var(--green)' : status === 'yellow' ? 'var(--yellow)' : 'var(--red)';
     return `<div class="pm-error-row">
-      <span class="pm-error-label">${m.ip_address} — HELO: ${escapeHtml(helo)}</span>
+      <span class="pm-error-label">${escapeHtml(m.ip_address)} — HELO: ${escapeHtml(helo)}</span>
       <span class="pm-error-count" style="color:${color};">${formatDate(m.metric_date)}</span>
     </div>`;
   }).join('');
@@ -2375,6 +2377,11 @@ function formatDate(dateStr) {
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function sanitizeUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  try { const u = new URL(url); if (u.protocol === 'https:' || u.protocol === 'http:') return url; } catch(e) {}
+  return '';
 }
 
 // ─── SNDS Connect Modal (3-step progress) ───────────────
@@ -2658,7 +2665,7 @@ function populateOverviewFromScan(scan) {
   checksEl.innerHTML = authChecks.map(c => {
     const color = c.status === 'pass' ? 'green' : c.status === 'warn' ? 'yellow' : 'red';
     const icon = c.status === 'pass' ? '✓' : c.status === 'warn' ? '⚠' : '✗';
-    return '<span class="badge badge-' + color + '" style="margin-right:6px;">' + icon + ' ' + c.name.toUpperCase() + '</span>';
+    return '<span class="badge badge-' + color + '" style="margin-right:6px;">' + icon + ' ' + escapeHtml(c.name.toUpperCase()) + '</span>';
   }).join('');
 
   // -- DNS Diagnostics Grid --
@@ -2871,7 +2878,7 @@ function _renderIpCards(grid, ips, sndsMap, blMap) {
 
     return '<div style="background:var(--surface-2);border-radius:10px;padding:16px;' + borderStyle + '">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
-      + '<span style="font-size:13px;font-weight:600;font-family:monospace;">' + ip + '</span>'
+      + '<span style="font-size:13px;font-weight:600;font-family:monospace;">' + escapeHtml(ip) + '</span>'
       + '<span class="badge ' + badge + '">' + badgeText + '</span>'
       + '</div>'
       + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">'

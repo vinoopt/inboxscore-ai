@@ -184,6 +184,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 </div>
 
 <script>
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function toggleSidebar() {
   document.querySelector('.sidebar').classList.toggle('open');
   document.getElementById('sidebar-backdrop').classList.toggle('show');
@@ -275,11 +286,11 @@ function renderDomains(domains) {
         <div class="domain-info">
           <div class="domain-icon">🌐</div>
           <div>
-            <div class="domain-name">${d.domain}</div>
-            <div class="domain-date">${dateAdded}</div>
+            <div class="domain-name">${escapeHtml(d.domain)}</div>
+            <div class="domain-date">${escapeHtml(dateAdded)}</div>
           </div>
         </div>
-        <button class="btn btn-sm btn-remove" onclick="removeDomain('${d.id}', '${d.domain}')">Remove</button>
+        <button class="btn btn-sm btn-remove" onclick="removeDomain('${escapeHtml(d.id)}', '${escapeHtml(d.domain)}')">Remove</button>
       </div>`;
   });
   html += '</div>';

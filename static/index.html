@@ -34,6 +34,17 @@
 <!-- Replace G-C7G98S7WK1 with your actual measurement ID (e.g., G-XXXXXXXXXX) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-C7G98S7WK1"></script>
 <script>
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
@@ -611,7 +622,7 @@ function showRateLimitModal(message, plan) {
       <div style="background:#12121a;border:1px solid #2a2a3a;border-radius:16px;padding:32px;max-width:440px;width:100%;text-align:center;">
         <div style="font-size:40px;margin-bottom:12px;">⚡</div>
         <h2 style="font-size:20px;font-weight:700;margin-bottom:12px;color:#e4e4ef;">Scan Limit Reached</h2>
-        <p style="font-size:14px;color:#8888a0;line-height:1.6;margin-bottom:24px;">${message || 'You have reached your daily scan limit.'}</p>
+        <p style="font-size:14px;color:#8888a0;line-height:1.6;margin-bottom:24px;">${escapeHtml(message || 'You have reached your daily scan limit.')}</p>
         ${ctaHtml}
         <div style="margin-top:16px;">
           <button onclick="document.getElementById('rate-limit-modal').remove()" style="background:none;border:none;color:#8888a0;font-size:13px;cursor:pointer;padding:8px;">Dismiss</button>
@@ -722,9 +733,9 @@ function renderResults(data) {
         <div class="score-label">out of 100</div>
       </div>
       <div class="results-summary">
-        <h2>${data.summary.verdict}</h2>
-        <div class="results-domain">${data.domain} · Scanned just now</div>
-        <div class="results-verdict">${data.summary.summary}</div>
+        <h2>${escapeHtml(data.summary.verdict)}</h2>
+        <div class="results-domain">${escapeHtml(data.domain)} · Scanned just now</div>
+        <div class="results-verdict">${escapeHtml(data.summary.summary)}</div>
         <div class="results-meta">
           <span style="color: var(--green)">✓ ${data.summary.stats.passed} passed</span>
           <span style="color: var(--yellow)">⚠ ${data.summary.stats.warnings} warnings</span>
@@ -736,14 +747,14 @@ function renderResults(data) {
 
     <div style="text-align: right; margin-bottom: 32px; display: flex; justify-content: flex-end; gap: 8px;">
       <button class="share-button" onclick="downloadPdfReport(this)">📄 Download PDF</button>
-      <button class="share-button" onclick="shareResults('${data.domain}')">📋 Share Results</button>
+      <button class="share-button" onclick="shareResults('${escapeHtml(data.domain)}')">📋 Share Results</button>
     </div>
 
     <div class="email-capture">
       <h3>Get your full report emailed to you</h3>
       <div class="email-capture-form">
         <input type="email" id="email-input" placeholder="Enter your email" required>
-        <button class="email-capture-btn" id="email-btn" onclick="submitEmail('${data.domain}', ${data.score})">Send Report</button>
+        <button class="email-capture-btn" id="email-btn" onclick="submitEmail('${escapeHtml(data.domain)}', ${parseInt(data.score) || 0})">Send Report</button>
       </div>
       <div class="email-capture-success" id="email-success">✓ Report sent successfully! Check your inbox.</div>
       <p class="email-capture-note">We'll also alert you if your score changes</p>
@@ -790,9 +801,9 @@ function renderCheckCard(check) {
   const statusClass = check.status === 'pass' ? 'status-pass' : check.status === 'warn' ? 'status-warn' : check.status === 'fail' ? 'status-fail' : 'status-info';
   const statusText = check.status === 'pass' ? 'Pass' : check.status === 'warn' ? 'Warning' : check.status === 'fail' ? 'Fail' : 'Info';
 
-  // Format detail with code tags for DNS records
-  let detail = check.detail.replace(/(v=spf1[^"]*)/g, '<code>$1</code>')
-    .replace(/(v=DMARC1[^"]*)/g, '<code>$1</code>')
+  // Format detail with code tags for DNS records (escape first, then add formatting)
+  let detail = escapeHtml(check.detail).replace(/(v=spf1[^&"]*)/g, '<code>$1</code>')
+    .replace(/(v=DMARC1[^&"]*)/g, '<code>$1</code>')
     .replace(/(p=\w+)/g, '<code>$1</code>')
     .replace(/(~all|-all|\+all|\?all)/g, '<code>$1</code>');
 
@@ -801,23 +812,23 @@ function renderCheckCard(check) {
     expandContent = check.fix_steps.map((step, i) => `
       <div class="fix-step">
         <div class="fix-step-num">${i + 1}</div>
-        <div>${step}</div>
+        <div>${escapeHtml(step)}</div>
       </div>
     `).join('');
   } else if (check.status === 'pass' || check.status === 'info') {
     expandContent = `<p style="color: var(--text-muted)">${check.status === 'pass' ? 'This check passed. No action needed.' : 'Informational check — no score impact.'}</p>`;
     if (check.raw_data) {
       if (check.raw_data.records) {
-        expandContent += `<p style="color: var(--text-muted); margin-top: 8px;">Records: ${check.raw_data.records.map(r => r.host || r).join(', ')}</p>`;
+        expandContent += `<p style="color: var(--text-muted); margin-top: 8px;">Records: ${check.raw_data.records.map(r => escapeHtml(r.host || r)).join(', ')}</p>`;
       }
       if (check.raw_data.selectors) {
-        expandContent += `<p style="color: var(--text-muted); margin-top: 8px;">Found selectors: ${check.raw_data.selectors.map(s => s.selector + ' (' + s.key_length + ')').join(', ')}</p>`;
+        expandContent += `<p style="color: var(--text-muted); margin-top: 8px;">Found selectors: ${check.raw_data.selectors.map(s => escapeHtml(s.selector) + ' (' + escapeHtml(String(s.key_length)) + ')').join(', ')}</p>`;
       }
       // IP Reputation details
       if (check.raw_data.details && check.name === 'ip_reputation') {
-        expandContent += check.raw_data.details.map(d => `<p style="color: var(--text-muted); margin-top: 6px;">• ${d}</p>`).join('');
+        expandContent += check.raw_data.details.map(d => `<p style="color: var(--text-muted); margin-top: 6px;">• ${escapeHtml(d)}</p>`).join('');
         if (check.raw_data.primary_ip) {
-          expandContent += `<p style="color: var(--text-muted); margin-top: 8px;"><code>${check.raw_data.primary_ip}</code>`;
+          expandContent += `<p style="color: var(--text-muted); margin-top: 8px;"><code>${escapeHtml(check.raw_data.primary_ip)}</code>`;
           if (check.raw_data.all_ips && check.raw_data.all_ips.length > 1) {
             expandContent += ` + ${check.raw_data.all_ips.length - 1} more IP${check.raw_data.all_ips.length > 2 ? 's' : ''}`;
           }
@@ -826,7 +837,7 @@ function renderCheckCard(check) {
       }
       // Sender detection details
       if (check.raw_data.senders && check.name === 'sender_detection') {
-        expandContent += `<p style="color: var(--text-muted); margin-top: 8px;">Detected: ${check.raw_data.senders.join(', ')}</p>`;
+        expandContent += `<p style="color: var(--text-muted); margin-top: 8px;">Detected: ${check.raw_data.senders.map(s => escapeHtml(s)).join(', ')}</p>`;
       }
       // Blacklist details — show which IPs were checked and where they're listed
       if (check.name === 'blacklists') {
@@ -834,14 +845,14 @@ function renderCheckCard(check) {
           expandContent += `<p style="color: var(--text-muted); margin-top: 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">IPs Checked:</p>`;
           check.raw_data.ips_checked.forEach(item => {
             const ip = typeof item === 'string' ? item : item.ip;
-            const source = typeof item === 'string' ? '' : ` (${item.source})`;
-            expandContent += `<p style="color: var(--text-muted); margin-top: 4px;"><code>${ip}</code>${source}</p>`;
+            const source = typeof item === 'string' ? '' : ` (${escapeHtml(item.source)})`;
+            expandContent += `<p style="color: var(--text-muted); margin-top: 4px;"><code>${escapeHtml(ip)}</code>${source}</p>`;
           });
         }
         if (check.raw_data.listings_by_ip) {
           expandContent += `<p style="color: var(--text-muted); margin-top: 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Blacklist Listings:</p>`;
           Object.entries(check.raw_data.listings_by_ip).forEach(([ip, bls]) => {
-            expandContent += `<p style="color: var(--text-muted); margin-top: 4px;"><code>${ip}</code> → ${bls.join(', ')}</p>`;
+            expandContent += `<p style="color: var(--text-muted); margin-top: 4px;"><code>${escapeHtml(ip)}</code> → ${bls.map(b => escapeHtml(b)).join(', ')}</p>`;
           });
         }
       }
@@ -851,7 +862,7 @@ function renderCheckCard(check) {
   return `
     <div class="check-card" onclick="this.classList.toggle('expanded')">
       <div class="check-card-header">
-        <div class="check-card-title">${icon} ${check.title}</div>
+        <div class="check-card-title">${icon} ${escapeHtml(check.title)}</div>
         <span class="status-badge ${statusClass}">${statusText}</span>
       </div>
       <div class="check-card-detail">${detail}</div>
