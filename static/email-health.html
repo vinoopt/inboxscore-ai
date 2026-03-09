@@ -182,17 +182,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* ===== EMAIL HEALTH: FBL Bars ===== */
 .fbl-bar { transition: height 0.5s ease; }
 
-/* ===== EMAIL HEALTH: Domain Selector ===== */
-.gpm-domain-select {
-  padding: 5px 10px; font-size: 12px; background: var(--surface-2); color: var(--text);
-  border: 1px solid var(--border); border-radius: 6px; outline: none; cursor: pointer;
-  max-width: 200px; appearance: none; -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238888a0'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 8px center; padding-right: 24px;
-}
-.gpm-domain-select:focus { border-color: var(--accent); }
-.gpm-domain-select option { background: var(--surface); color: var(--text); }
-
 /* ===== EMAIL HEALTH: Responsive ===== */
 @media (max-width: 800px) {
   .pm-grid { grid-template-columns: repeat(2, 1fr) !important; }
@@ -478,12 +467,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
               <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
               Google Postmaster
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <select class="gpm-domain-select" id="gpm-domain-select" onchange="onGpmDomainChange(this.value)">
-                <option value="">Select domain...</option>
-              </select>
-              <span class="pm-date-range" id="gpm-date-range">Last 7 days</span>
-            </div>
+            <span class="pm-date-range" id="gpm-date-range">Last 7 days</span>
           </div>
 
           <!-- Tab Navigation (mirrors Google Postmaster sidebar) -->
@@ -1213,6 +1197,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.eh-period button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      // Reload GPM data with new period
+      if (gpmCurrentDomain) loadGpmMetrics(gpmCurrentDomain);
     });
   });
 });
@@ -1630,13 +1616,24 @@ function onGpmDomainChange(domain) {
   loadGpmMetrics(domain);
 }
 
-/* === GPM: Fetch metrics for a domain and populate Overview tab === */
+/* === GPM: Get active period (days) from top-level buttons === */
+function getActivePeriodDays() {
+  const active = document.querySelector('.eh-period button.active');
+  if (!active) return 30;
+  const txt = active.textContent.trim();
+  if (txt === '7d') return 7;
+  if (txt === '90d') return 90;
+  return 30;
+}
+
+/* === GPM: Fetch metrics for a domain and populate tabs === */
 async function loadGpmMetrics(domain) {
   const token = getToken();
   if (!token || !domain) return;
+  const days = getActivePeriodDays();
 
   try {
-    const res = await fetch('/api/postmaster/metrics/' + encodeURIComponent(domain) + '?days=7', {
+    const res = await fetch('/api/postmaster/metrics/' + encodeURIComponent(domain) + '?days=' + days, {
       headers: { 'Authorization': 'Bearer ' + token }
     });
     if (!res.ok) { setGpmState('nodata'); return; }
@@ -1986,38 +1983,16 @@ async function loadGpmStatus() {
       ndSync.textContent = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
     }
 
-    // Load user's domains into the dropdown
-    const domRes = await fetch('/api/user/domains', { headers });
-    if (!domRes.ok) throw new Error('domains-fail');
-    const domData = await domRes.json();
-    const domains = domData.domains || [];
-
-    const select = document.getElementById('gpm-domain-select');
-    select.innerHTML = '';
-
-    if (domains.length === 0) {
-      select.innerHTML = '<option value="">No domains added</option>';
+    // Use the main domain selector's current value
+    const activeDomain = ehCurrentDomain || document.getElementById('eh-domain-select')?.value;
+    if (!activeDomain) {
       setGpmState('nodata');
       return;
     }
 
-    // Populate dropdown with user's domains
-    domains.forEach((d, i) => {
-      const opt = document.createElement('option');
-      opt.value = d.domain || d.name || d;
-      opt.textContent = d.domain || d.name || d;
-      select.appendChild(opt);
-    });
-
-    // Auto-select first domain and load its metrics
-    const firstDomain = select.value;
-    if (firstDomain) {
-      gpmCurrentDomain = firstDomain;
-      setGpmState('data');
-      loadGpmMetrics(firstDomain);
-    } else {
-      setGpmState('nodata');
-    }
+    gpmCurrentDomain = activeDomain;
+    setGpmState('data');
+    loadGpmMetrics(activeDomain);
 
   } catch (e) {
     console.error('[GPM] Status check failed:', e);
@@ -2490,6 +2465,9 @@ async function onEhDomainChange(domain) {
 
   // Reload IP Reputation with domain-mapped IPs
   loadIpReputation(domain);
+
+  // Reload Google Postmaster data for the new domain
+  onGpmDomainChange(domain);
 }
 
 function resetOverview() {
