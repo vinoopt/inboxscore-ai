@@ -52,6 +52,13 @@ from auth import (
 # PDF report generation
 from pdf_report import generate_pdf_report
 
+# ─── STRUCTURED LOGGING ──────────────────────────────────────────
+# Initialised before Sentry so Sentry's own init log lines come out as JSON too.
+# After this call, every logger.info / logger.error is emitted as one-line JSON
+# on stdout with ts, level, logger, msg, and the current request_id.
+from logging_config import setup_logging
+setup_logging(os.environ.get("LOG_LEVEL", "INFO"))
+
 # ─── SENTRY ERROR REPORTING ──────────────────────────────────────
 # Initialised before FastAPI() per Sentry FastAPI integration docs.
 # If SENTRY_DSN is not set, this is a no-op — app behaviour unchanged.
@@ -122,6 +129,12 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+# Request-ID middleware. Added AFTER CORS → Starlette puts it OUTER in the
+# chain, so every request is tagged with a request_id before CORS runs and
+# an access-log line is emitted on the way out (even for 4xx/5xx).
+from middleware import RequestContextMiddleware
+app.add_middleware(RequestContextMiddleware, sentry_enabled=bool(SENTRY_DSN))
 
 # ─── BACKGROUND MONITORING SCHEDULER ─────────────────────────────
 from apscheduler.schedulers.background import BackgroundScheduler
