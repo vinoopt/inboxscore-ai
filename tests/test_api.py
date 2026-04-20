@@ -178,14 +178,18 @@ class TestEmailHealthPage:
         assert 'id="eh-sec-reputation"' in content
 
     def test_email_health_has_google_postmaster_tabs(self, client):
-        """Google Postmaster section should have 5 internal tabs"""
+        """Google Postmaster section should have 6 internal tabs (Compliance,
+        Spam, Feedback Loop, Authentication, Encryption, Delivery Error)."""
         response = client.get("/email-health")
         content = response.text
         assert "gpm-tab" in content
-        assert "Spam &amp; Feedback" in content or "Spam & Feedback" in content
+        # The 6 tabs were split out of the old 5-tab 'Spam & Feedback' in v1.14.
+        assert "Compliance status" in content
+        assert ">Spam<" in content
+        assert "Feedback Loop" in content
         assert "Authentication" in content
         assert "Encryption" in content
-        assert "Compliance" in content
+        assert "Delivery Error" in content
 
     def test_email_health_has_provider_states(self, client):
         """Sections should have multiple provider states (data, disconnected, etc.)"""
