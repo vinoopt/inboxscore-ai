@@ -274,63 +274,7 @@ class RefreshTokenRequest(BaseModel):
 
 
 
-def generate_summary(domain: str, score: int, checks: list) -> dict:
-    """Generate a human-readable summary based on check results"""
-    failed = [c for c in checks if c.status == "fail"]
-    warned = [c for c in checks if c.status == "warn"]
-    passed = [c for c in checks if c.status == "pass"]
-
-    if score >= 85:
-        verdict = "Excellent"
-        color = "good"
-        summary = f"Your domain has strong email deliverability. "
-        if warned:
-            summary += f"There {'is' if len(warned) == 1 else 'are'} {len(warned)} minor issue{'s' if len(warned) > 1 else ''} to address, but overall your emails should reliably reach the inbox."
-        else:
-            summary += "All major checks passed. Your emails should reliably reach the inbox."
-    elif score >= 65:
-        verdict = "Good"
-        color = "good"
-        summary = f"Your email setup is solid but has room for improvement. "
-        if failed:
-            summary += f"Fix the {len(failed)} failed check{'s' if len(failed) > 1 else ''} to improve your score significantly."
-        elif warned:
-            summary += f"Address the {len(warned)} warning{'s' if len(warned) > 1 else ''} to strengthen your deliverability."
-    elif score >= 40:
-        verdict = "Needs Improvement"
-        color = "moderate"
-        issues = []
-        for c in failed:
-            if c.name == "blacklists":
-                issues.append("blacklist listings")
-            elif c.name == "dmarc":
-                issues.append("missing DMARC protection")
-            elif c.name == "spf":
-                issues.append("SPF misconfiguration")
-            elif c.name == "dkim":
-                issues.append("missing DKIM")
-            elif c.name == "ip_reputation":
-                issues.append("poor IP reputation")
-        summary = f"Your domain has deliverability issues that are likely causing emails to land in spam. "
-        if issues:
-            summary += f"The main problems are: {', '.join(issues)}. Fix these to significantly improve inbox placement."
-        else:
-            summary += f"Address the {len(failed)} failed checks to improve your score."
-    else:
-        verdict = "Critical Issues"
-        color = "danger"
-        summary = f"Your domain has serious deliverability problems. Most of your emails are likely going to spam or being rejected entirely. Immediate action is needed on the failed checks below."
-
-    return {
-        "verdict": verdict,
-        "color": color,
-        "summary": summary,
-        "stats": {
-            "passed": len(passed),
-            "warnings": len(warned),
-            "failed": len(failed)
-        }
-    }
+# ─── generate_summary moved to scan_service.py in INBOX-21 ───
 
 
 # ─── HELPERS ────────────────────────────────────────────────────────
@@ -459,79 +403,12 @@ async def _run_scan(request: ScanRequest, req: Request):
                 }
             )
 
-    start_time = time.time()
-
-    # Run all checks in parallel — each check is individually wrapped so
-    # one timeout or crash never kills the entire scan
-    def safe_result(future, name, title, category, timeout_sec):
-        """Collect a check result; return a safe fallback if it crashes."""
-        check_start = time.time()
-        try:
-            result = future.result(timeout=timeout_sec)
-            elapsed = round(time.time() - check_start, 2)
-            if elapsed > 3:
-                print(f"[SCAN] Check '{name}' for {domain} took {elapsed}s (slow)")
-            return result
-        except Exception as e:
-            elapsed = round(time.time() - check_start, 2)
-            print(f"[SCAN] Check '{name}' failed for {domain} after {elapsed}s: {e}")
-            return CheckResult(
-                name=name, category=category, status="warn", title=title,
-                detail=f"Could not complete this check (timeout or service error)",
-                points=0, max_points=0,
-            )
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=13) as executor:
-        future_mx = executor.submit(check_mx_records, domain)
-        future_spf = executor.submit(check_spf, domain)
-        future_dkim = executor.submit(check_dkim, domain)
-        future_dmarc = executor.submit(check_dmarc, domain)
-        future_blacklists = executor.submit(check_blacklists, domain)
-        future_tls = executor.submit(check_tls, domain)
-        future_rdns = executor.submit(check_reverse_dns, domain)
-        future_bimi = executor.submit(check_bimi, domain)
-        future_mta_sts = executor.submit(check_mta_sts, domain)
-        future_tls_rpt = executor.submit(check_tls_rpt, domain)
-        future_senders = executor.submit(check_sender_detection, domain)
-        future_age = executor.submit(check_domain_age, domain)
-        future_ip_rep = executor.submit(check_ip_reputation, domain)
-
-        # Timeouts: DNS-only checks get 8s, network-heavy checks get 12s
-        checks = [
-            safe_result(future_mx, "mx_records", "MX Records", "infrastructure", 8),
-            safe_result(future_spf, "spf", "SPF Record", "authentication", 8),
-            safe_result(future_dkim, "dkim", "DKIM", "authentication", 8),
-            safe_result(future_dmarc, "dmarc", "DMARC Policy", "authentication", 8),
-            safe_result(future_blacklists, "blacklists", "Blacklist Check", "reputation", 12),
-            safe_result(future_tls, "tls", "TLS Encryption", "infrastructure", 10),
-            safe_result(future_rdns, "reverse_dns", "Reverse DNS", "infrastructure", 8),
-            safe_result(future_bimi, "bimi", "BIMI Record", "authentication", 8),
-            safe_result(future_mta_sts, "mta_sts", "MTA-STS Policy", "infrastructure", 8),
-            safe_result(future_tls_rpt, "tls_rpt", "TLS Reporting", "infrastructure", 8),
-            safe_result(future_senders, "sender_detection", "Email Provider", "infrastructure", 8),
-            safe_result(future_age, "domain_age", "Domain Age", "reputation", 10),
-            safe_result(future_ip_rep, "ip_reputation", "IP Reputation", "reputation", 10),
-        ]
-
-    # Calculate total score
-    total_points = sum(c.points for c in checks)
-    max_points = sum(c.max_points for c in checks if c.max_points > 0)
-    score = min(100, round((total_points / max_points * 100))) if max_points > 0 else 0
-
-    # Generate summary
-    summary = generate_summary(domain, score, checks)
-
-    scan_time = round(time.time() - start_time, 1)
-
-    # Build response
-    response_data = {
-        "domain": domain,
-        "score": score,
-        "summary": summary,
-        "checks": [c.dict() for c in checks],
-        "scan_time": scan_time,
-        "scanned_at": datetime.utcnow().isoformat()
-    }
+    # Delegate the actual scan composition to scan_service (INBOX-21).
+    # app.py owns HTTP concerns (SSRF, auth, rate-limit, Sentry, persistence);
+    # scan_service owns check orchestration, timeouts, score, and summary.
+    from scan_service import run_full_scan
+    response_data = run_full_scan(domain, source="api")
+    score = response_data["score"]
 
     # Store scan in database (async-safe, non-blocking to the response)
     if is_db_available():

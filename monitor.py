@@ -1,10 +1,15 @@
 """
 InboxScore - Domain Monitoring Scheduler
 Background job that re-scans monitored domains and creates alerts on changes.
+
+INBOX-21 (2026-04-20): The previous local `run_domain_scan` was deleted.
+Scan composition now lives in `scan_service.run_full_scan` so the monitor
+and the HTTP handler share a single orchestrator (fixes INBOX-3 — monitor
+was missing `check_ip_reputation` — and kills the divergent-behaviour
+class of bugs at the source).
 """
 
 import time
-import concurrent.futures
 from datetime import datetime
 
 from db import (
@@ -12,67 +17,7 @@ from db import (
     update_domain_after_monitor_scan, save_monitoring_log,
     create_alert, get_scan_detail
 )
-
-
-def run_domain_scan(domain: str) -> dict:
-    """
-    Run a full scan on a domain (same checks as the API endpoint).
-    Returns the scan result dict with score, checks, etc.
-    Imports check functions from app module to avoid circular imports.
-    """
-    from app import (
-        check_mx_records, check_spf, check_dkim, check_dmarc,
-        check_blacklists, check_tls, check_reverse_dns, check_bimi,
-        check_mta_sts, check_tls_rpt, check_sender_detection,
-        check_domain_age, generate_summary
-    )
-
-    start_time = time.time()
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        future_mx = executor.submit(check_mx_records, domain)
-        future_spf = executor.submit(check_spf, domain)
-        future_dkim = executor.submit(check_dkim, domain)
-        future_dmarc = executor.submit(check_dmarc, domain)
-        future_blacklists = executor.submit(check_blacklists, domain)
-        future_tls = executor.submit(check_tls, domain)
-        future_rdns = executor.submit(check_reverse_dns, domain)
-        future_bimi = executor.submit(check_bimi, domain)
-        future_mta_sts = executor.submit(check_mta_sts, domain)
-        future_tls_rpt = executor.submit(check_tls_rpt, domain)
-        future_senders = executor.submit(check_sender_detection, domain)
-        future_age = executor.submit(check_domain_age, domain)
-
-        checks = [
-            future_mx.result(timeout=20),
-            future_spf.result(timeout=20),
-            future_dkim.result(timeout=20),
-            future_dmarc.result(timeout=20),
-            future_blacklists.result(timeout=25),
-            future_tls.result(timeout=15),
-            future_rdns.result(timeout=10),
-            future_bimi.result(timeout=10),
-            future_mta_sts.result(timeout=12),
-            future_tls_rpt.result(timeout=10),
-            future_senders.result(timeout=10),
-            future_age.result(timeout=12),
-        ]
-
-    total_points = sum(c.points for c in checks)
-    max_points = sum(c.max_points for c in checks if c.max_points > 0)
-    score = round((total_points / max_points * 100)) if max_points > 0 else 0
-
-    summary = generate_summary(domain, score, checks)
-    scan_time = round(time.time() - start_time, 1)
-
-    return {
-        "domain": domain,
-        "score": score,
-        "summary": summary,
-        "checks": [c.dict() for c in checks],
-        "scan_time": scan_time,
-        "scanned_at": datetime.utcnow().isoformat(),
-    }
+from scan_service import run_full_scan
 
 
 def compare_scan_results(old_scan: dict, new_result: dict, domain_data: dict) -> list:
@@ -181,8 +126,8 @@ def monitor_single_domain(domain_data: dict):
     print(f"[Monitor] Scanning {domain} for user {user_id[:8]}...")
 
     try:
-        # Run the scan
-        scan_result = run_domain_scan(domain)
+        # Run the scan (unified orchestrator, INBOX-21)
+        scan_result = run_full_scan(domain, source="monitor")
         new_score = scan_result["score"]
 
         # Save the scan to database (as a monitoring scan)
