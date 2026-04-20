@@ -73,7 +73,10 @@ def mock_safe_dns_query(qname, rdtype, timeout=5):
 @pytest.fixture
 def mock_dns():
     """Fixture that patches safe_dns_query across the app"""
-    with patch("app.safe_dns_query", side_effect=mock_safe_dns_query):
+    # INBOX-20: safe_dns_query moved to checks.py; patch it there so the
+    # extracted check_* functions (which resolve it via their own module
+    # namespace) see the mock.
+    with patch("checks.safe_dns_query", side_effect=mock_safe_dns_query):
         yield mock_safe_dns_query
 
 

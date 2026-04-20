@@ -18,41 +18,41 @@ from tests.conftest import mock_safe_dns_query
 class TestCheckSPF:
     """Test SPF record checking logic"""
 
-    @patch("app.safe_dns_query", side_effect=mock_safe_dns_query)
+    @patch("checks.safe_dns_query", side_effect=mock_safe_dns_query)
     def test_spf_pass_hard_fail(self, mock_dns):
-        from app import check_spf
+        from checks import check_spf
         result = check_spf("good.com")
         assert result.status == "pass"
         assert result.points == 15
         assert result.name == "spf"
         assert result.category == "authentication"
 
-    @patch("app.safe_dns_query", side_effect=mock_safe_dns_query)
+    @patch("checks.safe_dns_query", side_effect=mock_safe_dns_query)
     def test_spf_soft_fail_still_passes(self, mock_dns):
-        from app import check_spf
+        from checks import check_spf
         result = check_spf("partial.com")
         assert result.status == "pass"
         assert result.points == 14  # ~all gets 14/15
 
-    @patch("app.safe_dns_query", return_value=None)
+    @patch("checks.safe_dns_query", return_value=None)
     def test_spf_missing(self, mock_dns):
-        from app import check_spf
+        from checks import check_spf
         result = check_spf("bad.com")
         assert result.status == "fail"
         assert result.points == 0
         assert result.fix_steps is not None
         assert len(result.fix_steps) > 0
 
-    @patch("app.safe_dns_query", return_value=['"v=spf1 +all"'])
+    @patch("checks.safe_dns_query", return_value=['"v=spf1 +all"'])
     def test_spf_plus_all_is_critical_fail(self, mock_dns):
-        from app import check_spf
+        from checks import check_spf
         result = check_spf("dangerous.com")
         assert result.status == "fail"
         assert result.points == 0
 
-    @patch("app.safe_dns_query", return_value=['"v=spf1 ?all"'])
+    @patch("checks.safe_dns_query", return_value=['"v=spf1 ?all"'])
     def test_spf_neutral_is_warning(self, mock_dns):
-        from app import check_spf
+        from checks import check_spf
         result = check_spf("neutral.com")
         assert result.status == "warn"
         assert result.points == 5
@@ -63,44 +63,44 @@ class TestCheckSPF:
 class TestCheckDMARC:
     """Test DMARC policy checking logic"""
 
-    @patch("app.safe_dns_query")
+    @patch("checks.safe_dns_query")
     def test_dmarc_reject_full_score(self, mock_dns):
         mock_dns.return_value = ['"v=DMARC1; p=reject; rua=mailto:dmarc@good.com"']
-        from app import check_dmarc
+        from checks import check_dmarc
         result = check_dmarc("good.com")
         assert result.status == "pass"
         assert result.points == 15
         assert result.raw_data["policy"] == "reject"
 
-    @patch("app.safe_dns_query")
+    @patch("checks.safe_dns_query")
     def test_dmarc_quarantine(self, mock_dns):
         mock_dns.return_value = ['"v=DMARC1; p=quarantine; rua=mailto:d@x.com"']
-        from app import check_dmarc
+        from checks import check_dmarc
         result = check_dmarc("quarantine.com")
         assert result.status == "pass"
         assert result.points == 14
         assert result.raw_data["policy"] == "quarantine"
 
-    @patch("app.safe_dns_query")
+    @patch("checks.safe_dns_query")
     def test_dmarc_none_is_warning(self, mock_dns):
         mock_dns.return_value = ['"v=DMARC1; p=none; rua=mailto:d@x.com"']
-        from app import check_dmarc
+        from checks import check_dmarc
         result = check_dmarc("weak.com")
         assert result.status == "warn"
         assert result.points == 10
         assert result.fix_steps is not None
 
-    @patch("app.safe_dns_query", return_value=None)
+    @patch("checks.safe_dns_query", return_value=None)
     def test_dmarc_missing(self, mock_dns):
-        from app import check_dmarc
+        from checks import check_dmarc
         result = check_dmarc("nodmarc.com")
         assert result.status == "fail"
         assert result.points == 0
 
-    @patch("app.safe_dns_query")
+    @patch("checks.safe_dns_query")
     def test_dmarc_no_rua_deducts_points(self, mock_dns):
         mock_dns.return_value = ['"v=DMARC1; p=reject"']
-        from app import check_dmarc
+        from checks import check_dmarc
         result = check_dmarc("norua.com")
         assert result.points == 13  # 15 - 2 for missing rua
         assert result.raw_data["has_rua"] is False
@@ -113,7 +113,7 @@ class TestCheckMX:
 
     def test_mx_multiple_records_pass(self):
         """Two MX records should get full score"""
-        from app import check_mx_records
+        from checks import check_mx_records
 
         with patch("dns.resolver.Resolver") as MockResolver:
             mock_resolver = MagicMock()
@@ -138,7 +138,7 @@ class TestCheckMX:
 
     def test_mx_single_record(self):
         """One MX record should pass but with note about redundancy"""
-        from app import check_mx_records
+        from checks import check_mx_records
 
         with patch("dns.resolver.Resolver") as MockResolver:
             mock_resolver = MagicMock()
@@ -162,7 +162,7 @@ class TestCheckMX:
 class TestCheckDKIM:
     """Test DKIM selector probing"""
 
-    @patch("app.safe_dns_query")
+    @patch("checks.safe_dns_query")
     def test_dkim_found_2048bit(self, mock_dns):
         def dns_side_effect(qname, rdtype, timeout=2):
             if "default._domainkey" in qname and rdtype == "TXT":
@@ -171,15 +171,15 @@ class TestCheckDKIM:
             return None
 
         mock_dns.side_effect = dns_side_effect
-        from app import check_dkim
+        from checks import check_dkim
         result = check_dkim("good.com")
         assert result.status == "pass"
         assert result.points == 15
         assert len(result.raw_data["selectors"]) >= 1
 
-    @patch("app.safe_dns_query", return_value=None)
+    @patch("checks.safe_dns_query", return_value=None)
     def test_dkim_not_found(self, mock_dns):
-        from app import check_dkim
+        from checks import check_dkim
         result = check_dkim("nodkim.com")
         assert result.status == "fail"
         assert result.points == 0
@@ -193,7 +193,7 @@ class TestScoreCalculation:
 
     def test_score_is_percentage_of_points(self):
         """Score should be total_points / max_points * 100"""
-        from app import CheckResult
+        from checks import CheckResult
 
         checks = [
             CheckResult(name="a", category="auth", status="pass", title="A", detail="ok", points=10, max_points=10),
@@ -210,7 +210,7 @@ class TestScoreCalculation:
         assert score == 50
 
     def test_perfect_score(self):
-        from app import CheckResult
+        from checks import CheckResult
         checks = [
             CheckResult(name="a", category="auth", status="pass", title="A", detail="ok", points=15, max_points=15),
             CheckResult(name="b", category="rep", status="pass", title="B", detail="ok", points=10, max_points=10),
@@ -221,7 +221,7 @@ class TestScoreCalculation:
         assert score == 100
 
     def test_zero_score(self):
-        from app import CheckResult
+        from checks import CheckResult
         checks = [
             CheckResult(name="a", category="auth", status="fail", title="A", detail="bad", points=0, max_points=15),
             CheckResult(name="b", category="rep", status="fail", title="B", detail="bad", points=0, max_points=10),
@@ -238,7 +238,7 @@ class TestCheckResultModel:
     """Test the CheckResult Pydantic model"""
 
     def test_basic_creation(self):
-        from app import CheckResult
+        from checks import CheckResult
         result = CheckResult(
             name="test",
             category="authentication",
@@ -253,7 +253,7 @@ class TestCheckResultModel:
         assert result.raw_data is None
 
     def test_with_fix_steps(self):
-        from app import CheckResult
+        from checks import CheckResult
         result = CheckResult(
             name="test",
             category="authentication",
@@ -267,7 +267,7 @@ class TestCheckResultModel:
         assert len(result.fix_steps) == 2
 
     def test_dict_serialization(self):
-        from app import CheckResult
+        from checks import CheckResult
         result = CheckResult(
             name="test", category="auth", status="pass",
             title="T", detail="D", points=5, max_points=10,
