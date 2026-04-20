@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.8"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Lint (ruff — syntax + undefined-name checks)
+        run: |
+          ruff check --select=E9,F63,F7,F82 --show-source .
+
+      - name: Run tests (pytest)
+        env:
+          # Tests use stubs/mocks; no real secrets required for CI.
+          # Supply harmless placeholders so any module that reads env at import time doesn't crash.
+          SUPABASE_URL: "https://ci-placeholder.supabase.co"
+          SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder-key"
+          APP_ENV: "ci"
+        run: |
+          pytest -q --tb=short
+
+  deploy:
+    name: Trigger Render deploy
+    needs: test
+    # Only on push to main (not PRs), and only if tests passed.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Trigger Render deploy via API
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_SERVICE_ID" ]; then
+            echo "::error::RENDER_API_KEY or RENDER_SERVICE_ID secret is not set"
+            exit 1
+          fi
+
+          echo "Triggering Render deploy for service $RENDER_SERVICE_ID..."
+          response=$(curl -sS -w "\n%{http_code}" \
+            -X POST "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache": "do_not_clear"}')
+
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+
+          echo "HTTP $status"
+          echo "$body"
+
+          if [ "$status" != "201" ] && [ "$status" != "200" ]; then
+            echo "::error::Render deploy API returned $status"
+            exit 1
+          fi
+
+          deploy_id=$(echo "$body" | python3 -c "import sys,json; print(json.load(sys.stdin).get('id',''))")
+          echo "Deploy queued: $deploy_id"
+          echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"

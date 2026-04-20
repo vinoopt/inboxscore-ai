@@ -1,0 +1,23 @@
+[tool.ruff]
+# First-pass CI policy: only catch things that will definitely break the app
+# (syntax errors, undefined names). We can tighten the rule set in a later ticket
+# once the pipeline is proven and we're ready to clean up existing code.
+line-length = 100
+target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "static",
+    "migrations",
+    "tests/fixtures",
+]
+
+[tool.ruff.lint]
+# See: https://docs.astral.sh/ruff/rules/
+# E9  — syntax errors
+# F63 — invalid comparisons (is literal, etc.)
+# F7  — syntax-like issues (break outside loop, etc.)
+# F82 — undefined name in __all__
+select = ["E9", "F63", "F7", "F82"]
