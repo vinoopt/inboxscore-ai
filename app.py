@@ -58,16 +58,53 @@ from pdf_report import generate_pdf_report
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
 if SENTRY_DSN:
     import sentry_sdk
+
+    # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
+    # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
+    # honour an explicit APP_GIT_SHA override.
+    _version = os.environ.get("APP_VERSION", "1.15.0")
+    _git_sha = (os.environ.get("APP_GIT_SHA")
+                or os.environ.get("RENDER_GIT_COMMIT", "")
+                or "").strip()
+    _release = f"inboxscore@{_version}+{_git_sha[:7]}" if _git_sha else f"inboxscore@{_version}"
+
+    def _before_send(event, hint):
+        """Drop noise events before they consume Sentry quota."""
+        url = (event.get("request") or {}).get("url", "") or ""
+        if "/health" in url or "/robots.txt" in url or "/favicon" in url:
+            return None
+        exc_info = hint.get("exc_info") if hint else None
+        if exc_info and exc_info[0] is not None:
+            name = exc_info[0].__name__
+            # CancelledError / SystemExit fire on normal shutdowns, not real bugs.
+            if name in ("CancelledError", "KeyboardInterrupt", "SystemExit"):
+                return None
+        return event
+
+    def _before_send_transaction(event, hint):
+        """Drop noise performance-transactions."""
+        tx = event.get("transaction", "") or ""
+        if tx in ("/health", "/robots.txt", "/sitemap.xml") or "/favicon" in tx:
+            return None
+        return event
+
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         environment=os.environ.get("SENTRY_ENV", "production"),
-        release=os.environ.get("APP_VERSION", "1.15.0"),
-        traces_sample_rate=0.1,       # 10% of requests sampled for perf tracing
-        profiles_sample_rate=0.0,     # profiling disabled to minimise overhead
-        send_default_pii=False,       # don't send user IPs, headers, cookies — GDPR hygiene
+        release=_release,
+        server_name="inboxscore-render",    # friendly name in Sentry UI
+        max_breadcrumbs=50,
+        traces_sample_rate=0.1,             # 10% of requests sampled for perf tracing
+        profiles_sample_rate=0.0,           # profiling disabled to minimise overhead
+        send_default_pii=False,             # don't send user IPs, headers, cookies — GDPR hygiene
         ignore_errors=[KeyboardInterrupt],
+        before_send=_before_send,
+        before_send_transaction=_before_send_transaction,
     )
-    print(f"[Sentry] Initialised for environment={os.environ.get('SENTRY_ENV','production')} release={os.environ.get('APP_VERSION','1.15.0')}")
+    # Global tags — applied to every event for filtering in Sentry UI
+    sentry_sdk.set_tag("app", "inboxscore")
+    sentry_sdk.set_tag("component", "api")
+    print(f"[Sentry] Initialised release={_release} environment={os.environ.get('SENTRY_ENV','production')}")
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
@@ -1872,6 +1909,11 @@ def save_subscriber_local(email: str, domain: str, score: int):
 @app.post("/api/scan")
 async def scan_domain(request: ScanRequest, req: Request):
     """Run a complete deliverability scan on a domain"""
+    # Tag the transaction with scan context so Sentry errors are filterable
+    # in the UI ("show me all failures on bankofamerica.com this week").
+    if SENTRY_DSN:
+        sentry_sdk.set_tag("endpoint", "scan")
+        sentry_sdk.set_tag("scan_domain", (request.domain or "").lower()[:120])
     try:
         return await _run_scan(request, req)
     except HTTPException:
@@ -1924,6 +1966,12 @@ async def _run_scan(request: ScanRequest, req: Request):
         user_result = get_user_from_token(token)
         if user_result["success"]:
             scan_user_id = user_result["user"]["id"]
+
+    # Sentry: attach user identity (Supabase UUID only — no email/IP leak since
+    # send_default_pii=False). Enables "users affected" metric + user filters.
+    if SENTRY_DSN:
+        sentry_sdk.set_user({"id": scan_user_id} if scan_user_id else None)
+        sentry_sdk.set_tag("user_authenticated", "true" if scan_user_id else "false")
 
     # Rate limit check — plan-aware
     if is_db_available():
