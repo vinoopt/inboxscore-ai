@@ -52,6 +52,25 @@ from auth import (
 # PDF report generation
 from pdf_report import generate_pdf_report
 
+# ─── SENTRY ERROR REPORTING ──────────────────────────────────────
+# Initialised before FastAPI() per Sentry FastAPI integration docs.
+# If SENTRY_DSN is not set, this is a no-op — app behaviour unchanged.
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+if SENTRY_DSN:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=os.environ.get("SENTRY_ENV", "production"),
+        release=os.environ.get("APP_VERSION", "1.15.0"),
+        traces_sample_rate=0.1,       # 10% of requests sampled for perf tracing
+        profiles_sample_rate=0.0,     # profiling disabled to minimise overhead
+        send_default_pii=False,       # don't send user IPs, headers, cookies — GDPR hygiene
+        ignore_errors=[KeyboardInterrupt],
+    )
+    print(f"[Sentry] Initialised for environment={os.environ.get('SENTRY_ENV','production')} release={os.environ.get('APP_VERSION','1.15.0')}")
+else:
+    print("[Sentry] SENTRY_DSN not set — error reporting disabled")
+
 app = FastAPI(title="InboxScore API", version="1.15.0")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
