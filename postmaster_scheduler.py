@@ -19,14 +19,22 @@ def sync_all_postmaster_users():
     Called by APScheduler daily at 6 AM UTC.
     Runs the async fetch in a new event loop since APScheduler uses sync threads.
     """
+    # INBOX-16: heartbeat so the watchdog can detect silent scheduler failures
+    from heartbeat import record_start, record_end
+    hb_id = record_start("postmaster_sync")
+    users_processed = 0
+    users_failed = 0
+
     try:
         if not is_db_available():
             print("[Postmaster Sync] Database not available, skipping")
+            record_end(hb_id, domains_processed=0, errors_count=0, notes="db unavailable")
             return
 
         connections = get_all_postmaster_connections()
         if not connections:
             print("[Postmaster Sync] No connected users, skipping")
+            record_end(hb_id, domains_processed=0, errors_count=0, notes="no connected users")
             return
 
         print(f"[Postmaster Sync] Starting sync for {len(connections)} user(s)")
@@ -56,12 +64,17 @@ def sync_all_postmaster_users():
                         sync_started_at=sync_started,
                     )
 
+                    users_processed += 1
+                    if status == "partial":
+                        users_failed += 1
+
                     print(f"[Postmaster Sync] User {user_id[:8]}...: "
                           f"{result['domains_synced']} domains, "
                           f"{result['metrics_saved']} metrics, "
                           f"status={status}")
 
                 except Exception as e:
+                    users_failed += 1
                     print(f"[Postmaster Sync] Error for user {user_id[:8]}...: {e}")
                     log_postmaster_sync(
                         user_id=user_id,
@@ -73,8 +86,11 @@ def sync_all_postmaster_users():
             loop.close()
 
         print("[Postmaster Sync] Sync complete")
+        record_end(hb_id, domains_processed=users_processed, errors_count=users_failed)
 
     except Exception as e:
         print(f"[Postmaster Sync] CRITICAL — scheduler job crashed: {e}")
         import traceback
         traceback.print_exc()
+        record_end(hb_id, domains_processed=users_processed, errors_count=users_failed + 1,
+                   notes=f"cycle crashed: {str(e)[:200]}")

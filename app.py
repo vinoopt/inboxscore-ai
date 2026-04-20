@@ -141,6 +141,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from monitor import run_monitoring_cycle
 from postmaster_scheduler import sync_all_postmaster_users
 from snds_scheduler import sync_all_snds_users
+from heartbeat import watchdog_tick
 
 scheduler = BackgroundScheduler()
 # Run monitoring check every 15 minutes to find domains due for their scan
@@ -152,6 +153,9 @@ scheduler.add_job(sync_all_postmaster_users, 'cron', hour=6, minute=0,
 # Sync Microsoft SNDS data daily at 7 AM UTC
 scheduler.add_job(sync_all_snds_users, 'cron', hour=7, minute=0,
                   id='snds_sync', max_instances=1, replace_existing=True)
+# INBOX-16: Watchdog checks scheduler heartbeats every 5 min; fires Sentry on stale cycles.
+scheduler.add_job(watchdog_tick, 'interval', minutes=5, id='watchdog',
+                  max_instances=1, replace_existing=True)
 
 
 @app.on_event("startup")
@@ -188,6 +192,25 @@ async def health_check():
 
     status_code = 200 if checks["db"] else 503
     return JSONResponse(content=checks, status_code=status_code)
+
+
+@app.get("/api/monitoring/heartbeat-status")
+async def heartbeat_status_endpoint():
+    """
+    INBOX-16: Public read of scheduler heartbeats.
+    Returns overall status + per-cycle details so external uptime checks
+    and the UI can both consume this. Always HTTP 200 — staleness is
+    communicated in the payload, not the status code, so this never
+    trips an accidental load-balancer page.
+    """
+    from heartbeat import heartbeat_status
+    try:
+        return JSONResponse(content=heartbeat_status(), status_code=200)
+    except Exception as e:
+        return JSONResponse(
+            content={"overall_status": "error", "error": str(e)[:200]},
+            status_code=500,
+        )
 
 
 # ─── BLACKLISTS TO CHECK ───────────────────────────────────────────

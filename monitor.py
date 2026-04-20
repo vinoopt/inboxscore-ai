@@ -251,10 +251,17 @@ def run_monitoring_cycle():
         print("[Monitor] Database not available, skipping cycle")
         return
 
+    # INBOX-16: heartbeat so the watchdog can detect silent scheduler failures
+    from heartbeat import record_start, record_end
+    hb_id = record_start("monitor")
+    domains_processed = 0
+    errors_count = 0
+
     try:
         domains = get_domains_due_for_scan()
         if not domains:
             print("[Monitor] No domains due for scanning")
+            record_end(hb_id, domains_processed=0, errors_count=0, notes="no domains due")
             return
 
         print(f"[Monitor] Starting monitoring cycle: {len(domains)} domains due")
@@ -262,13 +269,20 @@ def run_monitoring_cycle():
         for domain_data in domains:
             try:
                 monitor_single_domain(domain_data)
+                domains_processed += 1
                 # Small delay between scans to be polite to DNS servers
                 time.sleep(2)
             except Exception as e:
+                errors_count += 1
                 print(f"[Monitor] Error processing {domain_data.get('domain', '?')}: {e}")
                 continue
 
-        print(f"[Monitor] Monitoring cycle complete: {len(domains)} domains processed")
+        print(f"[Monitor] Monitoring cycle complete: "
+              f"{domains_processed}/{len(domains)} domains processed, {errors_count} errors")
+        record_end(hb_id, domains_processed=domains_processed, errors_count=errors_count)
 
     except Exception as e:
+        errors_count += 1
         print(f"[Monitor] Monitoring cycle error: {e}")
+        record_end(hb_id, domains_processed=domains_processed, errors_count=errors_count,
+                   notes=f"cycle crashed: {str(e)[:200]}")
