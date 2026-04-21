@@ -413,12 +413,15 @@ async def _run_scan(request: ScanRequest, req: Request):
     # Store scan in database (async-safe, non-blocking to the response)
     if is_db_available():
         try:
+            # INBOX-22 (2026-04-21): scan_type="manual" made explicit (matches the
+            # DB default; defensive against future default changes).
             saved = save_scan(
                 domain=domain,
                 score=score,
                 results=response_data,
                 ip_address=client_ip,
                 user_id=scan_user_id,
+                scan_type="manual",
             )
             if saved:
                 response_data["scan_id"] = saved["id"]

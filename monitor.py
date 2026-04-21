@@ -130,13 +130,18 @@ def monitor_single_domain(domain_data: dict):
         scan_result = run_full_scan(domain, source="monitor")
         new_score = scan_result["score"]
 
-        # Save the scan to database (as a monitoring scan)
+        # Save the scan to database (as a monitoring scan).
+        # INBOX-22 (2026-04-21): scan_type="scheduled" (matches schema CHECK constraint);
+        # ip_address=None because this is a background job, not an HTTP request.
+        # The prior value ip_address="monitor" was silently rejected by the INET column
+        # type, causing zero monitor scans to persist for 42+ days (INBOX-1 root cause).
         saved = save_scan(
             domain=domain,
             score=new_score,
             results=scan_result,
-            ip_address="monitor",
+            ip_address=None,
             user_id=user_id,
+            scan_type="scheduled",
         )
 
         scan_id = saved["id"] if saved else None
