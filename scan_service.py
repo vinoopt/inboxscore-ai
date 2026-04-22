@@ -44,11 +44,46 @@ from checks import (
 
 # ─── SCAN ORCHESTRATION ────────────────────────────────────────────
 
+# Canonical max_points per check — used by `_safe_result` to ensure a
+# crashed scoring check keeps its denominator slot instead of silently
+# dropping out (INBOX-23 fix).
+#
+# Checks intentionally valued at 0 are informational only (BIMI /
+# MTA-STS / TLS-RPT / sender detection). They do NOT contribute to the
+# denominator, which is preserved by the `if c.max_points > 0` filter
+# in `run_full_scan` below.
+#
+# If a new check is added in `checks.py`, its canonical max_points MUST
+# be registered here. A guard test in `test_scan_service.py` enforces
+# that every check name returned by `run_full_scan` has an entry.
+CANONICAL_MAX_POINTS = {
+    "mx_records": 10,
+    "spf": 15,
+    "dkim": 15,
+    "dmarc": 15,
+    "blacklists": 15,
+    "tls": 10,
+    "reverse_dns": 5,
+    "domain_age": 3,
+    "ip_reputation": 8,
+    "bimi": 0,
+    "mta_sts": 0,
+    "tls_rpt": 0,
+    "sender_detection": 0,
+}
+
+
 def _safe_result(future, name, title, category, timeout_sec, domain):
     """Collect a check result; return a safe fallback if it crashes.
 
     Mirrors the inner `safe_result` from the old `app.py::_run_scan` —
     one timeout or crash must never kill the whole scan.
+
+    INBOX-23 (2026-04-22): on crash, `max_points` is now the check's
+    canonical value (from `CANONICAL_MAX_POINTS`) instead of 0, so the
+    scan denominator stays honest. Previously a crashed scoring check
+    silently dropped out of the denominator, inflating the score
+    whenever a scanner had an outage.
     """
     check_start = time.time()
     try:
@@ -63,7 +98,8 @@ def _safe_result(future, name, title, category, timeout_sec, domain):
         return CheckResult(
             name=name, category=category, status="warn", title=title,
             detail="Could not complete this check (timeout or service error)",
-            points=0, max_points=0,
+            points=0,
+            max_points=CANONICAL_MAX_POINTS.get(name, 0),
         )
 
 
