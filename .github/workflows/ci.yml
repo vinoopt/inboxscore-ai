@@ -42,9 +42,93 @@ jobs:
         run: |
           pytest -q --tb=short
 
+  schema-drift-check:
+    name: Schema drift (migrations vs prod)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    # INBOX-32: replay every committed migration on a fresh Postgres and
+    # compare the resulting column set to db/prod-schema-2026-04-22.sql.
+    # Fails the build if prod has any table or column the migrations don't
+    # declare — i.e. the repo is not deployable-from-scratch.
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: inbox_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install psql client (Postgres 15)
+        run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-15
+
+      - name: Apply stub Supabase objects (auth schema, extensions, roles)
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d inbox_ci -v ON_ERROR_STOP=1 \
+            -f scripts/stub_supabase_schema.sql
+
+      - name: Replay legacy base schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d inbox_ci -v ON_ERROR_STOP=1 \
+            -f db/supabase-schema.sql
+
+      - name: Replay forward migrations in lexical order
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -e
+          for f in migrations/*.sql; do
+            echo "::group::Applying $f"
+            psql -h localhost -U postgres -d inbox_ci -v ON_ERROR_STOP=1 -f "$f"
+            echo "::endgroup::"
+          done
+
+      - name: Dump replayed schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          pg_dump -h localhost -U postgres -d inbox_ci \
+            --schema-only --no-owner --no-privileges --schema=public \
+            > /tmp/replayed-schema.sql
+          echo "Replayed schema size: $(wc -l < /tmp/replayed-schema.sql) lines"
+
+      - name: Compare replayed schema against prod dump
+        run: |
+          python3 scripts/compare_schema.py \
+            --replayed /tmp/replayed-schema.sql \
+            --prod db/prod-schema-2026-04-22.sql
+
+      - name: Upload replayed schema on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replayed-schema
+          path: /tmp/replayed-schema.sql
+          if-no-files-found: ignore
+
   deploy:
     name: Trigger Render deploy
-    needs: test
+    needs: [test, schema-drift-check]
     # Only on push to main (not PRs), and only if tests passed.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
