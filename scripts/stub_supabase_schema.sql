@@ -15,6 +15,15 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;
 -- pgcrypto for gen_random_uuid() (available since Postgres 13 but ensures presence).
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Legacy db/supabase-schema.sql uses the bare form `uuid_generate_v4()` with no
+-- schema prefix, relying on Supabase's default search_path which includes
+-- `extensions`. Plain Postgres defaults to just `"$user", public`, so mirror
+-- Supabase's behaviour here for the CI replay.
+ALTER DATABASE inbox_ci SET search_path = "$user", public, extensions;
+-- ALTER DATABASE only applies to new sessions, so also set it for this one
+-- in case any later statement in this file needs the extensions schema.
+SET search_path = "$user", public, extensions;
+
 -- Minimal auth.users shape our triggers touch: id + email + raw_user_meta_data.
 -- Enough for handle_new_user() to compile; we never actually INSERT rows here.
 CREATE TABLE IF NOT EXISTS auth.users (
