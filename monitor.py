@@ -9,6 +9,7 @@ was missing `check_ip_reputation` — and kills the divergent-behaviour
 class of bugs at the source).
 """
 
+import logging
 import time
 from datetime import datetime
 
@@ -18,6 +19,11 @@ from db import (
     create_alert, get_scan_detail
 )
 from scan_service import run_full_scan
+
+# INBOX-28: use stdlib logging so Sentry's LoggingIntegration captures
+# unhandled-in-background errors. `logger.exception(...)` emits at ERROR
+# level with the traceback attached, which Sentry ships as an event.
+logger = logging.getLogger(__name__)
 
 
 def compare_scan_results(old_scan: dict, new_result: dict, domain_data: dict) -> list:
@@ -188,8 +194,14 @@ def monitor_single_domain(domain_data: dict):
         status = "changes detected" if changes else "no changes"
         print(f"[Monitor] {domain}: score {old_score} → {new_score} ({status}, {alerts_created} alerts)")
 
-    except Exception as e:
-        print(f"[Monitor] Error scanning {domain}: {e}")
+    except Exception:
+        # INBOX-28: logger.exception ships to Sentry via LoggingIntegration.
+        # Previously print(e) dropped the traceback silently — INBOX-1 class bug.
+        logger.exception("monitor.scan_error", extra={
+            "domain": domain,
+            "domain_id": domain_id,
+            "user_id_prefix": user_id[:8] if user_id else None,
+        })
 
 
 def run_monitoring_cycle():
@@ -222,9 +234,13 @@ def run_monitoring_cycle():
                 domains_processed += 1
                 # Small delay between scans to be polite to DNS servers
                 time.sleep(2)
-            except Exception as e:
+            except Exception:
                 errors_count += 1
-                print(f"[Monitor] Error processing {domain_data.get('domain', '?')}: {e}")
+                # INBOX-28: emit to Sentry via LoggingIntegration.
+                logger.exception("monitor.domain_processing_error", extra={
+                    "domain": domain_data.get("domain", "?"),
+                    "domain_id": domain_data.get("id"),
+                })
                 continue
 
         print(f"[Monitor] Monitoring cycle complete: "
@@ -233,6 +249,12 @@ def run_monitoring_cycle():
 
     except Exception as e:
         errors_count += 1
-        print(f"[Monitor] Monitoring cycle error: {e}")
+        # INBOX-28: logger.exception captures traceback + ships to Sentry.
+        # A crashed cycle is the most severe failure mode — watchdog detects
+        # staleness eventually, but Sentry catches the exception immediately.
+        logger.exception("monitor.cycle_crashed", extra={
+            "domains_processed": domains_processed,
+            "errors_count": errors_count,
+        })
         record_end(hb_id, domains_processed=domains_processed, errors_count=errors_count,
                    notes=f"cycle crashed: {str(e)[:200]}")

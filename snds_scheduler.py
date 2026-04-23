@@ -4,6 +4,7 @@ Daily background job that fetches Microsoft SNDS data for all connected users.
 """
 
 import asyncio
+import logging
 from datetime import datetime
 
 from db import (
@@ -11,6 +12,10 @@ from db import (
     upsert_snds_metrics, update_snds_sync_status
 )
 from snds import fetch_snds_data
+
+# INBOX-28: stdlib logger so Sentry's LoggingIntegration auto-captures
+# unhandled errors in this background scheduler.
+logger = logging.getLogger(__name__)
 
 
 def sync_all_snds_users():
@@ -75,9 +80,12 @@ def sync_all_snds_users():
                     print(f"[SNDS Sync] User {user_id[:8]}...: "
                           f"{len(ip_set)} IPs, {metrics_saved} metrics saved")
 
-                except Exception as e:
+                except Exception:
                     users_failed += 1
-                    print(f"[SNDS Sync] Error for user {user_id[:8]}...: {e}")
+                    # INBOX-28: ship traceback to Sentry via LoggingIntegration.
+                    logger.exception("snds_sync.user_error", extra={
+                        "user_id_prefix": user_id[:8] if user_id else None,
+                    })
 
         finally:
             loop.close()
@@ -86,8 +94,12 @@ def sync_all_snds_users():
         record_end(hb_id, domains_processed=users_processed, errors_count=users_failed)
 
     except Exception as e:
-        print(f"[SNDS Sync] CRITICAL — scheduler job crashed: {e}")
-        import traceback
-        traceback.print_exc()
+        # INBOX-28: logger.exception already attaches the traceback — no
+        # separate traceback.print_exc() needed. Sentry's LoggingIntegration
+        # captures this as an ERROR-level event.
+        logger.exception("snds_sync.cycle_crashed", extra={
+            "users_processed": users_processed,
+            "users_failed": users_failed,
+        })
         record_end(hb_id, domains_processed=users_processed, errors_count=users_failed + 1,
                    notes=f"cycle crashed: {str(e)[:200]}")

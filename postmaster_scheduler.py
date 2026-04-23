@@ -4,6 +4,7 @@ Daily background job that fetches Google Postmaster metrics for all connected us
 """
 
 import asyncio
+import logging
 from datetime import datetime
 
 from db import (
@@ -11,6 +12,10 @@ from db import (
     log_postmaster_sync
 )
 from postmaster import fetch_metrics_for_user
+
+# INBOX-28: stdlib logger so Sentry's LoggingIntegration auto-captures
+# unhandled errors in this background scheduler.
+logger = logging.getLogger(__name__)
 
 
 def sync_all_postmaster_users():
@@ -75,7 +80,12 @@ def sync_all_postmaster_users():
 
                 except Exception as e:
                     users_failed += 1
-                    print(f"[Postmaster Sync] Error for user {user_id[:8]}...: {e}")
+                    # INBOX-28: ship traceback to Sentry via LoggingIntegration.
+                    # `e` is still bound so we can persist the short summary to
+                    # the postmaster_sync_logs table for UI display.
+                    logger.exception("postmaster_sync.user_error", extra={
+                        "user_id_prefix": user_id[:8] if user_id else None,
+                    })
                     log_postmaster_sync(
                         user_id=user_id,
                         status="failed",
@@ -89,8 +99,12 @@ def sync_all_postmaster_users():
         record_end(hb_id, domains_processed=users_processed, errors_count=users_failed)
 
     except Exception as e:
-        print(f"[Postmaster Sync] CRITICAL — scheduler job crashed: {e}")
-        import traceback
-        traceback.print_exc()
+        # INBOX-28: logger.exception already attaches the traceback — no
+        # separate traceback.print_exc() needed. Sentry's LoggingIntegration
+        # captures this as an ERROR-level event.
+        logger.exception("postmaster_sync.cycle_crashed", extra={
+            "users_processed": users_processed,
+            "users_failed": users_failed,
+        })
         record_end(hb_id, domains_processed=users_processed, errors_count=users_failed + 1,
                    notes=f"cycle crashed: {str(e)[:200]}")
