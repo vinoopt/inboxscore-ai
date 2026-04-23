@@ -193,14 +193,27 @@ def remove_user_domain(user_id: str, domain_id: str) -> bool:
         return False
 
 
-def get_domain_scans(domain: str, user_id: str = None, limit: int = 50) -> list:
-    """Get scan history for a specific domain"""
+def get_domain_scans(user_id: str, domain: str, limit: int = 50) -> list:
+    """Get scan history for a specific domain, scoped to the calling user.
+
+    INBOX-27 (2026-04-23): `user_id` is required and enforced via
+    `.eq("user_id", user_id)`. Previously the `user_id` kwarg existed but
+    was never applied to the query — any authenticated user could read any
+    other user's scan history for a shared domain name (IDOR).
+    """
     sb = get_supabase()
     if not sb:
         return []
 
+    if not user_id:
+        # Defensive: caller must always scope by user. Empty list is
+        # preferable to leaking data if a handler ever forgets.
+        return []
+
     try:
         query = sb.table("scans").select("id, domain, score, created_at, scan_type").eq(
+            "user_id", user_id
+        ).eq(
             "domain", domain
         ).order("created_at", desc=True).limit(limit)
 
@@ -228,17 +241,28 @@ def get_scan_detail(scan_id: str, user_id: str = None) -> dict:
         return None
 
 
-def update_domain_score(domain: str, score: int, scan_id: str):
-    """Update the latest score on a domain record after a new scan"""
+def update_domain_score(user_id: str, domain: str, score: int, scan_id: str):
+    """Update the latest score on a domain record after a new scan.
+
+    INBOX-27 (2026-04-23): `user_id` is now required and enforced via
+    `.eq("user_id", user_id)`. Previously the UPDATE filtered only by
+    `domain` string, so User A's scan for `example.com` would overwrite
+    every other user's `latest_score` row sharing that domain name — a
+    cross-tenant write IDOR.
+    """
     sb = get_supabase()
     if not sb:
+        return
+
+    if not user_id:
+        # Defensive: never run an unscoped UPDATE.
         return
 
     try:
         sb.table("domains").update({
             "latest_score": score,
             "latest_scan_id": scan_id,
-        }).eq("domain", domain).execute()
+        }).eq("user_id", user_id).eq("domain", domain).execute()
     except Exception as e:
         print(f"Error updating domain score: {e}")
 
@@ -644,13 +668,30 @@ def save_monitoring_log(domain_id: str, user_id: str, domain: str,
         return None
 
 
-def get_monitoring_logs(domain_id: str, limit: int = 20) -> list:
-    """Get monitoring logs for a domain"""
+def get_monitoring_logs(user_id: str, domain_id: str, limit: int = 20) -> list:
+    """Get monitoring logs for a domain, scoped to the calling user.
+
+    INBOX-27 (2026-04-23): `user_id` is required and enforced via
+    `.eq("user_id", user_id)`. Previously the handler accepted any
+    `domain_id` from the URL and returned matching logs with no ownership
+    check — a classic IDOR allowing cross-tenant log disclosure.
+
+    The `monitoring_logs` table stores `user_id` on every row, so
+    filtering by BOTH columns makes a guessed `domain_id` from another
+    tenant return an empty list rather than leaking data.
+    """
     sb = get_supabase()
     if not sb:
         return []
+
+    if not user_id:
+        # Defensive: never leak logs without an explicit user scope.
+        return []
+
     try:
         result = sb.table("monitoring_logs").select("*").eq(
+            "user_id", user_id
+        ).eq(
             "domain_id", domain_id
         ).order("created_at", desc=True).limit(limit).execute()
         return result.data if result.data else []

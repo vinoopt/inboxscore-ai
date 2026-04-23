@@ -425,10 +425,13 @@ async def _run_scan(request: ScanRequest, req: Request):
             )
             if saved:
                 response_data["scan_id"] = saved["id"]
-                # Update domain score if user has this domain saved
+                # Update domain score if user has this domain saved.
+                # INBOX-27: scoped by scan_user_id so we can never
+                # overwrite another user's latest_score for the same
+                # domain name.
                 if scan_user_id:
                     try:
-                        update_domain_score(domain, score, saved["id"])
+                        update_domain_score(scan_user_id, domain, score, saved["id"])
                     except Exception:
                         pass
         except Exception as e:
@@ -1169,7 +1172,11 @@ async def api_monitoring_logs(req: Request, domain_id: str, limit: int = 20):
     if not user_result["success"]:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    logs = get_monitoring_logs(domain_id, limit=min(limit, 100))
+    # INBOX-27: scope monitoring-log reads to the authenticated user.
+    # Previously any logged-in user could read another tenant's logs by
+    # guessing a domain_id UUID (IDOR).
+    user_id = user_result["user"]["id"]
+    logs = get_monitoring_logs(user_id, domain_id, limit=min(limit, 100))
     return {"logs": logs}
 
 
@@ -1210,7 +1217,11 @@ async def api_domain_scans(req: Request, domain: str, limit: int = 50):
     if not user_result["success"]:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    scans = get_domain_scans(domain, limit=min(limit, 100))
+    # INBOX-27: scope scan-history reads to the authenticated user.
+    # Previously any user querying a shared domain name (e.g.
+    # mailercloud.com) saw scans from every other tenant (IDOR).
+    user_id = user_result["user"]["id"]
+    scans = get_domain_scans(user_id, domain, limit=min(limit, 100))
     return {"scans": scans}
 
 
