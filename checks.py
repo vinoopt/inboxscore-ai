@@ -668,7 +668,26 @@ def check_blacklists(domain: str) -> CheckResult:
 
 
 def check_tls(domain: str) -> CheckResult:
-    """Check if mail server supports TLS — tries all MX hosts"""
+    """Check if mail server supports TLS — tries all MX hosts.
+
+    INBOX-24: scoring is now based on what we actually verified, not on
+    what the hostname looked like. Three outcomes:
+
+      1. Real STARTTLS handshake completes AND the certificate verifies
+         (valid chain, hostname match, not expired). Full credit — up
+         to 10/10 for TLSv1.3 with >30d of expiry headroom.
+
+      2. Real STARTTLS handshake completes but cert verification fails
+         (expired, hostname mismatch, self-signed, untrusted root).
+         TLS is advertised but it's broken — warn at 4/10.
+
+      3. Port 25 blocked from our scan server (common; Render and most
+         cloud hosts block outbound SMTP). We CANNOT verify TLS from
+         here. Return info at 5/10 if the MX resolves to a known mail
+         provider (Google/Microsoft/Proofpoint/etc.) — acknowledges
+         likely-good-but-unverified — or info at 3/10 otherwise. The
+         old pattern-match 10/10 was a lie (L3 in audit).
+    """
     mx_records = safe_dns_query(domain, "MX")
     if not mx_records:
         return CheckResult(
@@ -688,69 +707,48 @@ def check_tls(domain: str) -> CheckResult:
     for mx_host in mx_hosts[:3]:  # Try up to 3 MX hosts
         try:
             sock = socket.create_connection((mx_host, 25), timeout=4)
-            banner = sock.recv(1024).decode("utf-8", errors="ignore")
+            sock.recv(1024)  # consume banner
 
             # Send EHLO
             sock.sendall(b"EHLO inboxscore.test\r\n")
             ehlo_response = sock.recv(4096).decode("utf-8", errors="ignore")
-
             supports_starttls = "STARTTLS" in ehlo_response.upper()
 
             if supports_starttls:
-                # Try STARTTLS
+                # Request STARTTLS
                 sock.sendall(b"STARTTLS\r\n")
                 starttls_response = sock.recv(1024).decode("utf-8", errors="ignore")
 
                 if starttls_response.startswith("220"):
-                    context = ssl.create_default_context()
-                    context.check_hostname = False
-                    context.verify_mode = ssl.CERT_NONE
-                    ssl_sock = context.wrap_socket(sock, server_hostname=mx_host)
-                    tls_version = ssl_sock.version()
-                    ssl_sock.close()
+                    result = _tls_handshake_with_cert_check(sock, mx_host)
+                    # Socket is closed inside _tls_handshake_with_cert_check
+                    return result
 
-                    if "TLSv1.3" in str(tls_version):
-                        return CheckResult(
-                            name="tls",
-                            category="infrastructure",
-                            status="pass",
-                            title="TLS Encryption",
-                            detail=f"Mail server supports {tls_version} — excellent encryption",
-                            raw_data={"mx_host": mx_host, "tls_version": str(tls_version)},
-                            points=10,
-                            max_points=10
-                        )
-                    else:
-                        return CheckResult(
-                            name="tls",
-                            category="infrastructure",
-                            status="pass",
-                            title="TLS Encryption",
-                            detail=f"Mail server supports TLS ({tls_version})",
-                            raw_data={"mx_host": mx_host, "tls_version": str(tls_version)},
-                            points=8,
-                            max_points=10
-                        )
-
-            sock.close()
+            # If we got here, the EHLO/STARTTLS exchange didn't reach a 220.
+            try:
+                sock.close()
+            except Exception:
+                pass
 
             if supports_starttls:
+                # STARTTLS advertised but the server rejected our request
                 return CheckResult(
                     name="tls",
                     category="infrastructure",
                     status="warn",
                     title="TLS Encryption",
-                    detail=f"STARTTLS advertised on {mx_host} but could not complete handshake",
-                    raw_data={"mx_host": mx_host},
-                    points=5,
+                    detail=f"STARTTLS advertised on {mx_host} but the server did not accept the upgrade",
+                    raw_data={"mx_host": mx_host, "starttls_response": starttls_response[:200]},
+                    points=2,
                     max_points=10,
                     fix_steps=[
-                        f"Mail server {mx_host} advertises STARTTLS but the handshake failed",
-                        "Verify your SSL certificate is valid and not expired",
-                        "Ensure the certificate matches the mail server hostname"
-                    ]
+                        f"Mail server {mx_host} advertises STARTTLS but rejects the upgrade",
+                        "Check mail-server logs for TLS-related errors during the STARTTLS phase",
+                        "Verify the SMTP daemon's TLS config (cert path, key path, permissions)",
+                    ],
                 )
             else:
+                # No STARTTLS capability at all — plain-text SMTP only
                 return CheckResult(
                     name="tls",
                     category="infrastructure",
@@ -764,8 +762,8 @@ def check_tls(domain: str) -> CheckResult:
                         f"Mail server {mx_host} doesn't support TLS encryption",
                         "Gmail and other providers flag unencrypted emails with a red padlock icon",
                         "Enable STARTTLS on your mail server or switch to a provider that supports it",
-                        "Most modern email providers (Google, Microsoft, etc.) support TLS by default"
-                    ]
+                        "Most modern email providers (Google, Microsoft, etc.) support TLS by default",
+                    ],
                 )
         except (socket.timeout, ConnectionRefusedError, OSError) as e:
             last_error = str(e)
@@ -774,44 +772,268 @@ def check_tls(domain: str) -> CheckResult:
             last_error = str(e)
             continue  # Try next MX host
 
-    # If we get here, none of the MX hosts were reachable on port 25
-    # For well-known providers, we can infer TLS support
+    # None of the MX hosts were reachable on port 25 — almost always because
+    # our scan server is hosted on a cloud provider that blocks outbound :25.
+    # We CANNOT verify TLS from here. The old code pattern-matched the MX
+    # hostname against a provider list and awarded 10/10 — that was the L3
+    # lie this ticket closes. Now we return info with partial credit,
+    # clearly labelled as unverified.
     provider_tls = {
-        "google.com": ("Google Workspace", "TLSv1.3"),
-        "googlemail.com": ("Google Workspace", "TLSv1.3"),
-        "outlook.com": ("Microsoft 365", "TLSv1.2+"),
-        "protection.outlook.com": ("Microsoft 365", "TLSv1.2+"),
-        "pphosted.com": ("Proofpoint", "TLSv1.2+"),
-        "mimecast.com": ("Mimecast", "TLSv1.2+"),
+        "google.com": "Google Workspace",
+        "googlemail.com": "Google Workspace",
+        "outlook.com": "Microsoft 365",
+        "protection.outlook.com": "Microsoft 365",
+        "pphosted.com": "Proofpoint",
+        "mimecast.com": "Mimecast",
     }
-
+    inferred_provider = None
+    inferred_mx = None
     for mx_host in mx_hosts:
         mx_lower = mx_host.lower()
-        for provider_domain, (provider_name, tls_ver) in provider_tls.items():
+        for provider_domain, provider_name in provider_tls.items():
             if provider_domain in mx_lower:
-                return CheckResult(
-                    name="tls",
-                    category="infrastructure",
-                    status="pass",
-                    title="TLS Encryption",
-                    detail=f"Mail handled by {provider_name} ({mx_host}) — {tls_ver} supported",
-                    raw_data={"mx_host": mx_host, "tls_version": tls_ver, "inferred": True, "provider": provider_name},
-                    points=10,
-                    max_points=10
-                )
+                inferred_provider = provider_name
+                inferred_mx = mx_host
+                break
+        if inferred_provider:
+            break
 
-    # Truly couldn't determine
-    tried = ", ".join(mx_hosts[:3])
+    if inferred_provider:
+        return CheckResult(
+            name="tls",
+            category="infrastructure",
+            status="info",
+            title="TLS Encryption",
+            detail=(
+                f"Mail handled by {inferred_provider} ({inferred_mx}) — "
+                "TLS could not be verified directly from this scan server (port 25 blocked), "
+                "but this provider typically supports TLS. Score is partial credit pending verification."
+            ),
+            raw_data={
+                "mx_host": inferred_mx,
+                "inferred_provider": inferred_provider,
+                "verification": "unverified_port_25_blocked",
+                "error": last_error,
+            },
+            points=5,
+            max_points=10,
+        )
+
     return CheckResult(
         name="tls",
         category="infrastructure",
         status="info",
         title="TLS Encryption",
-        detail=f"Could not verify TLS directly — port 25 not reachable from scan server (common for cloud providers)",
-        raw_data={"mx_hosts_tried": mx_hosts[:5], "error": last_error},
-        points=8,
-        max_points=10
+        detail=(
+            "Could not verify TLS — port 25 not reachable from the scan server, "
+            "and the MX doesn't match a known major provider. "
+            "Run a TLS test from a network that permits outbound SMTP (e.g. smtptls-test.example)."
+        ),
+        raw_data={
+            "mx_hosts_tried": mx_hosts[:5],
+            "verification": "unverified_unknown_provider",
+            "error": last_error,
+        },
+        points=3,
+        max_points=10,
     )
+
+
+def _tls_handshake_with_cert_check(sock, mx_host: str) -> CheckResult:
+    """Complete STARTTLS with full certificate verification.
+
+    INBOX-24 (L4): the previous implementation set check_hostname=False
+    and verify_mode=CERT_NONE, so an expired or hostname-mismatched cert
+    would produce a pass. Now we run with CERT_REQUIRED + hostname
+    verification, and on SSLCertVerificationError we attempt a second
+    handshake with verification relaxed so we can still tell the user
+    WHY their cert is broken (expired? mismatched? self-signed?).
+    """
+    import ssl as _ssl
+    # Phase 1 — strict verification
+    strict_ctx = _ssl.create_default_context()
+    strict_ctx.check_hostname = True
+    strict_ctx.verify_mode = _ssl.CERT_REQUIRED
+
+    try:
+        ssl_sock = strict_ctx.wrap_socket(sock, server_hostname=mx_host)
+        tls_version = str(ssl_sock.version())
+        cert = ssl_sock.getpeercert()
+        try:
+            ssl_sock.close()
+        except Exception:
+            pass
+        return _score_valid_cert(mx_host, tls_version, cert)
+    except _ssl.SSLCertVerificationError as e:
+        try:
+            sock.close()
+        except Exception:
+            pass
+        return _diagnose_bad_cert(mx_host, e)
+    except Exception as e:
+        try:
+            sock.close()
+        except Exception:
+            pass
+        return CheckResult(
+            name="tls",
+            category="infrastructure",
+            status="warn",
+            title="TLS Encryption",
+            detail=f"STARTTLS handshake failed on {mx_host}: {e}",
+            raw_data={"mx_host": mx_host, "error": str(e)},
+            points=2,
+            max_points=10,
+            fix_steps=[
+                f"TLS handshake with {mx_host} failed after STARTTLS accepted",
+                "Check mail-server TLS configuration, supported protocol versions, and cipher suites",
+            ],
+        )
+
+
+def _score_valid_cert(mx_host: str, tls_version: str, cert) -> CheckResult:
+    """Score a successful strict-verify handshake.
+
+    Captures cert expiry and subject/issuer details. Expiry within 30
+    days degrades the score to a 'warn' because renewal lead-time is
+    critical for mail infrastructure.
+    """
+    from datetime import datetime, timezone, timedelta
+    subject = _flatten_cert_name(cert.get("subject", []))
+    issuer = _flatten_cert_name(cert.get("issuer", []))
+    expiry_raw = cert.get("notAfter")
+    expiry_dt = None
+    days_left = None
+    if expiry_raw:
+        try:
+            expiry_dt = datetime.strptime(expiry_raw, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+            days_left = (expiry_dt - datetime.now(timezone.utc)).days
+        except Exception:
+            pass
+
+    raw = {
+        "mx_host": mx_host,
+        "tls_version": tls_version,
+        "cert_subject": subject,
+        "cert_issuer": issuer,
+        "cert_not_after": expiry_raw,
+        "days_until_expiry": days_left,
+        "verification": "strict_verified",
+    }
+
+    # Expiring within 30 days → warn even if everything else is fine.
+    if days_left is not None and days_left < 30:
+        return CheckResult(
+            name="tls",
+            category="infrastructure",
+            status="warn",
+            title="TLS Encryption",
+            detail=(
+                f"Mail server {mx_host} supports {tls_version} with a valid cert, "
+                f"but the certificate expires in {days_left} day{'s' if days_left != 1 else ''}"
+            ),
+            raw_data=raw,
+            points=7,
+            max_points=10,
+            fix_steps=[
+                f"Renew the TLS certificate for {mx_host} before it expires",
+                "Automate renewal (Let's Encrypt + certbot, or your provider's auto-renewal)",
+                "Monitor cert expiry with an alert 30 days out",
+            ],
+        )
+
+    if "TLSv1.3" in tls_version:
+        return CheckResult(
+            name="tls",
+            category="infrastructure",
+            status="pass",
+            title="TLS Encryption",
+            detail=f"Mail server {mx_host} supports {tls_version} with a valid certificate — excellent encryption",
+            raw_data=raw,
+            points=10,
+            max_points=10,
+        )
+
+    return CheckResult(
+        name="tls",
+        category="infrastructure",
+        status="pass",
+        title="TLS Encryption",
+        detail=f"Mail server {mx_host} supports {tls_version} with a valid certificate",
+        raw_data=raw,
+        points=8,
+        max_points=10,
+    )
+
+
+def _diagnose_bad_cert(mx_host: str, err) -> CheckResult:
+    """A strict verification failure — extract what went wrong.
+
+    Common cases: hostname mismatch, expired, self-signed, unknown CA.
+    """
+    msg = str(err).lower()
+    if "hostname mismatch" in msg or "doesn't match" in msg or "subjectaltname" in msg:
+        reason = "hostname_mismatch"
+        detail = f"Mail server {mx_host} has a TLS certificate but it does not match the hostname"
+        fix = [
+            f"The certificate on {mx_host} doesn't cover that hostname",
+            "Reissue the cert with the MX hostname in the Subject or SAN",
+            "Many receiving servers reject mail over a hostname-mismatched cert",
+        ]
+    elif "certificate has expired" in msg or "certificate expired" in msg:
+        reason = "expired"
+        detail = f"Mail server {mx_host}'s TLS certificate has expired"
+        fix = [
+            f"Renew the TLS certificate for {mx_host} immediately",
+            "Expired certs cause inbound TLS connections to fail or downgrade to plain text",
+        ]
+    elif "self-signed" in msg or "self signed" in msg:
+        reason = "self_signed"
+        detail = f"Mail server {mx_host} uses a self-signed TLS certificate"
+        fix = [
+            f"Install a certificate from a trusted CA on {mx_host} (Let's Encrypt is free)",
+            "Self-signed certs are rejected by most receiving mail servers",
+        ]
+    elif "unable to get local issuer" in msg or "unknown ca" in msg:
+        reason = "unknown_ca"
+        detail = f"Mail server {mx_host}'s TLS certificate chain is incomplete or uses an unknown issuer"
+        fix = [
+            f"Install the full certificate chain on {mx_host} (leaf + intermediate)",
+            "Verify with openssl s_client -connect <mx>:25 -starttls smtp -showcerts",
+        ]
+    else:
+        reason = "verification_failed"
+        detail = f"Mail server {mx_host}'s TLS certificate failed verification: {err}"
+        fix = [
+            f"Inspect the certificate on {mx_host} — it failed trust verification",
+            f"Details: {err}",
+        ]
+
+    return CheckResult(
+        name="tls",
+        category="infrastructure",
+        status="warn",
+        title="TLS Encryption",
+        detail=detail,
+        raw_data={
+            "mx_host": mx_host,
+            "verification": "failed",
+            "failure_reason": reason,
+            "error": str(err),
+        },
+        points=4,
+        max_points=10,
+        fix_steps=fix,
+    )
+
+
+def _flatten_cert_name(name_tuple):
+    """Turn the weird ((('commonName', 'foo'),),) cert shape into a dict."""
+    out = {}
+    for rdn in name_tuple:
+        for key, value in rdn:
+            out[key] = value
+    return out
 
 
 def check_reverse_dns(domain: str) -> CheckResult:
