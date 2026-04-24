@@ -187,6 +187,102 @@ class TestDNSBLCodeParsing:
 
 
 # --------------------------------------------------------------------
+# INBOX-39 — 127.255.255.* error codes must NOT be treated as listings
+# --------------------------------------------------------------------
+
+class TestDNSBLErrorCodes:
+    """Spamhaus's 127.255.255.* error range is NOT a listing. Never.
+
+    These tests pin the exact voicenotes.com / mailercloud.co failure mode:
+    Render's shared DNS resolver hits Spamhaus, Spamhaus returns
+    127.255.255.254 ("public-resolver block"), and our code MUST treat
+    that as "couldn't check" — not as a spam listing. The previous
+    behaviour flagged Google's MX IPs as listed on Spamhaus + CBL,
+    which was a false-positive FAIL.
+    """
+
+    def test_public_resolver_blocked_code_does_not_flip_status(self):
+        # Exact shape of the live bug. 1 IP, both Spamhaus ZEN and CBL
+        # return 127.255.255.254 ("public resolver blocked").
+        mx_map = {"mail.example": ["1.2.3.4"]}
+        with patch.object(checks, "safe_dns_query",
+                          side_effect=_dns_stub(
+                              mx_records=["10 mail.example"],
+                              mx_map=mx_map, a_records=None)), \
+             patch.object(checks.dns.resolver, "Resolver",
+                          _dnsbl_stub({
+                              "1.2.3.4": {
+                                  "zen.spamhaus.org": ["127.255.255.254"],
+                                  "cbl.abuseat.org":  ["127.255.255.254"],
+                              }
+                          })):
+            result = checks.check_blacklists("example.com")
+
+        assert result.status == "pass", (
+            "INBOX-39 regression: 127.255.255.254 is a Spamhaus ERROR code "
+            "(public resolver blocked). It is NOT a listing. Must not flip "
+            f"the blacklist check to warn/fail. Got: {result.status!r}."
+        )
+        assert result.points == 15
+        raw = result.raw_data or {}
+        assert len(raw.get("listed") or []) == 0, (
+            "No real listings must appear in raw_data.listed when only "
+            "error codes were returned."
+        )
+        # The errored DNSBLs must appear in the diagnostics bucket.
+        assert "zen.spamhaus.org" in (raw.get("fully_errored_blacklists") or [])
+        assert "cbl.abuseat.org" in (raw.get("fully_errored_blacklists") or [])
+        # Detail text must honestly flag the limitation.
+        detail = result.detail or ""
+        assert "could not be queried" in detail or "public-resolver block" in detail
+
+    def test_mixed_error_and_real_listing_still_fails(self):
+        # If Spamhaus returns real SBL (127.0.0.2) AND another BL returns
+        # an error code, we should still FAIL on the real listing.
+        mx_map = {"mail.bad.example": ["1.2.3.4"]}
+        with patch.object(checks, "safe_dns_query",
+                          side_effect=_dns_stub(
+                              mx_records=["10 mail.bad.example"],
+                              mx_map=mx_map, a_records=None)), \
+             patch.object(checks.dns.resolver, "Resolver",
+                          _dnsbl_stub({
+                              "1.2.3.4": {
+                                  "zen.spamhaus.org": ["127.0.0.2"],   # real SBL
+                                  "cbl.abuseat.org":  ["127.255.255.254"],  # error
+                              }
+                          })):
+            result = checks.check_blacklists("bad.example")
+
+        assert result.status in ("warn", "fail")
+        raw = result.raw_data or {}
+        assert len(raw.get("listed") or []) == 1   # only SBL counted
+        assert "cbl.abuseat.org" in (raw.get("fully_errored_blacklists") or [])
+
+    def test_other_error_codes_in_255_range_all_ignored(self):
+        # 252 (typo), 253 (discontinued), 254 (public resolver blocked),
+        # 255 (rate-limited) are all error codes. None should count as
+        # a listing.
+        mx_map = {"mail.example": ["5.5.5.5"]}
+        for code in ["127.255.255.252", "127.255.255.253",
+                     "127.255.255.254", "127.255.255.255"]:
+            with patch.object(checks, "safe_dns_query",
+                              side_effect=_dns_stub(
+                                  mx_records=["10 mail.example"],
+                                  mx_map=mx_map, a_records=None)), \
+                 patch.object(checks.dns.resolver, "Resolver",
+                              _dnsbl_stub({
+                                  "5.5.5.5": {"zen.spamhaus.org": [code]}
+                              })):
+                result = checks.check_blacklists("example.com")
+            assert result.status == "pass", (
+                f"Code {code} must be treated as error, not listing. "
+                f"Got status={result.status!r}"
+            )
+            raw = result.raw_data or {}
+            assert (raw.get("listed") or []) == []
+
+
+# --------------------------------------------------------------------
 # INBOX-36 — A-record IPs must NOT be included when MX exists
 # --------------------------------------------------------------------
 

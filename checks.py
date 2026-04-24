@@ -521,16 +521,17 @@ def check_blacklists(domain: str) -> CheckResult:
     # scans even with identical upstream state.
     ips = sorted(ip_sources.keys())
 
-    # Check each IP against blacklists
-    # INBOX-35: `listed_on` captures ONLY real spam/botnet listings (SBL,
-    # CBL, XBL — DNSBL A-record codes 127.0.0.2-9). Spamhaus PBL codes
-    # (127.0.0.10, 127.0.0.11) are a policy flag ("this IP shouldn't send
-    # direct mail," common for ESP-managed IP ranges) and appear separately
-    # in `policy_on`. They DO NOT count toward the FAIL status or dock
-    # points — Google Workspace MX IPs routinely appear on PBL, which was
-    # the root cause of the "Google listed on Spamhaus" false positive.
+    # Check each IP against blacklists.
+    # Three categories of non-clean result, all tracked separately:
+    #   listed_on — real spam/botnet listings (SBL/CBL/XBL; 127.0.0.2-9).
+    #               Count toward FAIL status + dock points.
+    #   policy_on — Spamhaus PBL policy listings (INBOX-35; 127.0.0.10/11).
+    #               DO NOT count — ESP-managed IPs routinely land on PBL.
+    #   error_on  — DNSBL query refused/rate-limited (INBOX-39; 127.255.255.*).
+    #               DO NOT count — we literally couldn't get a real answer.
     listed_on = []
     policy_on = []
+    error_on = []
     clean_on = 0
     checked = 0
 
@@ -554,6 +555,23 @@ def check_blacklists(domain: str) -> CheckResult:
             return None
 
         source = ", ".join(ip_sources.get(ip, ["unknown"]))
+
+        # INBOX-39: Spamhaus return codes in the 127.255.255.0/24 range are
+        # ERROR responses, NOT listings. They mean the DNSBL refused to
+        # serve the query — typically because our scan server is using a
+        # shared/public DNS resolver (Render-side infra). Examples:
+        #   127.255.255.252 — typo in DNSBL name
+        #   127.255.255.253 — DNSBL discontinued
+        #   127.255.255.254 — query via public resolver blocked  ← common
+        #   127.255.255.255 — excessive queries / rate-limited
+        # Previously we misread these as spam listings, producing false-
+        # positive FAILs on Google Workspace / Microsoft 365 MX IPs.
+        if codes and all(c.startswith("127.255.255.") for c in codes):
+            return {
+                "blacklist": bl, "ip": ip, "source": source,
+                "listing_type": "error", "codes": codes,
+            }
+
         # Only-PBL codes → policy listing. Any other code → spam listing.
         if codes and set(codes).issubset(PBL_CODES):
             return {
@@ -596,6 +614,8 @@ def check_blacklists(domain: str) -> CheckResult:
                     clean_on += 1
                 elif result.get("listing_type") == "policy":
                     policy_on.append(result)
+                elif result.get("listing_type") == "error":
+                    error_on.append(result)
                 else:
                     listed_on.append(result)
             except Exception:
@@ -604,6 +624,7 @@ def check_blacklists(domain: str) -> CheckResult:
     total_lists = len(BLACKLISTS)
     listings = len(listed_on)
     policy_count = len(policy_on)
+    error_count = len(error_on)
 
     # INBOX-25: display the SAME IPs we actually checked.
     ip_summary = []
@@ -617,9 +638,24 @@ def check_blacklists(domain: str) -> CheckResult:
     for item in policy_on:
         policy_by_ip.setdefault(item["ip"], []).append(item["blacklist"])
 
+    # INBOX-39: which DNSBLs returned error responses for EVERY IP we
+    # queried? If Spamhaus ZEN refused all 5 IP lookups with
+    # 127.255.255.254, that's a complete failure of the ZEN check — not
+    # noise we can ignore. A BL is fully-errored only if we got errors for
+    # all of the IPs we checked against it.
+    errors_by_bl: dict[str, int] = {}
+    for item in error_on:
+        errors_by_bl[item["blacklist"]] = errors_by_bl.get(item["blacklist"], 0) + 1
+    fully_errored_bls = sorted(
+        bl for bl, n in errors_by_bl.items() if n >= len(ips_to_check)
+    )
+
     # Zero real listings — PASS. Optionally mention policy listings as INFO.
     if listings == 0:
-        detail = f"Not listed on any of {total_lists} blacklists checked"
+        # INBOX-39: compute how many blacklists we actually managed to query
+        # cleanly — `total_lists` minus any that refused every IP.
+        effectively_checked = total_lists - len(fully_errored_bls)
+        detail = f"Not listed on any of {effectively_checked} blacklists checked"
         if len(ips) == 1:
             detail += f" (checked IP: {ips[0]} via {ip_sources[ips[0]][0]})"
         elif len(ips) > IP_CHECK_CAP:
@@ -634,6 +670,18 @@ def check_blacklists(domain: str) -> CheckResult:
                 "appear on Spamhaus PBL — a policy indicator (common for "
                 "ESP-managed IPs), not a spam listing."
             )
+        # INBOX-39: honestly surface when DNSBLs refused our queries.
+        # For scans from cloud hosts (Render, AWS), Spamhaus returns
+        # 127.255.255.254 to block public-resolver queries. We report
+        # PASS because we have no evidence of a listing — but we should
+        # NOT pretend the check was comprehensive when part of it failed.
+        if fully_errored_bls:
+            bl_list = ", ".join(fully_errored_bls)
+            detail += (
+                f". Note: {len(fully_errored_bls)} blacklist{'s' if len(fully_errored_bls) != 1 else ''} "
+                f"({bl_list}) could not be queried from our scan server (public-resolver block) — "
+                "re-verify externally if needed."
+            )
         return CheckResult(
             name="blacklists",
             category="reputation",
@@ -642,10 +690,15 @@ def check_blacklists(domain: str) -> CheckResult:
             detail=detail,
             raw_data={
                 "checked": total_lists,
+                "effectively_checked": effectively_checked,
                 "listed": [],
                 "ips_checked": ip_summary,
                 "policy_listings": policy_on,
                 "policy_by_ip": policy_by_ip,
+                # INBOX-39: expose error details so a future UI can show them
+                # in a "diagnostics" section without affecting the top-line verdict.
+                "error_listings": error_on,
+                "fully_errored_blacklists": fully_errored_bls,
             },
             points=15,
             max_points=15
@@ -691,6 +744,9 @@ def check_blacklists(domain: str) -> CheckResult:
                 # INBOX-35: also expose any policy listings for context.
                 "policy_listings": policy_on,
                 "policy_by_ip": policy_by_ip,
+                # INBOX-39: error diagnostics.
+                "error_listings": error_on,
+                "fully_errored_blacklists": fully_errored_bls,
             },
             points=max(15 - (listings * 7), 0),
             max_points=15,
@@ -730,6 +786,9 @@ def check_blacklists(domain: str) -> CheckResult:
                 # INBOX-35: also expose any policy listings for context.
                 "policy_listings": policy_on,
                 "policy_by_ip": policy_by_ip,
+                # INBOX-39: error diagnostics.
+                "error_listings": error_on,
+                "fully_errored_blacklists": fully_errored_bls,
             },
             points=0,
             max_points=15,
