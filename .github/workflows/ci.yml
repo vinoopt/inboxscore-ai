@@ -28,9 +28,13 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: Lint (ruff — syntax + undefined-name checks)
+      - name: Lint (ruff — syntax + undefined-name + datetime.utcnow ban)
+        # INBOX-29: DTZ003 fails the build on any new `datetime.utcnow()`
+        # call. The audit just removed all 22 existing sites; this gate
+        # prevents the tz-naive pattern that masked INBOX-1 from coming
+        # back silently in a future PR.
         run: |
-          ruff check --select=E9,F63,F7,F82 .
+          ruff check --select=E9,F63,F7,F82,DTZ003 .
 
       - name: Run tests (pytest)
         env:
