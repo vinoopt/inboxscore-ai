@@ -215,7 +215,17 @@ def refresh_session(refresh_token: str) -> dict:
         return {"success": False, "error": "Authentication service unavailable"}
 
     try:
-        response = client.auth._refresh_access_token(refresh_token)
+        # INBOX-31: use the PUBLIC refresh_session API. The previous code
+        # called auth._refresh_access_token(...), an underscore-prefixed
+        # private method. Supabase explicitly reserves the right to rename
+        # or remove private APIs in any minor version bump — when that
+        # happens, refresh silently breaks in prod, every user whose
+        # token is about to expire gets logged out, and we find out from
+        # customer tickets instead of CI.
+        #
+        # refresh_session(refresh_token=...) is the documented public
+        # method and returns the same AuthResponse shape.
+        response = client.auth.refresh_session(refresh_token=refresh_token)
 
         if response.session:
             return {
