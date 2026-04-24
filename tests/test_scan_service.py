@@ -34,21 +34,23 @@ def _cr(name: str, points: int, max_points: int, status: str = "pass",
     )
 
 
-# Map each check name → its _cr(...) output so we can patch all 13 at once.
+# Map each check name → its _cr(...) output so we can patch all 14 at once.
+# INBOX-42 added check_domain_blacklists (14th check).
 _FAKE_CHECKS = {
-    "check_mx_records":       _cr("mx_records", 5, 5, category="infrastructure"),
-    "check_spf":              _cr("spf", 15, 15, category="authentication"),
-    "check_dkim":             _cr("dkim", 15, 15, category="authentication"),
-    "check_dmarc":            _cr("dmarc", 15, 15, category="authentication"),
-    "check_blacklists":       _cr("blacklists", 10, 10, category="reputation"),
-    "check_tls":              _cr("tls", 5, 5, category="infrastructure"),
-    "check_reverse_dns":      _cr("reverse_dns", 5, 5, category="infrastructure"),
-    "check_bimi":             _cr("bimi", 5, 5, category="authentication"),
-    "check_mta_sts":          _cr("mta_sts", 5, 5, category="infrastructure"),
-    "check_tls_rpt":          _cr("tls_rpt", 5, 5, category="infrastructure"),
-    "check_sender_detection": _cr("sender_detection", 5, 5, category="infrastructure"),
-    "check_domain_age":       _cr("domain_age", 5, 5, category="reputation"),
-    "check_ip_reputation":    _cr("ip_reputation", 10, 10, category="reputation"),
+    "check_mx_records":         _cr("mx_records", 5, 5, category="infrastructure"),
+    "check_spf":                _cr("spf", 15, 15, category="authentication"),
+    "check_dkim":               _cr("dkim", 15, 15, category="authentication"),
+    "check_dmarc":              _cr("dmarc", 15, 15, category="authentication"),
+    "check_blacklists":         _cr("blacklists", 10, 10, category="reputation"),
+    "check_domain_blacklists":  _cr("domain_blacklists", 10, 10, category="reputation"),
+    "check_tls":                _cr("tls", 5, 5, category="infrastructure"),
+    "check_reverse_dns":        _cr("reverse_dns", 5, 5, category="infrastructure"),
+    "check_bimi":               _cr("bimi", 5, 5, category="authentication"),
+    "check_mta_sts":            _cr("mta_sts", 5, 5, category="infrastructure"),
+    "check_tls_rpt":            _cr("tls_rpt", 5, 5, category="infrastructure"),
+    "check_sender_detection":   _cr("sender_detection", 5, 5, category="infrastructure"),
+    "check_domain_age":         _cr("domain_age", 5, 5, category="reputation"),
+    "check_ip_reputation":      _cr("ip_reputation", 10, 10, category="reputation"),
 }
 
 
@@ -62,8 +64,10 @@ def _patch_all_checks(**overrides):
 
 
 class TestRunFullScan:
-    def test_submits_thirteen_checks_including_ip_reputation(self):
-        """INBOX-3 regression: monitor path used to be missing ip_reputation."""
+    def test_submits_all_checks_including_ip_reputation(self):
+        """INBOX-3 regression: monitor path used to be missing ip_reputation.
+        Also guards the canonical check-name set — if a check is added to
+        scan_service without being registered here, this test fails."""
         patchers = _patch_all_checks()
         for p in patchers:
             p.start()
@@ -73,12 +77,15 @@ class TestRunFullScan:
             for p in patchers:
                 p.stop()
 
-        assert len(out["checks"]) == 13
+        # 14 checks as of INBOX-42 (domain_blacklists added).
+        assert len(out["checks"]) == 14
         names = [c["name"] for c in out["checks"]]
         assert "ip_reputation" in names, "monitor/api must run IP reputation — INBOX-3"
+        assert "domain_blacklists" in names, "monitor/api must run domain-blacklists — INBOX-42"
         # Sanity: every expected check is present exactly once
         assert sorted(names) == sorted([
-            "mx_records", "spf", "dkim", "dmarc", "blacklists", "tls",
+            "mx_records", "spf", "dkim", "dmarc", "blacklists",
+            "domain_blacklists", "tls",
             "reverse_dns", "bimi", "mta_sts", "tls_rpt", "sender_detection",
             "domain_age", "ip_reputation",
         ])
@@ -198,8 +205,11 @@ class TestDenominatorCorrectness:
     reality."""
 
     def test_crashed_scoring_check_deflates_score_not_inflates(self):
-        """12 checks perfect + blacklists crash → denominator 96, score 84.
-        Pre-fix behaviour would have been denominator 81, score 100."""
+        """All scoring checks perfect EXCEPT blacklists (crashed) → denominator
+        stays at its canonical 106 (INBOX-42 added domain_blacklists at 10),
+        score = round(91/106*100) = 86. Pre-INBOX-23 the crashed blacklists
+        check would have silently dropped out of the denominator and the
+        score would have been 100."""
         # All checks max-out EXCEPT blacklists, which we'll crash via a
         # RuntimeError. The full-scan code path wraps raw check_* calls in
         # _safe_result, so a raising stub triggers the crash branch.
@@ -211,19 +221,21 @@ class TestDenominatorCorrectness:
 
         # Re-mirror _FAKE_CHECKS but with canonical max_points so the math
         # is deterministic. mx=10, spf=15, dkim=15, dmarc=15, tls=10,
-        # reverse_dns=5, domain_age=3, ip_reputation=8 (informational = 0).
-        overrides["check_mx_records"]       = _cr("mx_records", 10, 10)
-        overrides["check_spf"]              = _cr("spf", 15, 15, category="authentication")
-        overrides["check_dkim"]             = _cr("dkim", 15, 15, category="authentication")
-        overrides["check_dmarc"]            = _cr("dmarc", 15, 15, category="authentication")
-        overrides["check_tls"]              = _cr("tls", 10, 10)
-        overrides["check_reverse_dns"]      = _cr("reverse_dns", 5, 5)
-        overrides["check_domain_age"]       = _cr("domain_age", 3, 3, category="reputation")
-        overrides["check_ip_reputation"]    = _cr("ip_reputation", 8, 8, category="reputation")
-        overrides["check_bimi"]             = _cr("bimi", 0, 0, category="authentication")
-        overrides["check_mta_sts"]          = _cr("mta_sts", 0, 0)
-        overrides["check_tls_rpt"]          = _cr("tls_rpt", 0, 0)
-        overrides["check_sender_detection"] = _cr("sender_detection", 0, 0)
+        # reverse_dns=5, domain_age=3, ip_reputation=8,
+        # domain_blacklists=10 (INBOX-42). Informational = 0.
+        overrides["check_mx_records"]        = _cr("mx_records", 10, 10)
+        overrides["check_spf"]               = _cr("spf", 15, 15, category="authentication")
+        overrides["check_dkim"]              = _cr("dkim", 15, 15, category="authentication")
+        overrides["check_dmarc"]             = _cr("dmarc", 15, 15, category="authentication")
+        overrides["check_domain_blacklists"] = _cr("domain_blacklists", 10, 10, category="reputation")
+        overrides["check_tls"]               = _cr("tls", 10, 10)
+        overrides["check_reverse_dns"]       = _cr("reverse_dns", 5, 5)
+        overrides["check_domain_age"]        = _cr("domain_age", 3, 3, category="reputation")
+        overrides["check_ip_reputation"]     = _cr("ip_reputation", 8, 8, category="reputation")
+        overrides["check_bimi"]              = _cr("bimi", 0, 0, category="authentication")
+        overrides["check_mta_sts"]           = _cr("mta_sts", 0, 0)
+        overrides["check_tls_rpt"]           = _cr("tls_rpt", 0, 0)
+        overrides["check_sender_detection"]  = _cr("sender_detection", 0, 0)
 
         patchers = []
         for name, result in overrides.items():
@@ -241,11 +253,11 @@ class TestDenominatorCorrectness:
             for p in patchers:
                 p.stop()
 
-        # Points: 10+15+15+15+0(crashed)+10+5+3+8 = 81
-        # Denominator (post-fix): 96 (all 9 scoring checks, including crashed blacklists at 15)
-        # Expected score: round(81 / 96 * 100) = 84
-        assert out["score"] == 84, (
-            f"crashed blacklists should deflate score to 84/100, got {out['score']}. "
+        # Points: 10+15+15+15+0(crashed)+10+10+5+3+8 = 91
+        # Denominator (post-INBOX-42): 10+15+15+15+15+10+10+5+3+8 = 106
+        # Expected score: round(91 / 106 * 100) = 86
+        assert out["score"] == 86, (
+            f"crashed blacklists should deflate score to 86/100, got {out['score']}. "
             "If this is 100, the INBOX-23 denominator bug is back."
         )
 

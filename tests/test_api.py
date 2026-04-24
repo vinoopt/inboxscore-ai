@@ -90,13 +90,17 @@ class TestScanEndpoint:
             assert check["status"] in ["pass", "warn", "fail", "info"]
             assert check["category"] in ["authentication", "reputation", "infrastructure"]
 
-    def test_scan_all_13_checks_present(self, client, mock_db):
-        """All 13 check types should be in the response"""
+    def test_scan_all_checks_present(self, client, mock_db):
+        """All 14 check types (INBOX-42 added domain_blacklists) should be in the response."""
         response = client.post("/api/scan", json={"domain": "google.com"})
         data = response.json()
 
+        # Note: check_sender_detection's CheckResult uses name="senders"
+        # (legacy, pre-dates INBOX-42). Keep as-is — renaming would be a
+        # separate breaking change across clients.
         expected_checks = {
             "mx_records", "spf", "dkim", "dmarc", "blacklists",
+            "domain_blacklists",  # INBOX-42
             "tls", "reverse_dns", "bimi", "mta_sts", "tls_rpt",
             "senders", "domain_age", "ip_reputation",
         }

@@ -31,6 +31,7 @@ from checks import (
     check_dkim,
     check_dmarc,
     check_blacklists,
+    check_domain_blacklists,  # INBOX-42
     check_tls,
     check_reverse_dns,
     check_bimi,
@@ -62,6 +63,7 @@ CANONICAL_MAX_POINTS = {
     "dkim": 15,
     "dmarc": 15,
     "blacklists": 15,
+    "domain_blacklists": 10,  # INBOX-42 — new reputation check
     "tls": 10,
     "reverse_dns": 5,
     "domain_age": 3,
@@ -125,6 +127,7 @@ def run_full_scan(domain: str, source: str = "api") -> dict:
         future_dkim = executor.submit(check_dkim, domain)
         future_dmarc = executor.submit(check_dmarc, domain)
         future_blacklists = executor.submit(check_blacklists, domain)
+        future_domain_bl = executor.submit(check_domain_blacklists, domain)
         future_tls = executor.submit(check_tls, domain)
         future_rdns = executor.submit(check_reverse_dns, domain)
         future_bimi = executor.submit(check_bimi, domain)
@@ -141,6 +144,7 @@ def run_full_scan(domain: str, source: str = "api") -> dict:
             _safe_result(future_dkim, "dkim", "DKIM", "authentication", 8, domain),
             _safe_result(future_dmarc, "dmarc", "DMARC Policy", "authentication", 8, domain),
             _safe_result(future_blacklists, "blacklists", "Blacklist Check", "reputation", 12, domain),
+            _safe_result(future_domain_bl, "domain_blacklists", "Domain Blacklists", "reputation", 6, domain),
             _safe_result(future_tls, "tls", "TLS Encryption", "infrastructure", 10, domain),
             _safe_result(future_rdns, "reverse_dns", "Reverse DNS", "infrastructure", 8, domain),
             _safe_result(future_bimi, "bimi", "BIMI Record", "authentication", 8, domain),

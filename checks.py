@@ -61,6 +61,17 @@ DKIM_SELECTORS = [
     "mailchimp", "mailo", "mxvault",
 ]
 
+# ─── DOMAIN BLACKLISTS (INBOX-42) ──────────────────────────────────
+# DBL / SURBL / URIBL — domain-based reputation lists. These flag the
+# DOMAIN itself (regardless of IP), which major mailbox providers
+# consult when deciding inbox-vs-spam. A listing here means "mail from
+# this domain will land in spam regardless of authentication setup."
+DOMAIN_BLACKLISTS = [
+    "dbl.spamhaus.org",   # Spamhaus Domain Block List — the authoritative one
+    "multi.surbl.org",    # SURBL combined
+    "black.uribl.com",    # URIBL
+]
+
 
 # ─── MODEL ─────────────────────────────────────────────────────────
 class CheckResult(BaseModel):
@@ -93,6 +104,147 @@ def safe_dns_query(qname, rdtype, timeout=5):
         return None
     except Exception:
         return None
+
+
+# ─── SPF EXPANSION (INBOX-43) ──────────────────────────────────────
+# Expand a domain's SPF record to concrete sending IPs. The set of IPs
+# authorized to send mail as a domain is what actually matters for
+# blacklist-checking deliverability — MX IPs are receiving-side and are
+# almost always provider IPs (Google, Microsoft) that are never blacklisted.
+#
+# RFC 7208 caps "DNS lookups" at 10 to prevent runaway recursion via
+# include: / redirect= / a / mx / exists: / ptr mechanisms. We enforce
+# that limit here and warn when hit.
+#
+# IPv6 is ignored — virtually no DNSBL supports IPv6 queries today.
+# `ptr` / `exists:` / `+all` / `~all` / `?all` / `-all` are also skipped
+# (they don't contribute concrete IPs).
+
+def _sample_cidr(cidr: str) -> list[str]:
+    """For a CIDR range, return up to 3 IPs (first / middle / last)
+    that represent the block. Small ranges return fewer — /32 returns 1.
+    Keeps scan blast radius bounded for e.g. `ip4:52.0.0.0/8`.
+    """
+    import ipaddress
+    try:
+        net = ipaddress.ip_network(cidr, strict=False)
+    except Exception:
+        return []
+    if not isinstance(net, ipaddress.IPv4Network):
+        return []   # skip IPv6 — most DNSBLs don't support it
+    if net.prefixlen >= 30:
+        # /30, /31, /32 — small enough to sample all
+        return [str(h) for h in net.hosts()][:3] or [str(net.network_address)]
+    if net.prefixlen >= 24:
+        return [str(net.network_address)]
+    # Larger ranges — take first, middle, last
+    addrs = list(net.hosts())
+    if len(addrs) <= 3:
+        return [str(a) for a in addrs]
+    return [str(addrs[0]), str(addrs[len(addrs) // 2]), str(addrs[-1])]
+
+
+def _expand_spf_inner(domain: str, visited: set, lookup_budget: list, warnings: list) -> set:
+    """Internal recursive SPF expander.
+
+    `lookup_budget` is a 1-element list so we can decrement it by reference
+    across the recursion. Stops at 0.
+    """
+    if lookup_budget[0] <= 0:
+        if "10-lookup limit" not in "|".join(warnings):
+            warnings.append(f"RFC 7208 10-lookup limit reached while expanding {domain}'s SPF")
+        return set()
+    if domain in visited:
+        return set()
+    visited.add(domain)
+    lookup_budget[0] -= 1
+
+    txt_records = safe_dns_query(domain, "TXT")
+    if not txt_records:
+        return set()
+
+    spf = None
+    for record in txt_records:
+        clean = record.strip('"').strip()
+        # Some TXT records arrive as concatenated quoted strings — strip inner quotes.
+        clean = clean.replace('" "', '').replace('""', '')
+        if clean.lower().startswith("v=spf1"):
+            spf = clean
+            break
+
+    if not spf:
+        return set()
+
+    ips: set[str] = set()
+    for raw_token in spf.split():
+        token = raw_token.strip().lstrip("+")   # default qualifier is "+"
+        tok = token.lower()
+
+        if tok.startswith("ip4:"):
+            cidr = token[4:]
+            ips.update(_sample_cidr(cidr))
+        elif tok.startswith("include:"):
+            inc = token[8:]
+            ips |= _expand_spf_inner(inc, visited, lookup_budget, warnings)
+        elif tok.startswith("redirect="):
+            redir = token.split("=", 1)[1]
+            # redirect= replaces the current SPF per RFC 7208.
+            ips |= _expand_spf_inner(redir, visited, lookup_budget, warnings)
+        elif tok == "a" or tok.startswith("a:") or tok.startswith("a/"):
+            a_target = token[2:] if tok.startswith("a:") else (domain if tok == "a" else token[2:])
+            if "/" in a_target:
+                a_target, cidr_suffix = a_target.split("/", 1)
+            else:
+                cidr_suffix = None
+            if lookup_budget[0] <= 0:
+                continue
+            lookup_budget[0] -= 1
+            a_records = safe_dns_query(a_target, "A")
+            if a_records:
+                for ip in a_records:
+                    if cidr_suffix:
+                        ips.update(_sample_cidr(f"{ip}/{cidr_suffix}"))
+                    else:
+                        ips.add(ip)
+        elif tok == "mx" or tok.startswith("mx:") or tok.startswith("mx/"):
+            mx_target = token[3:] if tok.startswith("mx:") else (domain if tok == "mx" else token[3:])
+            if lookup_budget[0] <= 0:
+                continue
+            lookup_budget[0] -= 1
+            mx_records = safe_dns_query(mx_target, "MX")
+            if mx_records:
+                for mx in mx_records[:5]:
+                    mx_host = mx.split()[-1].rstrip(".")
+                    if lookup_budget[0] <= 0:
+                        break
+                    lookup_budget[0] -= 1
+                    a_recs = safe_dns_query(mx_host, "A")
+                    if a_recs:
+                        ips.update(a_recs)
+        # else: ip6: / ptr / exists: / all / -all / ~all / ?all — no IP contribution.
+
+    return ips
+
+
+def expand_spf_ips(domain: str, max_lookups: int = 10, cap: int = 20) -> tuple[set, list]:
+    """Public API: given a domain, return (ip_set, warnings).
+
+    ip_set     — set of IPv4 strings authorized to send as this domain
+                 via its SPF record. Empty if no SPF or only IPv6/-all.
+                 Capped at `cap` entries (sorted lexicographically) to
+                 bound blacklist-query blast radius.
+    warnings   — human-readable notes about limits hit during expansion.
+    """
+    visited: set[str] = set()
+    lookup_budget = [max_lookups]
+    warnings: list[str] = []
+    ips = _expand_spf_inner(domain, visited, lookup_budget, warnings)
+    if len(ips) > cap:
+        warnings.append(
+            f"SPF expanded to {len(ips)} IPs; sampled first {cap} (sorted) for blacklist check"
+        )
+        ips = set(sorted(ips)[:cap])
+    return ips, warnings
 
 
 # ─── CHECK FUNCTIONS ────────────────────────────────────────────────
@@ -466,6 +618,18 @@ def check_blacklists(domain: str) -> CheckResult:
     # Resolve domain IPs and track WHERE each IP came from
     ip_sources = {}  # ip -> list of sources like "MX: aspmx.l.google.com" or "A record"
 
+    # INBOX-43: primary signal — SPF-derived sending IPs. These are the IPs
+    # the domain AUTHORIZES to send mail as itself, and therefore the IPs
+    # whose reputation actually drives deliverability. MX IPs (below) are
+    # receiving-side; they're always provider IPs (Google, Microsoft, etc.)
+    # and are essentially never on public blacklists — low signal value.
+    # SPF-derived IPs, by contrast, include the customer's own sending
+    # infrastructure + any ESPs they've authorized (Mailgun, SendGrid, SES,
+    # Mailercloud, etc.) — those DO land on blacklists when misused.
+    spf_ips, spf_warnings = expand_spf_ips(domain)
+    for ip in spf_ips:
+        ip_sources.setdefault(ip, []).append(f"SPF: sending IP for {domain}")
+
     mx_records = safe_dns_query(domain, "MX")
     if mx_records:
         for mx in mx_records:
@@ -480,7 +644,7 @@ def check_blacklists(domain: str) -> CheckResult:
     # Including it in an email-blacklist check was the root cause of the
     # false-positive "104.26.x.x listed on blacklists" observations — those
     # are Cloudflare IPs, not mail IPs. We now only fall back to the A record
-    # if the MX lookup produced no usable IPs (null-MX or DNS misconfiguration).
+    # if NEITHER SPF NOR MX produced usable IPs (null-MX or DNS misconfig).
     if not ip_sources:
         a_records = safe_dns_query(domain, "A")
         if a_records:
@@ -794,6 +958,126 @@ def check_blacklists(domain: str) -> CheckResult:
             max_points=15,
             fix_steps=fix_steps
         )
+
+
+def check_domain_blacklists(domain: str) -> CheckResult:
+    """Check the DOMAIN itself against domain-based blacklists (DBL/SURBL/URIBL).
+
+    INBOX-42: separate reputation signal from the IP-based blacklist check.
+    Domain blacklists (Spamhaus DBL, SURBL, URIBL) flag domains that have
+    been observed in spam campaigns, phishing, or malware hosting — regardless
+    of which IP they currently use. Major mailbox providers consult these
+    lists during inbox-vs-spam decisions; a listing here effectively means
+    "this domain's mail goes to spam regardless of authentication setup."
+
+    Same DNSBL-error-code handling as INBOX-39: 127.255.255.* codes are
+    Spamhaus's "query blocked / rate-limited" response range, NOT actual
+    listings. Treated as "could not verify" rather than spam.
+    """
+    listed_on = []
+    error_on = []
+
+    def _query_domain_bl(bl: str):
+        query = f"{domain}.{bl}"
+        try:
+            resolver = dns.resolver.Resolver()
+            resolver.timeout = 2
+            resolver.lifetime = 2
+            ans = resolver.resolve(query, "A")
+            codes = sorted({str(rr) for rr in ans})
+        except Exception:
+            return None  # NXDOMAIN / timeout — treat as clean
+        # INBOX-39 reuse: 127.255.255.* is the Spamhaus error range.
+        if codes and all(c.startswith("127.255.255.") for c in codes):
+            return {"blacklist": bl, "listing_type": "error", "codes": codes}
+        return {"blacklist": bl, "listing_type": "spam", "codes": codes}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(_query_domain_bl, bl) for bl in DOMAIN_BLACKLISTS]
+        for future in concurrent.futures.as_completed(futures, timeout=6):
+            try:
+                result = future.result()
+                if result is None:
+                    continue  # clean
+                if result["listing_type"] == "error":
+                    error_on.append(result)
+                else:
+                    listed_on.append(result)
+            except Exception:
+                pass
+
+    listings = len(listed_on)
+    errored_bls = sorted(r["blacklist"] for r in error_on)
+    total_bls = len(DOMAIN_BLACKLISTS)
+
+    if listings == 0:
+        effectively_checked = total_bls - len(errored_bls)
+        detail = (
+            f"{domain} not listed on any of {effectively_checked} domain blacklists checked"
+            if effectively_checked > 0
+            else f"{domain} — could not query any domain blacklist (our scan server is rate-limited)"
+        )
+        if errored_bls:
+            detail += (
+                f". Note: {len(errored_bls)} blacklist{'s' if len(errored_bls) != 1 else ''} "
+                f"({', '.join(errored_bls)}) could not be queried from our scan server — "
+                "re-verify externally if needed."
+            )
+        return CheckResult(
+            name="domain_blacklists",
+            category="reputation",
+            status="pass",
+            title="Domain Blacklists",
+            detail=detail,
+            raw_data={
+                "checked": total_bls,
+                "effectively_checked": effectively_checked,
+                "listed": [],
+                "error_listings": error_on,
+                "fully_errored_blacklists": errored_bls,
+            },
+            points=10,
+            max_points=10,
+        )
+
+    # Listed on one or more DBLs — serious. Domain blacklistings drive
+    # spam-folder placement directly at Gmail / Yahoo / Microsoft.
+    bl_names = sorted(r["blacklist"] for r in listed_on)
+    return CheckResult(
+        name="domain_blacklists",
+        category="reputation",
+        status="fail",
+        title="Domain Blacklists",
+        detail=(
+            f"{domain} is listed on {listings} domain blacklist"
+            f"{'s' if listings != 1 else ''}: {', '.join(bl_names)}. "
+            "Mail from this domain will land in spam at most major mailbox providers "
+            "until the listing is resolved."
+        ),
+        raw_data={
+            "checked": total_bls,
+            "listed": listed_on,
+            "error_listings": error_on,
+            "fully_errored_blacklists": errored_bls,
+        },
+        points=0,
+        max_points=10,
+        fix_steps=[
+            f"Your domain ({domain}) is listed on one or more domain-based blacklists. "
+            "This is a reputation signal that directly affects inbox placement at Gmail, "
+            "Microsoft, Yahoo, and Apple Mail.",
+            "Common causes: (a) the domain was used in spam campaigns, (b) pages on "
+            "the domain were flagged as malicious, (c) the domain was recently acquired "
+            "from a previous spammer, (d) an email you linked to lists spammy content.",
+            "Check listing details and request removal:",
+            "  • Spamhaus DBL:  https://www.spamhaus.org/dbl/removal/",
+            "  • SURBL:         https://www.surbl.org/surbl-analysis",
+            "  • URIBL:         https://uribl.com/lookup.shtml",
+            "Before requesting removal, identify and fix the root cause. Delisting "
+            "before cleanup usually results in being re-listed within hours.",
+            "Expect 24–72 hours for removal after the cause is resolved.",
+        ],
+    )
 
 
 def check_tls(domain: str) -> CheckResult:
