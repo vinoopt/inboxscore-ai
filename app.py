@@ -1485,7 +1485,8 @@ async def api_blacklist_check(domain: str, req: Request):
             if ip not in ip_sources:
                 ip_sources[ip] = "A record"
 
-    result = await full_blacklist_check(domain, list(ips)[:5])
+    # INBOX-26: sorted() so back-to-back scans pick the same 5 IPs.
+    result = await full_blacklist_check(domain, sorted(ips)[:5])
 
     # Attach IP source labels for display
     for ip_result in result.get("ip_results", []):

@@ -191,7 +191,9 @@ async def full_blacklist_check(domain: str, ips: list[str] = None, api_key: Opti
     # Run IP checks in parallel
     ip_results = []
     if ips:
-        tasks = [check_ip_blacklist(ip, key) for ip in ips[:5]]  # Limit to 5 IPs
+        # INBOX-26: sort defensively even though callers now sort upstream —
+        # cheap, and a future caller that forgets won't reintroduce drift.
+        tasks = [check_ip_blacklist(ip, key) for ip in sorted(ips)[:5]]
         ip_results = await asyncio.gather(*tasks)
         ip_results = list(ip_results)
 

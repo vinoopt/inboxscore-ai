@@ -921,7 +921,9 @@ def get_postmaster_domains_for_user(user_id: str) -> list:
             "user_id", user_id
         ).execute()
         if result.data:
-            return list(set(row["domain"] for row in result.data))
+            # INBOX-26: sorted() so callers that slice/index the result get
+            # reproducible behaviour between processes.
+            return sorted({row["domain"] for row in result.data})
         return []
     except Exception as e:
         print(f"Error getting postmaster domains: {e}")

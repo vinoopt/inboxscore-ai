@@ -493,7 +493,11 @@ def check_blacklists(domain: str) -> CheckResult:
             raw_data={"checked": 0, "listed": []}
         )
 
-    ips = list(ip_sources.keys())
+    # INBOX-26: sort deterministically so slices at :518, :538, and downstream
+    # callers (hetrix, app) see the same IPs in the same order between runs.
+    # Order here is insertion-order-from-DNS, which is NOT stable across
+    # scans even with identical upstream state.
+    ips = sorted(ip_sources.keys())
 
     # Check each IP against blacklists
     listed_on = []
@@ -1475,7 +1479,10 @@ def check_ip_reputation(domain: str) -> CheckResult:
             max_points=0
         )
 
-    primary_ip = list(ips)[0]
+    # INBOX-26: sorted(), not list(). `ips` is a set — list(set) order is not
+    # stable across Python processes (hash randomization). Picking the
+    # lexicographically-lowest IP gives a reproducible "primary" pick.
+    primary_ip = sorted(ips)[0]
 
     # Step 2: Run all lookups in parallel — ASN, whitelists, reputation flags, Sender Score
     asn_info = {}
@@ -1614,7 +1621,7 @@ def check_ip_reputation(domain: str) -> CheckResult:
 
     raw_data = {
         "primary_ip": primary_ip,
-        "all_ips": list(ips)[:5],
+        "all_ips": sorted(ips)[:5],  # INBOX-26: deterministic ordering
         "asn": asn_info,
         "whitelisted_on": whitelisted,
         "reputation_flags": reputation_flags,
