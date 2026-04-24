@@ -475,11 +475,17 @@ def check_blacklists(domain: str) -> CheckResult:
                 for ip in a_records:
                     ip_sources.setdefault(ip, []).append(f"MX: {mx_host}")
 
-    # Also check domain's A record
-    a_records = safe_dns_query(domain, "A")
-    if a_records:
-        for ip in a_records:
-            ip_sources.setdefault(ip, []).append("A record")
+    # INBOX-36: the domain's A record is the WEBSITE host (Cloudflare, Vercel,
+    # Netlify, etc.) when MX is properly configured. It does NOT send email.
+    # Including it in an email-blacklist check was the root cause of the
+    # false-positive "104.26.x.x listed on blacklists" observations — those
+    # are Cloudflare IPs, not mail IPs. We now only fall back to the A record
+    # if the MX lookup produced no usable IPs (null-MX or DNS misconfiguration).
+    if not ip_sources:
+        a_records = safe_dns_query(domain, "A")
+        if a_records:
+            for ip in a_records:
+                ip_sources.setdefault(ip, []).append("A record (no MX)")
 
     if not ip_sources:
         # INBOX-25 (L2): a domain with zero mail infrastructure (parked,
@@ -516,9 +522,21 @@ def check_blacklists(domain: str) -> CheckResult:
     ips = sorted(ip_sources.keys())
 
     # Check each IP against blacklists
+    # INBOX-35: `listed_on` captures ONLY real spam/botnet listings (SBL,
+    # CBL, XBL — DNSBL A-record codes 127.0.0.2-9). Spamhaus PBL codes
+    # (127.0.0.10, 127.0.0.11) are a policy flag ("this IP shouldn't send
+    # direct mail," common for ESP-managed IP ranges) and appear separately
+    # in `policy_on`. They DO NOT count toward the FAIL status or dock
+    # points — Google Workspace MX IPs routinely appear on PBL, which was
+    # the root cause of the "Google listed on Spamhaus" false positive.
     listed_on = []
+    policy_on = []
     clean_on = 0
     checked = 0
+
+    # Spamhaus PBL codes — policy listings, NOT spam/botnet listings.
+    # See https://www.spamhaus.org/faq/section/DNSBL%20Usage
+    PBL_CODES = frozenset(["127.0.0.10", "127.0.0.11"])
 
     def check_single_bl(ip, bl):
         reversed_ip = ".".join(reversed(ip.split(".")))
@@ -527,10 +545,25 @@ def check_blacklists(domain: str) -> CheckResult:
             resolver = dns.resolver.Resolver()
             resolver.timeout = 2
             resolver.lifetime = 2
-            resolver.resolve(query, "A")
-            return {"blacklist": bl, "ip": ip, "source": ", ".join(ip_sources.get(ip, ["unknown"]))}
-        except:
+            ans = resolver.resolve(query, "A")
+            codes = sorted({str(rr) for rr in ans})
+        except Exception:
+            # NXDOMAIN (not listed) or network error — treat as clean.
+            # Note: conflating NXDOMAIN with network failure is a separate
+            # fail-loud concern, flagged in INBOX-25's close-out.
             return None
+
+        source = ", ".join(ip_sources.get(ip, ["unknown"]))
+        # Only-PBL codes → policy listing. Any other code → spam listing.
+        if codes and set(codes).issubset(PBL_CODES):
+            return {
+                "blacklist": bl, "ip": ip, "source": source,
+                "listing_type": "policy", "codes": codes,
+            }
+        return {
+            "blacklist": bl, "ip": ip, "source": source,
+            "listing_type": "spam", "codes": codes,
+        }
 
     # INBOX-25 (L5): check up to 5 IPs (was: 2). A domain with many sending
     # IPs (Google Workspace, Office 365, SendGrid, SES, etc.) routinely
@@ -559,40 +592,61 @@ def check_blacklists(domain: str) -> CheckResult:
             checked += 1
             try:
                 result = future.result()
-                if result:
-                    listed_on.append(result)
-                else:
+                if result is None:
                     clean_on += 1
-            except:
+                elif result.get("listing_type") == "policy":
+                    policy_on.append(result)
+                else:
+                    listed_on.append(result)
+            except Exception:
                 pass
 
     total_lists = len(BLACKLISTS)
     listings = len(listed_on)
+    policy_count = len(policy_on)
 
-    # INBOX-25: display the SAME IPs we actually checked. The previous code
-    # showed ips[:3] in the summary while the loop checked ips[:2] — the
-    # "we checked N IPs" message lied by one IP.
+    # INBOX-25: display the SAME IPs we actually checked.
     ip_summary = []
     for ip in ips_to_check:
         sources = ", ".join(ip_sources.get(ip, []))
         ip_summary.append({"ip": ip, "source": sources})
 
+    # INBOX-35: group policy listings by IP so the UI can show them as
+    # informational context (without counting them toward the FAIL).
+    policy_by_ip = {}
+    for item in policy_on:
+        policy_by_ip.setdefault(item["ip"], []).append(item["blacklist"])
+
+    # Zero real listings — PASS. Optionally mention policy listings as INFO.
     if listings == 0:
         detail = f"Not listed on any of {total_lists} blacklists checked"
         if len(ips) == 1:
             detail += f" (checked IP: {ips[0]} via {ip_sources[ips[0]][0]})"
         elif len(ips) > IP_CHECK_CAP:
-            # INBOX-25: be explicit when we capped — don't hide it from the user.
             detail += f" (checked {len(ips_to_check)} of {len(ips)} IPs)"
         else:
             detail += f" (checked {len(ips_to_check)} IPs)"
+        if policy_count:
+            # Don't dock points — just let the user know.
+            unique_policy_ips = len(policy_by_ip)
+            detail += (
+                f". Note: {unique_policy_ips} IP{'s' if unique_policy_ips != 1 else ''} "
+                "appear on Spamhaus PBL — a policy indicator (common for "
+                "ESP-managed IPs), not a spam listing."
+            )
         return CheckResult(
             name="blacklists",
             category="reputation",
             status="pass",
             title="Blacklist Status",
             detail=detail,
-            raw_data={"checked": total_lists, "listed": [], "ips_checked": ip_summary},
+            raw_data={
+                "checked": total_lists,
+                "listed": [],
+                "ips_checked": ip_summary,
+                "policy_listings": policy_on,
+                "policy_by_ip": policy_by_ip,
+            },
             points=15,
             max_points=15
         )
@@ -629,7 +683,15 @@ def check_blacklists(domain: str) -> CheckResult:
             status="warn" if listings == 1 else "fail",
             title="Blacklist Status",
             detail=f"Listed on {listings} blacklist{'s' if listings > 1 else ''} out of {total_lists} checked",
-            raw_data={"checked": total_lists, "listed": listed_on, "ips_checked": ip_summary, "listings_by_ip": listings_by_ip},
+            raw_data={
+                "checked": total_lists,
+                "listed": listed_on,
+                "ips_checked": ip_summary,
+                "listings_by_ip": listings_by_ip,
+                # INBOX-35: also expose any policy listings for context.
+                "policy_listings": policy_on,
+                "policy_by_ip": policy_by_ip,
+            },
             points=max(15 - (listings * 7), 0),
             max_points=15,
             fix_steps=fix_steps
@@ -660,7 +722,15 @@ def check_blacklists(domain: str) -> CheckResult:
             status="fail",
             title="Blacklist Status",
             detail=detail,
-            raw_data={"checked": total_lists, "listed": listed_on, "ips_checked": ip_summary, "listings_by_ip": listings_by_ip},
+            raw_data={
+                "checked": total_lists,
+                "listed": listed_on,
+                "ips_checked": ip_summary,
+                "listings_by_ip": listings_by_ip,
+                # INBOX-35: also expose any policy listings for context.
+                "policy_listings": policy_on,
+                "policy_by_ip": policy_by_ip,
+            },
             points=0,
             max_points=15,
             fix_steps=fix_steps

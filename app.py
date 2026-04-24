@@ -1574,7 +1574,7 @@ async def api_postmaster_callback(req: Request):
 
     if error:
         # User denied consent or other error
-        return FileResponse("static/settings.html")
+        return FileResponse("static/settings.html", headers={"Cache-Control": "no-cache, must-revalidate"})
 
     if not code or not state:
         raise HTTPException(status_code=400, detail="Missing code or state parameter")
@@ -2008,15 +2008,39 @@ async def sitemap_xml():
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
+# INBOX-37: every HTML page response must carry a no-cache directive so a
+# browser doesn't serve a stale copy of the file after we deploy a new build.
+# Without this header the browser applies freshness heuristics and may hold
+# onto a several-hour-old dashboard.html, which is how Vinoop hit the
+# INBOX-34 "fix looks broken in the browser" bug even though the new bytes
+# were already live on Render.
+#
+# "no-cache" is the Goldilocks choice: browsers still store the file, but
+# they revalidate with a conditional request (If-Modified-Since / ETag) on
+# every use. If the file hasn't changed, the server returns 304 and the
+# cached bytes are reused. If it has, the browser gets the fresh copy.
+#
+# Mounted /static/* assets (CSS/JS/images) keep their default caching —
+# they're small, infrequently changed, and aren't susceptible to the
+# "page-after-deploy" class of confusion this ticket addresses.
+_NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
+
+
+def _html(filename: str) -> FileResponse:
+    """Return an HTML FileResponse with the no-cache header applied."""
+    return FileResponse(f"static/{filename}", headers=_NO_CACHE)
+
+
 @app.get("/")
 async def serve_frontend():
-    return FileResponse("static/index.html")
+    return _html("index.html")
 
 
 @app.get("/scan/{domain}")
 async def serve_scan_page(domain: str):
     """Serve homepage for shareable scan URLs"""
-    return FileResponse("static/index.html")
+    return _html("index.html")
 
 
 @app.get("/pricing")
@@ -2027,52 +2051,52 @@ async def serve_pricing():
 
 @app.get("/signup")
 async def serve_signup():
-    return FileResponse("static/signup.html")
+    return _html("signup.html")
 
 
 @app.get("/login")
 async def serve_login():
-    return FileResponse("static/login.html")
+    return _html("login.html")
 
 
 @app.get("/forgot-password")
 async def serve_forgot_password():
-    return FileResponse("static/forgot-password.html")
+    return _html("forgot-password.html")
 
 
 @app.get("/dashboard")
 async def serve_dashboard():
-    return FileResponse("static/dashboard.html")
+    return _html("dashboard.html")
 
 
 @app.get("/sending-ips")
 async def serve_sending_ips():
-    return FileResponse("static/sending-ips.html")
+    return _html("sending-ips.html")
 
 
 @app.get("/domains")
 async def serve_domains():
-    return FileResponse("static/domains.html")
+    return _html("domains.html")
 
 
 @app.get("/domains/{domain}")
 async def serve_domain_detail(domain: str):
-    return FileResponse("static/domains.html")
+    return _html("domains.html")
 
 
 @app.get("/alerts")
 async def serve_alerts():
-    return FileResponse("static/alerts.html")
+    return _html("alerts.html")
 
 
 @app.get("/settings")
 async def serve_settings():
-    return FileResponse("static/settings.html")
+    return _html("settings.html")
 
 
 @app.get("/email-health")
 async def serve_email_health():
-    return FileResponse("static/email-health.html")
+    return _html("email-health.html")
 
 
 if __name__ == "__main__":
