@@ -684,7 +684,13 @@ async function dashStartScan() {
   document.getElementById('scanning-domain').textContent = domain;
   dashShowView('scanning');
 
-  // Animate the check list
+  // INBOX-34: advance ticks 0..N-2 at a steady 400ms pace. When we reach
+  // the LAST item ("Calculating Score"), activate it and then STOP the
+  // interval — leave it spinning until the real API response arrives.
+  // The previous implementation ran all 8 items to done in 4s regardless
+  // of scan duration, so any scan >4s produced dead air where the user
+  // saw all green ticks but no result. Now the spinner keeps indicating
+  // progress until there's an actual result to show.
   const items = document.querySelectorAll('#dash-check-list .check-item');
   items.forEach(i => { i.classList.remove('done','active'); i.querySelector('.check-dot').textContent = ''; });
   let idx = 0;
@@ -694,9 +700,14 @@ async function dashStartScan() {
       items[idx-1].classList.add('done');
       items[idx-1].querySelector('.check-dot').textContent = '✓';
     }
-    if (idx < items.length) { items[idx].classList.add('active'); idx++; }
-    else clearInterval(interval);
-  }, 500);
+    if (idx < items.length) {
+      items[idx].classList.add('active');
+      idx++;
+      // Hold on the last item — don't auto-mark it done. It stays in the
+      // spinner state until dashStartScan snaps everything to done below.
+      if (idx === items.length) clearInterval(interval);
+    }
+  }, 400);
 
   // Client-side timeout (25s) — Render has a 30s request limit
   const controller = new AbortController();
