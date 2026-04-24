@@ -144,10 +144,13 @@ class TestCheckBlacklistsDeterminism:
 
         assert ips1 == ips2, (
             "INBOX-26 regression: check_blacklists selected a different "
-            "subset of IPs to check in run-2 vs run-1. The ips[:3] slice "
-            "must pick the same 3 IPs every time."
+            "subset of IPs to check in run-2 vs run-1. The capped slice "
+            "must pick the same IPs every time."
         )
-        # With 6 candidate IPs sorted lexicographically, the first 3 are
-        # 192.0.2.11, 192.0.2.12, 192.0.2.13. raw_data["ips_checked"]
-        # reports up to 3 (see checks.py:538).
-        assert ips1 == ["192.0.2.11", "192.0.2.12", "192.0.2.13"]
+        # INBOX-25 raised the cap to 5 (matches all_ips + hetrix).
+        # With 6 candidate IPs sorted lexicographically, the first 5 are
+        # 192.0.2.11, 192.0.2.12, 192.0.2.13, 192.0.2.21, 192.0.2.22.
+        assert ips1 == [
+            "192.0.2.11", "192.0.2.12", "192.0.2.13",
+            "192.0.2.21", "192.0.2.22",
+        ]

@@ -482,15 +482,31 @@ def check_blacklists(domain: str) -> CheckResult:
             ip_sources.setdefault(ip, []).append("A record")
 
     if not ip_sources:
+        # INBOX-25 (L2): a domain with zero mail infrastructure (parked,
+        # abandoned, typo-squatted) must NOT score a perfect blacklist
+        # result. The previous implementation returned status="pass",
+        # points=15, max_points=15 with a bogus "cloud provider" detail —
+        # handing out a gold star for doing nothing. Now we fail loudly
+        # so the denominator still says /15 (honest score) but the
+        # numerator reflects that we have no evidence of any mail setup.
         return CheckResult(
             name="blacklists",
             category="reputation",
-            status="pass",
+            status="fail",
             title="Blacklist Status",
-            detail="Mail server uses a cloud provider — blacklist check not applicable",
-            points=15,
+            detail=(
+                "No mail infrastructure detected — cannot evaluate blacklist "
+                "exposure. Domain has no MX records and no A record, which "
+                "means it cannot receive or send email."
+            ),
+            points=0,
             max_points=15,
-            raw_data={"checked": 0, "listed": []}
+            raw_data={"checked": 0, "listed": [], "reason": "no_mail_infrastructure"},
+            fix_steps=[
+                "Publish MX records pointing to your email provider (e.g., aspmx.l.google.com for Google Workspace)",
+                "If this domain is intentionally not used for email, add an MX record of \".\" (null MX, RFC 7505) to make that explicit",
+                "Verify DNS propagation by running: dig MX yourdomain.com",
+            ],
         )
 
     # INBOX-26: sort deterministically so slices at :518, :538, and downstream
@@ -516,10 +532,26 @@ def check_blacklists(domain: str) -> CheckResult:
         except:
             return None
 
+    # INBOX-25 (L5): check up to 5 IPs (was: 2). A domain with many sending
+    # IPs (Google Workspace, Office 365, SendGrid, SES, etc.) routinely
+    # exposes 4+ IPs at the MX layer. Checking only the first 2 meant
+    # listings on IPs 3+ were invisible to the customer.
+    #
+    # The cap stays (rather than checking ALL IPs) because:
+    #   - 20 blacklists × N IPs = 20N parallel DNS queries.
+    #   - With 25 workers and the 8s outer timeout, ~100 queries = safe.
+    #   - Raising N without bound would push queries past the timeout and
+    #     they'd be silently discarded (i.e. counted neither clean nor
+    #     listed) — a worse outcome than capping honestly.
+    # 5 matches the cap we ship in `all_ips` for ip_reputation (INBOX-26)
+    # and the cap in hetrix.py, keeping the three surfaces consistent.
+    IP_CHECK_CAP = 5
+    ips_to_check = ips[:IP_CHECK_CAP]
+
     # Use thread pool for parallel blacklist checks
     with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
         futures = []
-        for ip in ips[:2]:  # Check up to 2 IPs (primary MX + A record)
+        for ip in ips_to_check:
             for bl in BLACKLISTS:
                 futures.append(executor.submit(check_single_bl, ip, bl))
 
@@ -537,9 +569,11 @@ def check_blacklists(domain: str) -> CheckResult:
     total_lists = len(BLACKLISTS)
     listings = len(listed_on)
 
-    # Build IP summary for display
+    # INBOX-25: display the SAME IPs we actually checked. The previous code
+    # showed ips[:3] in the summary while the loop checked ips[:2] — the
+    # "we checked N IPs" message lied by one IP.
     ip_summary = []
-    for ip in ips[:3]:
+    for ip in ips_to_check:
         sources = ", ".join(ip_sources.get(ip, []))
         ip_summary.append({"ip": ip, "source": sources})
 
@@ -547,8 +581,11 @@ def check_blacklists(domain: str) -> CheckResult:
         detail = f"Not listed on any of {total_lists} blacklists checked"
         if len(ips) == 1:
             detail += f" (checked IP: {ips[0]} via {ip_sources[ips[0]][0]})"
+        elif len(ips) > IP_CHECK_CAP:
+            # INBOX-25: be explicit when we capped — don't hide it from the user.
+            detail += f" (checked {len(ips_to_check)} of {len(ips)} IPs)"
         else:
-            detail += f" (checked {len(ips[:3])} IPs)"
+            detail += f" (checked {len(ips_to_check)} IPs)"
         return CheckResult(
             name="blacklists",
             category="reputation",
