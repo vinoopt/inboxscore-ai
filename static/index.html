@@ -158,6 +158,73 @@ function escapeHtml(str) {
   .fix-step { display: flex; gap: 8px; padding: 8px 0; color: var(--text-muted); }
   .fix-step-num { background: var(--accent); color: white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; margin-top: 2px; }
 
+  /* INBOX-46/47/48: v2 scan-result UI — category blocks, per-check scores, Top 3 Actions */
+  .category-block { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin-bottom: 16px; }
+  .category-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .category-header-left { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .category-title { font-size: 16px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 1px; }
+  .category-score { font-size: 20px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, monospace; }
+  .category-status-pill { display: inline-block; padding: 3px 12px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .pill-strong { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+  .pill-good { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+  .pill-ok { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
+  .pill-weak { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange); }
+  .pill-fail { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+  .category-progress { min-width: 180px; flex: 1; max-width: 280px; }
+  .category-progress-bar { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+  .category-progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+  .fill-green { background: var(--green); }
+  .fill-yellow { background: var(--yellow); }
+  .fill-orange { background: var(--orange); }
+  .fill-red { background: var(--red); }
+  .category-progress-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; text-align: right; }
+  .category-block .checks-grid { margin-bottom: 0; }
+
+  /* Per-check score badge (14/15, "Info only") */
+  .check-card-score { font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 6px; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, monospace; flex-shrink: 0; margin-left: 8px; }
+  .score-perfect { color: var(--green); background: var(--green-bg); }
+  .score-lost { color: var(--yellow); background: var(--yellow-bg); }
+  .score-info { color: var(--text-muted); background: var(--surface-2); font-family: inherit; font-weight: 500; font-size: 11px; }
+  .score-warn { color: var(--orange); background: var(--orange-bg); }
+  .score-fail { color: var(--red); background: var(--red-bg); }
+
+  /* CTA bridge between category breakdown and Top 3 Actions */
+  .cta-bridge { background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(99,102,241,0.06)); border: 1px solid var(--accent); border-radius: 14px; padding: 18px 22px; margin: 28px 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+  .cta-bridge-text { flex: 1; font-size: 14px; min-width: 240px; }
+  .cta-bridge-text strong { color: var(--accent); }
+  .cta-bridge-btn { background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: inherit; text-decoration: none; display: inline-block; }
+  .cta-bridge-btn:hover { opacity: 0.9; }
+
+  /* Top 3 Actions */
+  .actions-section { margin-top: 28px; margin-bottom: 32px; }
+  .actions-heading { font-size: 14px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .actions-subheading { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; }
+  .action-card { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 10px; padding: 18px 22px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 14px; }
+  .action-card.priority-1 { border-left-color: var(--accent); }
+  .action-card.priority-2 { border-left-color: var(--yellow); }
+  .action-card.priority-3 { border-left-color: var(--text-muted); }
+  .action-num { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .priority-2 .action-num { background: var(--yellow); color: #1a1a26; }
+  .priority-3 .action-num { background: var(--text-muted); }
+  .action-body { flex: 1; min-width: 0; }
+  .action-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .action-gain { font-size: 12px; font-weight: 700; padding: 2px 8px; background: var(--green-bg); color: var(--green); border-radius: 12px; }
+  .action-summary { color: var(--text-muted); font-size: 13px; }
+  .action-meta { display: flex; gap: 14px; font-size: 12px; color: var(--text-muted); margin-top: 8px; flex-wrap: wrap; align-items: center; }
+  .difficulty-easy { color: var(--green); }
+  .difficulty-medium { color: var(--yellow); }
+  .difficulty-hard { color: var(--orange); }
+  .action-show-fix { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; margin-left: auto; white-space: nowrap; font-family: inherit; }
+  .action-show-fix:hover { border-color: var(--accent); color: var(--accent); }
+  .action-expanded { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
+  .action-card.is-open .action-expanded { display: block; }
+  .action-card.is-open .action-show-fix::after { content: " ▲"; }
+  .action-show-fix::after { content: " ▼"; }
+  .action-step { display: flex; gap: 10px; padding: 6px 0; font-size: 13px; color: var(--text); }
+  .action-step-num { min-width: 20px; height: 20px; border-radius: 50%; background: rgba(99,102,241,0.2); color: var(--accent); font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .actions-none { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+  .actions-none .big-icon { font-size: 40px; margin-bottom: 12px; }
+
   /* EMAIL CAPTURE */
   .email-capture { background: linear-gradient(135deg, var(--surface), var(--surface-2)); border: 1px solid var(--border); border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 32px; }
   .email-capture h3 { font-size: 20px; margin-bottom: 8px; }
@@ -713,6 +780,42 @@ async function loadStoredScan(scanId, domain) {
   }
 }
 
+/* ============================================================
+ * INBOX-46/47/48 — v2 scan-result rendering.
+ *
+ * Structure (top-to-bottom):
+ *   1. Headline score + verdict
+ *   2. PDF / Share buttons (marketing-site only)
+ *   3. Email capture (marketing-site only)
+ *   4. Category blocks (NEW): Authentication / Reputation / Infrastructure —
+ *      each with a category-level score summary, status pill, progress bar.
+ *   5. CTA bridge (NEW): "→ See your top 3 actions"
+ *   6. Top 3 Actions (NEW): prioritised user-fixable issues
+ *   7. Scan-another-domain CTA
+ * ============================================================ */
+
+const ACTION_META = {
+  mx_records:        { difficulty: 'Easy',   time: '10 min', note: 'DNS change only' },
+  spf:               { difficulty: 'Easy',   time: '5 min',  note: 'DNS change only' },
+  dkim:              { difficulty: 'Medium', time: '15 min', note: 'ESP config + DNS' },
+  dmarc:             { difficulty: 'Easy',   time: '5 min',  note: 'DNS change · reversible' },
+  blacklists:        { difficulty: 'Hard',   time: 'varies', note: 'Requires delisting + root-cause fix' },
+  domain_blacklists: { difficulty: 'Hard',   time: 'varies', note: 'Requires delisting + root-cause fix' },
+  tls:               { difficulty: 'Medium', time: '30 min', note: 'Mail server config' },
+  reverse_dns:       { difficulty: 'Medium', time: '15 min', note: 'Requires IP-level control' },
+  ip_reputation:     { difficulty: 'Hard',   time: 'varies', note: 'Sender-reputation improvement' },
+};
+
+function isActionable(check) {
+  if (!check || (check.max_points || 0) === 0) return false;
+  if ((check.points || 0) >= (check.max_points || 0)) return false;
+  if (check.name === 'domain_age') return false;
+  const raw = check.raw_data || {};
+  const verif = raw.verification;
+  if (verif === 'unverified_port_25_blocked' || verif === 'unverified_unknown_provider') return false;
+  return true;
+}
+
 function renderResults(data) {
   const container = document.getElementById('results-container');
   const colorClass = data.summary.color === 'good' ? 'good' : data.summary.color === 'danger' ? 'danger' : 'moderate';
@@ -725,6 +828,12 @@ function renderResults(data) {
   // Update URL to shareable format
   window.history.pushState({ domain: data.domain }, '', `/scan/${data.domain}`);
   window.currentScanData = data;
+
+  const topActions = [authChecks, reputationChecks, infraChecks]
+      .flat()
+      .filter(isActionable)
+      .sort((a, b) => (b.max_points - b.points) - (a.max_points - a.points))
+      .slice(0, 3);
 
   container.innerHTML = `
     <div class="results-header">
@@ -760,9 +869,29 @@ function renderResults(data) {
       <p class="email-capture-note">We'll also alert you if your score changes</p>
     </div>
 
-    ${renderSection('Authentication', authChecks)}
-    ${renderSection('Reputation & Blacklists', reputationChecks)}
-    ${renderSection('Infrastructure', infraChecks)}
+    ${renderCategoryBlock('🔐 Authentication', authChecks)}
+    ${renderCategoryBlock('🛡️ Reputation & Blacklists', reputationChecks)}
+    ${renderCategoryBlock('⚙️ Infrastructure', infraChecks)}
+
+    ${topActions.length > 0 ? `
+    <div class="cta-bridge">
+      <div class="cta-bridge-text"><strong>See something above you want to fix?</strong> We've picked your top ${topActions.length === 1 ? 'win' : topActions.length + ' wins'} — prioritised by point gain.</div>
+      <a href="#home-top-actions" class="cta-bridge-btn">→ See your top ${topActions.length === 1 ? 'action' : topActions.length + ' actions'}</a>
+    </div>
+
+    <div class="actions-section" id="home-top-actions">
+      <div class="actions-heading">Your Top ${topActions.length === 1 ? 'Action' : topActions.length + ' Actions'}</div>
+      <div class="actions-subheading">Prioritised by point gain. Tackle #1 first — biggest win, shortest path.</div>
+      ${topActions.map((c, i) => renderActionCard(c, i + 1)).join('')}
+    </div>` : `
+    <div class="actions-section">
+      <div class="actions-heading">Your Top Actions</div>
+      <div class="actions-none">
+        <div class="big-icon">🎉</div>
+        <div>Nothing to fix — every user-controllable check is at maximum.</div>
+        <div style="margin-top: 8px; font-size: 12px;">Remaining points are limited by our scan infrastructure.</div>
+      </div>
+    </div>`}
 
     <div class="results-cta">
       <h3>Want continuous monitoring?</h3>
@@ -786,20 +915,131 @@ function renderResults(data) {
   }
 }
 
-function renderSection(title, checks) {
+// INBOX-46: category block with header (title + score + pill + bar).
+function renderCategoryBlock(title, checks) {
   if (!checks.length) return '';
+  const scoringChecks = checks.filter(c => (c.max_points || 0) > 0);
+  const earned = scoringChecks.reduce((a, c) => a + (c.points || 0), 0);
+  const max = scoringChecks.reduce((a, c) => a + (c.max_points || 0), 0);
+  const pct = max > 0 ? Math.round((earned / max) * 100) : 0;
+
+  let pillClass, pillText, fillClass;
+  if (max === 0) {
+    pillClass = 'pill-ok'; pillText = 'Info'; fillClass = 'fill-yellow';
+  } else if (pct >= 95) {
+    pillClass = 'pill-strong'; pillText = 'Strong'; fillClass = 'fill-green';
+  } else if (pct >= 85) {
+    pillClass = 'pill-good'; pillText = 'Good'; fillClass = 'fill-green';
+  } else if (pct >= 70) {
+    pillClass = 'pill-ok'; pillText = 'OK'; fillClass = 'fill-yellow';
+  } else if (pct >= 50) {
+    pillClass = 'pill-weak'; pillText = 'Needs work'; fillClass = 'fill-orange';
+  } else {
+    pillClass = 'pill-fail'; pillText = 'Critical'; fillClass = 'fill-red';
+  }
+
+  const infoCount = checks.length - scoringChecks.length;
+  const subLabel = max === 0
+    ? `${checks.length} informational check${checks.length !== 1 ? 's' : ''}`
+    : `${scoringChecks.length} scoring${infoCount > 0 ? ` · ${infoCount} info` : ''}`;
+
   return `
-    <div class="section-label">${title}</div>
-    <div class="checks-grid">
-      ${checks.map(c => renderCheckCard(c)).join('')}
+    <div class="category-block">
+      <div class="category-header">
+        <div class="category-header-left">
+          <span class="category-title">${title}</span>
+          ${max > 0 ? `<span class="category-score">${earned} / ${max}</span>` : ''}
+          <span class="category-status-pill ${pillClass}">${pillText}</span>
+        </div>
+        ${max > 0 ? `
+        <div class="category-progress">
+          <div class="category-progress-bar"><div class="category-progress-fill ${fillClass}" style="width: ${pct}%;"></div></div>
+          <div class="category-progress-label">${subLabel}</div>
+        </div>` : ''}
+      </div>
+      <div class="checks-grid">
+        ${checks.map(c => renderCheckCard(c)).join('')}
+      </div>
     </div>
   `;
 }
+
+// INBOX-46: Top 3 Actions card.
+function renderActionCard(check, priority) {
+  const meta = ACTION_META[check.name] || { difficulty: 'Medium', time: 'varies', note: '' };
+  const gain = (check.max_points || 0) - (check.points || 0);
+  const diffClass = meta.difficulty.toLowerCase() === 'easy' ? 'difficulty-easy'
+                   : meta.difficulty.toLowerCase() === 'hard' ? 'difficulty-hard'
+                   : 'difficulty-medium';
+  const titleMap = {
+    mx_records: 'Improve your MX record setup',
+    spf: 'Tighten your SPF record',
+    dkim: 'Strengthen your DKIM key',
+    dmarc: 'Tighten your DMARC policy',
+    blacklists: 'Resolve blacklist listing(s)',
+    domain_blacklists: 'Resolve domain blacklist listing(s)',
+    tls: 'Fix TLS encryption setup',
+    reverse_dns: 'Set up reverse DNS (PTR)',
+    ip_reputation: 'Improve sending IP reputation',
+  };
+  const headline = titleMap[check.name] || check.title || 'Improve this check';
+
+  const stepsHtml = (check.fix_steps || []).map((step, i) => `
+    <div class="action-step">
+      <div class="action-step-num">${i + 1}</div>
+      <div>${escapeHtml(step)}</div>
+    </div>
+  `).join('');
+
+  return `
+    <div class="action-card priority-${priority}" id="home-action-${priority}">
+      <div class="action-num">${priority}</div>
+      <div class="action-body">
+        <div class="action-title">
+          ${escapeHtml(headline)}
+          <span class="action-gain">+${gain} pt${gain !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="action-summary">${escapeHtml(check.detail || '')}</div>
+        <div class="action-meta">
+          <span>🕐 ${escapeHtml(meta.time)}</span>
+          <span class="${diffClass}">● ${escapeHtml(meta.difficulty)}</span>
+          ${meta.note ? `<span>🔧 ${escapeHtml(meta.note)}</span>` : ''}
+          <button class="action-show-fix" onclick="toggleHomeAction('home-action-${priority}')">Show fix</button>
+        </div>
+        ${stepsHtml ? `<div class="action-expanded">${stepsHtml}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function toggleHomeAction(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('is-open');
+}
+
+// Legacy renderSection kept as a no-op for backward compat — not called from new renderResults.
+function renderSection(title, checks) { return ''; }
 
 function renderCheckCard(check) {
   const icon = ICON_MAP[check.name] || '📋';
   const statusClass = check.status === 'pass' ? 'status-pass' : check.status === 'warn' ? 'status-warn' : check.status === 'fail' ? 'status-fail' : 'status-info';
   const statusText = check.status === 'pass' ? 'Pass' : check.status === 'warn' ? 'Warning' : check.status === 'fail' ? 'Fail' : 'Info';
+
+  // INBOX-47: per-check score badge. Distinguishes perfect / points-lost / info-only.
+  const pts = check.points || 0;
+  const maxPts = check.max_points || 0;
+  let scoreBadge = '';
+  if (maxPts === 0) {
+    scoreBadge = `<span class="check-card-score score-info">Info only</span>`;
+  } else if (pts >= maxPts) {
+    scoreBadge = `<span class="check-card-score score-perfect">${pts} / ${maxPts}</span>`;
+  } else if (check.status === 'fail') {
+    scoreBadge = `<span class="check-card-score score-fail">${pts} / ${maxPts}</span>`;
+  } else if (check.status === 'warn') {
+    scoreBadge = `<span class="check-card-score score-warn">${pts} / ${maxPts}</span>`;
+  } else {
+    scoreBadge = `<span class="check-card-score score-lost">${pts} / ${maxPts}</span>`;
+  }
 
   // Format detail with code tags for DNS records (escape first, then add formatting)
   let detail = escapeHtml(check.detail).replace(/(v=spf1[^&"]*)/g, '<code>$1</code>')
@@ -863,7 +1103,10 @@ function renderCheckCard(check) {
     <div class="check-card" onclick="this.classList.toggle('expanded')">
       <div class="check-card-header">
         <div class="check-card-title">${icon} ${escapeHtml(check.title)}</div>
-        <span class="status-badge ${statusClass}">${statusText}</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          ${scoreBadge}
+          <span class="status-badge ${statusClass}">${statusText}</span>
+        </div>
       </div>
       <div class="check-card-detail">${detail}</div>
       <div class="check-card-expand">${expandContent}</div>
