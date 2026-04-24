@@ -238,3 +238,61 @@ class TestNoMxBranch:
         assert result.status == "info"
         assert result.points == 0
         assert result.max_points == 10
+
+
+# --------------------------------------------------------------------
+# INBOX-45 — timeout budget fits within scan_service budget
+# --------------------------------------------------------------------
+
+class TestTimeoutBudget:
+    """Ensure per-MX connect timeout × MX attempts does NOT exceed
+    scan_service.py's TLS check budget (10s). Previously 4s × 3 = 12s
+    overran, causing check_tls to never reach its pattern-match fallback
+    — the scan-service wrapper killed the future at 10s and returned
+    a generic WARN 0/10 that blamed the user for our infrastructure
+    limitation.
+    """
+
+    def test_connect_timeout_fits_in_scan_service_budget(self):
+        import socket as _socket
+        # Source-inspect check_tls to find the create_connection timeout arg.
+        # The check must not use a timeout that, when multiplied by the MX
+        # attempt cap, overruns the scan_service budget.
+        import inspect
+        src = inspect.getsource(checks.check_tls)
+        # Crude extraction: find 'create_connection((mx_host, 25), timeout=N)'
+        import re
+        m = re.search(r"create_connection\(\(mx_host, 25\),\s*timeout=(\d+)", src)
+        assert m, "expected create_connection with a timeout kwarg inside check_tls"
+        per_mx_timeout = int(m.group(1))
+        # check_tls tries mx_hosts[:3] → 3 attempts max.
+        MX_ATTEMPT_CAP = 3
+        # scan_service.py sets the TLS future timeout to 10s.
+        SCAN_BUDGET = 10
+        worst_case = per_mx_timeout * MX_ATTEMPT_CAP
+        assert worst_case < SCAN_BUDGET, (
+            f"INBOX-45 regression: per-MX connect timeout ({per_mx_timeout}s) "
+            f"× {MX_ATTEMPT_CAP} MX attempts = {worst_case}s exceeds "
+            f"scan_service's TLS check budget ({SCAN_BUDGET}s). "
+            "When port 25 is blocked from the scan origin, all 3 attempts "
+            "time out and the function never reaches its fallback branch."
+        )
+
+    def test_all_mx_connect_timeouts_still_reach_pattern_match(self):
+        # Simulate the live Render scenario: every connect attempt
+        # hits a socket.timeout (port 25 blocked). The function must
+        # STILL produce the INFO-5/10 pattern-match result for Google,
+        # not fall through to any sort of error.
+        import socket as _socket
+        with patch.object(checks, "safe_dns_query",
+                          side_effect=_mx_only_stub({"acme.test": ["10 aspmx.l.google.com"]})), \
+             patch("checks.socket.create_connection",
+                   side_effect=_socket.timeout("timed out")):
+            result = checks.check_tls("acme.test")
+
+        # Expected: pattern-match detected Google → INFO 5/10 (unverified).
+        assert result.status == "info"
+        assert result.points == 5
+        raw = result.raw_data or {}
+        assert raw.get("inferred_provider") == "Google Workspace"
+        assert raw.get("verification") == "unverified_port_25_blocked"

@@ -835,7 +835,14 @@ def check_tls(domain: str) -> CheckResult:
 
     for mx_host in mx_hosts[:3]:  # Try up to 3 MX hosts
         try:
-            sock = socket.create_connection((mx_host, 25), timeout=4)
+            # INBOX-45: 3s connect timeout (was 4s). Budget arithmetic:
+            #   3 MX × 3s = 9s, fits in scan_service's 10s TLS budget with
+            #   1s headroom for the pattern-match fallback pass. Previously
+            #   3 × 4s = 12s overran the budget by 2s, causing the whole
+            #   check to fall through to the generic crash-warn and the
+            #   intended "port 25 blocked + known provider → INFO 5/10"
+            #   branch never ran.
+            sock = socket.create_connection((mx_host, 25), timeout=3)
             sock.recv(1024)  # consume banner
 
             # Send EHLO
