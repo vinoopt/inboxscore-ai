@@ -416,7 +416,13 @@ def export_user_data(user_id: str) -> dict:
 
 
 def delete_user_data(user_id: str) -> bool:
-    """Delete all user data (scans, domains, rate limits, profile)"""
+    """Delete all user data (scans, domains, rate limits, profile).
+
+    INBOX-30: the rate_limits filter was `WHERE ip_address = <user_id UUID>`,
+    which Postgres silently refused (UUID can't be cast to INET), leaving
+    the user's rate-limit rows behind forever. Fixed by filtering on the
+    new rate_limits.user_id column added in migration 009.
+    """
     sb = get_supabase()
     if not sb:
         return False
@@ -424,7 +430,7 @@ def delete_user_data(user_id: str) -> bool:
         # Delete in order: scans, domains, rate limits, profile
         sb.table("scans").delete().eq("user_id", user_id).execute()
         sb.table("domains").delete().eq("user_id", user_id).execute()
-        sb.table("rate_limits").delete().eq("ip_address", user_id).execute()
+        sb.table("rate_limits").delete().eq("user_id", user_id).execute()
         sb.table("profiles").delete().eq("id", user_id).execute()
         return True
     except Exception as e:
@@ -736,11 +742,23 @@ def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -
         max_scans = limit
 
     try:
-        # Use user_id as key for logged-in users, IP for anonymous
-        lookup_key = user_id if user_id else ip_address
+        # INBOX-30: authenticated users key on the user_id column (added
+        # in migration 009); anonymous users key on ip_address. The old
+        # code stored the user_id UUID in the ip_address INET column for
+        # logged-in users — Postgres rejected the INSERT/UPDATE, the
+        # bare except swallowed the error, and rate limiting was
+        # silently disabled for every authenticated user.
+        if user_id:
+            key_column = "user_id"
+            key_value = user_id
+            insert_row = {"user_id": user_id, "scan_count": 1, "date": today}
+        else:
+            key_column = "ip_address"
+            key_value = ip_address
+            insert_row = {"ip_address": ip_address, "scan_count": 1, "date": today}
 
         result = sb.table("rate_limits").select("*").eq(
-            "ip_address", lookup_key
+            key_column, key_value
         ).eq("date", today).execute()
 
         if result.data:
@@ -756,7 +774,7 @@ def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -
             # Increment count — conditional update to reduce race window
             sb.table("rate_limits").update(
                 {"scan_count": current_count + 1}
-            ).eq("ip_address", lookup_key).eq("date", today).lt(
+            ).eq(key_column, key_value).eq("date", today).lt(
                 "scan_count", max_scans
             ).execute()
 
@@ -768,11 +786,7 @@ def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -
             }
         else:
             # First scan today — insert new record
-            sb.table("rate_limits").insert({
-                "ip_address": lookup_key,
-                "scan_count": 1,
-                "date": today,
-            }).execute()
+            sb.table("rate_limits").insert(insert_row).execute()
 
             return {
                 "allowed": True,

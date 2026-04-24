@@ -653,8 +653,13 @@ async def api_user_plan(req: Request):
         if sb:
             try:
                 today = date_type.today().isoformat()
+                # INBOX-30: filter on user_id (rate_limits.user_id column
+                # added in migration 009). Previously filtered on
+                # ip_address = <user_id UUID>, which Postgres silently
+                # refused; scans_today always returned 0 for authenticated
+                # users and the profile UI always showed "0 scans used today."
                 result = sb.table("rate_limits").select("scan_count").eq(
-                    "ip_address", user_id
+                    "user_id", user_id
                 ).eq("date", today).execute()
                 if result.data:
                     scans_today = result.data[0]["scan_count"]

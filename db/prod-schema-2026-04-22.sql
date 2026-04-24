@@ -206,11 +206,16 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 );
 
 -- Table: rate_limits
+-- INBOX-30 (migration 009, applied 2026-04-24): user_id UUID column added,
+-- ip_address relaxed to nullable. Authenticated users key on user_id
+-- (NULL ip_address); anonymous users key on ip_address (NULL user_id).
+-- CHECK constraint enforces at least one is populated.
 CREATE TABLE IF NOT EXISTS public.rate_limits (
     id uuid DEFAULT 'extensions.uuid_generate_v4()' NOT NULL PRIMARY KEY,
-    ip_address inet NOT NULL,
+    ip_address inet,
     scan_count integer DEFAULT 1 NOT NULL,
-    date date DEFAULT 'CURRENT_DATE' NOT NULL
+    date date DEFAULT 'CURRENT_DATE' NOT NULL,
+    user_id uuid
 );
 
 -- Table: scans
