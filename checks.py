@@ -1268,8 +1268,11 @@ def check_domain_age(domain: str) -> CheckResult:
                 max_points=0
             )
 
-        # Calculate age
-        now = datetime.now(creation_date.tzinfo) if creation_date.tzinfo else datetime.utcnow()
+        # Calculate age — INBOX-29: always tz-aware (naive creation_date is
+        # treated as UTC, matching how Supabase/whois consumers behave).
+        if creation_date.tzinfo is None:
+            creation_date = creation_date.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
         age_days = (now - creation_date).days
         age_years = age_days / 365.25
 

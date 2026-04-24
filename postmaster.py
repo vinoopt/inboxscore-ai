@@ -61,7 +61,7 @@ async def exchange_code_for_tokens(code: str) -> dict:
 
         data = response.json()
         expires_in = data.get("expires_in", 3600)
-        token_expiry = (datetime.utcnow() + timedelta(seconds=expires_in)).isoformat()
+        token_expiry = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
 
         return {
             "access_token": data["access_token"],
@@ -86,7 +86,7 @@ async def refresh_access_token(refresh_token: str) -> dict:
 
         data = response.json()
         expires_in = data.get("expires_in", 3600)
-        token_expiry = (datetime.utcnow() + timedelta(seconds=expires_in)).isoformat()
+        token_expiry = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
 
         return {
             "access_token": data["access_token"],
@@ -386,7 +386,7 @@ async def ensure_valid_token(user_id: str, connection: dict) -> str:
     #
     #   L14 — compare tz-AWARE "now" to a tz-AWARE expiry, both anchored
     #         to UTC. The old code stripped tz off the parsed expiry and
-    #         compared it to naive datetime.utcnow() — correct only as
+    #         compared it to naive datetime.now(timezone.utc) — correct only as
     #         long as the OS clock happens to match UTC. Edge-of-expiry
     #         requests could 401 if the two were even a few seconds off.
     #
@@ -470,8 +470,8 @@ async def fetch_metrics_for_user(user_id: str, connection: dict, days: int = 7) 
         return result
 
     # v2 advantage: fetch entire date range in one API call per domain
-    end_date = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
-    start_date = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+    end_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    start_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
     for domain_resource in domain_resources:
         domain_name = domain_resource.replace("domains/", "")

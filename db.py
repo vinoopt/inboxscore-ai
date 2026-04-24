@@ -408,7 +408,7 @@ def export_user_data(user_id: str) -> dict:
             "profile": profile.data[0] if profile.data else {},
             "scans": scans.data or [],
             "domains": domains.data or [],
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         print(f"Error exporting user data: {e}")
@@ -575,7 +575,7 @@ def get_domains_due_for_scan() -> list:
         # last_monitored_at as an ISO string with "+00:00" or "Z"; Python
         # datetime with tzinfo=UTC subtracts cleanly. The old code
         # stripped tz from last_dt and compared it to a naive
-        # datetime.utcnow() — the exact pattern that masked INBOX-1.
+        # datetime.now(timezone.utc) — the exact pattern that masked INBOX-1.
         now = datetime.now(timezone.utc)
         due = []
         for d in domains:
@@ -644,7 +644,7 @@ def update_domain_after_monitor_scan(domain_id: str, new_score: int, scan_id: st
         update_data = {
             "latest_score": new_score,
             "latest_scan_id": scan_id,
-            "last_monitored_at": datetime.utcnow().isoformat(),
+            "last_monitored_at": datetime.now(timezone.utc).isoformat(),
             "previous_score": previous_score,
         }
         sb.table("domains").update(update_data).eq("id", domain_id).execute()
@@ -800,7 +800,7 @@ def save_postmaster_connection(user_id: str, access_token: str, refresh_token: s
             "refresh_token": refresh_token,
             "token_expiry": token_expiry,
             "google_email": google_email,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         result = sb.table("postmaster_connections").upsert(
             data, on_conflict="user_id"
@@ -835,7 +835,7 @@ def update_postmaster_tokens(user_id: str, access_token: str, token_expiry: str)
         sb.table("postmaster_connections").update({
             "access_token": access_token,
             "token_expiry": token_expiry,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("user_id", user_id).execute()
         return True
     except Exception as e:
@@ -901,7 +901,7 @@ def get_postmaster_metrics(user_id: str, domain: str, days: int = 30) -> list:
         return []
     try:
         from datetime import timedelta
-        cutoff = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
         result = sb.table("postmaster_metrics").select("*").eq(
             "user_id", user_id
         ).eq("domain", domain).gte("date", cutoff).order("date", desc=False).execute()
@@ -952,7 +952,7 @@ def log_postmaster_sync(user_id: str, status: str, domains_synced: int = 0,
             "user_id": user_id,
             "status": status,
             "domains_synced": domains_synced,
-            "sync_completed_at": datetime.utcnow().isoformat(),
+            "sync_completed_at": datetime.now(timezone.utc).isoformat(),
         }
         if sync_started_at:
             data["sync_started_at"] = sync_started_at
@@ -977,7 +977,7 @@ def save_snds_connection(user_id: str, snds_key: str) -> dict:
         data = {
             "user_id": user_id,
             "snds_key": snds_key,
-            "connected_at": datetime.utcnow().isoformat(),
+            "connected_at": datetime.now(timezone.utc).isoformat(),
         }
         result = sb.table("snds_connections").upsert(
             data, on_conflict="user_id"
@@ -1038,7 +1038,7 @@ def update_snds_sync_status(user_id: str, ip_count: int) -> bool:
         return False
     try:
         sb.table("snds_connections").update({
-            "last_sync_at": datetime.utcnow().isoformat(),
+            "last_sync_at": datetime.now(timezone.utc).isoformat(),
             "ip_count": ip_count,
         }).eq("user_id", user_id).execute()
         return True
@@ -1081,7 +1081,7 @@ def get_snds_metrics(user_id: str, days: int = 30) -> list:
         return []
     try:
         from datetime import timedelta
-        cutoff = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
         result = sb.table("snds_metrics").select("*").eq(
             "user_id", user_id
         ).gte("metric_date", cutoff).order("metric_date", desc=False).execute()
@@ -1098,7 +1098,7 @@ def get_snds_metrics_for_ip(user_id: str, ip_address: str, days: int = 30) -> li
         return []
     try:
         from datetime import timedelta
-        cutoff = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
         result = sb.table("snds_metrics").select("*").eq(
             "user_id", user_id
         ).eq("ip_address", ip_address).gte(

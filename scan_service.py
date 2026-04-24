@@ -22,7 +22,7 @@ scheduler. Pure scan composition + summary generation.
 
 import concurrent.futures
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from checks import (
     CheckResult,
@@ -167,7 +167,7 @@ def run_full_scan(domain: str, source: str = "api") -> dict:
         "summary": summary,
         "checks": [c.dict() for c in checks],
         "scan_time": scan_time,
-        "scanned_at": datetime.utcnow().isoformat(),
+        "scanned_at": datetime.now(timezone.utc).isoformat(),
     }
 
 

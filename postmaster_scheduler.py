@@ -5,7 +5,7 @@ Daily background job that fetches Google Postmaster metrics for all connected us
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from db import (
     is_db_available, get_all_postmaster_connections,
@@ -51,7 +51,7 @@ def sync_all_postmaster_users():
         try:
             for conn in connections:
                 user_id = conn["user_id"]
-                sync_started = datetime.utcnow().isoformat()
+                sync_started = datetime.now(timezone.utc).isoformat()
 
                 try:
                     result = loop.run_until_complete(

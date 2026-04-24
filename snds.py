@@ -13,7 +13,7 @@ Returns CSV with columns:
 import httpx
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # ─── SNDS API CONFIG ───────────────────────────────────────────
@@ -235,7 +235,7 @@ def _parse_complaint_rate(rate_str: str) -> float:
 def _parse_snds_date(date_str: str) -> str:
     """Parse SNDS date string into YYYY-MM-DD format"""
     if not date_str:
-        return datetime.utcnow().strftime("%Y-%m-%d")
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
     try:
         # SNDS uses formats like "3/8/2026 12:00 AM" or ISO-ish formats
         for fmt in ("%m/%d/%Y %I:%M %p", "%m/%d/%Y %H:%M", "%Y-%m-%dT%H:%M:%S",
@@ -248,7 +248,7 @@ def _parse_snds_date(date_str: str) -> str:
         # If no format matches, try to extract just the date part
         return date_str.split(" ")[0].strip() if " " in date_str else date_str.strip()
     except Exception:
-        return datetime.utcnow().strftime("%Y-%m-%d")
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
 def _looks_like_ip(s: str) -> bool:

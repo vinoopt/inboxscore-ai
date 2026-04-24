@@ -4,7 +4,7 @@ Generates branded deliverability reports from scan results.
 """
 
 import io
-from datetime import datetime
+from datetime import datetime, timezone
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.colors import HexColor, white, black
 from reportlab.lib.units import inch
@@ -184,7 +184,7 @@ def generate_pdf_report(scan_data: dict) -> bytes:
     score = scan_data.get("score", 0)
     checks = scan_data.get("checks", [])
     scan_time = scan_data.get("scan_time", 0)
-    scanned_at = scan_data.get("scanned_at", datetime.utcnow().isoformat())
+    scanned_at = scan_data.get("scanned_at", datetime.now(timezone.utc).isoformat())
     summary = scan_data.get("summary", {})
 
     # Parse date

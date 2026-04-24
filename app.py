@@ -12,7 +12,7 @@ import time
 import re
 import os
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
@@ -296,7 +296,7 @@ def save_subscriber_local(email: str, domain: str, score: int):
                 'email': email,
                 'domain': domain,
                 'score': score,
-                'subscribed_at': datetime.utcnow().isoformat()
+                'subscribed_at': datetime.now(timezone.utc).isoformat()
             })
 
         with open(subscribers_file, 'w') as f:
@@ -1412,7 +1412,7 @@ async def api_export_scans_csv(req: Request):
     csv_content = output.getvalue()
     output.close()
 
-    filename = f"inboxscore-scan-history-{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    filename = f"inboxscore-scan-history-{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
 
     return Response(
         content=csv_content,
