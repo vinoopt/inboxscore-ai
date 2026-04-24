@@ -977,6 +977,14 @@ def check_domain_blacklists(domain: str) -> CheckResult:
     listed_on = []
     error_on = []
 
+    # INBOX-50: refusal keywords observed in live TXT responses from URIBL
+    # (and SURBL/Spamhaus fall-through cases). When a DBL returns an A record
+    # of 127.0.0.1, it's almost always a "query refused" sentinel — URIBL
+    # explicitly returns this with a TXT record pointing to uribl.com/refused.
+    # We check the TXT record to disambiguate a real listing from a refusal.
+    REFUSAL_TXT_MARKERS = ("refused", "blocked", "query", "public", "rate-limit",
+                            "denied", "not authorized", "refused.shtml")
+
     def _query_domain_bl(bl: str):
         query = f"{domain}.{bl}"
         try:
@@ -987,9 +995,32 @@ def check_domain_blacklists(domain: str) -> CheckResult:
             codes = sorted({str(rr) for rr in ans})
         except Exception:
             return None  # NXDOMAIN / timeout — treat as clean
-        # INBOX-39 reuse: 127.255.255.* is the Spamhaus error range.
+
+        # INBOX-39: 127.255.255.* is the Spamhaus error/rate-limit range.
         if codes and all(c.startswith("127.255.255.") for c in codes):
-            return {"blacklist": bl, "listing_type": "error", "codes": codes}
+            return {"blacklist": bl, "listing_type": "error",
+                    "codes": codes, "error_reason": "spamhaus_sentinel"}
+
+        # INBOX-50: URIBL returns 127.0.0.1 with a TXT record when refusing
+        # queries from public resolvers. Confirm via TXT before classifying
+        # as a real listing. (URIBL's real listings are 127.0.0.2/4/8/14.)
+        if codes == ["127.0.0.1"]:
+            txt_text = ""
+            try:
+                txt_ans = resolver.resolve(query, "TXT")
+                txt_text = " ".join(str(rr) for rr in txt_ans).lower()
+            except Exception:
+                txt_text = ""
+            if any(marker in txt_text for marker in REFUSAL_TXT_MARKERS):
+                return {"blacklist": bl, "listing_type": "error",
+                        "codes": codes, "error_reason": "public_resolver_refused",
+                        "txt": txt_text[:200]}
+            # No TXT — conservative: treat as error anyway since 127.0.0.1 is
+            # not a standard listing code on any major DBL. Spam listings are
+            # 127.0.0.2-9 (Spamhaus/URIBL) or 127.0.1.* (Spamhaus DBL scoped).
+            return {"blacklist": bl, "listing_type": "error",
+                    "codes": codes, "error_reason": "nonstandard_127.0.0.1_response"}
+
         return {"blacklist": bl, "listing_type": "spam", "codes": codes}
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -1012,11 +1043,48 @@ def check_domain_blacklists(domain: str) -> CheckResult:
 
     if listings == 0:
         effectively_checked = total_bls - len(errored_bls)
-        detail = (
-            f"{domain} not listed on any of {effectively_checked} domain blacklists checked"
-            if effectively_checked > 0
-            else f"{domain} — could not query any domain blacklist (our scan server is rate-limited)"
-        )
+
+        # INBOX-50: when every DBL refuses the query (Render's outbound DNS
+        # goes through cloud resolvers, which most DBLs block), we literally
+        # cannot verify listing status. Report this honestly as info-only
+        # (max_points=0, points=0) and point the user to an external tool —
+        # consistent with TLS fallback (INBOX-24) and the info-only treatment
+        # of BIMI / Domain Age / MTA-STS.
+        if effectively_checked == 0:
+            hetrix_url = f"https://hetrixtools.com/blacklist-check/{domain}"
+            return CheckResult(
+                name="domain_blacklists",
+                category="reputation",
+                status="info",
+                title="Domain Blacklists",
+                detail=(
+                    f"Could not verify domain blacklist status for {domain} from our "
+                    f"scan server — all {total_bls} blacklists ({', '.join(errored_bls)}) "
+                    "refused the query because we're hitting them from a public-DNS "
+                    f"resolver IP. Verify externally at: {hetrix_url}"
+                ),
+                raw_data={
+                    "checked": total_bls,
+                    "effectively_checked": 0,
+                    "listed": [],
+                    "error_listings": error_on,
+                    "fully_errored_blacklists": errored_bls,
+                    "external_verification_url": hetrix_url,
+                },
+                fix_steps=[
+                    f"Our scan server could not query domain blacklists directly. Verify on HetrixTools: {hetrix_url}",
+                    "If you see a real listing there, use the DBL-specific removal process "
+                    "(Spamhaus DBL: https://www.spamhaus.org/dbl/removal/  •  URIBL: "
+                    "https://uribl.com/lookup.shtml  •  SURBL: https://www.surbl.org/surbl-analysis).",
+                    "We're working on integrating HetrixTools' API to give you real-time data "
+                    "directly in your InboxScore report (tracked in INBOX-51).",
+                ],
+                points=0,
+                max_points=0,
+            )
+
+        # At least one DBL answered and none showed a listing.
+        detail = f"{domain} not listed on any of {effectively_checked} domain blacklists checked"
         if errored_bls:
             detail += (
                 f". Note: {len(errored_bls)} blacklist{'s' if len(errored_bls) != 1 else ''} "

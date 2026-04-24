@@ -278,3 +278,129 @@ class TestCheckDomainBlacklists:
         raw = result.raw_data or {}
         assert len(raw.get("listed") or []) == 1
         assert "multi.surbl.org" in (raw.get("fully_errored_blacklists") or [])
+
+
+# --------------------------------------------------------------------
+# INBOX-50 — URIBL 127.0.0.1 "Query Refused" sentinel handling
+# --------------------------------------------------------------------
+
+class TestCheckDomainBlacklistsUriblRefusal:
+    """URIBL (and SURBL in some configs) return 127.0.0.1 with a TXT record
+    to refuse public-resolver queries. We must NOT treat those as listings.
+
+    Pinned evidence — URIBL live TXT record (2026-04-24):
+        "127.0.0.1 -> Query Refused. See http://uribl.com/refused.shtml for
+         more information [Your DNS IP: 162.158.215.32]"
+    """
+
+    def _stub_with_txt(self, a_map: dict, txt_map: dict | None = None):
+        """Build a Resolver stub returning A + TXT per blacklist."""
+        txt_map = txt_map or {}
+        class StubResolver:
+            def __init__(self):
+                self.timeout = 2
+                self.lifetime = 2
+            def resolve(self, query, rtype):
+                for bl, codes in a_map.items():
+                    if query.endswith("." + bl) or query == bl:
+                        if rtype == "A":
+                            if not codes:
+                                raise Exception("NXDOMAIN")
+                            return [MagicMock(__str__=lambda self, c=c: c)
+                                    for c in codes]
+                        if rtype == "TXT":
+                            txt = txt_map.get(bl)
+                            if not txt:
+                                raise Exception("NXDOMAIN")
+                            return [MagicMock(__str__=lambda self, t=txt: t)]
+                raise Exception("NXDOMAIN")
+        return StubResolver
+
+    def test_uribl_127_0_0_1_with_refused_txt_is_not_a_listing(self):
+        """The voicenotes.com scenario — URIBL returns 127.0.0.1 with a TXT
+        record documenting the refusal. Before INBOX-50 this produced a
+        false FAIL ('listed on black.uribl.com')."""
+        a_map = {
+            "black.uribl.com": ["127.0.0.1"],
+            # Other two DBLs don't answer
+        }
+        txt_map = {
+            "black.uribl.com": '"127.0.0.1 -> Query Refused. See '
+                               'http://uribl.com/refused.shtml for more "'
+                               '"information [Your DNS IP: 1.2.3.4]"',
+        }
+        with patch.object(checks.dns.resolver, "Resolver",
+                          self._stub_with_txt(a_map, txt_map)):
+            result = checks.check_domain_blacklists("voicenotes.com")
+
+        assert result.status != "fail", (
+            "INBOX-50: a URIBL 127.0.0.1 refusal must NOT be treated as a "
+            "listing. This was the exact voicenotes.com false positive."
+        )
+        raw = result.raw_data or {}
+        assert (raw.get("listed") or []) == []
+        assert "black.uribl.com" in (raw.get("fully_errored_blacklists") or [])
+
+    def test_all_dbls_refuse_returns_info_not_pass(self):
+        """When every DBL refuses, we literally cannot verify. Must report
+        info-only (0/0 max_points) — NOT a false pass with 10/10."""
+        a_map = {
+            "dbl.spamhaus.org": ["127.255.255.254"],   # Spamhaus sentinel
+            "multi.surbl.org": ["127.0.0.1"],           # refusal
+            "black.uribl.com": ["127.0.0.1"],           # refusal
+        }
+        txt_map = {
+            "multi.surbl.org": '"query blocked from public resolver"',
+            "black.uribl.com": '"Query Refused. See uribl.com/refused.shtml"',
+        }
+        with patch.object(checks.dns.resolver, "Resolver",
+                          self._stub_with_txt(a_map, txt_map)):
+            result = checks.check_domain_blacklists("voicenotes.com")
+
+        assert result.status == "info", (
+            "All 3 DBLs refused → cannot verify → info-only, NOT pass."
+        )
+        assert result.max_points == 0, (
+            "Info-only check must not contribute to the denominator — "
+            "consistent with BIMI / Domain Age / MTA-STS."
+        )
+        assert result.points == 0
+        raw = result.raw_data or {}
+        assert raw.get("effectively_checked") == 0
+        # External verification link — matches what the UI surfaces
+        assert "hetrixtools" in (result.detail or "").lower()
+        assert raw.get("external_verification_url", "").startswith(
+            "https://hetrixtools.com/blacklist-check/"
+        )
+
+    def test_uribl_127_0_0_2_is_still_a_real_listing(self):
+        """Spam listing codes (127.0.0.2/4/8/14) must NOT be overridden by
+        the new 127.0.0.1 refusal logic."""
+        a_map = {"black.uribl.com": ["127.0.0.2"]}  # URIBL black listing
+        with patch.object(checks.dns.resolver, "Resolver",
+                          self._stub_with_txt(a_map, {})):
+            result = checks.check_domain_blacklists("actually-spammy.example")
+
+        assert result.status == "fail"
+        assert result.points == 0
+        assert result.max_points == 10
+        assert "black.uribl.com" in (result.detail or "")
+
+    def test_127_0_0_1_without_txt_is_conservative_error(self):
+        """If a DBL returns 127.0.0.1 but has no TXT to confirm the
+        refusal, we still treat it as error — 127.0.0.1 is not a valid
+        listing code on any major DBL, so assuming a real listing would
+        generate false positives."""
+        a_map = {
+            "black.uribl.com": ["127.0.0.1"],
+            "dbl.spamhaus.org": [],   # NXDOMAIN
+            "multi.surbl.org": [],    # NXDOMAIN
+        }
+        with patch.object(checks.dns.resolver, "Resolver",
+                          self._stub_with_txt(a_map, {})):  # no TXT
+            result = checks.check_domain_blacklists("example.com")
+
+        assert result.status != "fail"
+        raw = result.raw_data or {}
+        assert (raw.get("listed") or []) == []
+        assert "black.uribl.com" in (raw.get("fully_errored_blacklists") or [])
