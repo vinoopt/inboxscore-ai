@@ -120,6 +120,73 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .domain-summary-grid { grid-template-columns: 1fr; }
 }
+
+/* INBOX-33: Scan input + scan-in-progress + scan-results views */
+.dash-view { display: none; }
+.dash-view.active { display: block; }
+
+.scan-box-dash { display: flex; gap: 8px; margin-bottom: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px; }
+.scan-box-dash input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; }
+.scan-box-dash input::placeholder { color: var(--text-muted); }
+.scan-box-dash button { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+.scan-box-dash button:hover { opacity: 0.9; }
+.scan-box-dash button:disabled { opacity: 0.6; cursor: not-allowed; }
+.scan-error-dash { background: rgba(239,68,68,0.1); border: 1px solid var(--red); color: var(--red); padding: 10px 14px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; display: none; }
+
+.back-to-dash { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; margin-bottom: 20px; cursor: pointer; background: none; border: none; font-family: inherit; padding: 4px 0; }
+.back-to-dash:hover { color: var(--text); }
+
+/* Scan-in-progress view */
+.scan-loading { text-align: center; padding: 48px 20px; }
+.scan-loading-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.scan-loading-subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
+.check-list { max-width: 420px; margin: 0 auto; text-align: left; }
+.check-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; color: var(--text-muted); transition: all 0.3s; font-size: 14px; }
+.check-item.active { background: var(--surface-2); color: var(--text); }
+.check-item.done { color: var(--green); }
+.check-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.check-item.active .check-dot { border-color: var(--accent); border-top-color: transparent; animation: spin 0.8s linear infinite; }
+.check-item.done .check-dot { background: var(--green); border-color: var(--green); color: #fff; animation: none; }
+
+/* Scan-results view */
+.results-header { display: flex; align-items: center; gap: 24px; margin-bottom: 20px; padding: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; flex-wrap: wrap; }
+.score-circle { width: 92px; height: 92px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; border: 4px solid; }
+.score-circle.good { border-color: var(--green); color: var(--green); }
+.score-circle.moderate { border-color: var(--yellow); color: var(--yellow); }
+.score-circle.danger { border-color: var(--red); color: var(--red); }
+.score-number { font-size: 28px; font-weight: 700; line-height: 1; }
+.score-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+.results-summary { flex: 1; min-width: 240px; }
+.results-summary h2 { font-size: 18px; margin-bottom: 4px; }
+.results-domain { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+.results-verdict { font-size: 14px; color: var(--text); margin-bottom: 12px; line-height: 1.5; }
+.results-meta { display: flex; gap: 14px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
+
+.save-monitor-card { background: rgba(99,102,241,0.08); border: 1px solid var(--accent); border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.save-monitor-text { flex: 1; font-size: 13px; color: var(--text); }
+.save-monitor-text strong { color: var(--accent); }
+.save-monitor-btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.save-monitor-btn:hover { opacity: 0.9; }
+.save-monitor-btn:disabled { background: var(--surface-2); color: var(--text-muted); cursor: not-allowed; }
+
+.section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 24px 0 10px; }
+.checks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.check-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: border-color 0.2s; }
+.check-card:hover { border-color: var(--text-muted); }
+.check-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.check-card-title { font-size: 14px; font-weight: 600; }
+.check-card-detail { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.check-card-detail code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; color: var(--text); font-family: ui-monospace, SFMono-Regular, monospace; }
+.check-card-expand { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; }
+.check-card.expanded .check-card-expand { display: block; }
+.fix-step { display: flex; gap: 10px; padding: 6px 0; color: var(--text); }
+.fix-step-num { width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+
+.status-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 8px; border-radius: 4px; flex-shrink: 0; }
+.status-pass { background: rgba(34,197,94,0.15); color: var(--green); }
+.status-warn { background: rgba(234,179,8,0.15); color: var(--yellow); }
+.status-fail { background: rgba(239,68,68,0.15); color: var(--red); }
+.status-info { background: var(--surface-2); color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -153,8 +220,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   </aside>
 
   <main class="main" id="main-content">
+
+    <!-- =====================================================
+         VIEW: Dashboard (default)
+         ===================================================== -->
+    <div id="view-dashboard" class="dash-view active">
     <h1 class="page-title">Dashboard</h1>
     <p class="page-subtitle">Overview of your email deliverability across all domains.</p>
+
+    <!-- INBOX-33: Scan a new domain -->
+    <div class="scan-box-dash">
+      <input id="dash-domain-input" type="text" placeholder="Scan a new domain (e.g. acme.com)" onkeypress="if(event.key==='Enter') dashStartScan()" autocomplete="off">
+      <button id="dash-scan-btn" onclick="dashStartScan()">Scan Domain</button>
+    </div>
+    <div class="scan-error-dash" id="dash-scan-error"></div>
 
     <!-- Quick Stats -->
     <div class="stat-grid">
@@ -205,6 +284,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
       <div class="activity-chart" id="score-chart"></div>
       <div id="chart-labels" style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text-muted);"></div>
     </div>
+    </div><!-- /view-dashboard -->
+
+    <!-- =====================================================
+         VIEW: Scan in progress (INBOX-33)
+         ===================================================== -->
+    <div id="view-scanning" class="dash-view">
+      <button class="back-to-dash" onclick="dashShowView('dashboard')">← Back to Dashboard</button>
+      <div class="scan-loading">
+        <div class="scan-loading-title" id="scanning-domain">example.com</div>
+        <div class="scan-loading-subtitle">Running deliverability checks...</div>
+        <div class="check-list" id="dash-check-list">
+          <div class="check-item" data-check="mx"><div class="check-dot"></div>MX Records</div>
+          <div class="check-item" data-check="spf"><div class="check-dot"></div>SPF Validation</div>
+          <div class="check-item" data-check="dkim"><div class="check-dot"></div>DKIM Configuration</div>
+          <div class="check-item" data-check="dmarc"><div class="check-dot"></div>DMARC Policy</div>
+          <div class="check-item" data-check="blacklists"><div class="check-dot"></div>Blacklist Scan (40+ lists)</div>
+          <div class="check-item" data-check="tls"><div class="check-dot"></div>TLS &amp; Encryption</div>
+          <div class="check-item" data-check="ip_reputation"><div class="check-dot"></div>IP Reputation Analysis</div>
+          <div class="check-item" data-check="score"><div class="check-dot"></div>Calculating Score</div>
+        </div>
+      </div>
+    </div><!-- /view-scanning -->
+
+    <!-- =====================================================
+         VIEW: Scan results (INBOX-33)
+         ===================================================== -->
+    <div id="view-scan-results" class="dash-view">
+      <button class="back-to-dash" onclick="dashShowView('dashboard')">← Back to Dashboard</button>
+      <div id="dash-results-container"></div>
+    </div><!-- /view-scan-results -->
+
   </main>
 </div>
 
@@ -521,6 +631,297 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+
+/* ==================================================================
+ * INBOX-33 — Scan-a-new-domain feature inside the authenticated dashboard.
+ * Ports the scan flow from static/index.html (marketing site) and
+ * adds a "Save to Monitored Domains" CTA on the result.
+ *
+ * Key differences from the marketing-site version:
+ *  - dashShowView() swaps between view-dashboard / view-scanning /
+ *    view-scan-results (not the marketing-site view-home/loading/results)
+ *  - Authorization header is ALWAYS sent (we know we have a token —
+ *    authenticated users only land on /dashboard)
+ *  - Rate limits now respect the user's plan (Free 5/day, Pro unlimited,
+ *    etc.) thanks to INBOX-30 — the old silent-no-enforce bug is fixed
+ *  - After a successful scan: if the domain isn't in the user's
+ *    monitored list, show the "Save to Monitored Domains" CTA
+ * ================================================================== */
+
+const DASH_ICON_MAP = {
+  mx_records: '📧', spf: '🔐', dkim: '🔑', dmarc: '📋',
+  blacklists: '🛡️', tls: '🔒', reverse_dns: '🔄', bimi: '🏷️',
+  mta_sts: '🔏', tls_rpt: '📩', sender_detection: '📡',
+  domain_age: '📅', ip_reputation: '🌐'
+};
+
+// Running set of domains the user already monitors — populated on page load
+// and after a "Save to Monitored Domains" click. Used to hide the CTA when
+// a scan targets a domain already in the list.
+window._monitoredDomains = new Set();
+
+function dashShowView(view) {
+  document.querySelectorAll('.dash-view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById('view-' + view);
+  if (el) el.classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+async function dashStartScan() {
+  const input = document.getElementById('dash-domain-input');
+  const btn = document.getElementById('dash-scan-btn');
+  const errorEl = document.getElementById('dash-scan-error');
+  let domain = input.value.trim();
+
+  if (!domain) { input.focus(); return; }
+
+  // Clean the domain: strip protocol, www, path.
+  domain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+  errorEl.style.display = 'none';
+
+  // Switch to the loading view
+  document.getElementById('scanning-domain').textContent = domain;
+  dashShowView('scanning');
+
+  // Animate the check list
+  const items = document.querySelectorAll('#dash-check-list .check-item');
+  items.forEach(i => { i.classList.remove('done','active'); i.querySelector('.check-dot').textContent = ''; });
+  let idx = 0;
+  const interval = setInterval(() => {
+    if (idx > 0) {
+      items[idx-1].classList.remove('active');
+      items[idx-1].classList.add('done');
+      items[idx-1].querySelector('.check-dot').textContent = '✓';
+    }
+    if (idx < items.length) { items[idx].classList.add('active'); idx++; }
+    else clearInterval(interval);
+  }, 500);
+
+  // Client-side timeout (25s) — Render has a 30s request limit
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+  try {
+    const token = getToken();
+    const scanHeaders = { 'Content-Type': 'application/json' };
+    if (token) scanHeaders['Authorization'] = 'Bearer ' + token;
+
+    const response = await fetch('/api/scan', {
+      method: 'POST',
+      headers: scanHeaders,
+      body: JSON.stringify({ domain }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let err;
+      try { err = await response.json(); } catch (_) { err = null; }
+      if (response.status === 429 && err) {
+        const detail = err.detail || {};
+        const msg = typeof detail === 'string' ? detail : detail.message;
+        const plan = typeof detail === 'object' ? detail.plan : 'anonymous';
+        clearInterval(interval);
+        dashShowView('dashboard');
+        dashShowRateLimitModal(msg, plan);
+        return;
+      }
+      const msg = err ? (typeof err.detail === 'string' ? err.detail : err.detail && err.detail.message) : null;
+      throw new Error(msg || 'Scan failed — please try again');
+    }
+
+    const data = await response.json();
+
+    // Finish the loading animation before showing results
+    clearInterval(interval);
+    items.forEach(i => { i.classList.remove('active'); i.classList.add('done'); i.querySelector('.check-dot').textContent = '✓'; });
+
+    setTimeout(() => dashRenderResults(data), 600);
+  } catch (err) {
+    clearTimeout(timeoutId);
+    clearInterval(interval);
+    dashShowView('dashboard');
+    errorEl.textContent = err.name === 'AbortError'
+      ? 'Scan timed out — the domain may be slow to respond. Please try again.'
+      : err.message;
+    errorEl.style.display = 'block';
+  }
+}
+
+function dashRenderResults(data) {
+  const container = document.getElementById('dash-results-container');
+  const colorClass = data.summary.color === 'good' ? 'good' : data.summary.color === 'danger' ? 'danger' : 'moderate';
+
+  const authChecks = data.checks.filter(c => c.category === 'authentication');
+  const reputationChecks = data.checks.filter(c => c.category === 'reputation');
+  const infraChecks = data.checks.filter(c => c.category === 'infrastructure');
+
+  const domain = data.domain;
+  const alreadyMonitored = window._monitoredDomains.has(domain.toLowerCase());
+
+  // Build the "Save to Monitored Domains" card only when needed
+  const saveCardHtml = alreadyMonitored
+    ? `<div class="save-monitor-card" style="border-color:var(--green);">
+         <div class="save-monitor-text">✓ <strong>${escapeHtml(domain)}</strong> is already being monitored. <a href="/email-health?domain=${encodeURIComponent(domain)}" style="color:var(--accent);">View its health page →</a></div>
+       </div>`
+    : `<div class="save-monitor-card" id="save-monitor-card">
+         <div class="save-monitor-text">Want continuous monitoring for <strong>${escapeHtml(domain)}</strong>? Get daily scans, trend tracking, and alerts when something breaks.</div>
+         <button class="save-monitor-btn" id="save-monitor-btn" onclick="dashSaveToMonitored('${escapeHtml(domain).replace(/'/g, "\\'")}')">+ Save to Monitored</button>
+       </div>`;
+
+  container.innerHTML = `
+    <div class="results-header">
+      <div class="score-circle ${colorClass}">
+        <div class="score-number">${data.score}</div>
+        <div class="score-label">out of 100</div>
+      </div>
+      <div class="results-summary">
+        <h2>${escapeHtml(data.summary.verdict)}</h2>
+        <div class="results-domain">${escapeHtml(domain)} · Scanned just now</div>
+        <div class="results-verdict">${escapeHtml(data.summary.summary)}</div>
+        <div class="results-meta">
+          <span style="color: var(--green)">✓ ${data.summary.stats.passed} passed</span>
+          <span style="color: var(--yellow)">⚠ ${data.summary.stats.warnings} warnings</span>
+          <span style="color: var(--red)">✗ ${data.summary.stats.failed} failed</span>
+          <span>⏱ ${data.scan_time}s</span>
+        </div>
+      </div>
+    </div>
+
+    ${saveCardHtml}
+
+    ${dashRenderSection('Authentication', authChecks)}
+    ${dashRenderSection('Reputation & Blacklists', reputationChecks)}
+    ${dashRenderSection('Infrastructure', infraChecks)}
+  `;
+
+  dashShowView('scan-results');
+}
+
+function dashRenderSection(title, checks) {
+  if (!checks.length) return '';
+  return `
+    <div class="section-label">${title}</div>
+    <div class="checks-grid">
+      ${checks.map(c => dashRenderCheckCard(c)).join('')}
+    </div>
+  `;
+}
+
+function dashRenderCheckCard(check) {
+  const icon = DASH_ICON_MAP[check.name] || '📋';
+  const statusClass = check.status === 'pass' ? 'status-pass'
+                    : check.status === 'warn' ? 'status-warn'
+                    : check.status === 'fail' ? 'status-fail' : 'status-info';
+  const statusText = check.status === 'pass' ? 'Pass'
+                    : check.status === 'warn' ? 'Warning'
+                    : check.status === 'fail' ? 'Fail' : 'Info';
+
+  // Format DNS-record-style strings in the detail with <code> tags
+  let detail = escapeHtml(check.detail || '').replace(/(v=spf1[^&"]*)/g, '<code>$1</code>')
+    .replace(/(v=DMARC1[^&"]*)/g, '<code>$1</code>')
+    .replace(/(p=\w+)/g, '<code>$1</code>')
+    .replace(/(~all|-all|\+all|\?all)/g, '<code>$1</code>');
+
+  let expandContent = '';
+  if (check.fix_steps && check.fix_steps.length > 0) {
+    expandContent = check.fix_steps.map((step, i) => `
+      <div class="fix-step">
+        <div class="fix-step-num">${i + 1}</div>
+        <div>${escapeHtml(step)}</div>
+      </div>
+    `).join('');
+  } else if (check.status === 'pass' || check.status === 'info') {
+    expandContent = `<p style="color: var(--text-muted)">${check.status === 'pass' ? 'This check passed. No action needed.' : 'Informational check — no score impact.'}</p>`;
+  }
+
+  return `
+    <div class="check-card" onclick="this.classList.toggle('expanded')">
+      <div class="check-card-header">
+        <div class="check-card-title">${icon} ${escapeHtml(check.title)}</div>
+        <span class="status-badge ${statusClass}">${statusText}</span>
+      </div>
+      <div class="check-card-detail">${detail}</div>
+      <div class="check-card-expand">${expandContent}</div>
+    </div>
+  `;
+}
+
+async function dashSaveToMonitored(domain) {
+  const btn = document.getElementById('save-monitor-btn');
+  if (!btn) return;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    const token = getToken();
+    const resp = await fetch('/api/user/domains', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ domain })
+    });
+    if (!resp.ok) {
+      let err; try { err = await resp.json(); } catch (_) { err = null; }
+      throw new Error(err && err.detail ? (typeof err.detail === 'string' ? err.detail : err.detail.message) : 'Failed to save domain');
+    }
+    window._monitoredDomains.add(domain.toLowerCase());
+    // Replace the card with a success state
+    const card = document.getElementById('save-monitor-card');
+    if (card) {
+      card.style.borderColor = 'var(--green)';
+      card.innerHTML = `<div class="save-monitor-text">✓ <strong>${escapeHtml(domain)}</strong> is now being monitored daily. <a href="/email-health?domain=${encodeURIComponent(domain)}" style="color:var(--accent);">View health page →</a></div>`;
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = originalText;
+    alert('Could not save: ' + err.message);
+  }
+}
+
+function dashShowRateLimitModal(message, plan) {
+  const existing = document.getElementById('dash-rate-limit-modal');
+  if (existing) existing.remove();
+
+  const isFree = plan === 'free';
+  const cta = isFree
+    ? '<div style="display:inline-block;padding:10px 22px;background:var(--accent);color:white;border-radius:8px;font-weight:600;font-size:14px;opacity:0.7;cursor:default;">Upgrade to Pro — Coming Soon</div><div style="margin-top:10px;font-size:12px;color:var(--text-muted);">Unlimited scans, monitoring, alerts & more</div>'
+    : '<a href="/settings" style="display:inline-block;padding:10px 22px;background:var(--accent);color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Manage Plan</a>';
+
+  const modal = document.createElement('div');
+  modal.id = 'dash-rate-limit-modal';
+  modal.innerHTML = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)this.remove()">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:420px;width:100%;text-align:center;">
+        <div style="font-size:36px;margin-bottom:10px;">⚡</div>
+        <h2 style="font-size:18px;font-weight:700;margin-bottom:10px;color:var(--text);">Daily Scan Limit Reached</h2>
+        <p style="font-size:13px;color:var(--text-muted);line-height:1.5;margin-bottom:20px;">${escapeHtml(message || 'You have reached your daily scan limit.')}</p>
+        ${cta}
+        <div style="margin-top:14px;">
+          <button onclick="document.getElementById('dash-rate-limit-modal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;padding:6px;">Dismiss</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+// Populate the monitored-domains set so dashRenderResults can hide/show the
+// Save CTA correctly. We piggyback on the existing /api/user/domains fetch
+// that the dashboard already makes on load — wrap it so the set is filled
+// once the response lands.
+(function trackMonitoredDomains() {
+  const token = getToken();
+  if (!token) return;
+  fetch('/api/user/domains', { headers: { 'Authorization': 'Bearer ' + token } })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (data && data.domains) {
+        window._monitoredDomains = new Set(data.domains.map(d => (d.domain || '').toLowerCase()));
+      }
+    })
+    .catch(() => { /* non-fatal — Save CTA will always show until next load */ });
+})();
 </script>
 </body>
 </html>
