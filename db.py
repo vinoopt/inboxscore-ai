@@ -5,7 +5,7 @@ Handles all database operations via Supabase
 
 import os
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from supabase import create_client, Client
 
 # ─── SUPABASE CLIENT ──────────────────────────────────────────────
@@ -571,7 +571,12 @@ def get_domains_due_for_scan() -> list:
         if not domains:
             return []
 
-        now = datetime.utcnow()
+        # INBOX-29: compare tz-AWARE values end-to-end. Supabase returns
+        # last_monitored_at as an ISO string with "+00:00" or "Z"; Python
+        # datetime with tzinfo=UTC subtracts cleanly. The old code
+        # stripped tz from last_dt and compared it to a naive
+        # datetime.utcnow() — the exact pattern that masked INBOX-1.
+        now = datetime.now(timezone.utc)
         due = []
         for d in domains:
             interval_hours = d.get("monitor_interval") or 24
@@ -580,19 +585,24 @@ def get_domains_due_for_scan() -> list:
             if not last_monitored:
                 # Never scanned via monitor — due immediately
                 due.append(d)
-            else:
-                # Parse the timestamp
-                if isinstance(last_monitored, str):
-                    # Handle ISO format with timezone
-                    last_monitored = last_monitored.replace("Z", "+00:00")
-                    from datetime import timezone
-                    last_dt = datetime.fromisoformat(last_monitored).replace(tzinfo=None)
-                else:
-                    last_dt = last_monitored
+                continue
 
-                hours_since = (now - last_dt).total_seconds() / 3600
-                if hours_since >= interval_hours:
-                    due.append(d)
+            # Parse the timestamp into a tz-AWARE datetime.
+            if isinstance(last_monitored, str):
+                # Normalise the "Z" suffix that Supabase/Postgres emits.
+                iso = last_monitored.replace("Z", "+00:00")
+                last_dt = datetime.fromisoformat(iso)
+            else:
+                last_dt = last_monitored
+            # Defensive: if we somehow got a naive datetime (e.g. a test
+            # fixture or a legacy row), assume UTC rather than crashing
+            # on the subtraction.
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+
+            hours_since = (now - last_dt).total_seconds() / 3600
+            if hours_since >= interval_hours:
+                due.append(d)
 
         return due
     except Exception as e:

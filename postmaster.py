@@ -7,7 +7,7 @@ Migrated from deprecated v1 to v2 API (September 2025).
 import os
 import json
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 # ─── GOOGLE OAUTH CONFIG ────────────────────────────────────
@@ -381,32 +381,48 @@ async def ensure_valid_token(user_id: str, connection: dict) -> str:
     """
     from db import update_postmaster_tokens
 
-    token_expiry = connection.get("token_expiry", "")
+    # INBOX-29 (L14 + L15): two fixes compared to the previous
+    # implementation:
+    #
+    #   L14 — compare tz-AWARE "now" to a tz-AWARE expiry, both anchored
+    #         to UTC. The old code stripped tz off the parsed expiry and
+    #         compared it to naive datetime.utcnow() — correct only as
+    #         long as the OS clock happens to match UTC. Edge-of-expiry
+    #         requests could 401 if the two were even a few seconds off.
+    #
+    #   L15 — if token_expiry is missing / empty / unparseable, refresh
+    #         UNCONDITIONALLY instead of silently returning the raw
+    #         (possibly already-expired) access token. The previous
+    #         fallback could return a dead token and let the caller
+    #         discover that via a 401.
+    token_expiry = connection.get("token_expiry") or ""
+    expiry_dt = None
     if token_expiry:
         try:
-            expiry_dt = datetime.fromisoformat(token_expiry.replace("Z", "+00:00")).replace(tzinfo=None)
-            # Refresh if token expires within 5 minutes
-            if datetime.utcnow() >= expiry_dt - timedelta(minutes=5):
-                refreshed = await refresh_access_token(connection["refresh_token"])
-                update_postmaster_tokens(
-                    user_id,
-                    refreshed["access_token"],
-                    refreshed["token_expiry"]
-                )
-                return refreshed["access_token"]
-        except Exception as e:
-            print(f"[Postmaster] Token refresh error for user {user_id}: {e}")
-            # Try refreshing anyway
-            try:
-                refreshed = await refresh_access_token(connection["refresh_token"])
-                update_postmaster_tokens(
-                    user_id,
-                    refreshed["access_token"],
-                    refreshed["token_expiry"]
-                )
-                return refreshed["access_token"]
-            except Exception as e2:
-                raise Exception(f"Failed to refresh token: {e2}")
+            expiry_dt = datetime.fromisoformat(token_expiry.replace("Z", "+00:00"))
+            if expiry_dt.tzinfo is None:
+                expiry_dt = expiry_dt.replace(tzinfo=timezone.utc)
+        except Exception as parse_err:
+            print(f"[Postmaster] Unparseable token_expiry for user {user_id}: {parse_err}")
+            expiry_dt = None
+
+    now_utc = datetime.now(timezone.utc)
+    needs_refresh = (
+        expiry_dt is None                                      # L15: no / bad expiry
+        or now_utc >= expiry_dt - timedelta(minutes=5)         # L14: within 5-min buffer
+    )
+
+    if needs_refresh:
+        try:
+            refreshed = await refresh_access_token(connection["refresh_token"])
+        except Exception as refresh_err:
+            raise Exception(f"Failed to refresh token: {refresh_err}")
+        update_postmaster_tokens(
+            user_id,
+            refreshed["access_token"],
+            refreshed["token_expiry"],
+        )
+        return refreshed["access_token"]
 
     return connection["access_token"]
 
