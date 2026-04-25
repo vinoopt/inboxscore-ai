@@ -1,0 +1,164 @@
+{
+  "domain": "mailercloud.com",
+  "captured_at": "2026-04-25",
+  "captured_by": "tests/helpers/capture_golden.py",
+  "dns": {
+    "mailercloud.com:TXT": [
+      "\"ahrefs-site-verification_c04c274d7a0ee24adc0e470f5253b716b0f317acce8cab1e5c79127decfc8577\"",
+      "\"ca3-e00283a209d64ad495c29c9a1ddaec0b\"",
+      "\"google-site-verification=1wUiUb3St4VM9sYtprr25ghESyTdpyZ4I7tEiwFTR48\"",
+      "\"google-site-verification=3oJJkVYY3wT0N2ZzPdStT8mPuzLQ55DMmh20DW_lrJc\"",
+      "\"google-site-verification=3ym2Mj9cGHphNSba-NF4CWP51oYfcbia4mqr-heDAbc\"",
+      "\"google-site-verification=9Un6pHiPXVAFJuM3iTmV62-PXKWWOhpeNR_PjMLQl20\"",
+      "\"google-site-verification=VGZjT5MUnh4mJlGMJ16kJBCaFQPX9zMn5kaRaaFzpZg\"",
+      "\"google-site-verification=Yx7c3CI8aB3loTA8Us6PvXT-vYv0KdyX44mrermnSqw\"",
+      "\"google-site-verification=thNEtap1-daclMJOWz6y3lULA9IOiNEk3l6goQ4o0qg\"",
+      "\"linkedin-site-verification=bd96d499-c57c-4c1b-96b1-808167d9701f\"",
+      "\"v=spf1 +ip4:103.147.104.200 +ip4:51.77.93.100 +ip4:51.77.93.111 +ip4:51.77.93.110 +include:_spf.google.com +include:mlrcloud.com ~all\"",
+      "\"yahoo-verification-key=73mgcEW3b0qdXX/xtcrigP7zANEX1naxhNQ80hwFYtg=\""
+    ],
+    "mailercloud.com:MX": [
+      "1 aspmx.l.google.com.",
+      "10 alt3.aspmx.l.google.com.",
+      "10 alt4.aspmx.l.google.com.",
+      "5 alt1.aspmx.l.google.com.",
+      "5 alt2.aspmx.l.google.com."
+    ],
+    "mailercloud.com:A": [
+      "104.26.0.126",
+      "172.67.74.114",
+      "104.26.1.126"
+    ],
+    "google._domainkey.mailercloud.com:TXT": [
+      "\"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAntzumtby5FrBSIiXw0MGUOTZIzMdmJ1UyzNsRUkKrKos6VH9J52C2UCXzDVzXiO+zWE5w18dPvLFz1Wh3Mmb3mmujceSM+5o1PlcBTJAa3vhn2hYrDDBQGnesv9Ao+8t6eBa/I4emtx2wEEuqYb7iFLfqNXttRURwK0qPT7iJlk5UaPnBGwqbLVrwDNjPKT93\" \"8RWk+0UzswW7Fne1rOvGqHbeUeb9g6/KYXEb6zB8cim1zrFyqsC+uxLN8TkuXoQmGb8bEnzh7IIHM+4sVOSLbr2fdgnOfLizM9sS8ZbxjKaKYyW/ZaWvgJA0tAdCBdI0+7nAk+2+RXToby46WaY4QIDAQAB\""
+    ],
+    "k1._domainkey.mailercloud.com:TXT": [
+      "\"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjyXiFDCuApqd5646pU8MVTOswh97Mw++71nlAsp1Iyb7e/OUOj1CXdb4u0cEpACyMDiA36A+SRxux/TekBM1fyx+K9e2T+ebERXFx58Mp2zGFHhR1ljtoIc7PrfcRr/kEVCABuAcH66MDk1Zi9uD0TgCbTu56B99DulIMP05HDhNOrDz+XN2J5MeH4RpDGm\" \"zOXfjNgmN/jGG8Z6QLacfskUmw75AVwGIYiz8RMKOvbpYXZDCmGGkHGmy9RkYVLafESlMca9jDwc9iVth5uiz0c/DIIQlYeAXhzdHeS3/b/I9Ww/6m2MHMamCoLuT8pMwVpkuOezvvVmI5bmGOrHilQIDAQAB\""
+    ],
+    "k1._domainkey.mailercloud.com:CNAME": [
+      "dkim.mlrcloud.com."
+    ],
+    "s1._domainkey.mailercloud.com:TXT": [
+      "\"k=rsa; t=s; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyEWgd7nyQe5uUQaQSUK80gMpZP9E8GaAsBhDAxo3Z7TijyTv0t+uQl6ch4eT3o3sfdMbH2s6Gw/UKvYwzeQuILU1ZP0aiK7DIJrGq50a9//roJcHK+v/1OkLYlRcUAFSzv101d7VrPnJauhgrnYeA0/143adwIudu3BTx1WMh3Qy+P86OSsiCjFciAtJVAavoecOk\" \"Zus41IzT/cmb3oRCVFRJb4aMwE7nmq1GixwsBgtBuVnOTRuVwCEYsXfXy0oZuLXO/gKhA2kiN5Et+SNacpFNkW6bgIMB+2wyvpLCvd75cU/gMgoPQETZR91oM0PTnz4+J+hfK/jvUa6Qia7kwIDAQAB\""
+    ],
+    "s1._domainkey.mailercloud.com:CNAME": [
+      "s1.domainkey.u9989701.wl202.sendgrid.net."
+    ],
+    "s2._domainkey.mailercloud.com:TXT": [
+      "\"k=rsa; t=s; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC3kOPGn4tsmO9dHVJ4dlT5qt9X9lORqb6m4U23KYQn8aWtwwEV9aO61XBeaNPY/435td/o94BCC+ZdpZ7xwJ86GCLep0kC4jZF54YNv6TXGQV1yuN9VLwTKBDzqA55GOfwvqD3YoNgu9InU+K4bhRRQVaA1Gi/D3/lh3A7pXXN2wIDAQAB\""
+    ],
+    "s2._domainkey.mailercloud.com:CNAME": [
+      "s2.domainkey.u9989701.wl202.sendgrid.net."
+    ],
+    "_dmarc.mailercloud.com:TXT": [
+      "\"v=DMARC1; p=reject; sp=reject; rua=mailto:252cf7e59bd9.a@dmarcinput.com,mailto:dmarc@mlrcloud.com; ruf=mailto:252cf7e59bd9.f@dmarcinput.com,mailto:dmarc@mlrcloud.com; adkim=r; aspf=r; fo=1\""
+    ],
+    "default._bimi.mailercloud.com:TXT": [
+      "\"v=BIMI1;l=https://www.mailercloud.com/img/brand/mailercloud.svg;\""
+    ],
+    "aspmx.l.google.com:A": [
+      "192.178.223.27"
+    ],
+    "aspmx.l.google.com:AAAA": [
+      "2a00:1450:4009:c0f::1a"
+    ],
+    "alt3.aspmx.l.google.com:A": [
+      "142.251.127.26"
+    ],
+    "alt3.aspmx.l.google.com:AAAA": [
+      "2a00:1450:4001:c21::1a"
+    ],
+    "alt4.aspmx.l.google.com:A": [
+      "142.250.147.27"
+    ],
+    "alt4.aspmx.l.google.com:AAAA": [
+      "2a00:1450:4025:c01::1a"
+    ],
+    "alt1.aspmx.l.google.com:A": [
+      "142.250.102.27"
+    ],
+    "alt1.aspmx.l.google.com:AAAA": [
+      "2a00:1450:4025:402::1b"
+    ],
+    "alt2.aspmx.l.google.com:A": [
+      "192.178.213.26"
+    ],
+    "alt2.aspmx.l.google.com:AAAA": [
+      "2a00:1450:4013:c1e::1b"
+    ],
+    "27.223.178.192.in-addr.arpa.:PTR": [
+      "yulhrs-in-f27.1e100.net."
+    ],
+    "26.127.251.142.in-addr.arpa.:PTR": [
+      "lcfrai-in-f26.1e100.net."
+    ],
+    "27.147.250.142.in-addr.arpa.:PTR": [
+      "rd-in-f27.1e100.net."
+    ],
+    "27.102.250.142.in-addr.arpa.:PTR": [
+      "rb-in-f27.1e100.net."
+    ],
+    "26.213.178.192.in-addr.arpa.:PTR": [
+      "yugrqzs-in-f26.1e100.net."
+    ]
+  },
+  "expected": {
+    "checks": {
+      "mx_records": {
+        "status": "pass",
+        "points": 10,
+        "max_points": 10
+      },
+      "spf": {
+        "status": "pass",
+        "points": 14,
+        "max_points": 15
+      },
+      "dkim": {
+        "status": "pass",
+        "points": 14,
+        "max_points": 15
+      },
+      "dmarc": {
+        "status": "pass",
+        "points": 15,
+        "max_points": 15
+      },
+      "blacklists": {
+        "status": "pass",
+        "points": 15,
+        "max_points": 15
+      },
+      "domain_blacklists": {
+        "status": "pass",
+        "points": 10,
+        "max_points": 10
+      },
+      "bimi": {
+        "status": "pass",
+        "points": 0,
+        "max_points": 0
+      },
+      "mta_sts": {
+        "status": "info",
+        "points": 0,
+        "max_points": 0
+      },
+      "tls_rpt": {
+        "status": "info",
+        "points": 0,
+        "max_points": 0
+      },
+      "senders": {
+        "status": "info",
+        "points": 0,
+        "max_points": 0
+      },
+      "reverse_dns": {
+        "status": "pass",
+        "points": 4,
+        "max_points": 5
+      }
+    }
+  }
+}
