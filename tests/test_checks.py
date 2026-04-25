@@ -186,6 +186,119 @@ class TestCheckDKIM:
         assert result.fix_steps is not None
 
 
+class TestCheckDKIMMultiStringTxt:
+    """INBOX-52 regression — DKIM key-size detection across multi-string TXT
+    records. dnspython renders a multi-string TXT as `"PART1" "PART2"`. Real
+    2048-bit DKIM keys are commonly split this way because each TXT string is
+    capped at 255 bytes. Before INBOX-52, our regex stopped at the
+    quote-space-quote junction and miscounted the key as 1024-bit.
+
+    Pinned evidence — voicenotes.com k1 selector (2026-04-25):
+    A real 2048-bit RSA DKIM key returned by dnspython as
+    `'"v=DKIM1; k=rsa; p=MIIBIj...DGm" "zOXf...QAB"'` (415 chars, junction
+    at offset 254). Pre-fix → reported as 1024-bit; post-fix → 2048-bit.
+    """
+
+    @patch("checks.safe_dns_query")
+    def test_multistring_2048bit_key_correctly_identified(self, mock_dns):
+        """Multi-string TXT containing a 2048-bit key must score 15/15
+        with key_length='2048-bit', not 14/15 with false 1024-bit warning."""
+        # Build a realistic multi-string TXT: enough base64 chars total to
+        # exceed 2000 (2048-bit boundary), but split across two strings.
+        part1_b64 = "A" * 230   # 230 chars × 6 = 1380 bits — falls in 1024 bucket
+        part2_b64 = "B" * 170   # combined 400 chars × 6 = 2400 bits — 2048-bit
+        multistring = f'"v=DKIM1; k=rsa; p={part1_b64}" "{part2_b64}"'
+
+        def dns_side_effect(qname, rdtype, timeout=2):
+            if "default._domainkey" in qname and rdtype == "TXT":
+                return [multistring]
+            return None
+
+        mock_dns.side_effect = dns_side_effect
+        from checks import check_dkim
+        result = check_dkim("voicenotes-style.com")
+
+        assert result.status == "pass"
+        assert result.points == 15, (
+            f"INBOX-52: multi-string 2048-bit DKIM must score 15/15, "
+            f"got {result.points}/15. Did the regex stop at the "
+            f"quote-space-quote junction again?"
+        )
+        assert result.max_points == 15
+        # Key length must be reported correctly
+        sels = (result.raw_data or {}).get("selectors", [])
+        assert sels
+        assert sels[0].get("key_length") == "2048-bit"
+        # No '1024-bit' upgrade warning in the detail
+        assert "1024-bit" not in (result.detail or "")
+
+    @patch("checks.safe_dns_query")
+    def test_singlestring_1024bit_still_warns_correctly(self, mock_dns):
+        """Regression: a real 1024-bit key (single-string, ~216 chars b64)
+        must still trigger the 14/15 upgrade warning."""
+        single_1024 = '"v=DKIM1; k=rsa; p=' + "A" * 200 + '"'  # 200 × 6 = 1200 bits
+
+        def dns_side_effect(qname, rdtype, timeout=2):
+            if "default._domainkey" in qname and rdtype == "TXT":
+                return [single_1024]
+            return None
+
+        mock_dns.side_effect = dns_side_effect
+        from checks import check_dkim
+        result = check_dkim("legacy-1024.com")
+
+        assert result.status == "pass"
+        assert result.points == 14, (
+            "1024-bit single-string DKIM must still warn (14/15)"
+        )
+        assert "1024-bit" in (result.detail or "")
+        sels = (result.raw_data or {}).get("selectors", [])
+        assert sels and sels[0].get("key_length") == "1024-bit"
+
+    @patch("checks.safe_dns_query")
+    def test_singlestring_2048bit_unchanged(self, mock_dns):
+        """Regression: a single-string 2048-bit key (rare in practice but
+        possible if the b64 fits in 255 bytes) must continue to score 15/15."""
+        # ~410 chars b64, single-string (right at the TXT byte limit edge)
+        single_2048 = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
+
+        def dns_side_effect(qname, rdtype, timeout=2):
+            if "default._domainkey" in qname and rdtype == "TXT":
+                return [single_2048]
+            return None
+
+        mock_dns.side_effect = dns_side_effect
+        from checks import check_dkim
+        result = check_dkim("modern-2048.com")
+        assert result.status == "pass"
+        assert result.points == 15
+        sels = (result.raw_data or {}).get("selectors", [])
+        assert sels and sels[0].get("key_length") == "2048-bit"
+
+    @patch("checks.safe_dns_query")
+    def test_revoked_key_handled(self, mock_dns):
+        """A revoked DKIM key (p=;) must not crash. Reports as revoked,
+        not as a real key. Detail should make this clear."""
+        revoked = '"v=DKIM1; k=rsa; p="'
+
+        def dns_side_effect(qname, rdtype, timeout=2):
+            if "default._domainkey" in qname and rdtype == "TXT":
+                return [revoked]
+            return None
+
+        mock_dns.side_effect = dns_side_effect
+        from checks import check_dkim
+        # Should not crash. Behavior — selector found but key empty —
+        # acceptable so long as it doesn't false-PASS as 2048-bit.
+        result = check_dkim("revoked-key.com")
+        sels = (result.raw_data or {}).get("selectors", [])
+        if sels:
+            kl = sels[0].get("key_length", "")
+            assert kl in ("revoked (p=;)", "unknown", "~0-bit"), (
+                f"Revoked key should not be classified as 2048/1024-bit, got {kl!r}"
+            )
+
+
 # ─── SCORE CALCULATION TESTS ────────────────────────────────────
 
 class TestScoreCalculation:

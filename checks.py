@@ -409,14 +409,30 @@ def check_dkim(domain: str) -> CheckResult:
         result = safe_dns_query(dkim_domain, "TXT", timeout=2)
         if result:
             for record in result:
-                cleaned = record.strip('"')
+                # INBOX-52: dnspython renders a multi-string TXT record as
+                # `"PART1" "PART2"`. 2048-bit DKIM keys are commonly split
+                # across multiple strings because each TXT string is capped
+                # at 255 bytes. We must concatenate before regex extraction
+                # — otherwise the `p=([A-Za-z0-9+/=]+)` capture stops at
+                # the quote-space-quote junction and we miscount the key
+                # length (eg report 2048-bit as 1024-bit, the voicenotes.com
+                # k1 case).
+                cleaned = re.sub(r'"\s+"', '', record).strip('"')
                 if "v=DKIM1" in cleaned or "p=" in cleaned:
                     key_length = "unknown"
                     p_match = re.search(r'p=([A-Za-z0-9+/=]+)', cleaned)
                     if p_match:
                         key_b64 = p_match.group(1)
+                        # Heuristic: base64 encodes ~6 bits/char of the
+                        # SPKI envelope; an SPKI-wrapped 2048-bit RSA key
+                        # is ~294 bytes ≈ 392 chars × 6 = 2352 bits;
+                        # 1024-bit is ~162 bytes ≈ 216 chars × 6 = 1296.
+                        # Any p=; (revoked) yields 0 chars and falls into
+                        # the unknown bucket (status handled below).
                         key_bits = len(key_b64) * 6
-                        if key_bits > 2000:
+                        if key_bits == 0:
+                            key_length = "revoked (p=;)"
+                        elif key_bits > 2000:
                             key_length = "2048-bit"
                         elif key_bits > 1000:
                             key_length = "1024-bit"
