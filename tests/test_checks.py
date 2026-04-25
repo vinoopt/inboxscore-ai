@@ -106,6 +106,184 @@ class TestCheckDMARC:
         assert result.raw_data["has_rua"] is False
 
 
+class TestCheckDMARCNuance:
+    """INBOX-56 — full DMARC nuance: sp=, pct=, aspf=, adkim=, fo=.
+
+    Pre-INBOX-56 every `p=reject` was 15/15 PASS. Two domains with
+    identical p=reject can have very different real-world protection:
+    one fully locked down, one with most mail unenforced and every
+    subdomain wide open. This class covers each combination.
+
+    Pinned to real-world records observed 2026-04-25:
+      voicenotes.com — p=reject; pct=100, no sp= (inherits)  → 15/15
+      mailercloud.com — p=reject; sp=reject; pct=100; fo=1   → 15/15
+      microsoft.com  — p=reject; pct=100; fo=1               → 15/15
+    """
+
+    @patch("checks.safe_dns_query")
+    def test_reject_pct_100_sp_reject_full_credit(self, mock_dns):
+        """The mailercloud.com profile — fully locked down."""
+        mock_dns.return_value = [
+            '"v=DMARC1; p=reject; sp=reject; pct=100; rua=mailto:dmarc@x.com; ruf=mailto:dmarc@x.com; fo=1"'
+        ]
+        from checks import check_dmarc
+        result = check_dmarc("mailercloud-style.com")
+        assert result.status == "pass"
+        assert result.points == 15
+        raw = result.raw_data or {}
+        assert raw["policy"] == "reject"
+        assert raw["sp"] == "reject"
+        assert raw["pct"] == 100
+        assert raw["fo"] == "1"
+        # Detail must surface sp=reject and fo=1 — the differentiators
+        d = result.detail or ""
+        assert "subdomains protected" in d
+        assert "fo=1" in d
+        assert "100%" in d
+
+    @patch("checks.safe_dns_query")
+    def test_reject_pct_100_sp_inherited_full_credit(self, mock_dns):
+        """The voicenotes.com profile — no explicit sp= (inherits p=reject
+        per RFC). Must NOT be penalised — RFC says missing sp= inherits p=."""
+        mock_dns.return_value = ['"v=DMARC1; p=reject; pct=100; rua=mailto:dmarc@x.com"']
+        from checks import check_dmarc
+        result = check_dmarc("voicenotes-style.com")
+        assert result.status == "pass"
+        assert result.points == 15, (
+            "Missing sp= must NOT be penalised — RFC 7489 §6.3 says sp= "
+            "inherits p= when absent. voicenotes.com profile."
+        )
+        raw = result.raw_data or {}
+        assert raw["sp"] is None
+        assert "subdomains inherit" in (result.detail or "").lower()
+
+    @patch("checks.safe_dns_query")
+    def test_reject_sp_none_subdomain_takeover_risk(self, mock_dns):
+        """Headline gap — p=reject; sp=none. Root protected, subdomains
+        wide open. Must lose points and surface a clear warning."""
+        mock_dns.return_value = ['"v=DMARC1; p=reject; sp=none; pct=100; rua=mailto:dmarc@x.com"']
+        from checks import check_dmarc
+        result = check_dmarc("subdomain-open.com")
+        assert result.points == 13, (
+            f"p=reject + sp=none must lose 2pts. Got {result.points}/15."
+        )
+        raw = result.raw_data or {}
+        assert raw["sp"] == "none"
+        assert "no DMARC policy" in (result.detail or "")
+        # Fix steps must explain the subdomain risk
+        fix = result.fix_steps or []
+        assert any("subdomain" in s.lower() for s in fix)
+        assert any("sp=" in s for s in fix)
+
+    @patch("checks.safe_dns_query")
+    def test_reject_pct_50_partial_enforcement_warning(self, mock_dns):
+        """p=reject; pct=50 — 50% of mail unenforced. -3pts. Must surface
+        the percentage warning explicitly."""
+        mock_dns.return_value = ['"v=DMARC1; p=reject; pct=50; rua=mailto:dmarc@x.com"']
+        from checks import check_dmarc
+        result = check_dmarc("half-enforced.com")
+        assert result.points == 12, f"pct=50 → 15-3 = 12. Got {result.points}/15."
+        raw = result.raw_data or {}
+        assert raw["pct"] == 50
+        d = result.detail or ""
+        assert "50%" in d
+        assert "unprotected" in d.lower()
+
+    @patch("checks.safe_dns_query")
+    def test_reject_pct_20_steep_penalty(self, mock_dns):
+        """p=reject; pct=20 — most mail wide open. -5pts."""
+        mock_dns.return_value = ['"v=DMARC1; p=reject; pct=20; rua=mailto:dmarc@x.com"']
+        from checks import check_dmarc
+        result = check_dmarc("mostly-unenforced.com")
+        assert result.points == 10, f"pct=20 → 15-5 = 10. Got {result.points}/15."
+        d = result.detail or ""
+        assert "20%" in d
+
+    @patch("checks.safe_dns_query")
+    def test_combined_pct_and_sp_gaps_stack(self, mock_dns):
+        """p=reject; pct=20; sp=none — both gaps present, both penalties stack.
+        15 - 5 (pct) - 2 (sp) = 8."""
+        mock_dns.return_value = [
+            '"v=DMARC1; p=reject; pct=20; sp=none; rua=mailto:dmarc@x.com"'
+        ]
+        from checks import check_dmarc
+        result = check_dmarc("very-broken.com")
+        assert result.points == 8, (
+            f"pct=20 + sp=none stacks penalties: 15-5-2=8. Got {result.points}."
+        )
+        # Status promotes to warn (8-11 range)
+        assert result.status == "warn"
+
+    @patch("checks.safe_dns_query")
+    def test_strict_alignment_surfaced_in_detail(self, mock_dns):
+        """aspf=s + adkim=s should be surfaced in the detail. No extra
+        points (we're already at 15) but it's a visibility win."""
+        mock_dns.return_value = [
+            '"v=DMARC1; p=reject; pct=100; aspf=s; adkim=s; rua=mailto:dmarc@x.com"'
+        ]
+        from checks import check_dmarc
+        result = check_dmarc("strict-aligned.com")
+        assert result.points == 15
+        raw = result.raw_data or {}
+        assert raw["strict_alignment"] is True
+        assert "strict alignment" in (result.detail or "").lower()
+
+    @patch("checks.safe_dns_query")
+    def test_quarantine_subdomain_protected(self, mock_dns):
+        """p=quarantine; sp=quarantine — quarantine baseline (14) with
+        sp= surfaced."""
+        mock_dns.return_value = [
+            '"v=DMARC1; p=quarantine; sp=quarantine; pct=100; rua=mailto:dmarc@x.com"'
+        ]
+        from checks import check_dmarc
+        result = check_dmarc("quarantine-secured.com")
+        assert result.points == 14
+        d = result.detail or ""
+        assert "quarantine" in d.lower()
+        assert "subdomains quarantined" in d.lower()
+
+    @patch("checks.safe_dns_query")
+    def test_multistring_dmarc_record_parses(self, mock_dns):
+        """INBOX-52 reuse — DMARC records can also span multiple TXT
+        strings (rare but possible). Must parse correctly."""
+        mock_dns.return_value = [
+            '"v=DMARC1; p=reject;" " sp=reject; pct=100; rua=mailto:dmarc@x.com"'
+        ]
+        from checks import check_dmarc
+        result = check_dmarc("multistring-dmarc.com")
+        assert result.points == 15
+        raw = result.raw_data or {}
+        assert raw["policy"] == "reject"
+        assert raw["sp"] == "reject"
+        assert raw["pct"] == 100
+
+    @patch("checks.safe_dns_query")
+    def test_voicenotes_comma_separator_typo_tolerated(self, mock_dns):
+        """voicenotes.com's actual record has `pct=100, rua=...` (comma
+        instead of semicolon between tags). RFC says semicolon-separated
+        but real-world records use commas. Be tolerant — parse anyway."""
+        mock_dns.return_value = [
+            '"v=DMARC1; p=reject; pct=100, rua=mailto:dmarc@mlrcloud.com; ruf=mailto:dmarc@mlrcloud.com"'
+        ]
+        from checks import check_dmarc
+        result = check_dmarc("voicenotes.com")
+        # rua MUST still be detected even though the typo separates pct,rua
+        # with a comma. Otherwise we'd lose 2pts incorrectly.
+        assert result.raw_data["has_rua"] is True
+        assert result.points == 15
+
+    @patch("checks.safe_dns_query")
+    def test_fo_1_surfaced(self, mock_dns):
+        """fo=1 (forensic on any failure) — mature DMARC posture, surface."""
+        mock_dns.return_value = [
+            '"v=DMARC1; p=reject; pct=100; fo=1; rua=mailto:dmarc@x.com; ruf=mailto:dmarc@x.com"'
+        ]
+        from checks import check_dmarc
+        result = check_dmarc("mature.com")
+        assert result.points == 15
+        assert "fo=1" in (result.detail or "")
+
+
 # ─── MX RECORDS TESTS ───────────────────────────────────────────
 
 class TestCheckMX:

@@ -599,8 +599,50 @@ def check_dkim(domain: str) -> CheckResult:
         )
 
 
+def _parse_dmarc_tags(record: str) -> dict:
+    """Parse a DMARC record into a tag dict.
+
+    DMARC records are semicolon-separated `tag=value` pairs (RFC 7489 §6.4).
+    Spaces around `=` and `;` are tolerated. Tag names are case-insensitive
+    but their canonical form is lowercase. Returns a dict — missing tags
+    are simply absent.
+    """
+    tags: dict[str, str] = {}
+    # Some records use comma-separation by mistake (eg voicenotes.com); be
+    # forgiving — split on both ; and , at the tag-pair level.
+    parts = re.split(r"[;,]", record)
+    for part in parts:
+        part = part.strip()
+        if "=" not in part:
+            continue
+        name, _, value = part.partition("=")
+        tags[name.strip().lower()] = value.strip()
+    return tags
+
+
 def check_dmarc(domain: str) -> CheckResult:
-    """Check DMARC record"""
+    """Check DMARC policy + alignment + percentage + subdomain coverage.
+
+    INBOX-56 — full DMARC nuance scoring. Pre-INBOX-56 we treated every
+    `p=reject` as 15/15 PASS. But two domains with identical `p=reject`
+    can have very different real-world protection:
+      * `p=reject; pct=100; sp=reject` — fully locked down (15/15)
+      * `p=reject; pct=20; sp=none` — root protected at 20%, every
+        subdomain wide open (~9/15)
+
+    Tags surfaced and scored:
+      p     — root policy (none/quarantine/reject) — biggest factor
+      sp    — subdomain policy. Missing = inherits p (RFC default — fine).
+              Explicit `sp=none` with strong p= is a real gap.
+      pct   — percentage of mail enforced. Missing = 100. Below 100 with
+              p=reject means most mail is unprotected.
+      aspf  / adkim — alignment mode (relaxed default vs strict). Strict
+              catches more spoofing; surface as bonus credit.
+      fo    — forensic reporting trigger (`fo=1` = any failure).
+              Mature posture, surface in detail.
+      rua   — aggregate report destination. Already scored.
+      ruf   — forensic report destination. Surface only.
+    """
     dmarc_domain = f"_dmarc.{domain}"
     txt_records = safe_dns_query(dmarc_domain, "TXT")
 
@@ -624,7 +666,8 @@ def check_dmarc(domain: str) -> CheckResult:
 
     dmarc_record = None
     for record in txt_records:
-        cleaned = record.strip('"')
+        # INBOX-52 reuse: handle multi-string TXT records uniformly.
+        cleaned = re.sub(r'"\s+"', '', record).strip('"')
         if cleaned.startswith("v=DMARC1"):
             dmarc_record = cleaned
             break
@@ -645,50 +688,137 @@ def check_dmarc(domain: str) -> CheckResult:
             ]
         )
 
-    # Parse DMARC policy
-    policy = "none"
-    if "p=reject" in dmarc_record:
-        policy = "reject"
-    elif "p=quarantine" in dmarc_record:
-        policy = "quarantine"
-    elif "p=none" in dmarc_record:
+    # ---------- Parse all tags ----------
+    tags = _parse_dmarc_tags(dmarc_record)
+    policy = tags.get("p", "none").lower()
+    if policy not in ("none", "quarantine", "reject"):
         policy = "none"
+    sp = tags.get("sp", "").lower() or None  # missing → inherits p (RFC)
+    try:
+        pct = int(tags.get("pct", "100"))
+        if pct < 0 or pct > 100:
+            pct = 100
+    except ValueError:
+        pct = 100
+    aspf = tags.get("aspf", "r").lower()    # default = r (relaxed)
+    adkim = tags.get("adkim", "r").lower()  # default = r (relaxed)
+    fo = tags.get("fo", "")
+    has_rua = "rua" in tags
+    has_ruf = "ruf" in tags
+    strict_alignment = aspf == "s" and adkim == "s"
 
-    has_rua = "rua=" in dmarc_record
-    has_ruf = "ruf=" in dmarc_record
-
+    # ---------- Score the policy strength ----------
+    # Base scoring on `p` first.
     if policy == "reject":
-        points = 15
+        base_points = 15
         status = "pass"
-        detail = f"DMARC policy set to reject — maximum protection enabled"
     elif policy == "quarantine":
-        points = 14
+        base_points = 14
         status = "pass"
-        detail = f"DMARC policy set to quarantine — strong protection"
-    else:
-        points = 10
+    else:  # none
+        base_points = 10
         status = "warn"
-        detail = f"DMARC exists with p=none — monitoring mode, consider upgrading to quarantine/reject"
 
-    if not has_rua:
-        detail += ". No rua tag — you're not receiving DMARC reports"
-        points = max(points - 2, 0)
+    points = base_points
+    detail_parts = []
+    fix_steps_collected = []
 
-    fix_steps = None
-    if policy == "none":
-        fix_steps = [
+    # Policy line
+    if policy == "reject":
+        detail_parts.append("DMARC policy set to reject")
+    elif policy == "quarantine":
+        detail_parts.append("DMARC policy set to quarantine")
+    else:
+        detail_parts.append("DMARC exists with p=none (monitoring mode only)")
+        fix_steps_collected.extend([
             "Your DMARC policy (p=none) only monitors — it doesn't protect against spoofing",
             "Step 1: Keep p=none for 2 weeks while reviewing DMARC reports",
             "Step 2: Change to p=quarantine to send failed emails to spam",
             "Step 3: After confirming no legitimate emails are affected, upgrade to p=reject",
             "This gradual approach prevents accidentally blocking your own emails"
-        ]
-    elif not has_rua:
-        fix_steps = [
-            "Add a rua tag to receive DMARC aggregate reports",
-            "Example: rua=mailto:dmarc-reports@yourdomain.com",
-            "These reports show who is sending email as your domain"
-        ]
+        ])
+
+    # ---------- pct enforcement ----------
+    # Penalise sub-100 only when the policy is not `none` (a `none`+pct=20
+    # is basically still none — already scored). Pct < 100 with p=reject
+    # is the headline gap: most mail is unprotected.
+    if pct < 100 and policy != "none":
+        # Sliding penalty: -3pts at pct=50-99, -5pts at pct=1-49
+        if pct >= 50:
+            penalty = 3
+        else:
+            penalty = 5
+        points -= penalty
+        detail_parts.append(f"only {pct}% enforced — {100 - pct}% of mail is unprotected")
+        fix_steps_collected.append(
+            f"You're enforcing DMARC on only {pct}% of mail. Increase pct gradually "
+            "to 100 once you've verified DMARC reports show no legitimate mail failing."
+        )
+    elif pct == 100 and policy != "none":
+        detail_parts.append("at 100%")
+
+    # ---------- Subdomain policy (sp) ----------
+    # Missing sp= → inherits p= per RFC 7489 §6.3 — that's fine, even
+    # good (less DNS sprawl). Explicit `sp=none` with strong p= is the
+    # subdomain-takeover gap.
+    if sp == "none" and policy != "none":
+        points -= 2
+        detail_parts.append("subdomains have no DMARC policy (sp=none)")
+        fix_steps_collected.append(
+            "Your subdomain policy is `sp=none` — attackers can spoof unused "
+            "subdomains. Change to `sp=reject` (or `sp=quarantine`) to lock "
+            "down subdomains too."
+        )
+    elif sp == "reject":
+        detail_parts.append("subdomains protected")
+    elif sp == "quarantine":
+        detail_parts.append("subdomains quarantined")
+    elif sp is None and policy in ("reject", "quarantine"):
+        # Missing sp= — fine, inherits p=. Note in detail without penalty.
+        detail_parts.append(f"subdomains inherit p={policy}")
+
+    # ---------- Strict alignment bonus surface ----------
+    # No bonus points (we're capped at 15 already), but surface in detail
+    # because mature operators care.
+    if strict_alignment and policy in ("reject", "quarantine"):
+        detail_parts.append("with strict alignment (aspf=s adkim=s)")
+    elif (aspf == "s") != (adkim == "s") and policy in ("reject", "quarantine"):
+        # One strict, one relaxed — uncommon, surface.
+        detail_parts.append(f"alignment aspf={aspf} adkim={adkim}")
+
+    # ---------- fo= (forensic reporting trigger) ----------
+    if fo and policy in ("reject", "quarantine"):
+        # fo=1 = any underlying failure; fo=0 = both fail (default);
+        # fo=d = DKIM only; fo=s = SPF only.
+        if fo == "1":
+            detail_parts.append("forensic reports on any failure (fo=1)")
+
+    # ---------- rua presence (existing rule, kept) ----------
+    if not has_rua:
+        points = max(points - 2, 0)
+        detail_parts.append("no rua tag — you're not receiving DMARC aggregate reports")
+        fix_steps_collected.append(
+            "Add a rua tag to receive DMARC aggregate reports. "
+            "Example: rua=mailto:dmarc-reports@yourdomain.com"
+        )
+
+    # ---------- Floor + status promotion ----------
+    points = max(points, 0)
+    # If we've docked enough to drop a reject/quarantine into warn territory,
+    # promote the status. >=12 stays pass, 8-11 warn, <8 fail.
+    if policy in ("reject", "quarantine"):
+        if points < 8:
+            status = "fail"
+        elif points < 12:
+            status = "warn"
+        # else status stays pass
+
+    # Compose final detail
+    detail = " — ".join(detail_parts) if detail_parts else "DMARC configured"
+
+    # Cap status pass at the actual policy. p=none can never be pass.
+    if policy == "none" and status == "pass":
+        status = "warn"
 
     return CheckResult(
         name="dmarc",
@@ -699,12 +829,18 @@ def check_dmarc(domain: str) -> CheckResult:
         raw_data={
             "record": dmarc_record,
             "policy": policy,
+            "sp": sp,
+            "pct": pct,
+            "aspf": aspf,
+            "adkim": adkim,
+            "fo": fo,
             "has_rua": has_rua,
-            "has_ruf": has_ruf
+            "has_ruf": has_ruf,
+            "strict_alignment": strict_alignment,
         },
         points=points,
         max_points=15,
-        fix_steps=fix_steps
+        fix_steps=fix_steps_collected or None
     )
 
 
