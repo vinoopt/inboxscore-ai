@@ -250,7 +250,19 @@ def expand_spf_ips(domain: str, max_lookups: int = 10, cap: int = 20) -> tuple[s
 # ─── CHECK FUNCTIONS ────────────────────────────────────────────────
 
 def check_mx_records(domain: str) -> CheckResult:
-    """Check MX records for the domain"""
+    """Check MX records for the domain.
+
+    INBOX-58: in addition to the structural check (does MX exist? are
+    there ≥2 for redundancy?), we now verify that each MX host actually
+    resolves to an A or AAAA record. A domain whose MX hostnames don't
+    resolve cannot accept mail — but the previous check returned 10/10
+    PASS as long as the MX records existed in DNS. That was a real
+    false-PASS risk surfaced by INBOX-44 audit.
+
+    L1 only — DNS resolution. We do NOT attempt SMTP connections (port
+    25 is blocked from Render anyway; INBOX-51's HetrixTools/dedicated-
+    resolver path will cover full reachability).
+    """
     try:
         resolver = dns.resolver.Resolver()
         resolver.timeout = 5
@@ -264,18 +276,85 @@ def check_mx_records(domain: str) -> CheckResult:
             })
         mx_records.sort(key=lambda x: x["priority"])
 
+        # INBOX-58: per-MX A/AAAA resolution check. Run in parallel since
+        # each is just a DNS query.
+        def _mx_resolves(host: str) -> bool:
+            for rtype in ("A", "AAAA"):
+                if safe_dns_query(host, rtype, timeout=2):
+                    return True
+            return False
+
+        if mx_records:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                futures = {
+                    executor.submit(_mx_resolves, mx["host"]): mx
+                    for mx in mx_records
+                }
+                for fut in concurrent.futures.as_completed(futures, timeout=8):
+                    mx = futures[fut]
+                    try:
+                        mx["resolves"] = fut.result()
+                    except Exception:
+                        mx["resolves"] = False
+        unresolved = [mx for mx in mx_records if not mx.get("resolves", True)]
+        all_resolved = all(mx.get("resolves") for mx in mx_records)
+
+        # Scoring:
+        # ≥2 MX, all resolve   → 10/10 PASS (unchanged happy path)
+        # ≥2 MX, some resolve  →  7/10 WARN — partial reachability
+        # ≥2 MX, none resolve  →  3/10 FAIL — domain can't accept mail
+        # 1  MX, resolves      →  9/10 PASS with backup-suggestion
+        # 1  MX, doesn't       →  3/10 FAIL — domain can't accept mail
+        # 0  MX                →  0/10 FAIL (unchanged)
         if len(mx_records) >= 2:
-            detail = f"{len(mx_records)} MX records found with proper priority configuration"
-            points = 10
-            status = "pass"
+            if all_resolved:
+                detail = f"{len(mx_records)} MX records found with proper priority configuration"
+                points, status, fix_steps = 10, "pass", None
+            elif unresolved and len(unresolved) < len(mx_records):
+                bad = ", ".join(mx["host"] for mx in unresolved)
+                detail = (
+                    f"{len(mx_records)} MX records found but {len(unresolved)} "
+                    f"do not resolve: {bad}. Mail to those hosts will bounce."
+                )
+                points, status = 7, "warn"
+                fix_steps = [
+                    f"These MX hosts don't have an A/AAAA record: {bad}",
+                    "Either fix their DNS so they resolve, or remove them from your MX records",
+                    "Mail providers may try the unresolvable host first and delay delivery"
+                ]
+            else:
+                detail = (
+                    f"{len(mx_records)} MX records found but NONE resolve to an IP. "
+                    "Mail to this domain will fail until the MX hosts are fixed."
+                )
+                points, status = 3, "fail"
+                fix_steps = [
+                    "All your MX hosts are missing A/AAAA records",
+                    "Either fix the DNS for the MX hosts, or update your MX records to point at a working mail server",
+                    "Run `dig MX " + domain + "` to see your current MX configuration"
+                ]
         elif len(mx_records) == 1:
-            detail = f"1 MX record found — consider adding a backup mail server for redundancy"
-            points = 9
-            status = "pass"
+            if all_resolved:
+                detail = "1 MX record found — consider adding a backup mail server for redundancy"
+                points, status, fix_steps = 9, "pass", None
+            else:
+                detail = (
+                    f"1 MX record found ({mx_records[0]['host']}) but it does not resolve. "
+                    "Mail to this domain will fail."
+                )
+                points, status = 3, "fail"
+                fix_steps = [
+                    f"Your MX host {mx_records[0]['host']} has no A/AAAA record",
+                    "Fix the DNS for that host, or update your MX record to point at a working mail server"
+                ]
         else:
             detail = "No MX records found"
-            points = 0
-            status = "fail"
+            points, status = 0, "fail"
+            fix_steps = [
+                "Add at least 2 MX records in your DNS settings",
+                "Set different priorities (e.g., 10 for primary, 20 for backup)",
+                "Ensure both mail servers are reachable and accepting connections"
+            ]
 
         return CheckResult(
             name="mx_records",
@@ -283,14 +362,14 @@ def check_mx_records(domain: str) -> CheckResult:
             status=status,
             title="MX Records",
             detail=detail,
-            raw_data={"records": mx_records},
+            raw_data={
+                "records": mx_records,
+                "unresolved_count": len(unresolved),
+                "all_resolved": all_resolved,
+            },
             points=points,
             max_points=10,
-            fix_steps=None if status == "pass" else [
-                "Add at least 2 MX records in your DNS settings",
-                "Set different priorities (e.g., 10 for primary, 20 for backup)",
-                "Ensure both mail servers are reachable and accepting connections"
-            ]
+            fix_steps=fix_steps,
         )
     except Exception as e:
         return CheckResult(

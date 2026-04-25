@@ -157,6 +157,171 @@ class TestCheckMX:
             assert "backup" in result.detail.lower() or "redundancy" in result.detail.lower()
 
 
+class TestCheckMXReachability:
+    """INBOX-58 — MX hostname resolution check.
+
+    Pre-INBOX-58 the MX check was structural-only: 10/10 PASS for any
+    domain with ≥2 MX records, even if every MX host pointed at a
+    non-existent server. INBOX-44 audit flagged this as a false-PASS
+    risk. We now verify each MX host has an A or AAAA record.
+
+    L1 only — DNS resolution. SMTP-banner check (L2) is deferred since
+    Render blocks outbound port 25.
+    """
+
+    def _build_mx_resolver_mock(self, mx_hosts: list, resolves_map: dict):
+        """Helper: mock dns.resolver.Resolver such that
+        resolve(domain, 'MX') returns the given hosts, and
+        safe_dns_query(host, 'A'/'AAAA') returns truthy iff
+        resolves_map[host] is True.
+        """
+        from unittest.mock import patch, MagicMock
+
+        # Build MX answer objects (priority + exchange)
+        mx_answers = []
+        for i, host in enumerate(mx_hosts):
+            mx = MagicMock()
+            mx.preference = 10 * (i + 1)
+            mx.exchange = MagicMock()
+            mx.exchange.__str__ = lambda self, h=host: h + "."
+            mx_answers.append(mx)
+        return mx_answers
+
+    def test_all_mx_resolve_returns_10_of_10(self):
+        """Happy path: ≥2 MX records, all resolve → 10/10 PASS."""
+        from unittest.mock import patch, MagicMock
+
+        with patch("dns.resolver.Resolver") as MockResolver, \
+             patch("checks.safe_dns_query") as mock_sdq:
+
+            mock_resolver = MagicMock()
+            MockResolver.return_value = mock_resolver
+            mock_resolver.resolve.return_value = self._build_mx_resolver_mock(
+                ["aspmx.l.google.com", "alt1.aspmx.l.google.com"], {}
+            )
+            # All A/AAAA queries return a truthy result
+            mock_sdq.return_value = ["1.2.3.4"]
+
+            from checks import check_mx_records
+            result = check_mx_records("good.com")
+            assert result.status == "pass"
+            assert result.points == 10
+            assert (result.raw_data or {}).get("all_resolved") is True
+            assert (result.raw_data or {}).get("unresolved_count") == 0
+
+    def test_some_mx_unresolvable_returns_warn_7(self):
+        """≥2 MX, some don't resolve → 7/10 WARN — partial reachability,
+        identifies the broken host(s) by name."""
+        from unittest.mock import patch, MagicMock
+
+        hosts = ["good.example.com", "broken.example.com"]
+
+        def sdq_side_effect(qname, rdtype, timeout=2):
+            if rdtype in ("A", "AAAA") and qname == "good.example.com":
+                return ["1.2.3.4"]
+            return None  # broken.example.com → NXDOMAIN-equivalent
+
+        with patch("dns.resolver.Resolver") as MockResolver, \
+             patch("checks.safe_dns_query", side_effect=sdq_side_effect):
+
+            mock_resolver = MagicMock()
+            MockResolver.return_value = mock_resolver
+            mock_resolver.resolve.return_value = self._build_mx_resolver_mock(hosts, {})
+
+            from checks import check_mx_records
+            result = check_mx_records("partial.com")
+            assert result.status == "warn"
+            assert result.points == 7
+            assert "broken.example.com" in (result.detail or "")
+            assert (result.raw_data or {}).get("unresolved_count") == 1
+            assert (result.raw_data or {}).get("all_resolved") is False
+            assert result.fix_steps is not None
+
+    def test_all_mx_unresolvable_returns_fail_3(self):
+        """≥2 MX, NONE resolve → 3/10 FAIL — domain can't accept mail.
+        This is the headline false-PASS case INBOX-58 closes."""
+        from unittest.mock import patch, MagicMock
+
+        hosts = ["mail1.dead.example", "mail2.dead.example"]
+
+        with patch("dns.resolver.Resolver") as MockResolver, \
+             patch("checks.safe_dns_query", return_value=None):
+
+            mock_resolver = MagicMock()
+            MockResolver.return_value = mock_resolver
+            mock_resolver.resolve.return_value = self._build_mx_resolver_mock(hosts, {})
+
+            from checks import check_mx_records
+            result = check_mx_records("dead.example")
+            assert result.status == "fail"
+            assert result.points == 3
+            assert "NONE resolve" in (result.detail or "") or "none resolve" in (result.detail or "").lower()
+            assert (result.raw_data or {}).get("all_resolved") is False
+            assert result.fix_steps is not None
+
+    def test_single_mx_resolves_returns_9(self):
+        """1 MX that resolves → 9/10 PASS (regression — backup suggestion)."""
+        from unittest.mock import patch, MagicMock
+
+        with patch("dns.resolver.Resolver") as MockResolver, \
+             patch("checks.safe_dns_query", return_value=["1.2.3.4"]):
+
+            mock_resolver = MagicMock()
+            MockResolver.return_value = mock_resolver
+            mock_resolver.resolve.return_value = self._build_mx_resolver_mock(
+                ["mail.single.com"], {}
+            )
+
+            from checks import check_mx_records
+            result = check_mx_records("single-good.com")
+            assert result.status == "pass"
+            assert result.points == 9
+            assert "backup" in (result.detail or "").lower() or "redundancy" in (result.detail or "").lower()
+
+    def test_single_mx_unresolvable_returns_fail_3(self):
+        """1 MX that doesn't resolve → 3/10 FAIL (new INBOX-58 behavior)."""
+        from unittest.mock import patch, MagicMock
+
+        with patch("dns.resolver.Resolver") as MockResolver, \
+             patch("checks.safe_dns_query", return_value=None):
+
+            mock_resolver = MagicMock()
+            MockResolver.return_value = mock_resolver
+            mock_resolver.resolve.return_value = self._build_mx_resolver_mock(
+                ["mail.broken.example"], {}
+            )
+
+            from checks import check_mx_records
+            result = check_mx_records("single-broken.com")
+            assert result.status == "fail"
+            assert result.points == 3
+            assert "mail.broken.example" in (result.detail or "")
+
+    def test_mx_resolves_via_aaaa_only(self):
+        """An MX host with only AAAA (IPv6) but no A still counts as
+        resolvable. Some modern providers are IPv6-only."""
+        from unittest.mock import patch, MagicMock
+
+        def sdq_side_effect(qname, rdtype, timeout=2):
+            if rdtype == "AAAA":
+                return ["2001:db8::1"]
+            return None  # No A record
+
+        with patch("dns.resolver.Resolver") as MockResolver, \
+             patch("checks.safe_dns_query", side_effect=sdq_side_effect):
+
+            mock_resolver = MagicMock()
+            MockResolver.return_value = mock_resolver
+            mock_resolver.resolve.return_value = self._build_mx_resolver_mock(
+                ["v6only.example", "v6-also.example"], {}
+            )
+
+            from checks import check_mx_records
+            result = check_mx_records("ipv6-only.example")
+            assert result.status == "pass"
+            assert result.points == 10
+
+
 # ─── DKIM CHECK TESTS ───────────────────────────────────────────
 
 class TestCheckDKIM:
