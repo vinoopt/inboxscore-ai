@@ -642,6 +642,150 @@ class TestCheckDKIMMultiStringTxt:
             )
 
 
+class TestCheckDKIMSelectorExpansion:
+    """INBOX-57 — expanded selector dictionary (17 → ~50) covering common
+    transactional providers that were producing false-FAILs.
+
+    Pre-INBOX-57 we probed only 17 selectors. Real senders using Mandrill
+    (mte1-mte5), Postmark (pm), Resend (resend), Klaviyo (klaviyo), Brevo
+    (sib), or Zoho (zoho) hit a flat 0/15 FAIL even when DKIM was working.
+    """
+
+    @patch("checks.safe_dns_query")
+    def test_postmark_selector_pm_now_found(self, mock_dns):
+        """Postmark's `pm` selector — was missing pre-INBOX-57."""
+        good_2048 = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
+
+        def side(qname, rdtype, timeout=2):
+            if qname == "pm._domainkey.postmark-user.com" and rdtype == "TXT":
+                return [good_2048]
+            return None
+
+        mock_dns.side_effect = side
+        from checks import check_dkim
+        r = check_dkim("postmark-user.com")
+        assert r.status == "pass"
+        sels = (r.raw_data or {}).get("selectors", [])
+        assert any(s.get("selector") == "pm" for s in sels)
+
+    @patch("checks.safe_dns_query")
+    def test_resend_selector_now_found(self, mock_dns):
+        """Resend's `resend` selector — was missing pre-INBOX-57.
+        Voicenotes.com actually has this selector live (audited 2026-04-25)."""
+        good_2048 = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
+
+        def side(qname, rdtype, timeout=2):
+            if qname == "resend._domainkey.resend-user.com" and rdtype == "TXT":
+                return [good_2048]
+            return None
+
+        mock_dns.side_effect = side
+        from checks import check_dkim
+        r = check_dkim("resend-user.com")
+        assert r.status == "pass"
+        sels = (r.raw_data or {}).get("selectors", [])
+        assert any(s.get("selector") == "resend" for s in sels)
+
+    @patch("checks.safe_dns_query")
+    def test_mandrill_mte_selectors_now_found(self, mock_dns):
+        """Mandrill rotates mte1-mte9. Pre-INBOX-57 we only had `mandrill`
+        which doesn't catch the actual signing selector."""
+        good_2048 = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
+
+        def side(qname, rdtype, timeout=2):
+            if qname == "mte1._domainkey.mandrill-user.com" and rdtype == "TXT":
+                return [good_2048]
+            return None
+
+        mock_dns.side_effect = side
+        from checks import check_dkim
+        r = check_dkim("mandrill-user.com")
+        assert r.status == "pass"
+        sels = (r.raw_data or {}).get("selectors", [])
+        assert any(s.get("selector") == "mte1" for s in sels)
+
+    @patch("checks.safe_dns_query")
+    def test_klaviyo_selector_now_found(self, mock_dns):
+        """Klaviyo (B2C marketing) — `klaviyo`/`klaviyo1`/`klaviyo2`."""
+        good_2048 = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
+
+        def side(qname, rdtype, timeout=2):
+            if qname == "klaviyo1._domainkey.b2c-shop.com" and rdtype == "TXT":
+                return [good_2048]
+            return None
+
+        mock_dns.side_effect = side
+        from checks import check_dkim
+        r = check_dkim("b2c-shop.com")
+        assert r.status == "pass"
+        sels = (r.raw_data or {}).get("selectors", [])
+        assert any(s.get("selector") == "klaviyo1" for s in sels)
+
+    @patch("checks.safe_dns_query")
+    def test_zoho_selector_now_found(self, mock_dns):
+        """Zoho's `zoho`/`zohomail` selectors."""
+        good_2048 = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
+
+        def side(qname, rdtype, timeout=2):
+            if qname == "zoho._domainkey.zoho-shop.com" and rdtype == "TXT":
+                return [good_2048]
+            return None
+
+        mock_dns.side_effect = side
+        from checks import check_dkim
+        r = check_dkim("zoho-shop.com")
+        assert r.status == "pass"
+        sels = (r.raw_data or {}).get("selectors", [])
+        assert any(s.get("selector") == "zoho" for s in sels)
+
+    @patch("checks.safe_dns_query")
+    def test_no_dkim_messaging_includes_external_verifier(self, mock_dns):
+        """When no selector matches, the message must NOT just say 'fail'.
+        It must point users to dkimvalidator.com or port25.com — many
+        senders use random/rotating selectors (AWS SES, HubSpot,
+        Salesforce MC) that we genuinely can't enumerate."""
+        mock_dns.return_value = None
+        from checks import check_dkim
+        r = check_dkim("rotating-selector.com")
+        assert r.status == "fail"
+        assert r.points == 0
+        d = (r.detail or "").lower()
+        assert "dkimvalidator" in d or "port25" in d, (
+            "No-DKIM detail must point to an external verifier — many "
+            "real senders use random selectors we can't probe."
+        )
+        # raw_data should expose the full checked list (not just first 10)
+        raw = r.raw_data or {}
+        assert raw.get("checked_count") == len(__import__("checks").DKIM_SELECTORS)
+        assert len(raw.get("checked_selectors", [])) >= 40
+
+    def test_dkim_selectors_list_has_expected_providers(self):
+        """Sanity check — the canonical providers must be in the list.
+        If someone removes one of these, this test fails."""
+        from checks import DKIM_SELECTORS
+        required = {
+            "default", "selector1", "selector2", "google",
+            "k1", "k2", "s1", "s2",
+            "mandrill", "mte1", "mte2",
+            "pm", "postmark",
+            "resend",
+            "klaviyo", "klaviyo1",
+            "zoho",
+            "smtpapi", "m1",  # SendGrid
+            "krs", "mxvault",  # Mailgun
+            "sib",  # Brevo
+            "amazonses",
+            "mlrcloud",  # Mailercloud's own
+        }
+        actual = set(DKIM_SELECTORS)
+        missing = required - actual
+        assert not missing, f"Required DKIM selectors missing from list: {missing}"
+        assert len(DKIM_SELECTORS) >= 40, (
+            f"DKIM_SELECTORS should be ~50 after INBOX-57 expansion, "
+            f"got only {len(DKIM_SELECTORS)}"
+        )
+
+
 # ─── SCORE CALCULATION TESTS ────────────────────────────────────
 
 class TestScoreCalculation:

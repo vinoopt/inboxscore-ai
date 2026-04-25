@@ -53,12 +53,47 @@ BLACKLISTS = [
     "bogons.cymru.com",          # Bogon/unallocated IPs
 ]
 
-# Common DKIM selectors to check
+# Common DKIM selectors to check (INBOX-57: expanded from 17 to ~50).
+# Senders use one of two patterns:
+#   1. Stable, well-known selectors → enumerable, listed below
+#   2. Random/rotating hashes (AWS SES, HubSpot, Salesforce MC) → NOT
+#      enumerable. When we don't find DKIM via this list, we fall back
+#      to a "may use a custom selector — verify via dkimvalidator.com"
+#      message rather than a false-FAIL.
 DKIM_SELECTORS = [
-    "google", "default", "selector1", "selector2",
-    "dkim", "mail", "k1", "k2", "s1", "s2",
-    "mandrill", "amazonses", "smtp", "cm",
-    "mailchimp", "mailo", "mxvault",
+    # ─ Generic / fallback selectors (most domains)
+    "default", "dkim", "mail", "email", "smtp", "cm",
+    "k1", "k2", "k3", "s1", "s2", "key1", "key2",
+    # ─ Microsoft 365 / Exchange Online
+    "selector1", "selector2",
+    # ─ Google Workspace
+    "google",
+    # ─ Amazon SES (also uses random hashes — these catch common cases)
+    "amazonses",
+    # ─ Mandrill / Mailchimp Transactional
+    "mandrill", "mte1", "mte2", "mte3", "mte4", "mte5",
+    # ─ Mailchimp
+    "mailchimp", "mcdkim",
+    # ─ SendGrid
+    "smtpapi", "m1", "em1",
+    # ─ Postmark
+    "pm", "postmark",
+    # ─ Resend (modern transactional)
+    "resend",
+    # ─ Mailgun
+    "krs", "mxvault", "mta",
+    # ─ Brevo (Sendinblue)
+    "sib", "sib1", "mail2",
+    # ─ Klaviyo (B2C marketing)
+    "klaviyo", "klaviyo1", "klaviyo2",
+    # ─ Zoho
+    "zoho", "zohomail",
+    # ─ ActiveCampaign
+    "acdkim",
+    # ─ Mailercloud (own infra — INBOX-57 audit lookup)
+    "mlrcloud", "mlr", "mc",
+    # ─ Other regional providers
+    "mailo",
 ]
 
 # ─── DOMAIN BLACKLISTS (INBOX-42) ──────────────────────────────────
@@ -532,10 +567,11 @@ def check_dkim(domain: str) -> CheckResult:
             }
         return None
 
-    # Probe all selectors in parallel (each is a single DNS query)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=17) as executor:
+    # Probe all selectors in parallel (each is a single DNS query).
+    # INBOX-57: bumped pool size to match the expanded selector list.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(DKIM_SELECTORS), 32)) as executor:
         future_map = {executor.submit(_probe_selector, s): s for s in DKIM_SELECTORS}
-        for future in concurrent.futures.as_completed(future_map, timeout=5):
+        for future in concurrent.futures.as_completed(future_map, timeout=6):
             try:
                 hit = future.result()
                 if hit:
@@ -580,21 +616,41 @@ def check_dkim(domain: str) -> CheckResult:
             max_points=15
         )
     else:
+        # INBOX-57: instead of a flat FAIL when none of our ~50 known
+        # selectors match, surface the limitation honestly. AWS SES,
+        # HubSpot, Salesforce Marketing Cloud, and many self-hosted
+        # senders use random/rotating selectors that can't be enumerated.
+        # A flat 0/15 FAIL would unfairly punish those domains.
         return CheckResult(
             name="dkim",
             category="authentication",
             status="fail",
             title="DKIM",
-            detail="No DKIM records found for common selectors",
-            raw_data={"checked_selectors": DKIM_SELECTORS[:10]},
+            detail=(
+                f"No DKIM records found across {len(DKIM_SELECTORS)} common selectors. "
+                "Either DKIM isn't configured, or your provider uses a custom/rotating "
+                "selector (eg AWS SES, HubSpot, Salesforce MC). Verify externally by "
+                "sending a test email to check-auth@verifier.port25.com or "
+                "https://www.dkimvalidator.com — they'll inspect the actual "
+                "DKIM-Signature header on a real outbound mail."
+            ),
+            raw_data={
+                "checked_selectors": DKIM_SELECTORS,
+                "checked_count": len(DKIM_SELECTORS),
+            },
             points=0,
             max_points=15,
             fix_steps=[
-                "Enable DKIM signing in your email provider settings",
-                "For Google Workspace: Admin Console → Apps → Google Workspace → Gmail → Authenticate email",
-                "For Microsoft 365: Exchange Admin → Protection → DKIM",
-                "Add the generated TXT record to your DNS",
-                "Note: We checked selectors: " + ", ".join(DKIM_SELECTORS[:8]) + " — your provider may use a different selector"
+                "First, verify externally — send a test email to https://www.dkimvalidator.com "
+                "or to check-auth@verifier.port25.com. If their report shows a passing DKIM "
+                "signature, your DKIM works but uses a selector outside our probe list.",
+                "If the external test also shows no DKIM, enable DKIM signing in your provider:",
+                "  • Google Workspace: Admin Console → Apps → Google Workspace → Gmail → Authenticate email",
+                "  • Microsoft 365: Exchange Admin → Protection → DKIM",
+                "  • Mailgun / Postmark / SendGrid: their dashboards each have a DKIM section",
+                "  • Mandrill / Mailchimp Transactional: account settings → SMTP & API",
+                "Add the generated TXT record to your DNS at <selector>._domainkey.<your-domain>",
+                "DKIM propagation can take up to 24 hours; re-scan after that."
             ]
         )
 
