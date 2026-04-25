@@ -865,13 +865,23 @@ const DASH_ACTION_META = {
 // the user to take.
 function dashIsActionable(check) {
   if (!check || (check.max_points || 0) === 0) return false;             // informational only
-  if ((check.points || 0) >= (check.max_points || 0)) return false;       // perfect — no action
+  const lost = (check.max_points || 0) - (check.points || 0);
+  if (lost <= 0) return false;                                            // perfect — no action
   if (check.name === 'domain_age') return false;                          // user can't fix time
   const raw = check.raw_data || {};
   const verif = raw.verification;
   if (verif === 'unverified_port_25_blocked' || verif === 'unverified_unknown_provider') {
     return false;                                                         // our infra limit, not user's
   }
+  // INBOX-63: filter near-perfect status=pass checks (lost ≤ 1) — these
+  // usually have no real fix path. eg ip_reputation 7/8 'Whitelisted on
+  // DNSWL.org', reverse_dns 4/5 with valid PTR. Generic action cards are
+  // noise; surface real fixes only.
+  if (check.status === 'pass' && lost <= 1) return false;
+  // INBOX-63: also filter checks without concrete fix_steps. A "varies"
+  // action card with no steps is worse than not showing the card at all.
+  const fix = check.fix_steps;
+  if (!Array.isArray(fix) || fix.length === 0) return false;
   return true;
 }
 

@@ -786,6 +786,107 @@ class TestCheckDKIMSelectorExpansion:
         )
 
 
+class TestCheckDKIMMixedKeyMessaging:
+    """INBOX-62 — when multiple DKIM selectors are found with mixed key
+    sizes, the detail must name the WEAK selector specifically rather
+    than implying the main key is weak.
+
+    Pinned to voicenotes.com Tier-3 finding (2026-04-25): selectors k1
+    (2048-bit) + resend (1024-bit) was producing the misleading message
+    "DKIM configured for selectors: k1, resend — using 1024-bit key".
+    Now reads "selector `resend` uses a legacy 1024-bit key".
+    """
+
+    @patch("checks.safe_dns_query")
+    def test_mixed_keys_names_the_weak_selector(self, mock_dns):
+        """The voicenotes.com case — k1 strong + resend weak.
+        Detail must name `resend` specifically, not imply main key is weak."""
+        strong_2048 = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
+        weak_1024 = '"v=DKIM1; k=rsa; p=' + "A" * 200 + '"'
+
+        def side(qname, rdtype, timeout=2):
+            if qname == "k1._domainkey.mixed-keys.com" and rdtype == "TXT":
+                return [strong_2048]
+            if qname == "resend._domainkey.mixed-keys.com" and rdtype == "TXT":
+                return [weak_1024]
+            return None
+
+        mock_dns.side_effect = side
+        from checks import check_dkim
+        r = check_dkim("mixed-keys.com")
+        assert r.points == 14, "Mixed keys: still 14/15"
+        assert r.status == "pass"
+        d = r.detail or ""
+        # Must name `resend` as the weak one
+        assert "`resend`" in d or "resend (1024-bit)" in d, (
+            f"Detail must name the weak selector `resend`. Got: {d!r}"
+        )
+        # Must NOT imply the main key is weak (the pre-fix bug)
+        assert "using 1024-bit key" not in d, (
+            "Pre-INBOX-62 misleading wording must not appear. The actual "
+            "main selector (k1) is 2048-bit."
+        )
+        # Per-selector size labels must be in the detail
+        assert "2048-bit" in d
+        assert "1024-bit" in d
+        # raw_data must distinguish weak vs strong selectors
+        raw = r.raw_data or {}
+        assert "resend" in (raw.get("weak_selectors") or [])
+        assert "k1" in (raw.get("strong_selectors") or [])
+        # Fix steps must guide to the specific selector, not the main key
+        fix = r.fix_steps or []
+        joined = " ".join(fix)
+        assert "`resend`" in joined or "resend" in joined
+        assert "Don't touch your already-2048-bit selectors" in joined or \
+               "already 2048-bit" in joined, (
+            "Fix steps must reassure user that the strong selectors are fine"
+        )
+
+    @patch("checks.safe_dns_query")
+    def test_all_weak_keeps_existing_behavior(self, mock_dns):
+        """All selectors 1024-bit — original "all keys weak" guidance fires."""
+        weak = '"v=DKIM1; k=rsa; p=' + "A" * 200 + '"'
+
+        def side(qname, rdtype, timeout=2):
+            if qname == "default._domainkey.all-weak.com" and rdtype == "TXT":
+                return [weak]
+            if qname == "selector1._domainkey.all-weak.com" and rdtype == "TXT":
+                return [weak]
+            return None
+
+        mock_dns.side_effect = side
+        from checks import check_dkim
+        r = check_dkim("all-weak.com")
+        assert r.points == 14
+        d = r.detail or ""
+        assert "all selectors use a 1024-bit key" in d.lower() or \
+               "1024-bit key" in d
+        # No "your other selectors are 2048-bit" language — they aren't
+        fix = " ".join(r.fix_steps or [])
+        assert "already 2048-bit" not in fix
+
+    @patch("checks.safe_dns_query")
+    def test_all_strong_unchanged(self, mock_dns):
+        """All selectors 2048-bit — perfect score, no warning."""
+        strong = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
+
+        def side(qname, rdtype, timeout=2):
+            if qname == "default._domainkey.all-strong.com" and rdtype == "TXT":
+                return [strong]
+            if qname == "selector1._domainkey.all-strong.com" and rdtype == "TXT":
+                return [strong]
+            return None
+
+        mock_dns.side_effect = side
+        from checks import check_dkim
+        r = check_dkim("all-strong.com")
+        assert r.points == 15
+        d = r.detail or ""
+        assert "1024-bit" not in d  # no warning for all-strong
+        # Per-selector labels still present
+        assert "2048-bit" in d
+
+
 # ─── SCORE CALCULATION TESTS ────────────────────────────────────
 
 class TestScoreCalculation:

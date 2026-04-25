@@ -580,21 +580,74 @@ def check_dkim(domain: str) -> CheckResult:
                 pass
 
     if found_selectors:
-        selector_names = [s["selector"] for s in found_selectors]
-        detail = f"DKIM configured for selector{'s' if len(found_selectors) > 1 else ''}: {', '.join(selector_names)}"
+        # INBOX-62: per-selector key-size in detail when multiple selectors found.
+        # Pre-INBOX-62 the detail said "selectors: k1, resend — using 1024-bit
+        # key" which implied the *main* DKIM key was weak when actually only
+        # one of multiple selectors was. Now we attach the size to each name.
+        def _label(s):
+            kl = s.get("key_length", "unknown")
+            if kl == "CNAME redirect":
+                return f"{s['selector']} (CNAME)"
+            return f"{s['selector']} ({kl})"
 
-        # Check key strength
-        has_weak_key = any(
-            "1024" in s.get("key_length", "") for s in found_selectors
-        )
-        if has_weak_key:
+        labelled = [_label(s) for s in found_selectors]
+        detail = f"DKIM configured for selector{'s' if len(found_selectors) > 1 else ''}: {', '.join(labelled)}"
+
+        # Identify weak (1024-bit) selectors specifically.
+        weak_selectors = [s for s in found_selectors
+                           if "1024" in s.get("key_length", "")]
+        strong_selectors = [s for s in found_selectors
+                             if "2048" in s.get("key_length", "")]
+
+        if weak_selectors and strong_selectors:
+            # MIXED — at least one strong key present. Don't imply the main
+            # key is weak; specifically name the weak selector(s).
+            weak_names = [s["selector"] for s in weak_selectors]
+            weak_phrase = ", ".join(f"`{n}`" for n in weak_names)
             return CheckResult(
                 name="dkim",
                 category="authentication",
                 status="pass",
                 title="DKIM",
-                detail=detail + " — using 1024-bit key; 2048-bit recommended for stronger security",
-                raw_data={"selectors": found_selectors},
+                detail=(
+                    detail +
+                    f" — selector{'s' if len(weak_selectors) > 1 else ''} {weak_phrase} "
+                    f"use{'' if len(weak_selectors) > 1 else 's'} a legacy 1024-bit "
+                    "key. Consider rotating to 2048-bit or retiring if unused."
+                ),
+                raw_data={
+                    "selectors": found_selectors,
+                    "weak_selectors": weak_names,
+                    "strong_selectors": [s["selector"] for s in strong_selectors],
+                },
+                points=14,
+                max_points=15,
+                fix_steps=[
+                    f"Selector{'s' if len(weak_selectors) > 1 else ''} {weak_phrase} "
+                    f"{'are' if len(weak_selectors) > 1 else 'is'} 1024-bit (legacy). "
+                    "Your other selectors are already 2048-bit (modern).",
+                    "If the legacy selector is still in active use (eg by an old sending "
+                    "service), generate a new 2048-bit key in that provider and update "
+                    "the DNS record at <selector>._domainkey.<your-domain>",
+                    "If the legacy selector is from a service you no longer use, "
+                    "remove the DNS record entirely to keep your DKIM surface clean",
+                    "Don't touch your already-2048-bit selectors — they're fine"
+                ]
+            )
+
+        if weak_selectors:
+            # ALL selectors weak — original advice fires.
+            return CheckResult(
+                name="dkim",
+                category="authentication",
+                status="pass",
+                title="DKIM",
+                detail=detail + " — all selectors use a 1024-bit key; 2048-bit recommended for stronger security",
+                raw_data={
+                    "selectors": found_selectors,
+                    "weak_selectors": [s["selector"] for s in weak_selectors],
+                    "strong_selectors": [],
+                },
                 points=14,
                 max_points=15,
                 fix_steps=[

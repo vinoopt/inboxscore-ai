@@ -808,11 +808,22 @@ const ACTION_META = {
 
 function isActionable(check) {
   if (!check || (check.max_points || 0) === 0) return false;
-  if ((check.points || 0) >= (check.max_points || 0)) return false;
-  if (check.name === 'domain_age') return false;
+  const lost = (check.max_points || 0) - (check.points || 0);
+  if (lost <= 0) return false;                       // perfect score
+  if (check.name === 'domain_age') return false;     // can't make a domain older
   const raw = check.raw_data || {};
   const verif = raw.verification;
   if (verif === 'unverified_port_25_blocked' || verif === 'unverified_unknown_provider') return false;
+  // INBOX-63: filter out near-perfect checks where there's no real fix path.
+  // A status=pass check that's only 1 point shy of max usually has a
+  // generic "Hard, varies" action card with no concrete steps — eg
+  // ip_reputation 7/8 with 'Whitelisted on DNSWL.org' (literally no
+  // improvement possible) or reverse_dns 4/5 with valid PTR.
+  if (check.status === 'pass' && lost <= 1) return false;
+  // INBOX-63: also filter out checks with no concrete fix_steps even if
+  // they failed — surfacing them with a generic "varies" card is noise.
+  const fix = check.fix_steps;
+  if (!Array.isArray(fix) || fix.length === 0) return false;
   return true;
 }
 
