@@ -1536,8 +1536,12 @@ def check_blacklists(domain: str) -> CheckResult:
     if listings == 0:
         # INBOX-39: compute how many blacklists we actually managed to query
         # cleanly — `total_lists` minus any that refused every IP.
+        # INBOX-77: plain-English wording.
         effectively_checked = total_lists - len(fully_errored_bls)
-        detail = f"Not listed on any of {effectively_checked} blacklists checked"
+        detail = (
+            f"Your sending IPs are clean — not listed on any of "
+            f"{effectively_checked} major blacklists we checked"
+        )
         if len(ips) == 1:
             detail += f" (checked IP: {ips[0]} via {ip_sources[ips[0]][0]})"
         elif len(ips) > IP_CHECK_CAP:
@@ -2898,14 +2902,31 @@ def check_sender_detection(domain: str) -> CheckResult:
 
         sender_names = [d["sender"] for d in detected]
 
+        # INBOX-77: plain-English wording
         if detected:
-            detail = f"Detected {len(detected)} authorized sender{'s' if len(detected) != 1 else ''}: {', '.join(sender_names)}"
+            detail = (
+                f"Your domain authorizes {len(sender_names)} known email "
+                f"service{'s' if len(sender_names) != 1 else ''} to send "
+                f"on its behalf: {', '.join(sender_names)}."
+            )
             if unknown_includes:
-                detail += f" (+{len(unknown_includes)} custom)"
+                detail += (
+                    f" Plus {len(unknown_includes)} custom sending "
+                    f"{'sources' if len(unknown_includes) != 1 else 'source'} "
+                    "we don't recognise."
+                )
         else:
-            detail = "No known third-party email senders detected in SPF record"
+            detail = (
+                "Your domain doesn't appear to use any well-known email "
+                "services (Mailchimp, SendGrid, Google Workspace, etc.) "
+                "according to your SPF record."
+            )
             if unknown_includes:
-                detail += f" — {len(unknown_includes)} custom include{'s' if len(unknown_includes) != 1 else ''} found"
+                detail += (
+                    f" {len(unknown_includes)} custom sending "
+                    f"{'sources' if len(unknown_includes) != 1 else 'source'} "
+                    "found in your SPF — likely self-hosted or a less common provider."
+                )
 
         return CheckResult(
             name="senders",
@@ -2997,24 +3018,45 @@ def check_domain_age(domain: str) -> CheckResult:
 
         created_str = creation_date.strftime("%B %d, %Y")
 
+        # INBOX-77: plain-English wording
         if age_years >= 2:
-            detail = f"Domain registered on {created_str} ({age_years:.1f} years) — well-established domain"
+            detail = (
+                f"Your domain was registered on {created_str} — "
+                f"{age_years:.1f} years old. Well-established domains have "
+                "earned baseline trust with email providers."
+            )
             status = "pass"
             points = 3
         elif age_years >= 1:
-            detail = f"Domain registered on {created_str} ({age_years:.1f} years) — established domain"
+            detail = (
+                f"Your domain was registered on {created_str} — "
+                f"{age_years:.1f} years old. Established enough that email "
+                "providers don't treat it as suspicious by default."
+            )
             status = "pass"
             points = 3
         elif age_days >= 90:
-            detail = f"Domain registered on {created_str} ({age_days} days ago) — domain age is fine, reputation still building"
+            detail = (
+                f"Your domain was registered on {created_str} — {age_days} "
+                "days old. The age is fine, but your sender reputation is "
+                "still building."
+            )
             status = "pass"
             points = 2
         elif age_days >= 30:
-            detail = f"Domain registered on {created_str} ({age_days} days ago) — relatively new domain, warm up sending gradually"
+            detail = (
+                f"Your domain was registered on {created_str} — only "
+                f"{age_days} days old. Email providers are still deciding "
+                "how much to trust you. Warm up your sending volume slowly."
+            )
             status = "warn"
             points = 1
         else:
-            detail = f"Domain registered on {created_str} ({age_days} days ago) — brand new domains often face spam filtering"
+            detail = (
+                f"Your domain was registered on {created_str} — only "
+                f"{age_days} days old. Brand-new domains face heavy spam "
+                "filtering until they build a sending history."
+            )
             status = "warn"
             points = 0
 
@@ -3341,26 +3383,40 @@ def check_ip_reputation(domain: str) -> CheckResult:
     # Baseline of 2 for clean IPs not on any whitelist (most legitimate domains)
     if len(whitelisted) >= 2:
         points += 4
-        details.append(f"Whitelisted on {len(whitelisted)} reputation services ({', '.join(whitelisted)})")
+        details.append(
+            f"Recognised as a trusted sender by {len(whitelisted)} reputation "
+            f"services ({', '.join(whitelisted)})"
+        )
     elif len(whitelisted) == 1:
         points += 3
-        details.append(f"Whitelisted on {whitelisted[0]}")
+        details.append(f"Recognised as a trusted sender on {whitelisted[0]}")
     else:
         points += 2
-        details.append("Not found on reputation whitelists — most legitimate domains aren't; this improves with volume")
+        details.append(
+            "Not yet recognised by major sender-reputation services. This "
+            "is normal for most domains — recognition builds with consistent "
+            "sending volume over time"
+        )
 
     # ─── Reputation flags (0-4 points) — negative reputation signals ───
     if not reputation_flags:
         points += 4
-        details.append("No reputation flags detected")
+        details.append("No negative reputation flags detected")
     elif len(reputation_flags) == 1:
         points += 1
         status = "warn"
-        details.append(f"Flagged on {reputation_flags[0]} — monitor your sending practices")
+        details.append(
+            f"One reputation service ({reputation_flags[0]}) has flagged your "
+            "sending IP. Worth monitoring before it escalates"
+        )
     else:
         points += 0
         status = "fail"
-        details.append(f"Flagged on {len(reputation_flags)} reputation services — review sending practices immediately")
+        details.append(
+            f"{len(reputation_flags)} reputation services have flagged your "
+            "sending IP — review your sending practices immediately to "
+            "prevent further damage to deliverability"
+        )
 
     # ─── ASN info (informational — 0 points) ───
     asn_name = asn_info.get("asn_name", "Unknown")
