@@ -1,7 +1,6 @@
 {
   "domain": "microsoft.com",
-  "captured_at": "2026-04-25",
-  "captured_by": "tests/helpers/capture_golden.py",
+  "captured_at": "RUN_DATE",
   "dns": {
     "microsoft.com:TXT": [
       "\"d365mktkey=3uc1cf82cpv750lzk70v9bvf2\"",
@@ -67,7 +66,7 @@
       "10 microsoft-com.mail.protection.outlook.com."
     ],
     "microsoft.com:A": [
-      "150.171.109.210"
+      "150.171.109.216"
     ],
     "selector1._domainkey.microsoft.com:CNAME": [
       "selector1-microsoft-com._domainkey.microsoft.onmicrosoft.com."
@@ -91,28 +90,28 @@
       "\"v=TLSRPTv1;rua=https://tlsrpt.azurewebsites.net/report\""
     ],
     "microsoft-com.mail.protection.outlook.com:A": [
-      "52.101.41.21",
-      "52.101.11.10",
-      "52.101.9.21",
-      "52.101.9.12"
+      "52.101.42.18",
+      "52.101.41.4",
+      "52.101.50.7",
+      "52.101.11.9"
     ],
     "microsoft-com.mail.protection.outlook.com:AAAA": [
-      "2a01:111:f403:c803::",
-      "2a01:111:f403:f90a::",
-      "2a01:111:f403:f902::1",
-      "2a01:111:f403:c902::"
+      "2a01:111:f403:f805::1",
+      "2a01:111:f403:f90f::",
+      "2a01:111:f403:f90f::1",
+      "2a01:111:f403:c902::4"
     ],
-    "21.41.101.52.in-addr.arpa.:PTR": [
-      "mail-sj2pr05cu00305.inbound.protection.outlook.com."
+    "18.42.101.52.in-addr.arpa.:PTR": [
+      "mail-co1pr03cu00302.inbound.protection.outlook.com."
     ],
-    "10.11.101.52.in-addr.arpa.:PTR": [
-      "mail-sa9pr03cu00202.inbound.protection.outlook.com."
+    "4.41.101.52.in-addr.arpa.:PTR": [
+      "mail-sj2pr05cu00204.inbound.protection.outlook.com."
     ],
-    "21.9.101.52.in-addr.arpa.:PTR": [
-      "mail-bl2pr04cu00205.inbound.protection.outlook.com."
+    "7.50.101.52.in-addr.arpa.:PTR": [
+      "mail-co1pr21cu00207.inbound.protection.outlook.com."
     ],
-    "12.9.101.52.in-addr.arpa.:PTR": [
-      "mail-bl0pr05cu00504.inbound.protection.outlook.com."
+    "9.11.101.52.in-addr.arpa.:PTR": [
+      "mail-sn1pr02cu00101.inbound.protection.outlook.com."
     ]
   },
   "expected": {
@@ -154,13 +153,13 @@
       },
       "mta_sts": {
         "status": "pass",
-        "points": 3,
-        "max_points": 0
+        "points": 5,
+        "max_points": 5
       },
       "tls_rpt": {
         "status": "pass",
-        "points": 2,
-        "max_points": 0
+        "points": 3,
+        "max_points": 3
       },
       "senders": {
         "status": "info",

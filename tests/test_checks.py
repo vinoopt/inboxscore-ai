@@ -29,10 +29,14 @@ class TestCheckSPF:
 
     @patch("checks.safe_dns_query", side_effect=mock_safe_dns_query)
     def test_spf_soft_fail_still_passes(self, mock_dns):
+        """INBOX-73 (2026-04-26): ~all no longer docks 1 point. Google,
+        Microsoft, Apple, Stripe all use ~all by design — DMARC p=reject
+        does the heavy lifting for actual mail rejection. Industry tools
+        (MXToolbox, Dmarcian, Google Postmaster) treat ~all as PASS."""
         from checks import check_spf
         result = check_spf("partial.com")
         assert result.status == "pass"
-        assert result.points == 14  # ~all gets 14/15
+        assert result.points == 15  # INBOX-73: was 14, now full credit
 
     @patch("checks.safe_dns_query", return_value=None)
     def test_spf_missing(self, mock_dns):
@@ -1049,6 +1053,127 @@ class TestCheckDKIMRotatingSelectors:
         # but should still point to external verifier
         d = (r.detail or "").lower()
         assert "dkimvalidator" in d or "port25" in d
+
+
+class TestCheckMTASTSScoring:
+    """INBOX-70 — MTA-STS now scored (max_points=5), was info-only.
+    Properly configured MTA-STS in enforce mode is a strong
+    deliverability signal (Google's bulk-sender requirements). Pre-
+    INBOX-70 we showed PASS with max_points=0, leaving 5 points off
+    the table for every well-configured sender."""
+
+    @patch("checks.httpx")
+    @patch("checks.safe_dns_query")
+    def test_enforce_mode_scores_full_5(self, mock_dns, mock_httpx):
+        """Enforce mode + valid policy = 5/5."""
+        mock_dns.return_value = ['"v=STSv1; id=20240101"']
+        mock_resp = MagicMock(status_code=200, text="version: STSv1\nmode: enforce\nmx: *.example.com\nmax_age: 86400")
+        mock_httpx.Client.return_value.__enter__.return_value.get.return_value = mock_resp
+
+        from checks import check_mta_sts
+        r = check_mta_sts("enforce-mode.example")
+        assert r.status == "pass"
+        assert r.points == 5
+        assert r.max_points == 5
+
+    @patch("checks.httpx")
+    @patch("checks.safe_dns_query")
+    def test_testing_mode_scores_3_of_5(self, mock_dns, mock_httpx):
+        """Testing mode = 3/5 (good but not full enforce)."""
+        mock_dns.return_value = ['"v=STSv1; id=20240101"']
+        mock_resp = MagicMock(status_code=200, text="version: STSv1\nmode: testing\nmx: *.example.com\nmax_age: 86400")
+        mock_httpx.Client.return_value.__enter__.return_value.get.return_value = mock_resp
+
+        from checks import check_mta_sts
+        r = check_mta_sts("testing-mode.example")
+        assert r.status == "pass"
+        assert r.points == 3
+        assert r.max_points == 5
+
+    @patch("checks.httpx")
+    @patch("checks.safe_dns_query")
+    def test_none_mode_scores_1_of_5(self, mock_dns, mock_httpx):
+        """Mode 'none' = effectively disabled; minimal credit."""
+        mock_dns.return_value = ['"v=STSv1; id=20240101"']
+        mock_resp = MagicMock(status_code=200, text="version: STSv1\nmode: none\nmx: *.example.com\nmax_age: 86400")
+        mock_httpx.Client.return_value.__enter__.return_value.get.return_value = mock_resp
+
+        from checks import check_mta_sts
+        r = check_mta_sts("none-mode.example")
+        assert r.status == "info"
+        assert r.points == 1
+        assert r.max_points == 5
+
+    @patch("checks.safe_dns_query")
+    def test_no_mta_sts_max_points_5_not_zero(self, mock_dns):
+        """Not configured = 0/5 INFO (was 0/0 info-only).
+        max_points must be 5 so the denominator includes MTA-STS."""
+        mock_dns.return_value = None
+        from checks import check_mta_sts
+        r = check_mta_sts("no-mta-sts.example")
+        assert r.status == "info"
+        assert r.points == 0
+        assert r.max_points == 5  # INBOX-70: was 0, must now be 5
+
+
+class TestCheckTLSRPTScoring:
+    """INBOX-70 — TLS-RPT now scored (max_points=3), was info-only.
+    Pairs with MTA-STS for visibility into TLS enforcement failures."""
+
+    @patch("checks.safe_dns_query")
+    def test_valid_rua_mailto_scores_full_3(self, mock_dns):
+        """Configured with valid mailto rua = 3/3."""
+        mock_dns.return_value = ['"v=TLSRPTv1; rua=mailto:tls-reports@example.com"']
+        from checks import check_tls_rpt
+        r = check_tls_rpt("good-tls-rpt.example")
+        assert r.status == "pass"
+        assert r.points == 3
+        assert r.max_points == 3
+
+    @patch("checks.safe_dns_query")
+    def test_valid_rua_https_scores_full_3(self, mock_dns):
+        """HTTPS endpoint rua also valid."""
+        mock_dns.return_value = ['"v=TLSRPTv1; rua=https://reports.example.com/tlsrpt"']
+        from checks import check_tls_rpt
+        r = check_tls_rpt("https-rpt.example")
+        assert r.status == "pass"
+        assert r.points == 3
+        assert r.max_points == 3
+
+    @patch("checks.safe_dns_query")
+    def test_malformed_rua_scores_1_of_3_warn(self, mock_dns):
+        """v=TLSRPTv1 found but rua tag missing → warn at 1/3."""
+        mock_dns.return_value = ['"v=TLSRPTv1"']
+        from checks import check_tls_rpt
+        r = check_tls_rpt("malformed-rpt.example")
+        assert r.status == "warn"
+        assert r.points == 1
+        assert r.max_points == 3
+
+    @patch("checks.safe_dns_query")
+    def test_no_tls_rpt_max_points_3_not_zero(self, mock_dns):
+        """Not configured = 0/3 INFO. max_points must be 3."""
+        mock_dns.return_value = None
+        from checks import check_tls_rpt
+        r = check_tls_rpt("no-tls-rpt.example")
+        assert r.status == "info"
+        assert r.points == 0
+        assert r.max_points == 3  # INBOX-70: was 0, must now be 3
+
+
+class TestCanonicalMaxPointsAlignment:
+    """INBOX-70 — scan_service.CANONICAL_MAX_POINTS must agree with
+    the dynamic max_points returned by the check functions on the
+    happy path. Otherwise the score denominator drifts and crash
+    reporting becomes inconsistent."""
+
+    def test_mta_sts_canonical_5(self):
+        from scan_service import CANONICAL_MAX_POINTS
+        assert CANONICAL_MAX_POINTS["mta_sts"] == 5
+
+    def test_tls_rpt_canonical_3(self):
+        from scan_service import CANONICAL_MAX_POINTS
+        assert CANONICAL_MAX_POINTS["tls_rpt"] == 3
 
 
 # ─── CHECK RESULT MODEL TESTS ───────────────────────────────────

@@ -69,8 +69,8 @@ CANONICAL_MAX_POINTS = {
     "domain_age": 3,
     "ip_reputation": 8,
     "bimi": 0,
-    "mta_sts": 0,
-    "tls_rpt": 0,
+    "mta_sts": 5,             # INBOX-70 — was 0, now scored (Google et al pass enforce)
+    "tls_rpt": 3,             # INBOX-70 — was 0, now scored (rewards visibility into TLS failures)
     "sender_detection": 0,
 }
 

@@ -181,14 +181,18 @@ class TestSafeResult:
         )
 
     def test_crashed_informational_check_stays_at_zero(self):
-        """INBOX-23 guard: informational-only checks (bimi, mta_sts, tls_rpt,
-        sender_detection) legitimately have max_points=0 — they must NOT be
-        pushed into the denominator just because they crashed."""
+        """INBOX-23 guard: informational-only checks (bimi, sender_detection)
+        legitimately have max_points=0 — they must NOT be pushed into the
+        denominator just because they crashed.
+
+        INBOX-70 (2026-04-26): mta_sts and tls_rpt are no longer info-only
+        (now scored at 5 and 3 respectively), so they're tested under the
+        scoring-check guard at TestDenominatorCorrectness instead."""
         class _FakeFuture:
             def result(self, timeout):
                 raise RuntimeError("bimi lookup failed")
 
-        for name in ("bimi", "mta_sts", "tls_rpt", "sender_detection"):
+        for name in ("bimi", "sender_detection"):
             got = _safe_result(_FakeFuture(), name, name.upper(),
                                "infrastructure", 8, "ex.com")
             assert got.max_points == 0, (

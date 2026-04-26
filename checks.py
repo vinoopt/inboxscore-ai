@@ -519,8 +519,15 @@ def check_spf(domain: str) -> CheckResult:
     points = 15
 
     if "~all" in spf_record:
+        # INBOX-73 (2026-04-26): no longer dock a point for ~all.
+        # Google, Microsoft, Apple, Stripe, GitHub all use ~all by
+        # design — it handles forwarders and mailing-list edge cases
+        # that strict -all would break. DMARC p=reject does the heavy
+        # lifting for actual mail rejection. Industry tools (MXToolbox,
+        # Dmarcian, Google Postmaster) treat ~all as PASS. Keep the
+        # "consider -all" suggestion as a non-scoring fix-step for
+        # educational value.
         issues.append("Uses ~all (soft fail) — widely accepted; -all (hard fail) offers stricter enforcement")
-        points = 14
         status = "pass"
     elif "+all" in spf_record:
         issues.append("CRITICAL: Uses +all which allows ANYONE to send as your domain")
@@ -2128,7 +2135,15 @@ def check_bimi(domain: str) -> CheckResult:
 # ─── ENHANCED CHECKS (Phase 2) ─────────────────────────────────────
 
 def check_mta_sts(domain: str) -> CheckResult:
-    """Check MTA-STS policy (DNS record + /.well-known/mta-sts.txt)"""
+    """Check MTA-STS policy (DNS record + /.well-known/mta-sts.txt).
+
+    INBOX-70 (2026-04-26): scoring is now PART OF THE TOTAL (max_points=5),
+    not info-only (max_points=0). Properly configured MTA-STS in enforce
+    mode is one of the strongest deliverability signals modern receivers
+    look for — Google's bulk-sender requirements explicitly recommend it.
+    Pre-INBOX-70 we showed PASS but 0 max_points, leaving 5 points off
+    the table for every well-configured sender (Google, Microsoft, etc.).
+    """
     try:
         # Step 1: Check DNS record _mta-sts.{domain} TXT
         sts_domain = f"_mta-sts.{domain}"
@@ -2152,7 +2167,7 @@ def check_mta_sts(domain: str) -> CheckResult:
                 title="MTA-STS (Strict Transport Security)",
                 detail="No MTA-STS record — optional advanced feature for enforcing TLS on incoming mail",
                 points=0,
-                max_points=0,
+                max_points=5,
                 fix_steps=[
                     "MTA-STS enforces TLS encryption for incoming emails, preventing man-in-the-middle attacks",
                     "Add a TXT record at _mta-sts.yourdomain.com with: v=STSv1; id=20240101",
@@ -2183,7 +2198,7 @@ def check_mta_sts(domain: str) -> CheckResult:
                 detail=f"MTA-STS DNS record found but policy file not accessible at {policy_url}",
                 raw_data={"dns_record": sts_record},
                 points=1,
-                max_points=0,
+                max_points=5,
                 fix_steps=[
                     "Your DNS record is set up, but the policy file is missing or unreachable",
                     f"Host a text file at {policy_url}",
@@ -2207,8 +2222,8 @@ def check_mta_sts(domain: str) -> CheckResult:
                 title="MTA-STS (Strict Transport Security)",
                 detail="MTA-STS is fully configured with enforce mode — excellent protection against downgrade attacks",
                 raw_data={"dns_record": sts_record, "policy_mode": mode},
-                points=3,
-                max_points=0
+                points=5,
+                max_points=5
             )
         elif mode == "testing":
             return CheckResult(
@@ -2218,8 +2233,29 @@ def check_mta_sts(domain: str) -> CheckResult:
                 title="MTA-STS (Strict Transport Security)",
                 detail="MTA-STS configured in testing mode — switch to enforce mode when ready for full protection",
                 raw_data={"dns_record": sts_record, "policy_mode": mode},
-                points=2,
-                max_points=0
+                points=3,
+                max_points=5,
+                fix_steps=[
+                    "Testing mode means receivers report failures but still deliver — good for monitoring",
+                    "Once you confirm no legitimate mail is failing, switch to mode: enforce",
+                    "Enforce mode blocks downgrade attacks and earns full 5/5 score"
+                ]
+            )
+        elif mode == "none":
+            return CheckResult(
+                name="mta_sts",
+                category="infrastructure",
+                status="info",
+                title="MTA-STS (Strict Transport Security)",
+                detail="MTA-STS configured with mode: none — policy effectively disabled",
+                raw_data={"dns_record": sts_record, "policy_mode": mode},
+                points=1,
+                max_points=5,
+                fix_steps=[
+                    "Mode 'none' tells receivers to ignore the policy — same protection as not having one",
+                    "Switch to mode: testing to start receiving failure reports",
+                    "Then switch to mode: enforce for full TLS protection"
+                ]
             )
         else:
             return CheckResult(
@@ -2230,7 +2266,7 @@ def check_mta_sts(domain: str) -> CheckResult:
                 detail=f"MTA-STS policy found but mode is '{mode}' — use 'enforce' or 'testing'",
                 raw_data={"dns_record": sts_record, "policy_mode": mode},
                 points=1,
-                max_points=0,
+                max_points=5,
                 fix_steps=["Update the mode line in your policy file to: mode: enforce"]
             )
 
@@ -2242,12 +2278,18 @@ def check_mta_sts(domain: str) -> CheckResult:
             title="MTA-STS (Strict Transport Security)",
             detail="Could not complete MTA-STS check",
             points=0,
-            max_points=0
+            max_points=5
         )
 
 
 def check_tls_rpt(domain: str) -> CheckResult:
-    """Check TLS-RPT (TLS Reporting) record"""
+    """Check TLS-RPT (TLS Reporting) record.
+
+    INBOX-70 (2026-04-26): scoring is now part of the total (max_points=3),
+    not info-only. TLS-RPT pairs with MTA-STS to give the operator
+    visibility into TLS enforcement failures — without it the policy is
+    'flying blind'. Worth a small but real scoring credit.
+    """
     try:
         rpt_domain = f"_smtp._tls.{domain}"
         txt_records = safe_dns_query(rpt_domain, "TXT")
@@ -2261,16 +2303,40 @@ def check_tls_rpt(domain: str) -> CheckResult:
                     if "rua=" in cleaned:
                         rua = cleaned.split("rua=", 1)[1].strip().rstrip(";")
 
-                    return CheckResult(
-                        name="tls_rpt",
-                        category="infrastructure",
-                        status="pass",
-                        title="TLS-RPT (TLS Reporting)",
-                        detail=f"TLS-RPT configured — reports sent to {rua[:60]}{'...' if len(rua) > 60 else ''}" if rua else "TLS-RPT record found",
-                        raw_data={"record": cleaned, "rua": rua},
-                        points=2,
-                        max_points=0
+                    # Validate rua has a scheme (mailto:, https:, etc.) —
+                    # malformed rua = report destination unreachable.
+                    rua_valid = bool(rua) and (
+                        "mailto:" in rua.lower() or "https:" in rua.lower()
                     )
+
+                    if rua_valid:
+                        return CheckResult(
+                            name="tls_rpt",
+                            category="infrastructure",
+                            status="pass",
+                            title="TLS-RPT (TLS Reporting)",
+                            detail=f"TLS-RPT configured — reports sent to {rua[:60]}{'...' if len(rua) > 60 else ''}",
+                            raw_data={"record": cleaned, "rua": rua},
+                            points=3,
+                            max_points=3
+                        )
+                    else:
+                        return CheckResult(
+                            name="tls_rpt",
+                            category="infrastructure",
+                            status="warn",
+                            title="TLS-RPT (TLS Reporting)",
+                            detail="TLS-RPT record found but rua tag missing or malformed — reports have nowhere to go",
+                            raw_data={"record": cleaned, "rua": rua},
+                            points=1,
+                            max_points=3,
+                            fix_steps=[
+                                "Your TLS-RPT record is incomplete — receivers won't know where to send reports",
+                                "Update the TXT record at _smtp._tls.yourdomain.com",
+                                "Add a valid rua tag, eg: v=TLSRPTv1; rua=mailto:tls-reports@yourdomain.com",
+                                "Or use HTTPS endpoint: rua=https://reports.example.com/tlsrpt"
+                            ]
+                        )
 
         return CheckResult(
             name="tls_rpt",
@@ -2279,7 +2345,7 @@ def check_tls_rpt(domain: str) -> CheckResult:
             title="TLS-RPT (TLS Reporting)",
             detail="No TLS-RPT record — optional feature for receiving TLS delivery failure reports",
             points=0,
-            max_points=0,
+            max_points=3,
             fix_steps=[
                 "TLS-RPT lets you receive reports when emails can't be delivered securely",
                 "Add a TXT record at _smtp._tls.yourdomain.com",
@@ -2296,7 +2362,7 @@ def check_tls_rpt(domain: str) -> CheckResult:
             title="TLS-RPT (TLS Reporting)",
             detail="Could not complete TLS-RPT check",
             points=0,
-            max_points=0
+            max_points=3
         )
 
 

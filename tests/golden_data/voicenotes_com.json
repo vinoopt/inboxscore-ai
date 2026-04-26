@@ -1,7 +1,6 @@
 {
   "domain": "voicenotes.com",
-  "captured_at": "2026-04-25",
-  "captured_by": "tests/helpers/capture_golden.py",
+  "captured_at": "RUN_DATE",
   "dns": {
     "voicenotes.com:TXT": [
       "\"MS=ms28625445\"",
@@ -25,9 +24,9 @@
       "5 alt2.aspmx.l.google.com."
     ],
     "voicenotes.com:A": [
-      "104.26.5.96",
       "172.67.68.149",
-      "104.26.4.96"
+      "104.26.4.96",
+      "104.26.5.96"
     ],
     "k1._domainkey.voicenotes.com:TXT": [
       "\"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjyXiFDCuApqd5646pU8MVTOswh97Mw++71nlAsp1Iyb7e/OUOj1CXdb4u0cEpACyMDiA36A+SRxux/TekBM1fyx+K9e2T+ebERXFx58Mp2zGFHhR1ljtoIc7PrfcRr/kEVCABuAcH66MDk1Zi9uD0TgCbTu56B99DulIMP05HDhNOrDz+XN2J5MeH4RpDGm\" \"zOXfjNgmN/jGG8Z6QLacfskUmw75AVwGIYiz8RMKOvbpYXZDCmGGkHGmy9RkYVLafESlMca9jDwc9iVth5uiz0c/DIIQlYeAXhzdHeS3/b/I9Ww/6m2MHMamCoLuT8pMwVpkuOezvvVmI5bmGOrHilQIDAQAB\""
@@ -42,16 +41,22 @@
       "\"v=DMARC1; p=reject; pct=100, rua=mailto:dmarc@mlrcloud.com; ruf=mailto:dmarc@mlrcloud.com\""
     ],
     "aspmx.l.google.com:A": [
-      "192.178.223.27"
+      "172.217.76.26"
     ],
     "aspmx.l.google.com:AAAA": [
-      "2a00:1450:4009:c0f::1b"
+      "2a00:1450:4009:c19::1b"
+    ],
+    "26.76.217.172.in-addr.arpa.:PTR": [
+      "yulhrp-in-f26.1e100.net."
     ],
     "alt3.aspmx.l.google.com:A": [
-      "142.251.127.26"
+      "142.251.127.27"
     ],
     "alt3.aspmx.l.google.com:AAAA": [
-      "2a00:1450:4001:c21::1a"
+      "2a00:1450:4001:c21::1b"
+    ],
+    "27.127.251.142.in-addr.arpa.:PTR": [
+      "lcfrai-in-f27.1e100.net."
     ],
     "alt4.aspmx.l.google.com:A": [
       "142.250.147.27"
@@ -59,32 +64,26 @@
     "alt4.aspmx.l.google.com:AAAA": [
       "2a00:1450:4025:c01::1a"
     ],
+    "27.147.250.142.in-addr.arpa.:PTR": [
+      "rd-in-f27.1e100.net."
+    ],
     "alt1.aspmx.l.google.com:A": [
-      "142.250.102.26"
+      "142.250.102.27"
     ],
     "alt1.aspmx.l.google.com:AAAA": [
       "2a00:1450:4025:402::1a"
     ],
+    "27.102.250.142.in-addr.arpa.:PTR": [
+      "rb-in-f27.1e100.net."
+    ],
     "alt2.aspmx.l.google.com:A": [
-      "192.178.213.26"
+      "192.178.213.27"
     ],
     "alt2.aspmx.l.google.com:AAAA": [
       "2a00:1450:4013:c1e::1a"
     ],
-    "27.223.178.192.in-addr.arpa.:PTR": [
-      "yulhrs-in-f27.1e100.net."
-    ],
-    "26.127.251.142.in-addr.arpa.:PTR": [
-      "lcfrai-in-f26.1e100.net."
-    ],
-    "27.147.250.142.in-addr.arpa.:PTR": [
-      "rd-in-f27.1e100.net."
-    ],
-    "26.102.250.142.in-addr.arpa.:PTR": [
-      "rb-in-f26.1e100.net."
-    ],
-    "26.213.178.192.in-addr.arpa.:PTR": [
-      "yugrqzs-in-f26.1e100.net."
+    "27.213.178.192.in-addr.arpa.:PTR": [
+      "yugrqzs-in-f27.1e100.net."
     ]
   },
   "expected": {
@@ -96,7 +95,7 @@
       },
       "spf": {
         "status": "pass",
-        "points": 14,
+        "points": 15,
         "max_points": 15
       },
       "dkim": {
@@ -127,12 +126,12 @@
       "mta_sts": {
         "status": "info",
         "points": 0,
-        "max_points": 0
+        "max_points": 5
       },
       "tls_rpt": {
         "status": "info",
         "points": 0,
-        "max_points": 0
+        "max_points": 3
       },
       "senders": {
         "status": "info",
