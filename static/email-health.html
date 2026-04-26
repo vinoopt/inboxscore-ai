@@ -5,27 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Email Health — InboxScore</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
-  --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26; --border: #2a2a3a;
-  --text: #e4e4ef; --text-muted: #8888a0; --accent: #6366f1; --accent-glow: rgba(99,102,241,0.3);
-  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f5; --surface-3: #e4e4e7;
+  --border: #e4e4e7; --border-strong: #d4d4d8;
+  --text: #18181b; --text-muted: #52525b; --text-subtle: #71717a;
+  --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #ede9fe; --accent-glow: rgba(124,58,237,0.18);
+  --green: #047857; --green-bg: #d1fae5;
+  --yellow: #b45309; --yellow-bg: #fef3c7;
+  --orange: #c2410c; --orange-bg: #ffedd5;
+  --red: #b91c1c; --red-bg: #fee2e2;
 }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 .info-hint { position:relative; cursor:help; border-bottom:1px dotted var(--text-muted); }
-.info-hint::after { content:attr(data-hint); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:#1e1e2e; color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:11px; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .15s; z-index:99; }
+.info-hint::after { content:attr(data-hint); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:var(--text); color:var(--surface); border:1px solid var(--text); border-radius:6px; padding:6px 10px; font-size:11px; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .15s; z-index:99; }
 .info-hint:hover::after { opacity:1; }
 @keyframes snds-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* Top Nav */
-.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 10; }
-.logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
-.logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); z-index: 10; }
+.logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); letter-spacing: -0.01em; }
+.logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 4px 8px rgba(139,92,246,0.25); }
 .nav-right { display: flex; align-items: center; gap: 16px; }
 .user-name { font-size: 13px; color: var(--text-muted); }
-.logout-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
-.logout-btn:hover { border-color: var(--red); color: var(--red); }
+.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
 .mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
 
 /* Layout */
@@ -36,7 +44,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .sidebar-nav { list-style: none; }
 .sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
-.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); }
+.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 500; }
 .sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
 .sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
 .alert-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; display: none; }
@@ -51,11 +59,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* Common Components */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
 .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
-.badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
-.badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
-.badge-yellow { background: rgba(234,179,8,0.15); color: var(--yellow); }
-.badge-accent { background: rgba(99,102,241,0.15); color: var(--accent); }
-.badge-orange { background: rgba(249,115,22,0.15); color: var(--orange); }
+.badge-green { background: var(--green-bg); color: var(--green); }
+.badge-red { background: var(--red-bg); color: var(--red); }
+.badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+.badge-accent { background: var(--accent-soft); color: var(--accent); }
+.badge-orange { background: var(--orange-bg); color: var(--orange); }
 
 /* Sidebar backdrop */
 .sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
@@ -82,11 +90,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .eh-submenu { width: 190px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 8px 0; position: sticky; top: 140px; align-self: flex-start; }
 .eh-submenu-item { display: flex; align-items: center; gap: 10px; padding: 10px 18px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-left: 3px solid transparent; transition: all 0.2s; text-decoration: none; }
 .eh-submenu-item:hover { color: var(--text); background: var(--surface-2); }
-.eh-submenu-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); font-weight: 600; }
+.eh-submenu-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 .eh-submenu-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
 .eh-submenu-badge { margin-left: auto; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 700; }
-.eh-submenu-badge.red { background: rgba(239,68,68,0.15); color: var(--red); }
-.eh-submenu-badge.green { background: rgba(34,197,94,0.15); color: var(--green); }
+.eh-submenu-badge.red { background: var(--red-bg); color: var(--red); }
+.eh-submenu-badge.green { background: var(--green-bg); color: var(--green); }
 .eh-content { flex: 1; padding: 0 0 0 24px; min-width: 0; }
 .eh-section { display: none; }
 .eh-section.active { display: block; }
@@ -115,7 +123,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .check-fail { color: var(--red); }
 
 /* ===== EMAIL HEALTH: Postmaster Metric Widgets (used in Overview + sections) ===== */
-.pm-widget { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; position: relative; }
+.pm-widget { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 .pm-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
 .pm-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .pm-date-range { font-size: 12px; color: var(--text-muted); }
@@ -164,10 +172,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .provider-cta .cta-icon { font-size: 32px; margin-bottom: 12px; }
 .provider-cta .cta-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
 .provider-cta .cta-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; max-width: 400px; margin-left: auto; margin-right: auto; }
-.provider-cta .cta-btn { display: inline-block; padding: 10px 24px; background: var(--accent); color: #fff; border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; border: none; }
-.provider-cta .cta-btn:hover { background: #5558e6; }
+.provider-cta .cta-btn { display: inline-block; padding: 10px 24px; background: var(--accent); color: #fff; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; border: none; box-shadow: 0 4px 10px -2px rgba(124,58,237,0.25); transition: background 0.15s; font-family: inherit; }
+.provider-cta .cta-btn:hover { background: var(--accent-hover); }
 .provider-cta .cta-btn-outline { display: inline-block; padding: 10px 24px; background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; margin-left: 8px; }
-.free-badge { display: inline-block; background: rgba(234,179,8,0.15); color: var(--yellow); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 4px; }
+.free-badge { display: inline-block; background: var(--yellow-bg); color: var(--yellow); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 4px; }
 
 /* ===== EMAIL HEALTH: Trend Wrapper ===== */
 .pm-trend { margin-top: 16px; }
@@ -1605,7 +1613,7 @@ function animateEmailHealthTrends() {
       bar.className = 'pm-trend-bar';
       const pxH = Math.max(4, Math.min(56, Math.round(rate * 100 / 0.05 * 50) + 4));
       bar.style.height = '0px';
-      bar.style.background = rate > 0.01 ? '#f97316' : 'var(--green)';
+      bar.style.background = rate > 0.01 ? 'var(--orange)' : 'var(--green)';
       bar.title = 'Day ' + (i+1) + ': ' + (rate*100).toFixed(3) + '%';
       spamTrend.appendChild(bar);
       setTimeout(() => { bar.style.height = pxH + 'px'; }, 300 + i * 20);
@@ -1621,7 +1629,7 @@ function animateEmailHealthTrends() {
       bar.className = 'pm-trend-bar';
       const pxH = Math.max(4, Math.min(56, Math.round(rate / 0.15 * 50) + 4));
       bar.style.height = '0px';
-      bar.style.background = rate < 0.05 ? 'var(--green)' : rate < 0.08 ? '#f97316' : 'var(--red)';
+      bar.style.background = rate < 0.05 ? 'var(--green)' : rate < 0.08 ? 'var(--orange)' : 'var(--red)';
       bar.title = 'Day ' + (i+1) + ': ' + rate.toFixed(2) + '%';
       msTrend.appendChild(bar);
       setTimeout(() => { bar.style.height = pxH + 'px'; }, 300 + i * 20);
@@ -1637,7 +1645,7 @@ function animateEmailHealthTrends() {
       bar.className = 'pm-trend-bar';
       const pxH = Math.max(4, Math.min(56, Math.round(rate / 0.12 * 50) + 4));
       bar.style.height = '0px';
-      bar.style.background = rate < 0.05 ? 'var(--green)' : rate < 0.08 ? '#f97316' : 'var(--red)';
+      bar.style.background = rate < 0.05 ? 'var(--green)' : rate < 0.08 ? 'var(--orange)' : 'var(--red)';
       bar.title = 'Day ' + (i+1) + ': ' + rate.toFixed(2) + '%';
       yahooTrend.appendChild(bar);
       setTimeout(() => { bar.style.height = pxH + 'px'; }, 300 + i * 20);
