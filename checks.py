@@ -1943,7 +1943,12 @@ def check_tls(domain: str) -> CheckResult:
                     category="infrastructure",
                     status="warn",
                     title="TLS Encryption",
-                    detail=f"STARTTLS advertised on {mx_host} but the server did not accept the upgrade",
+                    detail=(
+                        f"Your mail server ({mx_host}) advertises that it "
+                        "supports encryption but rejects the actual upgrade "
+                        "request. This is a broken configuration — receivers "
+                        "may treat your mail as suspicious or unencrypted."
+                    ),
                     raw_data={"mx_host": mx_host, "starttls_response": starttls_response[:200]},
                     points=2,
                     max_points=10,
@@ -1960,7 +1965,13 @@ def check_tls(domain: str) -> CheckResult:
                     category="infrastructure",
                     status="fail",
                     title="TLS Encryption",
-                    detail=f"Mail server {mx_host} does not support STARTTLS — emails sent in plain text",
+                    detail=(
+                        f"Your mail server ({mx_host}) does not support "
+                        "encryption. Email between servers is sent in "
+                        "plain text — visible to anyone monitoring the "
+                        "network. Gmail and other providers flag these "
+                        "messages with a red padlock icon."
+                    ),
                     raw_data={"mx_host": mx_host},
                     points=0,
                     max_points=10,
@@ -2100,7 +2111,12 @@ def _tls_handshake_with_cert_check(sock, mx_host: str) -> CheckResult:
             category="infrastructure",
             status="warn",
             title="TLS Encryption",
-            detail=f"STARTTLS handshake failed on {mx_host}: {e}",
+            detail=(
+                f"Your mail server ({mx_host}) tried to set up encryption "
+                "but the handshake failed. This is usually a TLS configuration "
+                "problem — receivers will retry without encryption, which "
+                "downgrades your trust score."
+            ),
             raw_data={"mx_host": mx_host, "error": str(e)},
             points=2,
             max_points=10,
@@ -2149,16 +2165,22 @@ def _score_valid_cert(mx_host: str, tls_version: str, cert) -> CheckResult:
             status="warn",
             title="TLS Encryption",
             detail=(
-                f"Mail server {mx_host} supports {tls_version} with a valid cert, "
-                f"but the certificate expires in {days_left} day{'s' if days_left != 1 else ''}"
+                f"Your mail server ({mx_host}) is using encryption with a "
+                f"valid certificate, but it expires in {days_left} "
+                f"day{'s' if days_left != 1 else ''}. After that, "
+                "receivers may downgrade your mail or reject it entirely "
+                "until you renew."
             ),
             raw_data=raw,
             points=7,
             max_points=10,
             fix_steps=[
-                f"Renew the TLS certificate for {mx_host} before it expires",
-                "Automate renewal (Let's Encrypt + certbot, or your provider's auto-renewal)",
-                "Monitor cert expiry with an alert 30 days out",
+                f"Renew the TLS certificate for {mx_host} before it expires.",
+                "Set up automatic renewal — Let's Encrypt with certbot is "
+                "free and renews every 60 days, or your hosting provider "
+                "may have a built-in auto-renewal option.",
+                "Configure an alert to notify you 30 days before expiry "
+                "so you have time to fix renewal failures.",
             ],
         )
 
@@ -2168,7 +2190,11 @@ def _score_valid_cert(mx_host: str, tls_version: str, cert) -> CheckResult:
             category="infrastructure",
             status="pass",
             title="TLS Encryption",
-            detail=f"Mail server {mx_host} supports {tls_version} with a valid certificate — excellent encryption",
+            detail=(
+                f"Your mail server is using the strongest available "
+                "encryption with a valid certificate. Email between you "
+                "and receivers is fully protected from eavesdropping."
+            ),
             raw_data=raw,
             points=10,
             max_points=10,
@@ -2179,7 +2205,11 @@ def _score_valid_cert(mx_host: str, tls_version: str, cert) -> CheckResult:
         category="infrastructure",
         status="pass",
         title="TLS Encryption",
-        detail=f"Mail server {mx_host} supports {tls_version} with a valid certificate",
+        detail=(
+            f"Your mail server is using encryption with a valid "
+            "certificate — emails are protected in transit. Upgrading "
+            "to the latest encryption version would earn full credit."
+        ),
         raw_data=raw,
         points=8,
         max_points=10,
@@ -2463,10 +2493,20 @@ def check_bimi(domain: str) -> CheckResult:
             has_vmc = "a=" in bimi_record and "a=;" not in bimi_record
 
             if has_logo and has_vmc:
-                detail = "BIMI configured with logo and Verified Mark Certificate"
+                detail = (
+                    "Your brand logo will display next to authenticated "
+                    "emails in supported email clients (Gmail, Apple Mail, "
+                    "Yahoo). You have both the logo image and a verified "
+                    "trademark certificate set up."
+                )
                 status = "pass"
             elif has_logo:
-                detail = "BIMI configured with logo — consider adding a VMC for Gmail support"
+                detail = (
+                    "Your brand logo is set up and will display in some "
+                    "email clients. Gmail requires an additional verified "
+                    "trademark certificate to show the logo there too — "
+                    "worth adding if you have a registered trademark."
+                )
                 status = "pass"
             else:
                 detail = "BIMI record found but no logo URL specified"
@@ -2488,7 +2528,12 @@ def check_bimi(domain: str) -> CheckResult:
         category="authentication",
         status="info",
         title="BIMI (Brand Logo)",
-        detail="No BIMI record — optional but helps brand visibility in supported email clients",
+        detail=(
+            "No BIMI record. This optional feature lets your brand logo "
+            "display next to authenticated emails in Gmail, Apple Mail, "
+            "and Yahoo — improves recognition and trust. Requires DMARC "
+            "in enforce mode (which you'll need anyway for security)."
+        ),
         points=0,
         max_points=0,
         fix_steps=[
@@ -2534,7 +2579,13 @@ def check_mta_sts(domain: str) -> CheckResult:
                 category="infrastructure",
                 status="info",
                 title="MTA-STS (Strict Transport Security)",
-                detail="No MTA-STS record — optional advanced feature for enforcing TLS on incoming mail",
+                detail=(
+                    "Your domain has no MTA-STS policy. This optional "
+                    "feature tells receivers to refuse delivering email "
+                    "to your domain over unencrypted connections. Without "
+                    "it, attackers could potentially intercept inbound "
+                    "mail by downgrading the connection."
+                ),
                 points=0,
                 max_points=5,
                 fix_steps=[
@@ -2589,7 +2640,13 @@ def check_mta_sts(domain: str) -> CheckResult:
                 category="infrastructure",
                 status="pass",
                 title="MTA-STS (Strict Transport Security)",
-                detail="MTA-STS is fully configured with enforce mode — excellent protection against downgrade attacks",
+                detail=(
+                    "MTA-STS is fully configured in enforce mode — the "
+                    "strongest setting. Receivers will refuse to deliver "
+                    "email to your domain unless they can do it over a "
+                    "verified, encrypted connection. Excellent protection "
+                    "against downgrade attacks."
+                ),
                 raw_data={"dns_record": sts_record, "policy_mode": mode},
                 points=5,
                 max_points=5
@@ -2600,7 +2657,13 @@ def check_mta_sts(domain: str) -> CheckResult:
                 category="infrastructure",
                 status="pass",
                 title="MTA-STS (Strict Transport Security)",
-                detail="MTA-STS configured in testing mode — switch to enforce mode when ready for full protection",
+                detail=(
+                    "MTA-STS is set up in testing mode — receivers will "
+                    "report failures back to you but still deliver mail "
+                    "even if encryption fails. Switch to enforce mode "
+                    "once you've confirmed legitimate mail isn't being "
+                    "blocked."
+                ),
                 raw_data={"dns_record": sts_record, "policy_mode": mode},
                 points=3,
                 max_points=5,
@@ -2684,7 +2747,12 @@ def check_tls_rpt(domain: str) -> CheckResult:
                             category="infrastructure",
                             status="pass",
                             title="TLS-RPT (TLS Reporting)",
-                            detail=f"TLS-RPT configured — reports sent to {rua[:60]}{'...' if len(rua) > 60 else ''}",
+                            detail=(
+                            "TLS-RPT is configured — receivers will send you "
+                            "reports when email delivery fails over encryption. "
+                            f"Reports go to {rua[:60]}{'...' if len(rua) > 60 else ''}. "
+                            "Pairs perfectly with MTA-STS to give you visibility."
+                        ),
                             raw_data={"record": cleaned, "rua": rua},
                             points=3,
                             max_points=3
@@ -2712,7 +2780,12 @@ def check_tls_rpt(domain: str) -> CheckResult:
             category="infrastructure",
             status="info",
             title="TLS-RPT (TLS Reporting)",
-            detail="No TLS-RPT record — optional feature for receiving TLS delivery failure reports",
+            detail=(
+                "No TLS-RPT record. This is an optional feature that lets "
+                "receivers send you reports when email delivery fails over "
+                "encryption. Without it, you have no visibility when "
+                "something breaks. Pairs naturally with MTA-STS."
+            ),
             points=0,
             max_points=3,
             fix_steps=[
