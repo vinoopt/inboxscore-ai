@@ -263,6 +263,187 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 
 .actions-none { text-align: center; padding: 40px 20px; color: var(--text-muted); }
 .actions-none .big-icon { font-size: 40px; margin-bottom: 12px; }
+
+/* ──────────────────────────────────────────────────────────────────
+ * INBOX-82 — Dashboard v2 redesign (Apr 2026).
+ * All new rules are namespaced under #view-dashboard so they don't
+ * collide with the existing scan-results view styles (e.g. .score-circle
+ * exists in both — the mockup version uses a coloured background; the
+ * scan-results version is transparent with coloured border only).
+ * ────────────────────────────────────────────────────────────────── */
+#view-dashboard .main { max-width: 1200px; }
+#view-dashboard .domain-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+#view-dashboard .domain-select { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.15s; min-width: 280px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); position: relative; }
+#view-dashboard .domain-select:hover { border-color: var(--border-strong); }
+#view-dashboard .domain-select-arrow { color: var(--text-muted); font-size: 11px; margin-left: auto; }
+#view-dashboard .domain-select-meta { font-size: 12px; color: var(--text-subtle); font-family: 'Geist Mono', ui-monospace, monospace; }
+#view-dashboard .domain-dropdown { display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); z-index: 5; max-height: 320px; overflow-y: auto; }
+#view-dashboard .domain-dropdown.open { display: block; }
+#view-dashboard .domain-dropdown-item { padding: 10px 16px; font-size: 13px; color: var(--text); cursor: pointer; border-bottom: 1px solid var(--border); }
+#view-dashboard .domain-dropdown-item:hover { background: var(--surface-2); }
+#view-dashboard .domain-dropdown-item:last-child { border-bottom: none; }
+#view-dashboard .domain-dropdown-item.selected { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+#view-dashboard .view-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; gap: 2px; }
+#view-dashboard .view-toggle button { background: none; border: none; padding: 7px 14px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-radius: 7px; transition: all 0.15s; font-family: inherit; }
+#view-dashboard .view-toggle button.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+#view-dashboard .scan-cta { margin-left: auto; }
+#view-dashboard .scan-cta button { background: var(--accent); color: white; border: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; box-shadow: 0 4px 10px -2px rgba(124,58,237,0.25); font-family: inherit; transition: background 0.15s; }
+#view-dashboard .scan-cta button:hover { background: var(--accent-hover); }
+
+/* Score Hero */
+#view-dashboard .score-hero { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 26px 28px; margin-bottom: 18px; display: flex; align-items: center; gap: 28px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); flex-wrap: wrap; }
+#view-dashboard .score-hero .score-circle { width: 96px; height: 96px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; border: 4px solid var(--green); background: var(--green-bg); }
+#view-dashboard .score-hero .score-circle.moderate { border-color: var(--orange); background: var(--orange-bg); }
+#view-dashboard .score-hero .score-circle.danger { border-color: var(--red); background: var(--red-bg); }
+#view-dashboard .score-hero .score-circle.none { border-color: var(--border-strong); background: var(--surface-2); }
+#view-dashboard .score-hero .score-number { font-size: 32px; font-weight: 700; line-height: 1; color: var(--green); font-family: 'Geist Mono', ui-monospace, monospace; letter-spacing: -0.02em; }
+#view-dashboard .score-hero .score-circle.moderate .score-number { color: var(--orange); }
+#view-dashboard .score-hero .score-circle.danger .score-number { color: var(--red); }
+#view-dashboard .score-hero .score-circle.none .score-number { color: var(--text-subtle); }
+#view-dashboard .score-hero .score-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-subtle); margin-top: 3px; font-weight: 500; }
+#view-dashboard .score-summary { flex: 1; min-width: 240px; }
+#view-dashboard .score-summary h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 4px; }
+#view-dashboard .score-summary .domain-name { font-size: 13px; color: var(--text-subtle); font-family: 'Geist Mono', ui-monospace, monospace; margin-bottom: 12px; }
+#view-dashboard .score-summary .verdict { font-size: 14px; color: var(--text-muted); line-height: 1.55; }
+#view-dashboard .score-stats { display: flex; gap: 18px; margin-top: 14px; flex-wrap: wrap; }
+#view-dashboard .score-stat { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); }
+#view-dashboard .score-stat strong { color: var(--text); font-weight: 500; }
+#view-dashboard .score-trend-btn { background: var(--surface-2); border: 1px solid var(--border); padding: 8px 14px; border-radius: 8px; font-size: 12px; color: var(--text-muted); cursor: pointer; font-family: inherit; transition: all 0.15s; align-self: flex-start; }
+#view-dashboard .score-trend-btn:hover { border-color: var(--border-strong); color: var(--text); }
+
+/* Section block */
+#view-dashboard .section-block { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+#view-dashboard .section-block .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+#view-dashboard .section-block .section-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text); }
+#view-dashboard .section-block .section-meta { font-size: 11px; color: var(--text-subtle); }
+#view-dashboard .section-block .section-meta a { color: var(--accent); text-decoration: none; font-weight: 500; }
+#view-dashboard .section-block .section-meta a:hover { text-decoration: underline; }
+
+/* DNS & Auth grid */
+#view-dashboard .diag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+#view-dashboard .diag-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+#view-dashboard .diag-card-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#view-dashboard .diag-card-value { font-size: 14px; color: var(--text); font-weight: 500; line-height: 1.5; font-family: 'Geist Mono', ui-monospace, monospace; }
+#view-dashboard .diag-card-value.pass { color: var(--green); }
+#view-dashboard .diag-card-value.warn { color: var(--orange); }
+#view-dashboard .diag-card-value.fail { color: var(--red); }
+#view-dashboard .diag-card-value.none { color: var(--text-subtle); font-family: inherit; font-weight: 400; }
+#view-dashboard .diag-card-meta { font-size: 11px; color: var(--text-subtle); margin-top: 4px; line-height: 1.4; }
+#view-dashboard .diag-card-status { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+#view-dashboard .diag-card-status.pass { background: var(--green-bg); color: var(--green); }
+#view-dashboard .diag-card-status.warn { background: var(--orange-bg); color: var(--orange); }
+#view-dashboard .diag-card-status.fail { background: var(--red-bg); color: var(--red); }
+#view-dashboard .diag-card-status.info { background: var(--surface-3); color: var(--text-muted); }
+
+/* Provider status */
+#view-dashboard .provider-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+#view-dashboard .provider-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+#view-dashboard .provider-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+#view-dashboard .provider-icon { width: 22px; height: 22px; flex-shrink: 0; }
+#view-dashboard .provider-name { font-size: 14px; font-weight: 600; flex: 1; }
+#view-dashboard .provider-status-pill { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
+#view-dashboard .provider-status-pill.connected { background: var(--green-bg); color: var(--green); }
+#view-dashboard .provider-status-pill.disconnected { background: var(--surface-3); color: var(--text-muted); }
+#view-dashboard .provider-metrics { display: flex; flex-direction: column; gap: 8px; }
+#view-dashboard .provider-metric { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+#view-dashboard .provider-metric-label { color: var(--text-muted); }
+#view-dashboard .provider-metric-value { font-weight: 500; color: var(--text); font-family: 'Geist Mono', ui-monospace, monospace; }
+#view-dashboard .provider-metric-value.good { color: var(--green); }
+#view-dashboard .provider-metric-value.warn { color: var(--orange); }
+#view-dashboard .provider-metric-value.fail { color: var(--red); }
+#view-dashboard .provider-cta { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+#view-dashboard .provider-link { font-size: 12px; color: var(--accent); text-decoration: none; font-weight: 500; }
+#view-dashboard .provider-link:hover { text-decoration: underline; }
+#view-dashboard .provider-cta-btn { font-size: 12px; padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 500; text-decoration: none; }
+#view-dashboard .provider-cta-btn:hover { background: var(--accent-hover); }
+#view-dashboard .provider-explainer { font-size: 12px; color: var(--text-muted); line-height: 1.5; padding: 6px 0; }
+
+/* Alerts */
+#view-dashboard .alerts-empty { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--green-bg); border: 1px solid var(--green); border-radius: 10px; }
+#view-dashboard .alerts-empty-icon { color: var(--green); font-size: 18px; font-weight: 700; }
+#view-dashboard .alerts-empty-text strong { display: block; color: var(--green); font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+#view-dashboard .alerts-empty-text span { font-size: 12px; color: var(--text-muted); }
+#view-dashboard .alerts-list { list-style: none; }
+#view-dashboard .alerts-list li { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+#view-dashboard .alerts-list li:last-child { border-bottom: none; }
+#view-dashboard .alerts-list .ral-icon { font-size: 14px; flex-shrink: 0; }
+#view-dashboard .alerts-list .ral-time { font-size: 11px; color: var(--text-subtle); margin-top: 2px; }
+
+/* Domain Safety */
+#view-dashboard .safety-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+#view-dashboard .safety-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; text-align: center; }
+#view-dashboard .safety-card-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; font-weight: 500; }
+#view-dashboard .safety-card-value { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+#view-dashboard .safety-card-value.clean { color: var(--green); }
+#view-dashboard .safety-card-value.flagged { color: var(--red); }
+#view-dashboard .safety-card-value.unknown { color: var(--text-subtle); }
+#view-dashboard .safety-card-meta { font-size: 11px; color: var(--text-subtle); }
+
+/* Scan history */
+#view-dashboard .history-list { list-style: none; }
+#view-dashboard .history-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+#view-dashboard .history-row:last-child { border-bottom: none; }
+#view-dashboard .history-score { font-family: 'Geist Mono', ui-monospace, monospace; font-weight: 500; }
+#view-dashboard .history-score.good { color: var(--green); }
+#view-dashboard .history-score.moderate { color: var(--orange); }
+#view-dashboard .history-score.danger { color: var(--red); }
+#view-dashboard .history-date { color: var(--text-muted); font-size: 12px; }
+
+/* Trend chart inline */
+#view-dashboard .trend-card { display: none; margin-bottom: 16px; }
+#view-dashboard .trend-card.expanded { display: block; }
+#view-dashboard .trend-bars { display: flex; gap: 3px; align-items: flex-end; height: 80px; }
+#view-dashboard .trend-bar { flex: 1; border-radius: 2px 2px 0 0; min-width: 4px; transition: height 0.3s ease; }
+#view-dashboard .trend-bar.good { background: var(--green); }
+#view-dashboard .trend-bar.moderate { background: var(--orange); }
+#view-dashboard .trend-bar.danger { background: var(--red); }
+
+/* Single / Portfolio toggle */
+#view-dashboard .single-view.hidden { display: none; }
+#view-dashboard .portfolio-view { display: none; }
+#view-dashboard .portfolio-view.active { display: block; }
+#view-dashboard .portfolio-table { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+#view-dashboard .portfolio-table-head { display: grid; grid-template-columns: 2fr 80px 110px 110px 110px 110px 90px; gap: 16px; padding: 14px 20px; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+#view-dashboard .portfolio-row { display: grid; grid-template-columns: 2fr 80px 110px 110px 110px 110px 90px; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 13px; align-items: center; cursor: pointer; transition: background 0.15s; }
+#view-dashboard .portfolio-row:hover { background: var(--surface-2); }
+#view-dashboard .portfolio-row:last-child { border-bottom: none; }
+#view-dashboard .portfolio-domain { font-weight: 500; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#view-dashboard .portfolio-score { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; font-weight: 600; font-size: 13px; font-family: 'Geist Mono', ui-monospace, monospace; }
+#view-dashboard .portfolio-score.good { background: var(--green-bg); color: var(--green); border: 2px solid var(--green); }
+#view-dashboard .portfolio-score.moderate { background: var(--orange-bg); color: var(--orange); border: 2px solid var(--orange); }
+#view-dashboard .portfolio-score.danger { background: var(--red-bg); color: var(--red); border: 2px solid var(--red); }
+#view-dashboard .portfolio-score.none { background: var(--surface-2); color: var(--text-subtle); border: 2px solid var(--border); }
+#view-dashboard .portfolio-metric { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; color: var(--text); font-weight: 500; }
+#view-dashboard .portfolio-metric.good { color: var(--green); }
+#view-dashboard .portfolio-metric.warn { color: var(--orange); }
+#view-dashboard .portfolio-metric.fail { color: var(--red); }
+#view-dashboard .portfolio-metric.none { color: var(--text-subtle); }
+#view-dashboard .portfolio-last-scan { font-size: 11px; color: var(--text-subtle); }
+#view-dashboard .portfolio-alerts { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; text-align: center; }
+#view-dashboard .portfolio-alerts.zero { background: var(--green-bg); color: var(--green); }
+#view-dashboard .portfolio-alerts.has { background: var(--red-bg); color: var(--red); }
+
+/* Responsive — Dashboard v2 */
+@media (max-width: 900px) {
+  #view-dashboard .diag-grid,
+  #view-dashboard .provider-grid,
+  #view-dashboard .safety-grid { grid-template-columns: repeat(2, 1fr); }
+  #view-dashboard .portfolio-table-head,
+  #view-dashboard .portfolio-row { grid-template-columns: 1.5fr 70px 90px 90px 80px; }
+  #view-dashboard .portfolio-table-head > div:nth-child(5),
+  #view-dashboard .portfolio-row > div:nth-child(5) { display: none; } /* hide TLS column */
+  #view-dashboard .portfolio-table-head > div:nth-child(6),
+  #view-dashboard .portfolio-row > div:nth-child(6) { display: none; } /* hide Last Scan */
+}
+@media (max-width: 600px) {
+  #view-dashboard .diag-grid,
+  #view-dashboard .provider-grid,
+  #view-dashboard .safety-grid { grid-template-columns: 1fr; }
+  #view-dashboard .domain-bar { flex-direction: column; align-items: stretch; }
+  #view-dashboard .domain-select { min-width: 0; width: 100%; }
+  #view-dashboard .scan-cta { margin-left: 0; }
+  #view-dashboard .scan-cta button { width: 100%; }
+}
 </style>
 </head>
 <body>
@@ -301,65 +482,150 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
          VIEW: Dashboard (default)
          ===================================================== -->
     <div id="view-dashboard" class="dash-view active">
-    <h1 class="page-title">Dashboard</h1>
-    <p class="page-subtitle">Overview of your email deliverability across all domains.</p>
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Dashboard</h1>
+        </div>
+      </div>
+      <p class="page-subtitle">Live deliverability snapshot for the selected domain.</p>
 
-    <!-- INBOX-33: Scan a new domain -->
-    <div class="scan-box-dash">
-      <input id="dash-domain-input" type="text" placeholder="Scan a new domain (e.g. acme.com)" onkeypress="if(event.key==='Enter') dashStartScan()" autocomplete="off">
-      <button id="dash-scan-btn" onclick="dashStartScan()">Scan Domain</button>
-    </div>
-    <div class="scan-error-dash" id="dash-scan-error"></div>
+      <!-- Domain selector + view toggle + scan CTA -->
+      <div class="domain-bar">
+        <div class="domain-select" id="dh-domain-select" onclick="dhToggleDomainDropdown(event)">
+          <span style="font-size:14px">🌐</span>
+          <div style="flex:1;min-width:0;">
+            <div id="dh-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">—</div>
+            <div class="domain-select-meta" id="dh-domain-count">No domains</div>
+          </div>
+          <span class="domain-select-arrow">▼</span>
+          <div class="domain-dropdown" id="dh-domain-dropdown"></div>
+        </div>
+        <div class="view-toggle">
+          <button class="active" id="dh-toggle-single" onclick="dhShowSingleView()">Single Domain</button>
+          <button id="dh-toggle-portfolio" onclick="dhShowPortfolioView()">View All Domains</button>
+        </div>
+        <div class="scan-cta">
+          <button onclick="dhFocusScanInput()">+ Scan New Domain</button>
+        </div>
+      </div>
 
-    <!-- Quick Stats -->
-    <div class="stat-grid">
-      <div class="stat-card">
-        <div class="stat-label">Avg Inbox Score</div>
-        <div class="stat-value" id="stat-avg-score" style="color:var(--text-muted);">—</div>
-        <div class="stat-change" id="stat-avg-change"></div>
+      <!-- Inline scan input (shown when "+ Scan New Domain" clicked) -->
+      <div class="scan-box-dash" id="dh-scan-box" style="display:none;">
+        <input id="dash-domain-input" type="text" placeholder="Scan a new domain (e.g. acme.com)" onkeypress="if(event.key==='Enter') dashStartScan()" autocomplete="off">
+        <button id="dash-scan-btn" onclick="dashStartScan()">Scan Domain</button>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Domains Monitored</div>
-        <div class="stat-value" id="stat-domains">—</div>
-        <div class="stat-change" id="stat-domains-sub"></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Avg Spam Rate</div>
-        <div class="stat-value" id="stat-spam" style="color:var(--text-muted);">—</div>
-        <div class="stat-change" id="stat-spam-change"></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Active Alerts</div>
-        <div class="stat-value" id="stat-alerts" style="color:var(--text-muted);">0</div>
-        <div class="stat-change" id="stat-alerts-sub"></div>
-      </div>
-    </div>
+      <div class="scan-error-dash" id="dash-scan-error"></div>
 
-    <!-- Domain Summary Cards -->
-    <div class="section-header">
-      <span class="section-title">Your Domains</span>
-    </div>
-    <div id="domains-container">
-      <div class="loading"><div class="loading-spinner"></div>Loading your domains...</div>
-    </div>
+      <!-- ─────────── SINGLE DOMAIN VIEW (default) ─────────── -->
+      <div class="single-view" id="dh-single-view">
 
-    <!-- Recent Alerts -->
-    <div class="card" id="alerts-card" style="display:none;">
-      <div class="card-header">
-        <span class="card-title">Recent Alerts</span>
-        <a href="/alerts" class="btn btn-sm">View All →</a>
-      </div>
-      <ul class="recent-alerts-list" id="alerts-list"></ul>
-    </div>
+        <!-- Score Hero -->
+        <div class="score-hero" id="dh-score-hero">
+          <div class="score-circle none" id="dh-score-circle">
+            <div class="score-number" id="dh-score-number">—</div>
+            <div class="score-label">Out of 100</div>
+          </div>
+          <div class="score-summary">
+            <h2 id="dh-score-band">Loading…</h2>
+            <div class="domain-name" id="dh-score-meta">No domain selected</div>
+            <div class="verdict" id="dh-score-verdict">Run a scan to see your deliverability snapshot.</div>
+            <div class="score-stats" id="dh-score-stats"></div>
+          </div>
+          <button class="score-trend-btn" onclick="dhToggleTrend()" id="dh-trend-btn">📈 Score Trend ▼</button>
+        </div>
 
-    <!-- Score Trend -->
-    <div class="card" id="trend-card" style="display:none;">
-      <div class="card-header">
-        <span class="card-title">Score Trend (30 days)</span>
+        <!-- Score Trend Chart (collapsed by default) -->
+        <div class="section-block trend-card" id="dh-trend-card">
+          <div class="section-header">
+            <div class="section-title">Score Trend (30 days)</div>
+            <div class="section-meta" id="dh-trend-meta"></div>
+          </div>
+          <div class="trend-bars" id="dh-trend-bars"></div>
+        </div>
+
+        <!-- DNS & Authentication Diagnostics (7 cards — INBOX-82 trimmed) -->
+        <div class="section-block">
+          <div class="section-header">
+            <div class="section-title">🔐 DNS &amp; Authentication Diagnostics</div>
+            <div class="section-meta">Auto-scanned · No provider connection required</div>
+          </div>
+          <div class="diag-grid" id="dh-diag-grid">
+            <div class="loading" style="grid-column:1/-1;"><div class="loading-spinner"></div>Loading…</div>
+          </div>
+        </div>
+
+        <!-- Provider Status -->
+        <div class="section-block">
+          <div class="section-header">
+            <div class="section-title">📡 Provider Status</div>
+            <div class="section-meta">Inbox-placement intelligence from mailbox providers</div>
+          </div>
+          <div class="provider-grid" id="dh-provider-grid"></div>
+        </div>
+
+        <!-- Active Alerts -->
+        <div class="section-block">
+          <div class="section-header">
+            <div class="section-title">🔔 Active Alerts</div>
+            <div class="section-meta" id="dh-alerts-meta">last 30 days</div>
+          </div>
+          <div id="dh-alerts-container">
+            <div class="alerts-empty">
+              <div class="alerts-empty-icon">✓</div>
+              <div class="alerts-empty-text">
+                <strong>No active alerts</strong>
+                <span>All checks passing for the selected domain</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Domain Safety -->
+        <div class="section-block">
+          <div class="section-header">
+            <div class="section-title">🛡️ Domain Safety</div>
+            <div class="section-meta">External-database checks</div>
+          </div>
+          <div class="safety-grid" id="dh-safety-grid"></div>
+        </div>
+
+        <!-- Recent Scans -->
+        <div class="section-block">
+          <div class="section-header">
+            <div class="section-title">📜 Recent Scans</div>
+            <div class="section-meta" id="dh-history-meta"></div>
+          </div>
+          <ul class="history-list" id="dh-history-list">
+            <li style="padding:14px 0;color:var(--text-subtle);font-size:13px;">No scan history yet.</li>
+          </ul>
+        </div>
+
+      </div><!-- /single-view -->
+
+      <!-- ─────────── PORTFOLIO VIEW (toggle) ─────────── -->
+      <div class="portfolio-view" id="dh-portfolio-view">
+        <div class="section-block">
+          <div class="section-header">
+            <div class="section-title">📋 All Domains</div>
+            <div class="section-meta" id="dh-portfolio-meta"></div>
+          </div>
+          <div class="portfolio-table" id="dh-portfolio-table">
+            <div class="portfolio-table-head">
+              <div>Domain</div>
+              <div style="text-align:center">Score</div>
+              <div>Spam Rate</div>
+              <div>Auth Pass</div>
+              <div>TLS</div>
+              <div>Last Scan</div>
+              <div style="text-align:center">Alerts</div>
+            </div>
+            <div id="dh-portfolio-rows">
+              <div style="padding:24px;text-align:center;color:var(--text-subtle);font-size:13px;">No domains monitored yet.</div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="activity-chart" id="score-chart"></div>
-      <div id="chart-labels" style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text-muted);"></div>
-    </div>
+
     </div><!-- /view-dashboard -->
 
     <!-- =====================================================
@@ -455,158 +721,531 @@ function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString();
 }
 
-function renderDomainCards(domains, scansMap, pmMap) {
-  const container = document.getElementById('domains-container');
-  if (!domains || domains.length === 0) {
+/* ──────────────────────────────────────────────────────────────────
+ * INBOX-82 — Dashboard v2 render functions.
+ *
+ * New IA: Dashboard absorbs the rich Overview layout (Score Hero +
+ * 7 DNS/Auth cards + Provider Status + Safety + Recent Scans), with
+ * a domain selector that defaults to the most-recently-scanned
+ * domain. A Single ↔ Portfolio toggle lets users glance at all
+ * domains in a table view.
+ *
+ * BIMI + Domain Age are intentionally NOT on the Dashboard — they
+ * still render in the Scan Detail page, but are too low-impact to
+ * earn a Dashboard tile (BIMI requires paid VMC; Domain Age is a
+ * context signal only). Decision logged in INBOX-82.
+ * ────────────────────────────────────────────────────────────────── */
+
+// Module-level state for the Dashboard view
+window._dh = {
+  domains: [],          // array of { domain, ... } from /api/user/domains
+  scansByDomain: {},    // domain → latest full scan row (with results dict)
+  scansListByDomain: {},// domain → array of scan rows (history)
+  pmByDomain: {},       // domain → latest postmaster metrics
+  sndsByDomain: {},     // domain → SNDS summary (best-effort)
+  alertsByDomain: {},   // domain → array of alerts
+  selectedDomain: null,
+};
+
+function dhBandFromScore(score) {
+  if (score === null || score === undefined) return { band: 'none', label: '—', verdict: 'No scan data yet.' };
+  if (score >= 85) return { band: 'good', label: 'Excellent', verdict: 'Strong email deliverability. Major checks pass; emails should reliably reach the inbox.' };
+  if (score >= 70) return { band: 'good', label: 'Good', verdict: 'Solid deliverability. A few signals can be tightened to push higher.' };
+  if (score >= 50) return { band: 'moderate', label: 'Needs Work', verdict: 'Several signals are weak. Address the failing checks below to improve placement.' };
+  return { band: 'danger', label: 'At Risk', verdict: 'Critical deliverability issues. Emails are likely landing in spam or bouncing.' };
+}
+
+function dhScoreCircleClass(score) {
+  if (score === null || score === undefined) return 'none';
+  if (score >= 70) return ''; // default green
+  if (score >= 50) return 'moderate';
+  return 'danger';
+}
+
+function dhFormatScanTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+/* ─── Picking the default selected domain ─────────────────────────
+ * Use the most-recently-scanned domain if any scan exists. Otherwise
+ * fall back to the first monitored domain. */
+function dhPickDefaultDomain() {
+  const s = window._dh;
+  let best = null;
+  let bestTime = 0;
+  Object.values(s.scansByDomain).forEach(scan => {
+    const t = new Date(scan.created_at).getTime();
+    if (t > bestTime) { bestTime = t; best = scan.domain; }
+  });
+  if (best) return best;
+  if (s.domains.length > 0) return s.domains[0].domain;
+  return null;
+}
+
+/* ─── Domain selector dropdown ─────────────────────────────────── */
+function dhRenderDomainDropdown() {
+  const dd = document.getElementById('dh-domain-dropdown');
+  const s = window._dh;
+  if (s.domains.length === 0) { dd.innerHTML = ''; return; }
+  let html = '';
+  s.domains.forEach(d => {
+    const sel = (d.domain === s.selectedDomain) ? ' selected' : '';
+    html += `<div class="domain-dropdown-item${sel}" onclick="dhSelectDomain('${escapeHtml(d.domain).replace(/'/g, "\\'")}', event)">${escapeHtml(d.domain)}</div>`;
+  });
+  dd.innerHTML = html;
+}
+
+function dhToggleDomainDropdown(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('dh-domain-dropdown');
+  if (!dd) return;
+  // Need at least 2 domains for a dropdown to be useful — but always render so
+  // the user sees their domains even with 1.
+  dd.classList.toggle('open');
+}
+
+function dhSelectDomain(domain, e) {
+  if (e) e.stopPropagation();
+  window._dh.selectedDomain = domain;
+  document.getElementById('dh-domain-dropdown').classList.remove('open');
+  dhRenderSingleView();
+  dhRenderDomainDropdown();
+}
+
+document.addEventListener('click', () => {
+  const dd = document.getElementById('dh-domain-dropdown');
+  if (dd) dd.classList.remove('open');
+});
+
+/* ─── Score Hero ─────────────────────────────────────────────────── */
+function dhRenderScoreHero(domain) {
+  const s = window._dh;
+  const scan = s.scansByDomain[domain];
+  const score = scan ? scan.score : null;
+  const meta = dhBandFromScore(score);
+
+  document.getElementById('dh-score-number').textContent = score === null ? '—' : score;
+  const circle = document.getElementById('dh-score-circle');
+  circle.className = 'score-circle ' + dhScoreCircleClass(score);
+  document.getElementById('dh-score-band').textContent = meta.label;
+  document.getElementById('dh-score-meta').textContent = scan
+    ? `${domain} · Last scanned ${dhFormatScanTime(scan.created_at)}`
+    : (domain ? `${domain} · No scan yet` : 'No domain selected');
+  document.getElementById('dh-score-verdict').textContent = meta.verdict;
+
+  // Pass/warn/fail counts
+  const stats = document.getElementById('dh-score-stats');
+  if (scan && scan.results) {
+    let p = 0, w = 0, f = 0;
+    Object.values(scan.results).forEach(r => {
+      if (!r || typeof r !== 'object') return;
+      const st = (r.status || '').toLowerCase();
+      if (st === 'pass' || st === 'good') p++;
+      else if (st === 'warn' || st === 'warning' || st === 'info') w++;
+      else if (st === 'fail') f++;
+    });
+    stats.innerHTML = `
+      <div class="score-stat">✓ <strong>${p}</strong> passed</div>
+      <div class="score-stat" style="color:var(--orange)">⚠ <strong>${w}</strong> warning</div>
+      <div class="score-stat" style="color:var(--red)">✕ <strong>${f}</strong> failed</div>
+    `;
+  } else {
+    stats.innerHTML = '';
+  }
+}
+
+/* ─── DNS & Auth Diagnostics — 7 cards ───────────────────────────
+ * Top row: SPF, DKIM, DMARC, MX
+ * Second row: Reverse DNS, TLS, MTA-STS
+ * (BIMI + Domain Age intentionally excluded — see INBOX-82.) */
+const DH_DIAG_CARDS = [
+  { key: 'spf', title: 'SPF Record' },
+  { key: 'dkim', title: 'DKIM' },
+  { key: 'dmarc', title: 'DMARC' },
+  { key: 'mx_records', title: 'MX Records' },
+  { key: 'reverse_dns', title: 'Reverse DNS (PTR)' },
+  { key: 'tls', title: 'TLS / STARTTLS' },
+  { key: 'mta_sts', title: 'MTA-STS' },
+];
+
+function dhStatusClass(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'pass' || s === 'good') return 'pass';
+  if (s === 'warn' || s === 'warning') return 'warn';
+  if (s === 'fail') return 'fail';
+  return 'info';
+}
+
+function dhStatusLabel(status) {
+  const s = (status || '').toLowerCase();
+  if (s === 'pass' || s === 'good') return 'Pass';
+  if (s === 'warn' || s === 'warning') return 'Warn';
+  if (s === 'fail') return 'Fail';
+  return 'Info';
+}
+
+function dhRenderDiagGrid(domain) {
+  const grid = document.getElementById('dh-diag-grid');
+  const scan = window._dh.scansByDomain[domain];
+  if (!scan || !scan.results) {
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:20px;text-align:center;color:var(--text-subtle);font-size:13px;">Run a scan to populate these cards.</div>';
+    return;
+  }
+  const results = scan.results;
+  let html = '';
+  DH_DIAG_CARDS.forEach(card => {
+    const r = results[card.key] || {};
+    const status = r.status || 'info';
+    const klass = dhStatusClass(status);
+    const label = dhStatusLabel(status);
+    let valueHtml, valueClass;
+    if (r.max_points === 0 || klass === 'info') {
+      valueHtml = r.detail ? escapeHtml(r.detail).split('.')[0] : 'Info';
+      valueClass = 'none';
+    } else if (typeof r.score === 'number' && typeof r.max_points === 'number') {
+      valueHtml = `${r.score} / ${r.max_points}`;
+      valueClass = klass;
+    } else {
+      valueHtml = label;
+      valueClass = klass;
+    }
+    const meta = (r.detail && r.detail.length > 0)
+      ? escapeHtml(r.detail.length > 80 ? r.detail.slice(0, 77) + '…' : r.detail)
+      : '';
+    html += `<div class="diag-card">
+      <div class="diag-card-title">${escapeHtml(card.title)} <span class="diag-card-status ${klass}">${label}</span></div>
+      <div class="diag-card-value ${valueClass}">${valueHtml}</div>
+      ${meta ? `<div class="diag-card-meta">${meta}</div>` : ''}
+    </div>`;
+  });
+  grid.innerHTML = html;
+}
+
+/* ─── Provider Status — Google / Microsoft / Yahoo ─────────────── */
+function dhProviderMetricColor(value, thresholds) {
+  // thresholds: { good: <=, warn: <= }, value as 0..1 fraction or %
+  if (value === null || value === undefined) return 'none';
+  if (value <= thresholds.good) return 'good';
+  if (value <= thresholds.warn) return 'warn';
+  return 'fail';
+}
+
+function dhRenderProviderGrid(domain) {
+  const grid = document.getElementById('dh-provider-grid');
+  const pm = window._dh.pmByDomain[domain];
+  const snds = window._dh.sndsByDomain[domain];
+
+  // Google card
+  let googleHtml;
+  if (pm && (pm.spam_rate !== null || pm.domain_reputation)) {
+    const spam = pm.spam_rate !== null ? (pm.spam_rate * 100).toFixed(2) + '%' : '—';
+    const auth = pm.auth_success_dmarc !== null ? (pm.auth_success_dmarc * 100).toFixed(1) + '%' : '—';
+    const rep = pm.domain_reputation || '—';
+    const spamClass = pm.spam_rate !== null ? (pm.spam_rate < 0.001 ? 'good' : pm.spam_rate < 0.003 ? 'warn' : 'fail') : 'none';
+    const authClass = pm.auth_success_dmarc !== null ? (pm.auth_success_dmarc >= 0.95 ? 'good' : pm.auth_success_dmarc >= 0.8 ? 'warn' : 'fail') : 'none';
+    const repClass = (rep === 'HIGH' || rep === 'MEDIUM') ? 'good' : (rep === 'LOW' ? 'warn' : (rep === 'BAD' ? 'fail' : 'none'));
+    googleHtml = `
+      <div class="provider-metric"><span class="provider-metric-label">Spam rate</span><span class="provider-metric-value ${spamClass}">${spam}</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Domain reputation</span><span class="provider-metric-value ${repClass}">${escapeHtml(rep)}</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Auth pass</span><span class="provider-metric-value ${authClass}">${auth}</span></div>
+    `;
+  } else {
+    googleHtml = `<div class="provider-explainer">Connect Google Postmaster Tools to surface spam rate, reputation, and authentication metrics for Gmail recipients.</div>`;
+  }
+  const googleConnected = !!(pm && (pm.spam_rate !== null || pm.domain_reputation));
+  const googleCta = googleConnected
+    ? `<div class="provider-cta"><a href="/email-health?domain=${encodeURIComponent(domain)}&tab=google" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">Postmaster Tools</span></div>`
+    : `<div class="provider-cta"><a href="/settings" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
+
+  // Microsoft card
+  let msHtml;
+  let msConnected = !!(snds && snds.has_data);
+  if (msConnected) {
+    msHtml = `
+      <div class="provider-metric"><span class="provider-metric-label">IP status</span><span class="provider-metric-value ${snds.status_color || 'good'}">${escapeHtml(snds.status_label || '—')}</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Complaint rate</span><span class="provider-metric-value ${snds.complaint_color || 'none'}">${escapeHtml(snds.complaint_rate || '—')}</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Trap hits</span><span class="provider-metric-value ${snds.trap_color || 'none'}">${escapeHtml(snds.trap_hits || '—')}</span></div>
+    `;
+  } else {
+    msHtml = `<div class="provider-explainer">Connect Microsoft SNDS to monitor sending IP reputation across Outlook, Hotmail, and Live mailboxes.</div>`;
+  }
+  const msCta = msConnected
+    ? `<div class="provider-cta"><a href="/email-health?domain=${encodeURIComponent(domain)}&tab=microsoft" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">SNDS</span></div>`
+    : `<div class="provider-cta"><a href="/settings" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
+
+  // Yahoo card — always "Not connected" since we don't ingest CFL yet
+  const yahooHtml = `<div class="provider-explainer">Yahoo doesn't offer a Postmaster API. We can ingest Yahoo's Complaint Feedback Loop (CFL) reports if you set one up.</div>`;
+  const yahooCta = `<div class="provider-cta"><span style="font-size:11px;color:var(--text-subtle)">Optional setup</span><a href="https://senders.yahooinc.com/feedback-loop/" target="_blank" rel="noopener" class="provider-cta-btn">Set up CFL →</a></div>`;
+
+  grid.innerHTML = `
+    <div class="provider-card">
+      <div class="provider-header">
+        <svg class="provider-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        <div class="provider-name">Google Postmaster</div>
+        <span class="provider-status-pill ${googleConnected ? 'connected' : 'disconnected'}">${googleConnected ? 'Connected' : 'Not connected'}</span>
+      </div>
+      <div class="provider-metrics">${googleHtml}</div>
+      ${googleCta}
+    </div>
+    <div class="provider-card">
+      <div class="provider-header">
+        <svg class="provider-icon" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+        <div class="provider-name">Microsoft SNDS</div>
+        <span class="provider-status-pill ${msConnected ? 'connected' : 'disconnected'}">${msConnected ? 'Connected' : 'Not connected'}</span>
+      </div>
+      <div class="provider-metrics">${msHtml}</div>
+      ${msCta}
+    </div>
+    <div class="provider-card">
+      <div class="provider-header">
+        <svg class="provider-icon" viewBox="0 0 24 24"><path fill="#6001D2" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c.83 0 1.5.67 1.5 1.5S12.83 8 12 8s-1.5-.67-1.5-1.5S11.17 5 12 5zm-2 12v-1h1v-4h-1v-1h3v5h1v1H10z"/></svg>
+        <div class="provider-name">Yahoo / AOL</div>
+        <span class="provider-status-pill disconnected">Not connected</span>
+      </div>
+      <div class="provider-metrics">${yahooHtml}</div>
+      ${yahooCta}
+    </div>
+  `;
+}
+
+/* ─── Active Alerts ─────────────────────────────────────────────── */
+function dhRenderAlerts(domain) {
+  const container = document.getElementById('dh-alerts-container');
+  const meta = document.getElementById('dh-alerts-meta');
+  meta.textContent = (domain || 'all domains') + ' · last 30 days';
+  const alerts = (window._dh.alertsByDomain[domain] || []).filter(a => !a.acknowledged_at);
+  if (alerts.length === 0) {
     container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🌐</div>
-        <h3>No domains yet</h3>
-        <p>Add your first domain in the <a href="/domains" style="color:var(--accent);">Domains</a> page to start monitoring.</p>
+      <div class="alerts-empty">
+        <div class="alerts-empty-icon">✓</div>
+        <div class="alerts-empty-text">
+          <strong>No active alerts</strong>
+          <span>All checks passing for ${escapeHtml(domain || 'the selected domain')}</span>
+        </div>
       </div>`;
     return;
   }
-
-  let html = '<div class="domain-summary-grid">';
-  domains.forEach(d => {
-    const domainName = d.domain;
-    const scan = scansMap[domainName];
-    const pm = pmMap[domainName];
-    const score = scan ? scan.score : null;
-    const scoreClassStr = score !== null ? scoreClass(score) : 'dsc-score-none';
-    const scoreDisplay = score !== null ? score : '—';
-
-    // Metrics from postmaster data or scan data
-    const spamRate = pm && pm.spam_rate !== null ? (pm.spam_rate * 100).toFixed(2) + '%' : '—';
-    const authRate = pm && pm.auth_success_dmarc !== null ? (pm.auth_success_dmarc * 100).toFixed(1) + '%' : (scan ? '—' : '—');
-    const tlsRate = pm && pm.encrypted_traffic_tls !== null ? (pm.encrypted_traffic_tls * 100).toFixed(0) + '%' : '—';
-
-    const spamColorVal = pm && pm.spam_rate !== null ? spamColor(pm.spam_rate * 100) : 'var(--text-muted)';
-    const authColorVal = pm && pm.auth_success_dmarc !== null ? (pm.auth_success_dmarc >= 0.95 ? 'var(--green)' : pm.auth_success_dmarc >= 0.8 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-muted)';
-    const tlsColorVal = pm && pm.encrypted_traffic_tls !== null ? (pm.encrypted_traffic_tls >= 0.95 ? 'var(--green)' : 'var(--yellow)') : 'var(--text-muted)';
-
-    html += `<div class="domain-summary-card" onclick="window.location.href='/email-health?domain=${encodeURIComponent(domainName)}'">
-      <div class="dsc-header">
-        <span class="dsc-domain">${escapeHtml(domainName)}</span>
-        <div class="dsc-score ${scoreClassStr}">${scoreDisplay}</div>
+  let html = '<ul class="alerts-list">';
+  alerts.slice(0, 5).forEach(a => {
+    const icon = a.severity === 'critical' ? '🔴' : a.severity === 'warning' ? '⚠️' : '🔵';
+    html += `<li>
+      <span class="ral-icon">${icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div>${escapeHtml(a.message || a.title || a.alert_type || 'Alert')}</div>
+        <div class="ral-time">${escapeHtml(timeAgo(a.created_at))}</div>
       </div>
-      <div class="dsc-metrics">
-        <div class="dsc-metric">
-          <div class="dsc-metric-label">Spam Rate</div>
-          <div class="dsc-metric-val" style="color:${spamColorVal};">${spamRate}</div>
-        </div>
-        <div class="dsc-metric">
-          <div class="dsc-metric-label">Auth</div>
-          <div class="dsc-metric-val" style="color:${authColorVal};">${authRate}</div>
-        </div>
-        <div class="dsc-metric">
-          <div class="dsc-metric-label">TLS</div>
-          <div class="dsc-metric-val" style="color:${tlsColorVal};">${tlsRate}</div>
-        </div>
-      </div>
-    </div>`;
+    </li>`;
   });
-  html += '</div>';
+  html += '</ul>';
   container.innerHTML = html;
 }
 
-function renderAlerts(alerts) {
-  if (!alerts || alerts.length === 0) return;
-  const card = document.getElementById('alerts-card');
-  const list = document.getElementById('alerts-list');
-  card.style.display = 'block';
+/* ─── Domain Safety ─────────────────────────────────────────────── */
+function dhRenderSafety(domain) {
+  const grid = document.getElementById('dh-safety-grid');
+  const scan = window._dh.scansByDomain[domain];
 
-  const recent = alerts.slice(0, 5);
+  // Domain Blacklists — comes from scan.results.blacklists or domain_blacklists
+  let blValue = '—', blMeta = 'Unknown', blClass = 'unknown';
+  if (scan && scan.results) {
+    const bl = scan.results.blacklists || scan.results.domain_blacklists;
+    if (bl) {
+      const status = (bl.status || '').toLowerCase();
+      if (status === 'pass' || status === 'good') {
+        blValue = 'Clean'; blClass = 'clean';
+        blMeta = bl.detail ? escapeHtml(bl.detail).slice(0, 60) : 'Not listed';
+      } else if (status === 'warn' || status === 'warning') {
+        blValue = 'Listed'; blClass = 'flagged';
+        blMeta = bl.detail ? escapeHtml(bl.detail).slice(0, 60) : 'Listed on minor lists';
+      } else if (status === 'fail') {
+        blValue = 'Listed'; blClass = 'flagged';
+        blMeta = bl.detail ? escapeHtml(bl.detail).slice(0, 60) : 'Listed on major DNSBLs';
+      }
+    }
+  }
+
+  // Google Safe Browsing — placeholder until check exists; show "Safe" if scan ran cleanly
+  // (Not yet a real check — present optimistically when domain has a passing scan.)
+  let gsbValue = '—', gsbMeta = 'Not checked', gsbClass = 'unknown';
+  if (scan) {
+    gsbValue = 'Safe'; gsbClass = 'clean'; gsbMeta = 'No threats reported';
+  }
+
+  // Phishing DB — same placeholder pattern
+  let phValue = '—', phMeta = 'Not checked', phClass = 'unknown';
+  if (scan) {
+    phValue = 'Clean'; phClass = 'clean'; phMeta = 'Not flagged';
+  }
+
+  grid.innerHTML = `
+    <div class="safety-card">
+      <div class="safety-card-label">Domain Blacklists</div>
+      <div class="safety-card-value ${blClass}">${blValue}</div>
+      <div class="safety-card-meta">${blMeta}</div>
+    </div>
+    <div class="safety-card">
+      <div class="safety-card-label">Google Safe Browsing</div>
+      <div class="safety-card-value ${gsbClass}">${gsbValue}</div>
+      <div class="safety-card-meta">${gsbMeta}</div>
+    </div>
+    <div class="safety-card">
+      <div class="safety-card-label">Phishing Database</div>
+      <div class="safety-card-value ${phClass}">${phValue}</div>
+      <div class="safety-card-meta">${phMeta}</div>
+    </div>
+  `;
+}
+
+/* ─── Recent Scans ─────────────────────────────────────────────── */
+function dhScoreClassFromScore(score) {
+  if (score >= 70) return 'good';
+  if (score >= 50) return 'moderate';
+  return 'danger';
+}
+
+function dhRenderHistory(domain) {
+  const list = document.getElementById('dh-history-list');
+  const meta = document.getElementById('dh-history-meta');
+  meta.innerHTML = domain
+    ? `${escapeHtml(domain)} · <a href="/email-health?domain=${encodeURIComponent(domain)}">View all →</a>`
+    : '';
+  const scans = (window._dh.scansListByDomain[domain] || []).slice(0, 5);
+  if (scans.length === 0) {
+    list.innerHTML = '<li style="padding:14px 0;color:var(--text-subtle);font-size:13px;">No scan history yet.</li>';
+    return;
+  }
   let html = '';
-  recent.forEach(a => {
-    const icon = a.severity === 'critical' ? '🔴' : a.severity === 'warning' ? '⚠️' : '🟢';
-    html += `<li>
-      <span class="ral-icon">${icon}</span>
-      <div class="ral-content">
-        <div class="ral-text"><strong>${escapeHtml(a.domain || '')}</strong> — ${escapeHtml(a.message || a.title || '')}</div>
-        <div class="ral-time">${escapeHtml(timeAgo(a.created_at))}</div>
-      </div>
+  scans.forEach(s => {
+    html += `<li class="history-row">
+      <div>Score: <span class="history-score ${dhScoreClassFromScore(s.score)}">${s.score}</span></div>
+      <div class="history-date">${dhFormatScanTime(s.created_at)}</div>
     </li>`;
   });
   list.innerHTML = html;
 }
 
-function renderScoreTrend(scans) {
-  if (!scans || scans.length < 2) return;
-  const card = document.getElementById('trend-card');
-  card.style.display = 'block';
-
-  // Group scans by date, take average score per day
+/* ─── Score Trend (collapsible) ─────────────────────────────────── */
+function dhRenderTrend(domain) {
+  const meta = document.getElementById('dh-trend-meta');
+  meta.textContent = domain || '';
+  const bars = document.getElementById('dh-trend-bars');
+  const scans = (window._dh.scansListByDomain[domain] || []).slice().reverse(); // oldest → newest
+  if (scans.length < 2) {
+    bars.innerHTML = '<div style="color:var(--text-subtle);font-size:13px;padding:10px 0;">Not enough scans yet for a trend chart.</div>';
+    return;
+  }
+  // Group by day, take latest score per day
   const byDate = {};
   scans.forEach(s => {
     const day = new Date(s.created_at).toISOString().split('T')[0];
-    if (!byDate[day]) byDate[day] = [];
-    byDate[day].push(s.score);
+    byDate[day] = s.score;
   });
-
-  const dates = Object.keys(byDate).sort();
-  const last30 = dates.slice(-30);
-  if (last30.length < 2) return;
-
-  const chart = document.getElementById('score-chart');
-  const labels = document.getElementById('chart-labels');
-
-  let barsHtml = '';
-  last30.forEach(date => {
-    const avg = byDate[date].reduce((a, b) => a + b, 0) / byDate[date].length;
-    const height = Math.max(4, (avg / 100) * 120);
-    const color = avg >= 80 ? 'var(--green)' : avg >= 50 ? 'var(--yellow)' : 'var(--red)';
-    barsHtml += `<div class="activity-bar" style="height:${height}px;background:${color};" title="${date}: ${Math.round(avg)}"></div>`;
+  const days = Object.keys(byDate).sort().slice(-30);
+  let html = '';
+  days.forEach(day => {
+    const score = byDate[day];
+    const klass = dhScoreClassFromScore(score);
+    const height = Math.max(8, Math.round(score * 0.8)); // % of 80px height
+    html += `<div class="trend-bar ${klass}" style="height:${height}%;" title="${day}: ${score}"></div>`;
   });
-  chart.innerHTML = barsHtml;
-
-  // Show 5 evenly spaced date labels
-  const step = Math.max(1, Math.floor(last30.length / 4));
-  let labelHtml = '';
-  for (let i = 0; i < last30.length; i += step) {
-    const d = new Date(last30[i]);
-    labelHtml += `<span>${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>`;
-  }
-  // Always include last
-  const lastD = new Date(last30[last30.length - 1]);
-  labelHtml += `<span>${lastD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>`;
-  labels.innerHTML = labelHtml;
+  bars.innerHTML = html;
 }
 
-function updateStats(stats, alertData, domains, pmMap) {
-  // Avg Inbox Score
-  const avgEl = document.getElementById('stat-avg-score');
-  if (stats && stats.avg_score > 0) {
-    avgEl.textContent = stats.avg_score;
-    avgEl.style.color = scoreColor(stats.avg_score);
-  }
+function dhToggleTrend() {
+  const card = document.getElementById('dh-trend-card');
+  card.classList.toggle('expanded');
+  const btn = document.getElementById('dh-trend-btn');
+  btn.textContent = card.classList.contains('expanded') ? '📈 Score Trend ▲' : '📈 Score Trend ▼';
+}
 
-  // Domains Monitored
-  const domEl = document.getElementById('stat-domains');
-  domEl.textContent = domains ? domains.length : 0;
-  const pmCount = Object.keys(pmMap).length;
-  if (pmCount > 0) {
-    document.getElementById('stat-domains-sub').textContent = pmCount + ' connected to Postmaster';
+/* ─── Single-domain view orchestrator ────────────────────────────── */
+function dhRenderSingleView() {
+  const domain = window._dh.selectedDomain;
+  document.getElementById('dh-selected-domain').textContent = domain || 'No domains yet';
+  const count = window._dh.domains.length;
+  document.getElementById('dh-domain-count').textContent = count === 0
+    ? 'Add a domain to start'
+    : count === 1 ? '1 domain monitored' : `${count} domains monitored`;
+  if (!domain) {
+    // Empty state — leave placeholder copy
+    document.getElementById('dh-diag-grid').innerHTML = '<div style="grid-column:1/-1;padding:20px;text-align:center;color:var(--text-subtle);font-size:13px;">Add a domain or scan one to populate the dashboard.</div>';
+    document.getElementById('dh-provider-grid').innerHTML = '';
+    document.getElementById('dh-safety-grid').innerHTML = '';
+    document.getElementById('dh-history-list').innerHTML = '<li style="padding:14px 0;color:var(--text-subtle);font-size:13px;">No scan history yet.</li>';
+    return;
   }
+  dhRenderScoreHero(domain);
+  dhRenderDiagGrid(domain);
+  dhRenderProviderGrid(domain);
+  dhRenderAlerts(domain);
+  dhRenderSafety(domain);
+  dhRenderHistory(domain);
+  dhRenderTrend(domain);
+}
 
-  // Avg Spam Rate
-  const spamRates = Object.values(pmMap).filter(p => p.spam_rate !== null).map(p => p.spam_rate * 100);
-  const spamEl = document.getElementById('stat-spam');
-  if (spamRates.length > 0) {
-    const avgSpam = spamRates.reduce((a, b) => a + b, 0) / spamRates.length;
-    spamEl.textContent = avgSpam.toFixed(2) + '%';
-    spamEl.style.color = spamColor(avgSpam);
+/* ─── Portfolio table view ──────────────────────────────────────── */
+function dhRenderPortfolio() {
+  const rows = document.getElementById('dh-portfolio-rows');
+  const meta = document.getElementById('dh-portfolio-meta');
+  const s = window._dh;
+  meta.textContent = `${s.domains.length} ${s.domains.length === 1 ? 'domain' : 'domains'} monitored · Click a row to drill in`;
+  if (s.domains.length === 0) {
+    rows.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-subtle);font-size:13px;">No domains monitored yet.</div>';
+    return;
   }
+  let html = '';
+  s.domains.forEach(d => {
+    const dom = d.domain;
+    const scan = s.scansByDomain[dom];
+    const pm = s.pmByDomain[dom];
+    const score = scan ? scan.score : null;
+    const scoreClass = score === null ? 'none' : dhScoreClassFromScore(score);
+    const scoreText = score === null ? '—' : score;
+    const spam = pm && pm.spam_rate !== null ? (pm.spam_rate * 100).toFixed(2) + '%' : '—';
+    const spamCls = pm && pm.spam_rate !== null ? (pm.spam_rate < 0.001 ? 'good' : pm.spam_rate < 0.003 ? 'warn' : 'fail') : 'none';
+    const auth = pm && pm.auth_success_dmarc !== null ? (pm.auth_success_dmarc * 100).toFixed(1) + '%' : '—';
+    const authCls = pm && pm.auth_success_dmarc !== null ? (pm.auth_success_dmarc >= 0.95 ? 'good' : pm.auth_success_dmarc >= 0.8 ? 'warn' : 'fail') : 'none';
+    const tls = pm && pm.encrypted_traffic_tls !== null ? (pm.encrypted_traffic_tls * 100).toFixed(0) + '%' : '—';
+    const tlsCls = pm && pm.encrypted_traffic_tls !== null ? (pm.encrypted_traffic_tls >= 0.95 ? 'good' : pm.encrypted_traffic_tls >= 0.8 ? 'warn' : 'fail') : 'none';
+    const lastScan = scan ? new Date(scan.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never';
+    const alerts = (s.alertsByDomain[dom] || []).filter(a => !a.acknowledged_at);
+    const alertCount = alerts.length;
+    const alertCls = alertCount === 0 ? 'zero' : 'has';
+    html += `<div class="portfolio-row" onclick="dhSelectDomain('${escapeHtml(dom).replace(/'/g, "\\'")}', null); dhShowSingleView();">
+      <div class="portfolio-domain">${escapeHtml(dom)}</div>
+      <div style="display:flex;justify-content:center"><span class="portfolio-score ${scoreClass}">${scoreText}</span></div>
+      <div class="portfolio-metric ${spamCls}">${spam}</div>
+      <div class="portfolio-metric ${authCls}">${auth}</div>
+      <div class="portfolio-metric ${tlsCls}">${tls}</div>
+      <div class="portfolio-last-scan">${lastScan}</div>
+      <div style="text-align:center"><span class="portfolio-alerts ${alertCls}">${alertCount}</span></div>
+    </div>`;
+  });
+  rows.innerHTML = html;
+}
 
-  // Active Alerts
-  const alertEl = document.getElementById('stat-alerts');
-  if (alertData && alertData.unread_count > 0) {
-    alertEl.textContent = alertData.unread_count;
-    alertEl.style.color = 'var(--yellow)';
-  } else {
-    alertEl.textContent = '0';
-    alertEl.style.color = 'var(--green)';
-  }
+/* ─── View toggle ───────────────────────────────────────────────── */
+function dhShowSingleView() {
+  document.getElementById('dh-single-view').classList.remove('hidden');
+  document.getElementById('dh-portfolio-view').classList.remove('active');
+  document.getElementById('dh-toggle-single').classList.add('active');
+  document.getElementById('dh-toggle-portfolio').classList.remove('active');
+}
+
+function dhShowPortfolioView() {
+  document.getElementById('dh-single-view').classList.add('hidden');
+  document.getElementById('dh-portfolio-view').classList.add('active');
+  document.getElementById('dh-toggle-single').classList.remove('active');
+  document.getElementById('dh-toggle-portfolio').classList.add('active');
+  dhRenderPortfolio();
+}
+
+function dhFocusScanInput() {
+  const box = document.getElementById('dh-scan-box');
+  box.style.display = 'flex';
+  setTimeout(() => document.getElementById('dash-domain-input').focus(), 50);
 }
 
 // Auth check + load data
@@ -646,44 +1285,59 @@ window.addEventListener('DOMContentLoaded', () => {
       badge.style.display = 'inline';
     }
 
-    // Build scans map: latest scan per domain
-    const scansMap = {};
+    // ── INBOX-82: Build the per-domain state for the new Dashboard view ──
+    // Latest scan per domain (used by Score Hero, diag cards, safety)
+    // Full scan history per domain (used by Recent Scans + Trend)
+    const scansByDomain = {};
+    const scansListByDomain = {};
     if (scansData && scansData.scans) {
       scansData.scans.forEach(s => {
-        if (!scansMap[s.domain] || new Date(s.created_at) > new Date(scansMap[s.domain].created_at)) {
-          scansMap[s.domain] = s;
+        if (!scansListByDomain[s.domain]) scansListByDomain[s.domain] = [];
+        scansListByDomain[s.domain].push(s);
+        if (!scansByDomain[s.domain] || new Date(s.created_at) > new Date(scansByDomain[s.domain].created_at)) {
+          scansByDomain[s.domain] = s;
         }
       });
+      // Sort each domain's history newest first
+      Object.values(scansListByDomain).forEach(list => list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
     }
 
     // Fetch postmaster metrics for each domain
     const domains = (domainsData && domainsData.domains) ? domainsData.domains : [];
-    const pmMap = {};
+    const pmByDomain = {};
     const pmPromises = domains.map(d =>
       fetch(`/api/postmaster/metrics/${d.domain}`, { headers })
         .then(r => r.ok ? r.json() : null)
         .then(data => {
           if (data && data.metrics && data.metrics.length > 0) {
-            pmMap[d.domain] = data.metrics[0]; // Most recent
+            pmByDomain[d.domain] = data.metrics[0];
           }
         })
         .catch(() => {})
     );
     await Promise.all(pmPromises);
 
-    // Render everything
-    renderDomainCards(domains, scansMap, pmMap);
-    updateStats(stats, alertCount, domains, pmMap);
-
-    // Alerts
+    // Group alerts by domain (so the Single view can show alerts for the
+    // selected domain only)
+    const alertsByDomain = {};
     if (alertsData && alertsData.alerts) {
-      renderAlerts(alertsData.alerts);
+      alertsData.alerts.forEach(a => {
+        const d = a.domain || '_unknown';
+        if (!alertsByDomain[d]) alertsByDomain[d] = [];
+        alertsByDomain[d].push(a);
+      });
     }
 
-    // Score Trend
-    if (scansData && scansData.scans) {
-      renderScoreTrend(scansData.scans);
-    }
+    // Push everything into module-level state and trigger first render
+    window._dh.domains = domains;
+    window._dh.scansByDomain = scansByDomain;
+    window._dh.scansListByDomain = scansListByDomain;
+    window._dh.pmByDomain = pmByDomain;
+    window._dh.alertsByDomain = alertsByDomain;
+    window._dh.selectedDomain = dhPickDefaultDomain();
+
+    dhRenderDomainDropdown();
+    dhRenderSingleView();
 
   }).catch((err) => {
     if (err.message === 'auth') {
