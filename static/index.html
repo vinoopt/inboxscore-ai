@@ -207,19 +207,31 @@ function escapeHtml(str) {
   .footer-version { font-size: 11px; color: var(--text-subtle); font-family: 'Geist Mono', ui-monospace, monospace; }
 
   /* LOADING */
-  .loading-view { text-align: center; padding: 120px 40px; max-width: 500px; margin: 0 auto; }
-  .loading-spinner { width: 44px; height: 44px; border: 2.5px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 24px; }
+  .loading-view { text-align: center; padding: 80px 40px 120px; max-width: 460px; margin: 0 auto; }
+  .loading-pill { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 28px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .loading-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 var(--accent-glow); animation: live-pulse 1.6s ease-out infinite; }
+  @keyframes live-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(124,58,237,0.6); }
+    70% { box-shadow: 0 0 0 8px rgba(124,58,237,0); }
+    100% { box-shadow: 0 0 0 0 rgba(124,58,237,0); }
+  }
+  .loading-spinner-wrap { position: relative; width: 56px; height: 56px; margin: 0 auto 24px; }
+  .loading-spinner { width: 56px; height: 56px; border: 2.5px solid var(--border); border-top-color: var(--accent); border-right-color: var(--accent); border-radius: 50%; animation: spin 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+  .loading-spinner-glow { position: absolute; inset: -8px; border-radius: 50%; background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%); animation: glow-pulse 2s ease-in-out infinite; pointer-events: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-domain { font-size: 20px; font-weight: 600; margin-bottom: 6px; color: var(--text); letter-spacing: -0.01em; }
-  .loading-status { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
+  @keyframes glow-pulse { 0%,100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.1); } }
+  .loading-domain { font-size: 14px; font-weight: 500; margin-bottom: 6px; color: var(--text); font-family: 'Geist Mono', ui-monospace, monospace; letter-spacing: -0.01em; }
+  .loading-status { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+  .loading-progress { height: 3px; background: var(--surface-2); border-radius: 999px; max-width: 320px; margin: 0 auto 28px; overflow: hidden; }
+  .loading-progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), #a78bfa); border-radius: 999px; width: 0%; transition: width 0.5s ease-out; }
   .check-list { text-align: left; max-width: 320px; margin: 0 auto; }
-  .check-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; font-size: 14px; color: var(--text-muted); transition: color 0.3s; }
+  .check-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13px; color: var(--text-subtle); transition: color 0.3s; }
   .check-item.done { color: var(--green); }
-  .check-item.active { color: var(--text); }
-  .check-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; transition: all 0.3s; background: var(--surface); }
-  .check-item.done .check-dot { border-color: var(--green); background: var(--green-bg); }
-  .check-item.active .check-dot { border-color: var(--accent); background: var(--accent-soft); animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+  .check-item.active { color: var(--text); font-weight: 500; }
+  .check-dot { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; transition: all 0.25s; background: var(--surface); }
+  .check-item.done .check-dot { border-color: var(--green); background: var(--green); color: white; }
+  .check-item.active .check-dot { border-color: var(--accent); background: var(--accent); animation: dot-pulse 1.2s ease-in-out infinite; box-shadow: 0 0 0 4px var(--accent-glow); }
+  @keyframes dot-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
 
   /* RESULTS */
   .results-view { max-width: 920px; margin: 0 auto; padding: 40px 24px; }
@@ -551,9 +563,14 @@ function escapeHtml(str) {
 <!-- LOADING -->
 <div id="view-loading" class="view">
   <div class="loading-view">
-    <div class="loading-spinner"></div>
+    <div class="loading-pill"><span class="loading-pill-dot"></span> Live scan in progress</div>
+    <div class="loading-spinner-wrap">
+      <div class="loading-spinner-glow"></div>
+      <div class="loading-spinner"></div>
+    </div>
     <div class="loading-domain" id="loading-domain">acme.com</div>
-    <div class="loading-status" id="loading-status">Running deliverability checks...</div>
+    <div class="loading-status" id="loading-status">Running deliverability checks across 14 signals…</div>
+    <div class="loading-progress"><div class="loading-progress-bar" id="loading-progress-bar"></div></div>
     <div class="check-list" id="check-list">
       <div class="check-item" data-check="mx"><div class="check-dot"></div>MX Records</div>
       <div class="check-item" data-check="spf"><div class="check-dot"></div>SPF Validation</div>
@@ -664,9 +681,11 @@ async function startScan() {
     });
   }
 
-  // Animate checklist
+  // Animate checklist + progress bar
   const items = document.querySelectorAll('#check-list .check-item');
+  const progressBar = document.getElementById('loading-progress-bar');
   items.forEach(i => { i.classList.remove('done','active'); i.querySelector('.check-dot').textContent = ''; });
+  if (progressBar) progressBar.style.width = '0%';
   let idx = 0;
   const interval = setInterval(() => {
     if (idx > 0) {
@@ -676,6 +695,7 @@ async function startScan() {
     }
     if (idx < items.length) { items[idx].classList.add('active'); idx++; }
     else clearInterval(interval);
+    if (progressBar) progressBar.style.width = Math.min(100, (idx / items.length) * 100) + '%';
   }, 500);
 
   // Client-side timeout (25s) — Render has 30s limit
@@ -716,6 +736,7 @@ async function startScan() {
     // Finish loading animation
     clearInterval(interval);
     items.forEach(i => { i.classList.remove('active'); i.classList.add('done'); i.querySelector('.check-dot').textContent = '✓'; });
+    if (progressBar) progressBar.style.width = '100%';
 
     setTimeout(() => renderResults(data), 600);
   } catch (err) {
