@@ -531,7 +531,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
             <div class="verdict" id="dh-score-verdict">Run a scan to see your deliverability snapshot.</div>
             <div class="score-stats" id="dh-score-stats"></div>
           </div>
-          <button class="score-trend-btn" onclick="dhToggleTrend()" id="dh-trend-btn">📈 Score Trend ▼</button>
+          <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+            <button class="score-trend-btn" onclick="dhRefreshSelectedDomain()" id="dh-refresh-btn" title="Re-scan the selected domain right now">🔄 Refresh</button>
+            <button class="score-trend-btn" onclick="dhToggleTrend()" id="dh-trend-btn">📈 Score Trend ▼</button>
+          </div>
         </div>
 
         <!-- Score Trend Chart (collapsed by default) -->
@@ -769,19 +772,38 @@ function dhFormatScanTime(dateStr) {
 }
 
 /* ─── Picking the default selected domain ─────────────────────────
- * Use the most-recently-scanned domain if any scan exists. Otherwise
- * fall back to the first monitored domain. */
+ * Prefer the user's monitored domains — the most-recently-scanned
+ * monitored domain wins, then fall back to the first monitored
+ * domain (even without a scan), and only as a last resort to a
+ * scan-only "ghost" domain.
+ *
+ * INBOX-83: previously this picked the most-recently-scanned domain
+ * from anywhere, which let one-off scans (e.g. mailercloud.com from
+ * the marketing site) hijack the Dashboard default over the user's
+ * actual monitored domain (euverify.com).  */
 function dhPickDefaultDomain() {
   const s = window._dh;
-  let best = null;
-  let bestTime = 0;
+  const monitored = new Set(s.domains.map(d => d.domain));
+
+  // 1. Most-recently-scanned among monitored domains
+  let best = null, bestTime = 0;
   Object.values(s.scansByDomain).forEach(scan => {
+    if (!monitored.has(scan.domain)) return;
     const t = new Date(scan.created_at).getTime();
     if (t > bestTime) { bestTime = t; best = scan.domain; }
   });
   if (best) return best;
+
+  // 2. First monitored domain (even if it has no scan yet)
   if (s.domains.length > 0) return s.domains[0].domain;
-  return null;
+
+  // 3. Last resort: any scan-only domain
+  let ghost = null, ghostTime = 0;
+  Object.values(s.scansByDomain).forEach(scan => {
+    const t = new Date(scan.created_at).getTime();
+    if (t > ghostTime) { ghostTime = t; ghost = scan.domain; }
+  });
+  return ghost;
 }
 
 /* ─── Domain selector dropdown ─────────────────────────────────── */
@@ -819,6 +841,35 @@ document.addEventListener('click', () => {
   if (dd) dd.classList.remove('open');
 });
 
+/* ─── Scan-results shape adapter ──────────────────────────────────
+ * INBOX-83: the scan results stored in Supabase use the shape
+ *   { checks: [{name:"spf", status, points, max_points, detail, ...}, ...],
+ *     score, scanned_at, summary }
+ * — i.e. the per-check rows live in a `checks` array, NOT as
+ * top-level keys. The previous renderer assumed `results.spf` etc.
+ * which silently no-op'd into the "Info" placeholder for every card.
+ *
+ * dhCheckByName builds a name→check map so the rest of the dashboard
+ * can look up checks the way the old code expected. The map handles
+ * a couple of historical aliases too (mx vs mx_records). */
+function dhCheckByName(scan) {
+  if (!scan || !scan.results) return {};
+  const checks = scan.results.checks;
+  if (!Array.isArray(checks)) return {};
+  const map = {};
+  checks.forEach(c => {
+    if (!c || !c.name) return;
+    // Mirror "score" alias so callers can read either field
+    const norm = Object.assign({}, c, { score: (c.points != null ? c.points : c.score) });
+    map[c.name] = norm;
+  });
+  // Aliases: dashboard cards use mx_records, scans use mx_records too,
+  // but older fixtures sometimes used 'mx'. Keep both keys reachable.
+  if (map['mx'] && !map['mx_records']) map['mx_records'] = map['mx'];
+  if (map['mx_records'] && !map['mx']) map['mx'] = map['mx_records'];
+  return map;
+}
+
 /* ─── Score Hero ─────────────────────────────────────────────────── */
 function dhRenderScoreHero(domain) {
   const s = window._dh;
@@ -835,22 +886,23 @@ function dhRenderScoreHero(domain) {
     : (domain ? `${domain} · No scan yet` : 'No domain selected');
   document.getElementById('dh-score-verdict').textContent = meta.verdict;
 
-  // Pass/warn/fail counts
+  // Pass/warn/fail counts — iterate the checks array (INBOX-83 fix:
+  // results.checks is the actual shape; top-level keys are domain/score/etc).
   const stats = document.getElementById('dh-score-stats');
-  if (scan && scan.results) {
-    let p = 0, w = 0, f = 0;
-    Object.values(scan.results).forEach(r => {
-      if (!r || typeof r !== 'object') return;
-      const st = (r.status || '').toLowerCase();
+  if (scan && scan.results && Array.isArray(scan.results.checks)) {
+    let p = 0, w = 0, f = 0, info = 0;
+    scan.results.checks.forEach(c => {
+      const st = (c.status || '').toLowerCase();
       if (st === 'pass' || st === 'good') p++;
-      else if (st === 'warn' || st === 'warning' || st === 'info') w++;
+      else if (st === 'warn' || st === 'warning') w++;
       else if (st === 'fail') f++;
+      else info++;
     });
     stats.innerHTML = `
       <div class="score-stat">✓ <strong>${p}</strong> passed</div>
       <div class="score-stat" style="color:var(--orange)">⚠ <strong>${w}</strong> warning</div>
       <div class="score-stat" style="color:var(--red)">✕ <strong>${f}</strong> failed</div>
-    `;
+    ` + (info > 0 ? `<div class="score-stat">ⓘ <strong>${info}</strong> info</div>` : '');
   } else {
     stats.innerHTML = '';
   }
@@ -893,19 +945,28 @@ function dhRenderDiagGrid(domain) {
     grid.innerHTML = '<div style="grid-column:1/-1;padding:20px;text-align:center;color:var(--text-subtle);font-size:13px;">Run a scan to populate these cards.</div>';
     return;
   }
-  const results = scan.results;
+  // INBOX-83: read from results.checks[] via the name→check adapter
+  // (the previous flat-keyed lookup path does not exist on real scans).
+  const byName = dhCheckByName(scan);
   let html = '';
   DH_DIAG_CARDS.forEach(card => {
-    const r = results[card.key] || {};
+    const r = byName[card.key] || {};
     const status = r.status || 'info';
     const klass = dhStatusClass(status);
     const label = dhStatusLabel(status);
+    // r.score is normalised by dhCheckByName to point at the checks-array
+    // `points` field, so this works whether the source field was called
+    // `points` (current) or `score` (older fixtures).
+    const points = (r.score != null) ? r.score : r.points;
+    const max = r.max_points;
     let valueHtml, valueClass;
-    if (r.max_points === 0 || klass === 'info') {
+    if (max === 0 || klass === 'info') {
+      // Pure info card (max_points === 0 means we deliberately don't score it,
+      // e.g. TLS / BIMI-style "we observed X, no score impact").
       valueHtml = r.detail ? escapeHtml(r.detail).split('.')[0] : 'Info';
       valueClass = 'none';
-    } else if (typeof r.score === 'number' && typeof r.max_points === 'number') {
-      valueHtml = `${r.score} / ${r.max_points}`;
+    } else if (typeof points === 'number' && typeof max === 'number') {
+      valueHtml = `${points} / ${max}`;
       valueClass = klass;
     } else {
       valueHtml = label;
@@ -1047,11 +1108,18 @@ function dhRenderSafety(domain) {
   const grid = document.getElementById('dh-safety-grid');
   const scan = window._dh.scansByDomain[domain];
 
-  // Domain Blacklists — comes from scan.results.blacklists or domain_blacklists
+  // Domain Blacklists — INBOX-83: read from results.checks[] via the adapter.
+  // The two relevant checks are 'blacklists' (sending-IP DNSBLs) and
+  // 'domain_blacklists' (DBL/SURBL/URIBL). Worst status wins for the tile.
   let blValue = '—', blMeta = 'Unknown', blClass = 'unknown';
-  if (scan && scan.results) {
-    const bl = scan.results.blacklists || scan.results.domain_blacklists;
-    if (bl) {
+  if (scan) {
+    const byName = dhCheckByName(scan);
+    const candidates = [byName['blacklists'], byName['domain_blacklists']].filter(Boolean);
+    if (candidates.length > 0) {
+      // Pick worst status across the two checks (fail > warn > pass)
+      const rank = { fail: 3, warn: 2, warning: 2, pass: 1, good: 1 };
+      candidates.sort((a, b) => (rank[(b.status || '').toLowerCase()] || 0) - (rank[(a.status || '').toLowerCase()] || 0));
+      const bl = candidates[0];
       const status = (bl.status || '').toLowerCase();
       if (status === 'pass' || status === 'good') {
         blValue = 'Clean'; blClass = 'clean';
@@ -1158,6 +1226,24 @@ function dhToggleTrend() {
   card.classList.toggle('expanded');
   const btn = document.getElementById('dh-trend-btn');
   btn.textContent = card.classList.contains('expanded') ? '📈 Score Trend ▲' : '📈 Score Trend ▼';
+}
+
+/* ─── Refresh: re-scan the currently selected domain ─────────────
+ * INBOX-83 ergonomics: previously the only way to refresh was the
+ * generic "+ Scan New Domain" box. This button kicks off the same
+ * scan flow but pre-fills the selected domain so the user gets a
+ * one-click rescan with results streamed into the Scan Detail view. */
+function dhRefreshSelectedDomain() {
+  const domain = window._dh.selectedDomain;
+  if (!domain) {
+    alert('Pick a domain first.');
+    return;
+  }
+  // Pre-fill the scan input then trigger the existing scan flow.
+  const input = document.getElementById('dash-domain-input');
+  if (input) input.value = domain;
+  // Reuse dashStartScan which already handles the loading view + results render.
+  if (typeof dashStartScan === 'function') dashStartScan();
 }
 
 /* ─── Single-domain view orchestrator ────────────────────────────── */

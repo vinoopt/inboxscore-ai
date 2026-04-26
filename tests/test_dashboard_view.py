@@ -150,6 +150,90 @@ class TestDashboardJavaScriptHooks:
         )
 
 
+class TestRenderShapeAdapter:
+    """INBOX-83 — guard against the regression where dhRenderDiagGrid read
+    `results[card.key]` instead of iterating `results.checks[]`. The new
+    code uses a `dhCheckByName(scan)` adapter; lock its presence + that
+    every render path that needs check rows uses it."""
+
+    def test_dhCheckByName_helper_defined(self):
+        assert "function dhCheckByName(scan)" in DASHBOARD_HTML, (
+            "Missing dhCheckByName adapter — without it, the diagnostic "
+            "cards fall through to 'Info' on every domain (INBOX-83)."
+        )
+
+    def test_diag_grid_uses_check_adapter(self):
+        # Locate the dhRenderDiagGrid function and assert it pulls checks
+        # via dhCheckByName, not by indexing results[card.key].
+        idx = DASHBOARD_HTML.index("function dhRenderDiagGrid(domain)")
+        # Find the closing brace of this function (rough heuristic — first
+        # occurrence of "\n}" after a balanced body would require parsing,
+        # so just look for the adapter call anywhere in the next 4kb).
+        body = DASHBOARD_HTML[idx : idx + 4000]
+        assert "dhCheckByName(scan)" in body, (
+            "dhRenderDiagGrid must call dhCheckByName(scan) — otherwise "
+            "every card renders 'Info' (INBOX-83 regression)."
+        )
+        assert "results[card.key]" not in body, (
+            "dhRenderDiagGrid still reads results[card.key] — that path "
+            "doesn't exist on real scans (INBOX-83)."
+        )
+
+    def test_safety_uses_check_adapter(self):
+        idx = DASHBOARD_HTML.index("function dhRenderSafety(domain)")
+        body = DASHBOARD_HTML[idx : idx + 3000]
+        assert "dhCheckByName(scan)" in body, (
+            "dhRenderSafety must use dhCheckByName(scan) for blacklist "
+            "lookup (INBOX-83)."
+        )
+        # The old broken path read results.blacklists at the top level
+        assert "scan.results.blacklists" not in body, (
+            "dhRenderSafety still reads scan.results.blacklists at top "
+            "level — that path doesn't exist on real scans (INBOX-83)."
+        )
+
+    def test_score_hero_iterates_checks_array(self):
+        idx = DASHBOARD_HTML.index("function dhRenderScoreHero(domain)")
+        body = DASHBOARD_HTML[idx : idx + 3500]
+        assert "scan.results.checks" in body, (
+            "Score Hero pass/warn/fail counts must iterate "
+            "scan.results.checks (INBOX-83)."
+        )
+        assert "Object.values(scan.results)" not in body, (
+            "Score Hero still iterates Object.values(scan.results) — "
+            "that includes domain/score/scanned_at and produces wrong "
+            "counts (INBOX-83)."
+        )
+
+
+class TestDefaultDomainPick:
+    """INBOX-83 — `dhPickDefaultDomain` must prefer the user's monitored
+    domains. A one-off scan (e.g. mailercloud.com from the marketing site)
+    must NOT hijack the default selected domain over a real monitored
+    domain like euverify.com."""
+
+    def test_picks_monitored_first(self):
+        idx = DASHBOARD_HTML.index("function dhPickDefaultDomain()")
+        body = DASHBOARD_HTML[idx : idx + 1500]
+        # The fix: build a Set of monitored domains and only consider
+        # scans for those domains in the first pass.
+        assert "monitored.has(scan.domain)" in body, (
+            "dhPickDefaultDomain must filter scans to monitored domains "
+            "before picking (INBOX-83 ghost-domain hijack regression)."
+        )
+
+
+class TestRefreshButton:
+    """INBOX-83 ergonomics — Score Hero gets a Refresh button so users
+    can re-scan the selected domain in one click."""
+
+    def test_refresh_button_present(self):
+        assert 'id="dh-refresh-btn"' in _view_dashboard_block()
+
+    def test_refresh_handler_defined(self):
+        assert "function dhRefreshSelectedDomain()" in DASHBOARD_HTML
+
+
 class TestScanDetailViewIntact:
     """Sanity: the Scan Detail view (which DOES show BIMI + Domain Age) must
     remain intact. INBOX-82 only changes the Dashboard surface."""
