@@ -690,91 +690,129 @@ def check_dkim(domain: str) -> CheckResult:
         # Only the active set drives the PASS branches; revoked ones
         # were noise from key-rotation history.
         found_selectors = active_selectors
-        # INBOX-62: per-selector key-size in detail when multiple selectors found.
-        # Pre-INBOX-62 the detail said "selectors: k1, resend — using 1024-bit
-        # key" which implied the *main* DKIM key was weak when actually only
-        # one of multiple selectors was. Now we attach the size to each name.
-        def _label(s):
-            kl = s.get("key_length", "unknown")
-            if kl == "CNAME redirect":
-                return f"{s['selector']} (CNAME)"
-            return f"{s['selector']} ({kl})"
 
-        labelled = [_label(s) for s in found_selectors]
-        detail = f"DKIM configured for selector{'s' if len(found_selectors) > 1 else ''}: {', '.join(labelled)}"
+        # INBOX-77: plain-English rewrite of all DKIM messaging. The
+        # technical bit-count + selector-list info is preserved in
+        # raw_data for developers/support; the human-facing detail and
+        # fix_steps now lead with what the situation MEANS, not the
+        # protocol-level facts.
+        selector_count = len(found_selectors)
+        selector_names = ", ".join(f"`{s['selector']}`" for s in found_selectors)
 
-        # Identify weak (1024-bit) selectors specifically.
+        # Identify weak (1024-bit) vs strong (2048-bit) selectors.
         weak_selectors = [s for s in found_selectors
                            if "1024" in s.get("key_length", "")]
         strong_selectors = [s for s in found_selectors
                              if "2048" in s.get("key_length", "")]
 
+        # Build the technical-detail string for raw_data (preserved from
+        # INBOX-62 — per-selector key sizes) so support staff can still
+        # see the exact bit counts. NOT shown in the user-facing detail.
+        def _label(s):
+            kl = s.get("key_length", "unknown")
+            if kl == "CNAME redirect":
+                return f"{s['selector']} (CNAME)"
+            return f"{s['selector']} ({kl})"
+        technical_detail = "; ".join(_label(s) for s in found_selectors)
+
         if weak_selectors and strong_selectors:
-            # MIXED — at least one strong key present. Don't imply the main
-            # key is weak; specifically name the weak selector(s).
+            # MIXED — most users have this. Name the specific weak key.
             weak_names = [s["selector"] for s in weak_selectors]
             weak_phrase = ", ".join(f"`{n}`" for n in weak_names)
+            multiple_weak = len(weak_selectors) > 1
+            key_word = "keys" if multiple_weak else "key"
+            uses_word = "use" if multiple_weak else "uses"
+
             return CheckResult(
                 name="dkim",
                 category="authentication",
                 status="pass",
                 title="DKIM",
                 detail=(
-                    detail +
-                    f" — selector{'s' if len(weak_selectors) > 1 else ''} {weak_phrase} "
-                    f"use{'' if len(weak_selectors) > 1 else 's'} a legacy 1024-bit "
-                    "key. Consider rotating to 2048-bit or retiring if unused."
+                    f"Your email signing setup is mostly modern, but "
+                    f"{len(weak_selectors)} of your {selector_count} signing keys "
+                    f"({weak_phrase}) {uses_word} older weaker encryption. "
+                    "Newer email providers like Gmail and Yahoo prefer modern "
+                    "encryption — older keys may be downgraded or treated as "
+                    "suspicious."
                 ),
                 raw_data={
                     "selectors": found_selectors,
                     "weak_selectors": weak_names,
                     "strong_selectors": [s["selector"] for s in strong_selectors],
+                    "technical_detail": technical_detail,
                 },
                 points=14,
                 max_points=15,
                 fix_steps=[
-                    f"Selector{'s' if len(weak_selectors) > 1 else ''} {weak_phrase} "
-                    f"{'are' if len(weak_selectors) > 1 else 'is'} 1024-bit (legacy). "
-                    "Your other selectors are already 2048-bit (modern).",
-                    "If the legacy selector is still in active use (eg by an old sending "
-                    "service), generate a new 2048-bit key in that provider and update "
-                    "the DNS record at <selector>._domainkey.<your-domain>",
-                    "If the legacy selector is from a service you no longer use, "
-                    "remove the DNS record entirely to keep your DKIM surface clean",
-                    "Don't touch your already-2048-bit selectors — they're fine"
+                    f"Find out which sending service uses {weak_phrase} — common "
+                    "culprits are older Mailchimp, SendGrid, or self-hosted mail servers.",
+                    f"If you still use that service: regenerate the DKIM {key_word} "
+                    "in its settings (most modern services produce strong keys by "
+                    f"default), then update the DNS record at "
+                    f"`{weak_names[0]}._domainkey.<your-domain>` with the new key.",
+                    f"If you no longer use that service: just delete the "
+                    f"`{weak_names[0]}._domainkey.<your-domain>` DNS record entirely "
+                    "— it's unused and weak.",
+                    f"Don't touch your other {len(strong_selectors)} keys — "
+                    "they're already strong.",
                 ]
             )
 
         if weak_selectors:
-            # ALL selectors weak — original advice fires.
+            # ALL selectors weak — single key, weak across the board.
             return CheckResult(
                 name="dkim",
                 category="authentication",
                 status="pass",
                 title="DKIM",
-                detail=detail + " — all selectors use a 1024-bit key; 2048-bit recommended for stronger security",
+                detail=(
+                    f"Your emails are signed, but with older weaker encryption. "
+                    "The modern standard is twice the strength. Newer email "
+                    "providers like Gmail and Yahoo may treat older keys as "
+                    "suspicious."
+                ),
                 raw_data={
                     "selectors": found_selectors,
                     "weak_selectors": [s["selector"] for s in weak_selectors],
                     "strong_selectors": [],
+                    "technical_detail": technical_detail,
                 },
                 points=14,
                 max_points=15,
                 fix_steps=[
-                    "Your DKIM key is 1024-bit which is becoming outdated",
-                    "Generate a new 2048-bit DKIM key through your email provider",
-                    "Update the DNS TXT record with the new key",
-                    "Most providers (Google, Microsoft) support 2048-bit keys"
+                    "Regenerate your DKIM key in your email provider's settings "
+                    "(Google Workspace, Microsoft 365, Mailchimp, SendGrid, etc.) "
+                    "— most produce the modern strong key by default now.",
+                    "Replace the existing DNS record with the new stronger key.",
+                    "Re-scan in 24 hours (DKIM updates take time to propagate).",
                 ]
             )
 
+        # ALL STRONG — best case
+        if selector_count == 1:
+            detail = (
+                f"Your emails are signed with strong, modern encryption — "
+                "receivers can verify they really came from you. Your signing "
+                f"key is {selector_names} (using current-standard encryption)."
+            )
+        else:
+            detail = (
+                f"Your emails are signed with strong, modern encryption — "
+                "receivers can verify they really came from you. You have "
+                f"{selector_count} signing keys set up ({selector_names}), all "
+                "using current-standard encryption."
+            )
         return CheckResult(
             name="dkim",
             category="authentication",
             status="pass",
             title="DKIM",
             detail=detail,
-            raw_data={"selectors": found_selectors},
+            raw_data={
+                "selectors": found_selectors,
+                "technical_detail": technical_detail,
+            },
             points=15,
             max_points=15
         )
@@ -785,7 +823,9 @@ def check_dkim(domain: str) -> CheckResult:
         # Different scoring: 5/15 INFO for the rotating case (don't
         # torpedo google.com), 0/15 FAIL for genuinely missing.
         if revoked_selectors:
-            revoked_names = ", ".join(s["selector"] for s in revoked_selectors[:3])
+            # INBOX-77: plain-English rewrite. Original technical detail
+            # preserved in raw_data.technical_detail for support visibility.
+            revoked_names = ", ".join(f"`{s['selector']}`" for s in revoked_selectors[:3])
             more = f" (+{len(revoked_selectors)-3} more)" if len(revoked_selectors) > 3 else ""
             return CheckResult(
                 name="dkim",
@@ -793,67 +833,72 @@ def check_dkim(domain: str) -> CheckResult:
                 status="info",
                 title="DKIM",
                 detail=(
-                    f"Found {len(revoked_selectors)} revoked selector(s) ({revoked_names}{more}) "
-                    f"but no active DKIM signing key across {len(DKIM_PROBE_SELECTORS)} probed "
-                    "selectors. This pattern is typical of senders that rotate keys frequently "
-                    "(Google, Apple, Stripe, Cloudflare) — your active selector likely uses a "
-                    "format we don't probe yet. Verify externally with "
-                    "https://www.dkimvalidator.com or check-auth@verifier.port25.com."
+                    "We found old, retired signing keys for your domain "
+                    f"({revoked_names}{more}) but couldn't find your active one. "
+                    "This is the typical pattern for big senders that rotate keys "
+                    "frequently (Google, Apple, Stripe, Cloudflare). Your DKIM "
+                    "probably works fine — we just can't verify it from this scanner."
                 ),
                 raw_data={
                     "revoked_selectors": revoked_selectors,
                     "checked_count": len(DKIM_PROBE_SELECTORS),
                     "outcome": "revoked_only_likely_rotating_sender",
+                    "technical_detail": (
+                        f"Probed {len(DKIM_PROBE_SELECTORS)} selectors. Found "
+                        f"{len(revoked_selectors)} with revoked keys (p=;) and zero "
+                        "active. Active selector likely uses a non-standard pattern."
+                    ),
                 },
                 points=5,
                 max_points=15,
                 fix_steps=[
-                    "Verify externally first — send a test email to https://www.dkimvalidator.com "
-                    "or to check-auth@verifier.port25.com. Most rotating-key senders pass DKIM in "
-                    "real outbound mail even though we couldn't probe the active selector.",
-                    "If verification passes, no action needed — InboxScore will detect your "
-                    "selector once it appears in our probe list (we add new patterns as we find "
-                    "them).",
-                    "If verification fails, enable DKIM signing in your provider — see the "
-                    "no-DKIM-found case for provider-specific instructions."
+                    "Verify externally first: send a test email to "
+                    "https://www.dkimvalidator.com — if it shows DKIM passes, "
+                    "you're good. Big senders' rotating keys typically pass in "
+                    "real mail even when scanners can't probe them.",
+                    "If verification passes, no action needed. We'll detect your "
+                    "active selector once it appears in our probe list (we add "
+                    "new patterns regularly).",
+                    "If verification fails, turn on DKIM signing in your email "
+                    "provider — see the no-DKIM case for provider-specific steps.",
                 ]
             )
 
-        # INBOX-57: instead of a flat FAIL when none of our ~50 known
-        # selectors match, surface the limitation honestly. AWS SES,
-        # HubSpot, Salesforce Marketing Cloud, and many self-hosted
-        # senders use random/rotating selectors that can't be enumerated.
-        # A flat 0/15 FAIL would unfairly punish those domains.
+        # No DKIM at all — neither active nor revoked selectors found.
+        # INBOX-77: plain-English rewrite.
         return CheckResult(
             name="dkim",
             category="authentication",
             status="fail",
             title="DKIM",
             detail=(
-                f"No DKIM records found across {len(DKIM_PROBE_SELECTORS)} common selectors. "
-                "Either DKIM isn't configured, or your provider uses a custom/rotating "
-                "selector (eg AWS SES, HubSpot, Salesforce MC). Verify externally by "
-                "sending a test email to check-auth@verifier.port25.com or "
-                "https://www.dkimvalidator.com — they'll inspect the actual "
-                "DKIM-Signature header on a real outbound mail."
+                "Your emails aren't signed. Without DKIM, receivers can't verify "
+                "your emails really came from you — this hurts deliverability and "
+                "lets others impersonate your domain."
             ),
             raw_data={
                 "checked_selectors_sample": DKIM_PROBE_SELECTORS[:20],
                 "checked_count": len(DKIM_PROBE_SELECTORS),
+                "technical_detail": (
+                    f"Probed {len(DKIM_PROBE_SELECTORS)} common DKIM selectors "
+                    "(static + known-rotating + 24-month YYYYMMDD candidates). "
+                    "No matching TXT or CNAME records found."
+                ),
             },
             points=0,
             max_points=15,
             fix_steps=[
-                "First, verify externally — send a test email to https://www.dkimvalidator.com "
-                "or to check-auth@verifier.port25.com. If their report shows a passing DKIM "
-                "signature, your DKIM works but uses a selector outside our probe list.",
-                "If the external test also shows no DKIM, enable DKIM signing in your provider:",
-                "  • Google Workspace: Admin Console → Apps → Google Workspace → Gmail → Authenticate email",
-                "  • Microsoft 365: Exchange Admin → Protection → DKIM",
-                "  • Mailgun / Postmark / SendGrid: their dashboards each have a DKIM section",
-                "  • Mandrill / Mailchimp Transactional: account settings → SMTP & API",
-                "Add the generated TXT record to your DNS at <selector>._domainkey.<your-domain>",
-                "DKIM propagation can take up to 24 hours; re-scan after that."
+                "First check if it's just our limitation: send a test email to "
+                "https://www.dkimvalidator.com. If it shows DKIM passes, your "
+                "provider uses an unusual selector we don't probe yet — no "
+                "action needed on your end.",
+                "If the test also shows no DKIM, turn on signing in your email provider:",
+                "  • Google Workspace → Admin Console → Apps → Gmail → Authenticate email",
+                "  • Microsoft 365 → Exchange Admin → Protection → DKIM",
+                "  • SendGrid / Mailgun / Postmark — each has a 'DKIM' section in its dashboard",
+                "  • Mailchimp Transactional (Mandrill) → account settings → SMTP & API",
+                "Add the generated TXT record to your DNS, then re-scan in 24 "
+                "hours (DKIM updates take time to propagate).",
             ]
         )
 

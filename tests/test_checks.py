@@ -655,9 +655,19 @@ class TestCheckDKIMMultiStringTxt:
         assert result.points == 14, (
             "1024-bit single-string DKIM must still warn (14/15)"
         )
-        assert "1024-bit" in (result.detail or "")
+        # INBOX-77: technical detail moved to raw_data — user-facing
+        # message uses plain English ("older weaker encryption").
+        d = (result.detail or "").lower()
+        assert "older" in d or "weaker" in d or "weak" in d, (
+            "Detail must signal weak encryption in plain language"
+        )
         sels = (result.raw_data or {}).get("selectors", [])
         assert sels and sels[0].get("key_length") == "1024-bit"
+        # Technical detail still available for support staff
+        tech = (result.raw_data or {}).get("technical_detail", "")
+        assert "1024" in tech, (
+            "raw_data.technical_detail must preserve bit count for support"
+        )
 
     @patch("checks.safe_dns_query")
     def test_singlestring_2048bit_unchanged(self, mock_dns):
@@ -801,18 +811,22 @@ class TestCheckDKIMSelectorExpansion:
 
     @patch("checks.safe_dns_query")
     def test_no_dkim_messaging_includes_external_verifier(self, mock_dns):
-        """When no selector matches, the message must NOT just say 'fail'.
-        It must point users to dkimvalidator.com or port25.com — many
-        senders use random/rotating selectors (AWS SES, HubSpot,
-        Salesforce MC) that we genuinely can't enumerate."""
+        """When no selector matches, the fix_steps must point users to an
+        external verifier — many senders use random/rotating selectors
+        (AWS SES, HubSpot, Salesforce MC) that we genuinely can't probe.
+
+        INBOX-77: detail is now plain English ("Your emails aren't signed");
+        the dkimvalidator.com / port25.com pointer moved to fix_steps
+        (which is where actionable advice lives)."""
         mock_dns.return_value = None
         from checks import check_dkim
         r = check_dkim("rotating-selector.com")
         assert r.status == "fail"
         assert r.points == 0
-        d = (r.detail or "").lower()
-        assert "dkimvalidator" in d or "port25" in d, (
-            "No-DKIM detail must point to an external verifier — many "
+        # External-verifier reference moved from detail to fix_steps
+        fix_text = " ".join(r.fix_steps or []).lower()
+        assert "dkimvalidator" in fix_text or "port25" in fix_text, (
+            "No-DKIM fix_steps must point to an external verifier — many "
             "real senders use random selectors we can't probe."
         )
         # raw_data should expose the count of probed selectors. INBOX-69
@@ -866,7 +880,8 @@ class TestCheckDKIMMixedKeyMessaging:
     @patch("checks.safe_dns_query")
     def test_mixed_keys_names_the_weak_selector(self, mock_dns):
         """The voicenotes.com case — k1 strong + resend weak.
-        Detail must name `resend` specifically, not imply main key is weak."""
+        INBOX-77: detail is now plain English; per-selector bit info
+        moved to raw_data.technical_detail for support visibility."""
         strong_2048 = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
         weak_1024 = '"v=DKIM1; k=rsa; p=' + "A" * 200 + '"'
 
@@ -883,34 +898,38 @@ class TestCheckDKIMMixedKeyMessaging:
         assert r.points == 14, "Mixed keys: still 14/15"
         assert r.status == "pass"
         d = r.detail or ""
-        # Must name `resend` as the weak one
-        assert "`resend`" in d or "resend (1024-bit)" in d, (
-            f"Detail must name the weak selector `resend`. Got: {d!r}"
+        # Must name `resend` as the weak one (in plain-English detail or fix_steps)
+        fix_text = " ".join(r.fix_steps or [])
+        assert "`resend`" in d or "`resend`" in fix_text, (
+            "Detail or fix_steps must name the weak selector `resend`."
         )
-        # Must NOT imply the main key is weak (the pre-fix bug)
-        assert "using 1024-bit key" not in d, (
-            "Pre-INBOX-62 misleading wording must not appear. The actual "
-            "main selector (k1) is 2048-bit."
+        # Plain English signalling
+        assert "older" in d.lower() or "weaker" in d.lower(), (
+            "INBOX-77: detail must use plain language ('older'/'weaker'), "
+            "not bit counts"
         )
-        # Per-selector size labels must be in the detail
-        assert "2048-bit" in d
-        assert "1024-bit" in d
         # raw_data must distinguish weak vs strong selectors
         raw = r.raw_data or {}
         assert "resend" in (raw.get("weak_selectors") or [])
         assert "k1" in (raw.get("strong_selectors") or [])
-        # Fix steps must guide to the specific selector, not the main key
-        fix = r.fix_steps or []
-        joined = " ".join(fix)
-        assert "`resend`" in joined or "resend" in joined
-        assert "Don't touch your already-2048-bit selectors" in joined or \
-               "already 2048-bit" in joined, (
+        # Technical detail with bit counts preserved for support
+        tech = raw.get("technical_detail", "")
+        assert "1024-bit" in tech and "2048-bit" in tech, (
+            "raw_data.technical_detail must preserve bit counts for support"
+        )
+        # Fix steps must guide to the specific selector
+        assert "`resend`" in fix_text or "resend" in fix_text
+        # Fix steps must reassure user that the strong selectors are fine
+        assert "already strong" in fix_text or "already 2048-bit" in fix_text or \
+               "Don't touch your other" in fix_text, (
             "Fix steps must reassure user that the strong selectors are fine"
         )
 
     @patch("checks.safe_dns_query")
     def test_all_weak_keeps_existing_behavior(self, mock_dns):
-        """All selectors 1024-bit — original "all keys weak" guidance fires."""
+        """All selectors 1024-bit — INBOX-77 plain-English wording.
+        Score stays 14/15 but message uses 'older weaker encryption' not
+        '1024-bit'."""
         weak = '"v=DKIM1; k=rsa; p=' + "A" * 200 + '"'
 
         def side(qname, rdtype, timeout=2):
@@ -924,16 +943,22 @@ class TestCheckDKIMMixedKeyMessaging:
         from checks import check_dkim
         r = check_dkim("all-weak.com")
         assert r.points == 14
-        d = r.detail or ""
-        assert "all selectors use a 1024-bit key" in d.lower() or \
-               "1024-bit key" in d
+        d = (r.detail or "").lower()
+        # Plain English signal that keys are weak
+        assert "older" in d or "weaker" in d or "older weaker" in d
         # No "your other selectors are 2048-bit" language — they aren't
         fix = " ".join(r.fix_steps or [])
-        assert "already 2048-bit" not in fix
+        assert "already strong" not in fix and "already 2048-bit" not in fix
+        # Technical detail still in raw_data
+        raw = r.raw_data or {}
+        assert "1024" in raw.get("technical_detail", "")
 
     @patch("checks.safe_dns_query")
     def test_all_strong_unchanged(self, mock_dns):
-        """All selectors 2048-bit — perfect score, no warning."""
+        """All selectors 2048-bit — perfect score, INBOX-77 plain English.
+        Detail leads with the user-positive framing ('signed with strong,
+        modern encryption') and includes the selector names. Bit counts
+        moved to raw_data.technical_detail for support."""
         strong = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
 
         def side(qname, rdtype, timeout=2):
@@ -948,9 +973,16 @@ class TestCheckDKIMMixedKeyMessaging:
         r = check_dkim("all-strong.com")
         assert r.points == 15
         d = r.detail or ""
-        assert "1024-bit" not in d  # no warning for all-strong
-        # Per-selector labels still present
-        assert "2048-bit" in d
+        # No warning language for all-strong
+        assert "older" not in d.lower() and "weaker" not in d.lower()
+        # Plain-English positive framing
+        d_lower = d.lower()
+        assert "signed" in d_lower or "modern" in d_lower or "strong" in d_lower
+        # Selector names still surfaced (in backticks per INBOX-77)
+        assert "`default`" in d or "`selector1`" in d
+        # Bit counts moved to technical_detail
+        tech = (r.raw_data or {}).get("technical_detail", "")
+        assert "2048-bit" in tech
 
 
 # ─── SCORE CALCULATION TESTS ────────────────────────────────────
@@ -1100,16 +1132,23 @@ class TestCheckDKIMRotatingSelectors:
     @patch("checks.safe_dns_query")
     def test_truly_no_dkim_still_fails(self, mock_dns):
         """If neither active NOR revoked selectors found, keep the
-        FAIL 0/15 — this is genuinely no DKIM, not a rotation case."""
+        FAIL 0/15 — this is genuinely no DKIM, not a rotation case.
+
+        INBOX-77: detail is now plain English ("Your emails aren't
+        signed"); the dkimvalidator.com pointer is in fix_steps."""
         mock_dns.return_value = None
         from checks import check_dkim
         r = check_dkim("no-dkim-at-all.example")
         assert r.status == "fail"
         assert r.points == 0
-        # Detail must NOT mention rotating senders (no breadcrumbs found)
-        # but should still point to external verifier
+        # Plain-English detail (no protocol jargon up front)
         d = (r.detail or "").lower()
-        assert "dkimvalidator" in d or "port25" in d
+        assert "aren't signed" in d or "not signed" in d or "no dkim" in d, (
+            "INBOX-77: detail must lead with plain-English impact"
+        )
+        # External-verifier pointer moved to fix_steps
+        fix_text = " ".join(r.fix_steps or []).lower()
+        assert "dkimvalidator" in fix_text or "port25" in fix_text
 
 
 class TestCheckMTASTSScoring:
