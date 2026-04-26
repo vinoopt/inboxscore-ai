@@ -24,9 +24,9 @@
       "5 alt2.aspmx.l.google.com."
     ],
     "mailercloud.com:A": [
-      "104.26.0.126",
+      "172.67.74.114",
       "104.26.1.126",
-      "172.67.74.114"
+      "104.26.0.126"
     ],
     "google._domainkey.mailercloud.com:TXT": [
       "\"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAntzumtby5FrBSIiXw0MGUOTZIzMdmJ1UyzNsRUkKrKos6VH9J52C2UCXzDVzXiO+zWE5w18dPvLFz1Wh3Mmb3mmujceSM+5o1PlcBTJAa3vhn2hYrDDBQGnesv9Ao+8t6eBa/I4emtx2wEEuqYb7iFLfqNXttRURwK0qPT7iJlk5UaPnBGwqbLVrwDNjPKT93\" \"8RWk+0UzswW7Fne1rOvGqHbeUeb9g6/KYXEb6zB8cim1zrFyqsC+uxLN8TkuXoQmGb8bEnzh7IIHM+4sVOSLbr2fdgnOfLizM9sS8ZbxjKaKYyW/ZaWvgJA0tAdCBdI0+7nAk+2+RXToby46WaY4QIDAQAB\""
@@ -56,13 +56,13 @@
       "\"v=BIMI1;l=https://www.mailercloud.com/img/brand/mailercloud.svg;\""
     ],
     "aspmx.l.google.com:A": [
-      "172.217.76.26"
+      "192.178.223.26"
     ],
     "aspmx.l.google.com:AAAA": [
-      "2a00:1450:4009:c0f::1a"
+      "2a00:1450:4009:c0f::1b"
     ],
-    "26.76.217.172.in-addr.arpa.:PTR": [
-      "yulhrp-in-f26.1e100.net."
+    "26.223.178.192.in-addr.arpa.:PTR": [
+      "yulhrs-in-f26.1e100.net."
     ],
     "alt3.aspmx.l.google.com:A": [
       "142.251.127.26"
@@ -74,31 +74,31 @@
       "lcfrai-in-f26.1e100.net."
     ],
     "alt4.aspmx.l.google.com:A": [
-      "142.250.147.27"
+      "142.250.147.26"
     ],
     "alt4.aspmx.l.google.com:AAAA": [
       "2a00:1450:4025:c01::1a"
     ],
-    "27.147.250.142.in-addr.arpa.:PTR": [
-      "rd-in-f27.1e100.net."
+    "26.147.250.142.in-addr.arpa.:PTR": [
+      "rd-in-f26.1e100.net."
     ],
     "alt1.aspmx.l.google.com:A": [
-      "142.250.102.26"
+      "142.250.102.27"
     ],
     "alt1.aspmx.l.google.com:AAAA": [
-      "2a00:1450:4025:402::1b"
+      "2a00:1450:4025:402::1a"
     ],
-    "26.102.250.142.in-addr.arpa.:PTR": [
-      "rb-in-f26.1e100.net."
+    "27.102.250.142.in-addr.arpa.:PTR": [
+      "rb-in-f27.1e100.net."
     ],
     "alt2.aspmx.l.google.com:A": [
-      "192.178.213.27"
+      "192.178.213.26"
     ],
     "alt2.aspmx.l.google.com:AAAA": [
       "2a00:1450:4013:c1e::1b"
     ],
-    "27.213.178.192.in-addr.arpa.:PTR": [
-      "yugrqzs-in-f27.1e100.net."
+    "26.213.178.192.in-addr.arpa.:PTR": [
+      "yugrqzs-in-f26.1e100.net."
     ]
   },
   "expected": {
@@ -155,7 +155,7 @@
       },
       "reverse_dns": {
         "status": "pass",
-        "points": 4,
+        "points": 5,
         "max_points": 5
       }
     }

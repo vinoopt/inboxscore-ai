@@ -90,28 +90,28 @@
       "\"v=TLSRPTv1;rua=https://tlsrpt.azurewebsites.net/report\""
     ],
     "microsoft-com.mail.protection.outlook.com:A": [
-      "52.101.11.15",
-      "52.101.11.2",
-      "52.101.50.1",
-      "52.101.41.6"
+      "52.101.41.58",
+      "40.93.192.1",
+      "52.101.10.12",
+      "52.101.41.21"
     ],
     "microsoft-com.mail.protection.outlook.com:AAAA": [
-      "2a01:111:f403:c946::3",
-      "2a01:111:f403:f912::",
-      "2a01:111:f403:c902::5",
-      "2a01:111:f403:f90d::"
+      "2a01:111:f403:f90c::",
+      "2a01:111:f403:f909::",
+      "2a01:111:f403:f901::2",
+      "2a01:111:f403:c946::5"
     ],
-    "15.11.101.52.in-addr.arpa.:PTR": [
-      "mail-sa9pr02cu00207.inbound.protection.outlook.com."
+    "58.41.101.52.in-addr.arpa.:PTR": [
+      "mail-sj0pr02cu00102.inbound.protection.outlook.com."
     ],
-    "2.11.101.52.in-addr.arpa.:PTR": [
-      "mail-sn1pr03cu00102.inbound.protection.outlook.com."
+    "1.192.93.40.in-addr.arpa.:PTR": [
+      "mail-dm5pr02cu00201.inbound.protection.outlook.com."
     ],
-    "1.50.101.52.in-addr.arpa.:PTR": [
-      "mail-co1pr05cu00401.inbound.protection.outlook.com."
+    "12.10.101.52.in-addr.arpa.:PTR": [
+      "mail-bn1pr21cu00204.inbound.protection.outlook.com."
     ],
-    "6.41.101.52.in-addr.arpa.:PTR": [
-      "mail-sj0pr03cu01406.inbound.protection.outlook.com."
+    "21.41.101.52.in-addr.arpa.:PTR": [
+      "mail-sj2pr05cu00305.inbound.protection.outlook.com."
     ]
   },
   "expected": {

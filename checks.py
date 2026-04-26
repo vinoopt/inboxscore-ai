@@ -389,72 +389,98 @@ def check_mx_records(domain: str) -> CheckResult:
         # 1  MX, resolves      →  9/10 PASS with backup-suggestion
         # 1  MX, doesn't       →  3/10 FAIL — domain can't accept mail
         # 0  MX                →  0/10 FAIL (unchanged)
+        # INBOX-77: plain-English MX messaging.
         if len(mx_records) >= 2:
             if all_resolved:
-                detail = f"{len(mx_records)} MX records found with proper priority configuration"
+                detail = (
+                    f"Your domain has {len(mx_records)} mail servers configured "
+                    "with proper priority — receivers can deliver email reliably "
+                    "and there's a backup if your primary goes down."
+                )
                 points, status, fix_steps = 10, "pass", None
             elif unresolved and len(unresolved) < len(mx_records):
                 bad = ", ".join(mx["host"] for mx in unresolved)
                 detail = (
-                    f"{len(mx_records)} MX records found but {len(unresolved)} "
-                    f"do not resolve: {bad}. Mail to those hosts will bounce."
+                    f"Your domain has {len(mx_records)} mail servers configured, "
+                    f"but {len(unresolved)} of them ({bad}) can't be reached. "
+                    "Mail to those servers will bounce or be delayed."
                 )
                 points, status = 7, "warn"
                 fix_steps = [
-                    f"These MX hosts don't have an A/AAAA record: {bad}",
-                    "Either fix their DNS so they resolve, or remove them from your MX records",
-                    "Mail providers may try the unresolvable host first and delay delivery"
+                    f"These mail servers have no DNS A/AAAA record: {bad}.",
+                    "Either fix their DNS so they resolve, or remove them from "
+                    "your MX records so receivers stop trying to deliver to them.",
+                    "Receivers often try the broken host first and delay all "
+                    "your mail by minutes or more.",
                 ]
             else:
                 detail = (
-                    f"{len(mx_records)} MX records found but NONE resolve to an IP. "
-                    "Mail to this domain will fail until the MX hosts are fixed."
+                    f"Your domain has {len(mx_records)} mail servers listed, "
+                    "but none of them resolve to a working IP address. "
+                    "All email to your domain will fail until this is fixed."
                 )
                 points, status = 3, "fail"
                 fix_steps = [
-                    "All your MX hosts are missing A/AAAA records",
-                    "Either fix the DNS for the MX hosts, or update your MX records to point at a working mail server",
-                    "Run `dig MX " + domain + "` to see your current MX configuration"
+                    "None of your MX hosts have working DNS — receivers can't "
+                    "find any server to deliver mail to.",
+                    "Fix the DNS for the MX hosts, OR update your MX records "
+                    "to point at a working mail server.",
+                    f"Run `dig MX {domain}` from a terminal to see what's currently configured.",
                 ]
         elif len(mx_records) == 1:
             if all_resolved:
-                # INBOX-72 (2026-04-26): when single MX resolves to a known
-                # load-balanced provider pool (Google, Microsoft, Proofpoint,
-                # Mimecast), award full 10/10. The redundancy is at the IP
-                # layer — `smtp.google.com` resolves to dozens of mail
-                # servers behind one DNS name. Docking 1 point at the DNS
-                # layer when redundancy actually exists is wrong-on-its-face.
+                # INBOX-72: load-balanced provider pools get full credit.
                 mx_host = mx_records[0]["host"].lower()
                 load_balanced_pools = (
-                    "google.com",         # smtp.google.com → Google pool
+                    "google.com",
                     "googlemail.com",
-                    "protection.outlook.com",  # Microsoft 365 pool
-                    "pphosted.com",       # Proofpoint
+                    "protection.outlook.com",
+                    "pphosted.com",
                     "mimecast.com",
                 )
                 is_load_balanced = any(pool in mx_host for pool in load_balanced_pools)
                 if is_load_balanced:
                     detail = (
-                        f"1 MX record ({mx_records[0]['host']}) — provider pool with "
-                        "IP-layer redundancy. Single DNS entry resolves to multiple "
-                        "mail servers behind a load balancer."
+                        f"Your domain points to a major email provider "
+                        f"({mx_records[0]['host']}). The single DNS entry "
+                        "resolves to many mail servers behind the scenes — "
+                        "redundancy is built in by the provider."
                     )
                     points, status, fix_steps = 10, "pass", None
                 else:
-                    detail = "1 MX record found — consider adding a backup mail server for redundancy"
-                    points, status, fix_steps = 9, "pass", None
+                    detail = (
+                        "Your domain has one mail server configured. Email "
+                        "delivery works fine — but if that server has a "
+                        "problem, mail to your domain will queue up or fail "
+                        "until it's back. Adding a backup is recommended."
+                    )
+                    points, status, fix_steps = 9, "pass", [
+                        "Add a second MX record at a higher priority number "
+                        "(eg priority 20) pointing to a backup mail server.",
+                        "If you're on Google Workspace or Microsoft 365, "
+                        "they're already redundant at the IP layer — "
+                        "you're fine.",
+                        "If you self-host, set up a secondary mail server "
+                        "(many smaller providers offer cheap backup MX hosting).",
+                    ]
             else:
                 detail = (
-                    f"1 MX record found ({mx_records[0]['host']}) but it does not resolve. "
-                    "Mail to this domain will fail."
+                    f"Your domain has one mail server ({mx_records[0]['host']}) "
+                    "but its DNS doesn't resolve. Email to your domain will "
+                    "fail until this is fixed."
                 )
                 points, status = 3, "fail"
                 fix_steps = [
-                    f"Your MX host {mx_records[0]['host']} has no A/AAAA record",
-                    "Fix the DNS for that host, or update your MX record to point at a working mail server"
+                    f"Your MX host {mx_records[0]['host']} has no A or AAAA "
+                    "record — receivers can't find an IP to connect to.",
+                    "Either fix the DNS for that hostname, or update your MX "
+                    "record to point at a working mail server.",
                 ]
         else:
-            detail = "No MX records found"
+            detail = (
+                "Your domain has no mail servers configured. No one can send "
+                "email to your domain — every message will bounce immediately."
+            )
             points, status = 0, "fail"
             fix_steps = [
                 "Add at least 2 MX records in your DNS settings",
@@ -495,98 +521,221 @@ def check_mx_records(domain: str) -> CheckResult:
 
 
 def check_spf(domain: str) -> CheckResult:
-    """Check SPF record"""
+    """Check SPF record. INBOX-77: plain-English messaging."""
     txt_records = safe_dns_query(domain, "TXT")
-    if txt_records is None:
-        return CheckResult(
-            name="spf",
-            category="authentication",
-            status="fail",
-            title="SPF Record",
-            detail="No TXT records found — SPF is not configured",
-            points=0,
-            max_points=15,
-            fix_steps=[
-                "Add a TXT record to your DNS with your SPF policy",
-                "Example: v=spf1 include:_spf.google.com -all (for Google Workspace)",
-                "Use -all (hard fail) instead of ~all (soft fail) for better security",
-                "Keep the number of DNS lookups under 10 to avoid SPF permerror"
-            ]
-        )
 
+    # Try to find an SPF record in the TXT response
     spf_record = None
-    for record in txt_records:
-        cleaned = record.strip('"')
-        if cleaned.startswith("v=spf1"):
-            spf_record = cleaned
-            break
+    if txt_records:
+        for record in txt_records:
+            cleaned = record.strip('"')
+            if cleaned.startswith("v=spf1"):
+                spf_record = cleaned
+                break
 
     if not spf_record:
+        # No SPF configured at all — biggest impact case
         return CheckResult(
             name="spf",
             category="authentication",
             status="fail",
             title="SPF Record",
-            detail="No SPF record found in DNS TXT records",
+            detail=(
+                "Your domain doesn't tell receivers which servers are allowed "
+                "to send email on its behalf. Without SPF, anyone can send "
+                "messages pretending to be from you, and your real emails are "
+                "more likely to land in spam."
+            ),
+            raw_data={
+                "record": None,
+                "technical_detail": (
+                    "No TXT record starting with `v=spf1` found for the domain."
+                ),
+            },
             points=0,
             max_points=15,
             fix_steps=[
-                "Add a TXT record starting with 'v=spf1' to your domain's DNS",
-                "Include your email provider's SPF directive (e.g., include:_spf.google.com)",
-                "End with -all to reject unauthorized senders"
+                "Add a TXT record to your domain's DNS that starts with `v=spf1`.",
+                "Include your email provider, eg `v=spf1 include:_spf.google.com -all` "
+                "for Google Workspace, or `v=spf1 include:spf.protection.outlook.com -all` "
+                "for Microsoft 365.",
+                "End with `-all` (strict — recommended) or `~all` (soft — also "
+                "widely accepted if you have DMARC `p=reject`).",
+                "Keep the number of `include:` directives under 10 — SPF will "
+                "fail validation past that limit.",
             ]
         )
 
     # Analyze SPF quality
-    issues = []
     points = 15
+    technical_issues = []  # technical-level issues for raw_data
 
-    if "~all" in spf_record:
-        # INBOX-73 (2026-04-26): no longer dock a point for ~all.
-        # Google, Microsoft, Apple, Stripe, GitHub all use ~all by
-        # design — it handles forwarders and mailing-list edge cases
-        # that strict -all would break. DMARC p=reject does the heavy
-        # lifting for actual mail rejection. Industry tools (MXToolbox,
-        # Dmarcian, Google Postmaster) treat ~all as PASS. Keep the
-        # "consider -all" suggestion as a non-scoring fix-step for
-        # educational value.
-        issues.append("Uses ~all (soft fail) — widely accepted; -all (hard fail) offers stricter enforcement")
-        status = "pass"
-    elif "+all" in spf_record:
-        issues.append("CRITICAL: Uses +all which allows ANYONE to send as your domain")
-        points = 0
-        status = "fail"
-    elif "?all" in spf_record:
-        issues.append("Uses ?all (neutral) — this provides no protection. Change to -all")
-        points = 5
-        status = "warn"
-    elif "-all" in spf_record:
-        status = "pass"
-    else:
-        status = "warn"
-        points = 10
-        issues.append("No 'all' mechanism found — add -all at the end")
+    if "+all" in spf_record:
+        # CRITICAL — anyone can send as this domain
+        return CheckResult(
+            name="spf",
+            category="authentication",
+            status="fail",
+            title="SPF Record",
+            detail=(
+                "Your SPF record is configured in a way that lets anyone on "
+                "the internet send email pretending to be your domain. This "
+                "is a serious security and deliverability problem."
+            ),
+            raw_data={
+                "record": spf_record,
+                "technical_detail": (
+                    "Record uses `+all` which is the maximally-permissive "
+                    "qualifier — every IP passes SPF."
+                ),
+                "issues": ["+all qualifier is dangerous"],
+            },
+            points=0,
+            max_points=15,
+            fix_steps=[
+                "Replace `+all` with `-all` (strict — receivers reject any "
+                "unauthorized sender) or `~all` (soft — receivers treat as "
+                "suspicious).",
+                "Most email providers (Google, Microsoft, etc.) generate the "
+                "correct record automatically — re-running their SPF setup "
+                "will give you a safe one.",
+                "Update the TXT record in your DNS, then re-scan in 24 hours "
+                "(DNS updates take time to propagate).",
+            ]
+        )
+
+    if "?all" in spf_record:
+        # NEUTRAL — provides no enforcement
+        return CheckResult(
+            name="spf",
+            category="authentication",
+            status="warn",
+            title="SPF Record",
+            detail=(
+                "Your SPF record exists but tells receivers 'we have no "
+                "opinion' about unauthorized senders. This provides no "
+                "real protection — anyone can still send pretending to be "
+                "your domain."
+            ),
+            raw_data={
+                "record": spf_record,
+                "technical_detail": "Record uses `?all` (neutral qualifier).",
+                "issues": ["?all provides no enforcement"],
+            },
+            points=5,
+            max_points=15,
+            fix_steps=[
+                "Change the `?all` at the end of your SPF record to `-all` "
+                "(strict, recommended) or `~all` (soft).",
+                "Update the TXT record in your DNS — keep everything else "
+                "the same, just change those last 4 characters.",
+            ]
+        )
+
+    # Check for missing 'all' mechanism
+    has_all = ("~all" in spf_record or "-all" in spf_record)
+    if not has_all:
+        return CheckResult(
+            name="spf",
+            category="authentication",
+            status="warn",
+            title="SPF Record",
+            detail=(
+                "Your SPF record is missing the final 'all' instruction "
+                "that tells receivers what to do with unauthorized senders. "
+                "Without it, the record is ambiguous and may not protect "
+                "against impersonation."
+            ),
+            raw_data={
+                "record": spf_record,
+                "technical_detail": "Record has no `~all` or `-all` mechanism.",
+                "issues": ["No 'all' mechanism found"],
+            },
+            points=10,
+            max_points=15,
+            fix_steps=[
+                "Add `-all` (or `~all`) at the very end of your SPF record.",
+                f"Updated record should look like: `{spf_record} -all`",
+                "Update the TXT record in your DNS.",
+            ]
+        )
 
     # Check for too many includes (DNS lookup limit is 10)
     include_count = spf_record.count("include:")
     if include_count > 7:
-        issues.append(f"High number of includes ({include_count}) — close to the 10 DNS lookup limit")
-        points = min(points, 10)
+        return CheckResult(
+            name="spf",
+            category="authentication",
+            status="warn",
+            title="SPF Record",
+            detail=(
+                f"Your SPF record uses {include_count} include directives, "
+                "which is close to the limit of 10 that email receivers "
+                "enforce. Going over the limit will cause SPF to silently "
+                "fail for your entire domain."
+            ),
+            raw_data={
+                "record": spf_record,
+                "technical_detail": f"include_count={include_count} (limit=10)",
+                "issues": [f"High number of includes ({include_count})"],
+            },
+            points=10,
+            max_points=15,
+            fix_steps=[
+                "Audit which sending services you actually use — remove "
+                "includes for services you no longer send through.",
+                "Some providers offer 'flat' SPF records that consolidate "
+                "multiple lookups into one — search for 'SPF flattening' "
+                "tools (eg dmarcian, EasyDMARC).",
+                "Avoid adding new `include:` directives unless absolutely "
+                "necessary — you're at risk of breaking SPF entirely.",
+            ]
+        )
 
-    detail = f"SPF record found: {spf_record[:80]}{'...' if len(spf_record) > 80 else ''}"
-    if issues:
-        detail += " — " + issues[0]
+    # PASS branches: ~all or -all, well-formed
+    if "~all" in spf_record:
+        # Soft fail — widely accepted (INBOX-73: full credit, no penalty)
+        return CheckResult(
+            name="spf",
+            category="authentication",
+            status="pass",
+            title="SPF Record",
+            detail=(
+                "SPF is configured. Your domain tells receivers which "
+                "servers are allowed to send email — receivers will treat "
+                "unauthorized senders as suspicious. Combined with DMARC, "
+                "this provides strong protection against email spoofing."
+            ),
+            raw_data={
+                "record": spf_record,
+                "technical_detail": "Uses ~all (soft fail).",
+                "issues": [],
+            },
+            points=15,
+            max_points=15,
+            fix_steps=None,
+        )
 
+    # -all (hard fail) — strictest setting
     return CheckResult(
         name="spf",
         category="authentication",
-        status=status,
+        status="pass",
         title="SPF Record",
-        detail=detail,
-        raw_data={"record": spf_record, "issues": issues},
-        points=points,
+        detail=(
+            "SPF is configured strictly. Your domain tells receivers to "
+            "reject any email from unauthorized servers — the strongest "
+            "anti-spoofing signal possible. Receivers can confidently "
+            "block forged emails claiming to be from you."
+        ),
+        raw_data={
+            "record": spf_record,
+            "technical_detail": "Uses -all (hard fail) — strictest setting.",
+            "issues": [],
+        },
+        points=15,
         max_points=15,
-        fix_steps=issues if issues else None
+        fix_steps=None,
     )
 
 
@@ -956,15 +1105,32 @@ def check_dmarc(domain: str) -> CheckResult:
             category="authentication",
             status="fail",
             title="DMARC Policy",
-            detail="No DMARC record found — your domain is vulnerable to email spoofing",
+            detail=(
+                "Your domain has no DMARC policy. Anyone can send emails "
+                "pretending to be from you, and you won't receive any "
+                "reports about who's trying to impersonate your brand. "
+                "DMARC is the missing layer that turns SPF and DKIM into "
+                "real protection against spoofing."
+            ),
+            raw_data={
+                "record": None,
+                "technical_detail": (
+                    "No TXT record found at `_dmarc.<domain>`. DMARC requires "
+                    "a TXT record at this name with at least `v=DMARC1; p=...`."
+                ),
+            },
             points=0,
             max_points=15,
             fix_steps=[
-                "Add a TXT record at _dmarc.yourdomain.com",
-                "Start with: v=DMARC1; p=none; rua=mailto:dmarc-reports@yourdomain.com",
-                "Monitor reports for 2-4 weeks to ensure legitimate emails pass",
-                "Then upgrade to p=quarantine, and eventually p=reject",
-                "The rua tag tells ISPs where to send DMARC aggregate reports"
+                "Add a TXT record at `_dmarc.<your-domain>` to start.",
+                "Begin with monitoring mode: `v=DMARC1; p=none; "
+                "rua=mailto:dmarc-reports@<your-domain>`. This collects "
+                "reports without blocking any mail yet.",
+                "Watch the reports for 2-4 weeks to confirm legitimate "
+                "emails are passing authentication.",
+                "Step up to `p=quarantine` (failures go to spam), then to "
+                "`p=reject` (failures get bounced) once you're confident.",
+                "Re-scan in 24 hours after adding the record (DNS takes time).",
             ]
         )
 
@@ -1027,83 +1193,100 @@ def check_dmarc(domain: str) -> CheckResult:
     detail_parts = []
     fix_steps_collected = []
 
+    # INBOX-77: plain-English detail lines.
     # Policy line
     if policy == "reject":
-        detail_parts.append("DMARC policy set to reject")
+        detail_parts.append(
+            "DMARC is set to reject — your domain instructs receivers to "
+            "bounce any email that fails authentication"
+        )
     elif policy == "quarantine":
-        detail_parts.append("DMARC policy set to quarantine")
+        detail_parts.append(
+            "DMARC is set to quarantine — receivers send any failing "
+            "emails to spam"
+        )
     else:
-        detail_parts.append("DMARC exists with p=none (monitoring mode only)")
+        detail_parts.append(
+            "DMARC is in monitoring mode only (p=none). You're collecting "
+            "reports but NOT blocking spoofed mail — anyone can still "
+            "successfully impersonate you"
+        )
         fix_steps_collected.extend([
-            "Your DMARC policy (p=none) only monitors — it doesn't protect against spoofing",
-            "Step 1: Keep p=none for 2 weeks while reviewing DMARC reports",
-            "Step 2: Change to p=quarantine to send failed emails to spam",
-            "Step 3: After confirming no legitimate emails are affected, upgrade to p=reject",
-            "This gradual approach prevents accidentally blocking your own emails"
+            "Monitoring mode is the right starting point, but you should "
+            "graduate from it within a few weeks.",
+            "Step 1: keep monitoring for 2 weeks while reviewing DMARC reports — "
+            "this confirms your legitimate emails are passing authentication.",
+            "Step 2: change `p=none` to `p=quarantine` — failing emails go "
+            "to spam instead of inbox.",
+            "Step 3: once confident no legitimate mail is failing, upgrade to "
+            "`p=reject` — failing emails get bounced entirely.",
         ])
 
     # ---------- pct enforcement ----------
-    # Penalise sub-100 only when the policy is not `none` (a `none`+pct=20
-    # is basically still none — already scored). Pct < 100 with p=reject
-    # is the headline gap: most mail is unprotected.
     if pct < 100 and policy != "none":
-        # Sliding penalty: -3pts at pct=50-99, -5pts at pct=1-49
         if pct >= 50:
             penalty = 3
         else:
             penalty = 5
         points -= penalty
-        detail_parts.append(f"only {pct}% enforced — {100 - pct}% of mail is unprotected")
+        detail_parts.append(
+            f"but only enforced on {pct}% of mail — {100 - pct}% slips through "
+            "unprotected"
+        )
         fix_steps_collected.append(
-            f"You're enforcing DMARC on only {pct}% of mail. Increase pct gradually "
-            "to 100 once you've verified DMARC reports show no legitimate mail failing."
+            f"Your `pct={pct}` setting means only {pct}% of failing emails "
+            "actually get blocked. The other "
+            f"{100 - pct}% pass through. Gradually raise `pct` to 100 once "
+            "your DMARC reports show legitimate mail is passing."
         )
     elif pct == 100 and policy != "none":
-        detail_parts.append("at 100%")
+        detail_parts.append("applied to 100% of mail")
 
     # ---------- Subdomain policy (sp) ----------
-    # Missing sp= → inherits p= per RFC 7489 §6.3 — that's fine, even
-    # good (less DNS sprawl). Explicit `sp=none` with strong p= is the
-    # subdomain-takeover gap.
     if sp == "none" and policy != "none":
         points -= 2
-        detail_parts.append("subdomains have no DMARC policy (sp=none)")
+        detail_parts.append(
+            "but subdomains aren't protected — attackers can still spoof "
+            "any unused subdomain of yours"
+        )
         fix_steps_collected.append(
-            "Your subdomain policy is `sp=none` — attackers can spoof unused "
-            "subdomains. Change to `sp=reject` (or `sp=quarantine`) to lock "
-            "down subdomains too."
+            "Your subdomain policy is set to `sp=none`, which leaves all "
+            "your subdomains wide open. Change to `sp=reject` (or "
+            "`sp=quarantine`) to lock down subdomains too. If you don't "
+            "explicitly need `sp`, just remove it — DMARC will then "
+            "inherit your main policy."
         )
     elif sp == "reject":
-        detail_parts.append("subdomains protected")
+        detail_parts.append("subdomains protected too")
     elif sp == "quarantine":
-        detail_parts.append("subdomains quarantined")
+        detail_parts.append("subdomains quarantined too")
     elif sp is None and policy in ("reject", "quarantine"):
-        # Missing sp= — fine, inherits p=. Note in detail without penalty.
-        detail_parts.append(f"subdomains inherit p={policy}")
+        detail_parts.append("subdomains inherit the same policy")
 
     # ---------- Strict alignment bonus surface ----------
-    # No bonus points (we're capped at 15 already), but surface in detail
-    # because mature operators care.
     if strict_alignment and policy in ("reject", "quarantine"):
-        detail_parts.append("with strict alignment (aspf=s adkim=s)")
+        detail_parts.append("with strict alignment")
     elif (aspf == "s") != (adkim == "s") and policy in ("reject", "quarantine"):
-        # One strict, one relaxed — uncommon, surface.
-        detail_parts.append(f"alignment aspf={aspf} adkim={adkim}")
+        detail_parts.append("with mixed alignment settings")
 
     # ---------- fo= (forensic reporting trigger) ----------
     if fo and policy in ("reject", "quarantine"):
-        # fo=1 = any underlying failure; fo=0 = both fail (default);
-        # fo=d = DKIM only; fo=s = SPF only.
         if fo == "1":
-            detail_parts.append("forensic reports on any failure (fo=1)")
+            detail_parts.append("forensic reports enabled")
 
-    # ---------- rua presence (existing rule, kept) ----------
+    # ---------- rua presence ----------
     if not has_rua:
         points = max(points - 2, 0)
-        detail_parts.append("no rua tag — you're not receiving DMARC aggregate reports")
+        detail_parts.append(
+            "but you're not collecting reports — you have no visibility "
+            "into who's trying to spoof your domain"
+        )
         fix_steps_collected.append(
-            "Add a rua tag to receive DMARC aggregate reports. "
-            "Example: rua=mailto:dmarc-reports@yourdomain.com"
+            "Add a `rua` tag to your DMARC record so receivers send you "
+            "aggregate reports. Example: "
+            "`rua=mailto:dmarc-reports@<your-domain>`. Without this, you "
+            "have no way to see who's failing authentication or detect "
+            "ongoing spoofing attempts."
         )
 
     # ---------- Floor + status promotion ----------
@@ -2074,7 +2257,13 @@ def _flatten_cert_name(name_tuple):
 
 
 def check_reverse_dns(domain: str) -> CheckResult:
-    """Check reverse DNS (PTR records) for mail server IPs"""
+    """Check reverse DNS (PTR records) for mail server IPs.
+
+    INBOX-76 + INBOX-77 (2026-04-26): plain-English messaging plus
+    recognise major-provider vanity domains (1e100.net, mail.protection
+    .outlook.com, pphosted.com, mimecast.com) as full-credit even when
+    the PTR hostname doesn't string-match the MX hostname.
+    """
     mx_records = safe_dns_query(domain, "MX")
     if not mx_records:
         return CheckResult(
@@ -2082,7 +2271,10 @@ def check_reverse_dns(domain: str) -> CheckResult:
             category="infrastructure",
             status="info",
             title="Reverse DNS (PTR)",
-            detail="No MX records — cannot check reverse DNS",
+            detail=(
+                "Can't check reverse DNS without knowing your mail server IPs. "
+                "Configure MX records first, then this check will run."
+            ),
             points=0,
             max_points=5
         )
@@ -2095,55 +2287,150 @@ def check_reverse_dns(domain: str) -> CheckResult:
             category="infrastructure",
             status="warn",
             title="Reverse DNS (PTR)",
-            detail=f"Could not resolve IP for {mx_host}",
+            detail=(
+                f"Your mail server `{mx_host}` doesn't resolve to a working IP. "
+                "Without an IP, we can't check reverse DNS — but more "
+                "importantly, mail to your domain will fail."
+            ),
             points=0,
             max_points=5
         )
 
     ip = a_records[0]
+    # INBOX-76: known major-provider vanity domains. The PTR uses a separate
+    # naming convention from the MX (eg Google's 1e100.net, Microsoft's
+    # mail.protection.outlook.com) — this is correct configuration, not a gap.
+    VANITY_PTR_DOMAINS = {
+        "1e100.net": "Google Workspace",
+        "googleusercontent.com": "Google",
+        "mail.protection.outlook.com": "Microsoft 365",
+        "pphosted.com": "Proofpoint",
+        "mimecast.com": "Mimecast",
+    }
+
     try:
         rev_name = dns.reversename.from_address(ip)
         ptr_records = safe_dns_query(str(rev_name), "PTR")
 
         if ptr_records:
             ptr_host = ptr_records[0].rstrip(".")
-            # Check if PTR matches or is related to MX
-            if mx_host.lower() in ptr_host.lower() or ptr_host.lower() in mx_host.lower():
+            ptr_lower = ptr_host.lower()
+            mx_lower = mx_host.lower()
+
+            # Direct match (PTR contains MX hostname or vice versa)
+            if mx_lower in ptr_lower or ptr_lower in mx_lower:
                 return CheckResult(
                     name="reverse_dns",
                     category="infrastructure",
                     status="pass",
                     title="Reverse DNS (PTR)",
-                    detail=f"PTR record matches — {ip} resolves to {ptr_host}",
-                    raw_data={"ip": ip, "ptr": ptr_host, "mx": mx_host},
+                    detail=(
+                        f"Your mail server's reverse DNS is set up correctly — "
+                        f"{ip} points back to {ptr_host}, matching your mail "
+                        "server hostname. This is what receivers expect to see."
+                    ),
+                    raw_data={
+                        "ip": ip, "ptr": ptr_host, "mx": mx_host,
+                        "match_type": "direct",
+                        "technical_detail": f"PTR ({ptr_host}) matches MX ({mx_host})",
+                    },
                     points=5,
                     max_points=5
                 )
-            else:
+
+            # INBOX-76: recognise major-provider vanity domains as full credit.
+            vanity_match = None
+            for vanity_domain, provider_name in VANITY_PTR_DOMAINS.items():
+                if vanity_domain in ptr_lower:
+                    vanity_match = provider_name
+                    break
+
+            if vanity_match:
                 return CheckResult(
                     name="reverse_dns",
                     category="infrastructure",
                     status="pass",
                     title="Reverse DNS (PTR)",
-                    detail=f"PTR record exists — {ip} resolves to {ptr_host}",
-                    raw_data={"ip": ip, "ptr": ptr_host, "mx": mx_host},
-                    points=4,
+                    detail=(
+                        f"Your mail is handled by {vanity_match}, which uses its "
+                        f"own naming for reverse DNS ({ptr_host}). This is "
+                        "correct configuration — the major email providers all "
+                        "do this, and receivers know to expect it."
+                    ),
+                    raw_data={
+                        "ip": ip, "ptr": ptr_host, "mx": mx_host,
+                        "match_type": "vanity_domain",
+                        "vanity_provider": vanity_match,
+                        "technical_detail": (
+                            f"PTR ({ptr_host}) does not string-match MX ({mx_host}) "
+                            f"but uses {vanity_match}'s vanity domain — "
+                            "INBOX-76 recognises this as correct configuration."
+                        ),
+                    },
+                    points=5,
                     max_points=5
                 )
+
+            # PTR exists but doesn't match — partial credit
+            return CheckResult(
+                name="reverse_dns",
+                category="infrastructure",
+                status="pass",
+                title="Reverse DNS (PTR)",
+                detail=(
+                    f"Your mail server has reverse DNS set up — {ip} points "
+                    f"back to {ptr_host} — but it doesn't match your mail "
+                    f"server hostname ({mx_host}). Some receivers do strict "
+                    "checks and may treat this as suspicious. The fix is "
+                    "usually quick if you control the IP."
+                ),
+                raw_data={
+                    "ip": ip, "ptr": ptr_host, "mx": mx_host,
+                    "match_type": "mismatch",
+                    "technical_detail": (
+                        f"PTR ({ptr_host}) does not match MX ({mx_host}) and "
+                        "PTR domain isn't in our known-vanity list."
+                    ),
+                },
+                points=4,
+                max_points=5,
+                fix_steps=[
+                    f"Ask your hosting provider to update the PTR record for "
+                    f"{ip} so it points back to {mx_host} (or a hostname that "
+                    "includes your mail domain).",
+                    f"Currently the PTR points to {ptr_host} which doesn't "
+                    "match your MX — Gmail, Yahoo, and strict spam filters "
+                    "may treat this as a low-trust signal.",
+                    "If you don't control the IP (eg you're on a shared host), "
+                    "this is normal — the dock is small (1 point) and most "
+                    "mail will still deliver fine.",
+                ]
+            )
         else:
             return CheckResult(
                 name="reverse_dns",
                 category="infrastructure",
                 status="warn",
                 title="Reverse DNS (PTR)",
-                detail=f"No PTR record found for {ip}",
-                raw_data={"ip": ip},
+                detail=(
+                    f"Your mail server's IP ({ip}) has no reverse DNS record. "
+                    "Many email providers — especially Gmail and Yahoo — "
+                    "reject or downgrade mail from IPs without reverse DNS. "
+                    "This is one of the easier wins for deliverability."
+                ),
+                raw_data={
+                    "ip": ip,
+                    "technical_detail": f"No PTR record found for IP {ip}",
+                },
                 points=0,
                 max_points=5,
                 fix_steps=[
-                    "Contact your hosting provider to set up a PTR record for your mail server IP",
-                    f"The PTR record for {ip} should point back to {mx_host}",
-                    "Many email providers check reverse DNS and may reject emails without it"
+                    f"Contact your hosting provider and ask them to add a PTR "
+                    f"record for IP {ip} pointing back to {mx_host}.",
+                    "Most major hosts (AWS, Google Cloud, DigitalOcean, etc.) "
+                    "have a self-service PTR setting in their dashboard.",
+                    "Without reverse DNS, Gmail rates your mail as 'low "
+                    "reputation' and Yahoo may reject it outright.",
                 ]
             )
     except Exception:

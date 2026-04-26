@@ -139,10 +139,11 @@ class TestCheckDMARCNuance:
         assert raw["sp"] == "reject"
         assert raw["pct"] == 100
         assert raw["fo"] == "1"
-        # Detail must surface sp=reject and fo=1 — the differentiators
+        # Detail must surface sp=reject and fo=1 — the differentiators.
+        # INBOX-77: plain-English wording — fo=1 → "forensic reports enabled".
         d = result.detail or ""
         assert "subdomains protected" in d
-        assert "fo=1" in d
+        assert "forensic reports" in d.lower()
         assert "100%" in d
 
     @patch("checks.safe_dns_query")
@@ -173,7 +174,10 @@ class TestCheckDMARCNuance:
         )
         raw = result.raw_data or {}
         assert raw["sp"] == "none"
-        assert "no DMARC policy" in (result.detail or "")
+        # INBOX-77: plain-English — "subdomains aren't protected" replaces
+        # "subdomains have no DMARC policy"
+        d = (result.detail or "").lower()
+        assert "subdomains aren't protected" in d or "no dmarc policy" in d
         # Fix steps must explain the subdomain risk
         fix = result.fix_steps or []
         assert any("subdomain" in s.lower() for s in fix)
@@ -278,14 +282,15 @@ class TestCheckDMARCNuance:
 
     @patch("checks.safe_dns_query")
     def test_fo_1_surfaced(self, mock_dns):
-        """fo=1 (forensic on any failure) — mature DMARC posture, surface."""
+        """fo=1 (forensic on any failure) — mature DMARC posture, surface.
+        INBOX-77: detail uses plain English ('forensic reports enabled')."""
         mock_dns.return_value = [
             '"v=DMARC1; p=reject; pct=100; fo=1; rua=mailto:dmarc@x.com; ruf=mailto:dmarc@x.com"'
         ]
         from checks import check_dmarc
         result = check_dmarc("mature.com")
         assert result.points == 15
-        assert "fo=1" in (result.detail or "")
+        assert "forensic reports" in (result.detail or "").lower()
 
 
 # ─── MX RECORDS TESTS ───────────────────────────────────────────
@@ -371,8 +376,11 @@ class TestCheckMXLoadBalancedProvider:
             "INBOX-72: was 9/10 (docked for 'no backup'), now 10/10 "
             "because smtp.google.com is load-balanced across many IPs"
         )
-        assert "provider pool" in (result.detail or "").lower() or \
-               "ip-layer" in (result.detail or "").lower()
+        # INBOX-77: plain-English wording — "major email provider" /
+        # "redundancy is built in" replaces "provider pool" / "ip-layer".
+        d = (result.detail or "").lower()
+        assert "major email provider" in d or "redundancy is built in" in d \
+            or "provider pool" in d or "ip-layer" in d
 
     def test_microsoft_outlook_single_mx_gets_full_credit(self):
         """*.protection.outlook.com is Microsoft 365's load-balanced pool."""
@@ -494,7 +502,11 @@ class TestCheckMXReachability:
             result = check_mx_records("dead.example")
             assert result.status == "fail"
             assert result.points == 3
-            assert "NONE resolve" in (result.detail or "") or "none resolve" in (result.detail or "").lower()
+            # INBOX-77: plain-English — "none of them resolve" / "all email
+            # to your domain will fail" replaces "NONE resolve"
+            d = (result.detail or "").lower()
+            assert "none of them resolve" in d or "none resolve" in d \
+                or "all email to your domain will fail" in d
             assert (result.raw_data or {}).get("all_resolved") is False
             assert result.fix_steps is not None
 
