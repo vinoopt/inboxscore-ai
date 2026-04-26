@@ -151,13 +151,59 @@ function escapeHtml(str) {
   .trust-number { font-size: 28px; font-weight: 600; color: var(--text); font-family: 'Geist Mono', ui-monospace, monospace; letter-spacing: -0.02em; }
   .trust-label { font-size: 11px; color: var(--text-subtle); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
 
+  /* SECTION HEADERS */
+  .section-eyebrow { display: inline-block; padding: 4px 12px; margin: 0 auto 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 9999px; font-size: 11px; color: var(--text-muted); font-family: 'Geist Mono', ui-monospace, monospace; }
+  .section-title { font-size: 36px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.1; color: var(--text); text-align: center; max-width: 720px; margin: 0 auto 12px; }
+  .section-sub { font-size: 17px; color: var(--text-muted); line-height: 1.55; text-align: center; max-width: 640px; margin: 0 auto; }
+
   /* FEATURES */
-  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 1100px; margin: 0 auto; padding: 96px 40px; }
-  .feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; transition: border-color 0.2s, box-shadow 0.2s; }
-  .feature-card:hover { border-color: var(--border-strong); box-shadow: 0 8px 24px -8px rgba(0,0,0,0.06); }
-  .feature-icon { width: 40px; height: 40px; background: var(--accent-soft); border: 1px solid var(--accent-border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 16px; }
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 1100px; margin: 48px auto 0; padding: 0 40px 96px; }
+  .feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+  .feature-card:hover { border-color: var(--border-strong); box-shadow: 0 8px 24px -8px rgba(0,0,0,0.06); transform: translateY(-2px); }
+  .feature-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 14px; border: 1px solid; }
+  .icon-violet { background: var(--accent-soft); border-color: var(--accent-border); }
+  .icon-emerald { background: var(--green-bg); border-color: var(--green-border); }
+  .icon-amber { background: var(--yellow-bg); border-color: var(--yellow-border); }
+  .icon-sky { background: #e0f2fe; border-color: #bae6fd; }
+  .icon-rose { background: var(--red-bg); border-color: var(--red-border); }
   .feature-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; color: var(--text); letter-spacing: -0.01em; }
   .feature-card p { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+  .features + .section-eyebrow,
+  .how-section { padding-top: 32px; }
+
+  /* HOW IT WORKS */
+  .how-section { padding: 96px 40px; max-width: 1100px; margin: 0 auto; border-top: 1px solid var(--border); }
+  .how-section .section-eyebrow,
+  .how-section .section-title { display: block; }
+  .how-section .section-eyebrow { margin: 0 auto 14px; }
+  .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; max-width: 960px; margin: 56px auto 0; }
+  .how-step { padding-left: 28px; border-left: 2px solid var(--border); position: relative; }
+  .how-step-num { position: absolute; left: -10px; top: 0; width: 18px; height: 18px; background: var(--accent); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10px; font-weight: 600; box-shadow: 0 0 0 4px var(--bg); }
+  .how-step h3 { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; margin-bottom: 6px; }
+  .how-step p { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+
+  /* FINAL CTA */
+  .final-cta { padding: 96px 40px; text-align: center; border-top: 1px solid var(--border); position: relative; overflow: hidden; }
+  .final-cta::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 800px; height: 400px; background: radial-gradient(ellipse at center, rgba(124,58,237,0.10), transparent 60%); pointer-events: none; z-index: -1; }
+  .final-cta h2 { font-size: 44px; font-weight: 600; color: var(--text); letter-spacing: -0.025em; margin-bottom: 12px; }
+  .final-cta p { font-size: 17px; color: var(--text-muted); max-width: 480px; margin: 0 auto 32px; }
+  .final-cta-buttons { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .final-cta-primary { display: inline-flex; align-items: center; gap: 6px; padding: 12px 22px; background: var(--accent); color: white; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: 0 8px 18px -4px rgba(124,58,237,0.30); transition: background 0.15s; text-decoration: none; }
+  .final-cta-primary:hover { background: var(--accent-hover); }
+  .final-cta-secondary { display: inline-flex; align-items: center; padding: 12px 22px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.15s; text-decoration: none; }
+  .final-cta-secondary:hover { background: var(--surface-2); border-color: var(--border-strong); }
+
+  /* FOOTER */
+  .site-footer { border-top: 1px solid var(--border); padding: 48px 40px; }
+  .footer-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .footer-brand { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .footer-name { font-weight: 600; color: var(--text); }
+  .footer-sep { color: var(--border-strong); }
+  .footer-tag { color: var(--text-subtle); }
+  .footer-links { display: flex; gap: 24px; font-size: 12px; }
+  .footer-links a { color: var(--text-subtle); text-decoration: none; cursor: pointer; transition: color 0.15s; }
+  .footer-links a:hover { color: var(--text); }
+  .footer-version { font-size: 11px; color: var(--text-subtle); font-family: 'Geist Mono', ui-monospace, monospace; }
 
   /* LOADING */
   .loading-view { text-align: center; padding: 120px 40px; max-width: 500px; margin: 0 auto; }
@@ -401,19 +447,100 @@ function escapeHtml(str) {
   </div>
   <div class="trust-bar">
     <div class="trust-item"><div class="trust-number">40+</div><div class="trust-label">Blacklists checked</div></div>
-    <div class="trust-item"><div class="trust-number">6</div><div class="trust-label">Auth protocols</div></div>
-    <div class="trust-item"><div class="trust-number">16</div><div class="trust-label">DKIM selectors</div></div>
-    <div class="trust-item"><div class="trust-number">~30s</div><div class="trust-label">Average scan time</div></div>
+    <div class="trust-item"><div class="trust-number">14</div><div class="trust-label">Auth protocols</div></div>
+    <div class="trust-item"><div class="trust-number">47</div><div class="trust-label">DKIM selectors</div></div>
+    <div class="trust-item"><div class="trust-number">~30s</div><div class="trust-label">Avg scan time</div></div>
   </div>
+
+  <div class="section-eyebrow">// Features</div>
+  <h2 class="section-title">Everything you need to land in the inbox.</h2>
+  <p class="section-sub">Built on Mailercloud's deliverability infrastructure. Each check is grounded in RFCs and real-world ISP behavior.</p>
   <div class="features">
-    <div class="feature-card"><div class="feature-icon">🔐</div><h3>Authentication Check</h3><p>SPF, DKIM, DMARC, BIMI — verify all email authentication protocols are properly configured.</p></div>
-    <div class="feature-card"><div class="feature-icon">🛡️</div><h3>Blacklist Monitor</h3><p>Check 40+ blacklists instantly. Know immediately if your domain or IP is listed.</p></div>
-    <div class="feature-card"><div class="feature-icon">🌐</div><h3>IP Reputation</h3><p>Analyze your mail server's IP reputation, network identity, and whitelist status.</p></div>
-    <div class="feature-card"><div class="feature-icon">📊</div><h3>Deliverability Score</h3><p>One clear score combining all signals. Understand your email health at a glance.</p></div>
-    <div class="feature-card"><div class="feature-icon">🔒</div><h3>TLS & Encryption</h3><p>Verify your mail server supports modern encryption standards.</p></div>
-    <div class="feature-card"><div class="feature-icon">🔄</div><h3>Reverse DNS</h3><p>Check PTR records to ensure your mail server identity is properly verified.</p></div>
-    <div class="feature-card"><div class="feature-icon">🤖</div><h3>AI Recommendations</h3><p>Plain-English explanations with step-by-step fix instructions. No DNS expertise needed.</p></div>
+    <div class="feature-card">
+      <div class="feature-icon icon-violet">🔐</div>
+      <h3>Authentication checks</h3>
+      <p>SPF, DKIM, DMARC alignment with full nuance — pct, sp, fo, strict mode. We probe 47 DKIM selectors automatically.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-emerald">🛡️</div>
+      <h3>Blacklist monitor</h3>
+      <p>Check 40+ DNSBLs for your sending IPs and your domain. We expand SPF includes to find every IP authorized to send.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-amber">🌐</div>
+      <h3>IP reputation</h3>
+      <p>Track your sending IPs across whitelists, reputation feeds, and ISP-specific signals. Catch issues before they affect delivery.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-sky">📊</div>
+      <h3>Continuous monitoring</h3>
+      <p>Daily scans, score history, and alerts when something breaks. Google Postmaster integration for inbox placement data.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-rose">🔒</div>
+      <h3>TLS &amp; MTA-STS</h3>
+      <p>Verify in-transit encryption, certificate validity, and modern infrastructure signals. MTA-STS, TLS-RPT, BIMI, DNSSEC.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon icon-violet">🤖</div>
+      <h3>Actionable fixes</h3>
+      <p>Every flag includes copy-paste DNS records, difficulty estimate, and time-to-fix. Top 3 actions prioritized by score impact.</p>
+    </div>
   </div>
+
+  <div class="how-section">
+    <div class="section-eyebrow">// How it works</div>
+    <h2 class="section-title">Three steps to a deliverable inbox.</h2>
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="how-step-num">1</div>
+        <h3>Enter your domain</h3>
+        <p>Free scan, no signup required. We don't store anything unless you ask us to monitor.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">2</div>
+        <h3>14 checks in parallel</h3>
+        <p>MX, SPF, DKIM, DMARC, blacklists (IP + domain), TLS, PTR, BIMI, MTA-STS, TLS-RPT, IP reputation. ~30 seconds.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">3</div>
+        <h3>Score + Top 3 actions</h3>
+        <p>Clear 0-100 score. Per-check breakdown. Prioritised fixes with copy-paste DNS records.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="final-cta">
+    <h2>Ready to land in the inbox?</h2>
+    <p>30 seconds, no signup, free.</p>
+    <div class="final-cta-buttons">
+      <a onclick="window.scrollTo({top:0,behavior:'smooth'}); document.getElementById('domain-input').focus();" class="final-cta-primary">Run a free scan →</a>
+      <a onclick="showView('pricing')" class="final-cta-secondary">See pricing</a>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="logo-icon" style="width: 24px; height: 24px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="m2 7 10 6 10-6"/>
+          </svg>
+        </div>
+        <span class="footer-name">InboxScore</span>
+        <span class="footer-sep">·</span>
+        <span class="footer-tag">Built on Mailercloud</span>
+      </div>
+      <div class="footer-links">
+        <a onclick="showView('home')">Scan</a>
+        <a onclick="showView('pricing')">Pricing</a>
+        <a href="/login">Log in</a>
+        <a href="mailto:hello@inboxscore.ai">Contact</a>
+      </div>
+      <div class="footer-version">v1.15.1</div>
+    </div>
+  </footer>
 </div>
 
 <!-- LOADING -->
