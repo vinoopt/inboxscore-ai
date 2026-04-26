@@ -1654,14 +1654,14 @@ def check_tls(domain: str) -> CheckResult:
 
     for mx_host in mx_hosts[:3]:  # Try up to 3 MX hosts
         try:
-            # INBOX-45: 3s connect timeout (was 4s). Budget arithmetic:
-            #   3 MX × 3s = 9s, fits in scan_service's 10s TLS budget with
-            #   1s headroom for the pattern-match fallback pass. Previously
-            #   3 × 4s = 12s overran the budget by 2s, causing the whole
-            #   check to fall through to the generic crash-warn and the
-            #   intended "port 25 blocked + known provider → INFO 5/10"
-            #   branch never ran.
-            sock = socket.create_connection((mx_host, 25), timeout=3)
+            # INBOX-71: 2s connect timeout (was 3s). Budget arithmetic:
+            #   3 MX × 2s = 6s, fits in scan_service's 10s TLS budget
+            #   with 4s headroom for DNS lookups and the unverifiable
+            #   fallback path. Pre-INBOX-71 the 9s budget was racing
+            #   the 10s timeout — DNS overhead pushed real scans past
+            #   the budget, killing the check before its honest
+            #   fallback could run. Now the fallback always runs.
+            sock = socket.create_connection((mx_host, 25), timeout=2)
             sock.recv(1024)  # consume banner
 
             # Send EHLO
@@ -1729,10 +1729,19 @@ def check_tls(domain: str) -> CheckResult:
 
     # None of the MX hosts were reachable on port 25 — almost always because
     # our scan server is hosted on a cloud provider that blocks outbound :25.
-    # We CANNOT verify TLS from here. The old code pattern-matched the MX
-    # hostname against a provider list and awarded 10/10 — that was the L3
-    # lie this ticket closes. Now we return info with partial credit,
-    # clearly labelled as unverified.
+    # We CANNOT verify TLS from here.
+    #
+    # INBOX-71 (2026-04-26): aligned with the Hybrid scoring principle:
+    # for environment-limited checks where verification is genuinely
+    # impossible from our scan server, return max_points=0 info-only.
+    # A 100% score should mean "everything we could verify, passed" —
+    # not "everything passed plus we guessed on the unreachable parts."
+    # This matches the existing pattern in domain_age (WHOIS blocked),
+    # blacklists (refusal sentinel), and domain_blacklists (URIBL refusal).
+    #
+    # We still infer the provider for the user-facing message — knowing
+    # mail goes to Google Workspace is useful context for the human —
+    # but no longer use that to award arbitrary partial credit.
     provider_tls = {
         "google.com": "Google Workspace",
         "googlemail.com": "Google Workspace",
@@ -1754,43 +1763,48 @@ def check_tls(domain: str) -> CheckResult:
             break
 
     if inferred_provider:
-        return CheckResult(
-            name="tls",
-            category="infrastructure",
-            status="info",
-            title="TLS Encryption",
-            detail=(
-                f"Mail handled by {inferred_provider} ({inferred_mx}) — "
-                "TLS could not be verified directly from this scan server (port 25 blocked), "
-                "but this provider typically supports TLS. Score is partial credit pending verification."
-            ),
-            raw_data={
-                "mx_host": inferred_mx,
-                "inferred_provider": inferred_provider,
-                "verification": "unverified_port_25_blocked",
-                "error": last_error,
-            },
-            points=5,
-            max_points=10,
+        detail = (
+            f"Mail handled by {inferred_provider} ({inferred_mx}). "
+            "TLS could not be verified directly from our scan server (port 25 blocked). "
+            "Run an external test at https://www.checktls.com/TestReceiver "
+            "or https://www.hardenize.com to confirm TLS configuration."
         )
+        raw_data = {
+            "mx_host": inferred_mx,
+            "inferred_provider": inferred_provider,
+            "verification": "unverified_port_25_blocked",
+            "error": last_error,
+        }
+    else:
+        detail = (
+            "Could not verify TLS — port 25 not reachable from our scan server. "
+            "Run an external test at https://www.checktls.com/TestReceiver "
+            "or https://www.hardenize.com to confirm TLS configuration."
+        )
+        raw_data = {
+            "mx_hosts_tried": mx_hosts[:5],
+            "verification": "unverified_unknown_provider",
+            "error": last_error,
+        }
 
     return CheckResult(
         name="tls",
         category="infrastructure",
         status="info",
         title="TLS Encryption",
-        detail=(
-            "Could not verify TLS — port 25 not reachable from the scan server, "
-            "and the MX doesn't match a known major provider. "
-            "Run a TLS test from a network that permits outbound SMTP (e.g. smtptls-test.example)."
-        ),
-        raw_data={
-            "mx_hosts_tried": mx_hosts[:5],
-            "verification": "unverified_unknown_provider",
-            "error": last_error,
-        },
-        points=3,
-        max_points=10,
+        detail=detail,
+        raw_data=raw_data,
+        points=0,
+        max_points=0,  # Excluded from denominator — genuinely unverifiable
+        fix_steps=[
+            "TLS verification is blocked because our scan server can't reach port 25 outbound",
+            "This is a limitation of our infrastructure, not your domain",
+            "Verify TLS externally:",
+            "  • https://www.checktls.com/TestReceiver — sends a test message and reports TLS",
+            "  • https://www.hardenize.com — full TLS + MTA-STS + DANE audit",
+            "  • Use Google's check-auth@verifier.port25.com (replies with TLS report)",
+            "If those tools confirm TLS works, your domain is fine — we just can't see it"
+        ],
     )
 
 

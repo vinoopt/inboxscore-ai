@@ -56,37 +56,37 @@
       "\"v=BIMI1;l=https://www.mailercloud.com/img/brand/mailercloud.svg;\""
     ],
     "aspmx.l.google.com:A": [
-      "172.217.76.26"
+      "172.217.76.27"
     ],
     "aspmx.l.google.com:AAAA": [
-      "2a00:1450:4009:c0f::1a"
+      "2a00:1450:4009:c19::1a"
     ],
-    "26.76.217.172.in-addr.arpa.:PTR": [
-      "yulhrp-in-f26.1e100.net."
+    "27.76.217.172.in-addr.arpa.:PTR": [
+      "yulhrp-in-f27.1e100.net."
     ],
     "alt3.aspmx.l.google.com:A": [
       "142.251.127.26"
     ],
     "alt3.aspmx.l.google.com:AAAA": [
-      "2a00:1450:4001:c21::1a"
+      "2a00:1450:4001:c21::1b"
     ],
     "26.127.251.142.in-addr.arpa.:PTR": [
       "lcfrai-in-f26.1e100.net."
     ],
     "alt4.aspmx.l.google.com:A": [
-      "142.250.147.27"
+      "142.250.147.26"
     ],
     "alt4.aspmx.l.google.com:AAAA": [
-      "2a00:1450:4025:c01::1b"
+      "2a00:1450:4025:c01::1a"
     ],
-    "27.147.250.142.in-addr.arpa.:PTR": [
-      "rd-in-f27.1e100.net."
+    "26.147.250.142.in-addr.arpa.:PTR": [
+      "rd-in-f26.1e100.net."
     ],
     "alt1.aspmx.l.google.com:A": [
       "142.250.102.26"
     ],
     "alt1.aspmx.l.google.com:AAAA": [
-      "2a00:1450:4025:402::1b"
+      "2a00:1450:4025:402::1a"
     ],
     "26.102.250.142.in-addr.arpa.:PTR": [
       "rb-in-f26.1e100.net."

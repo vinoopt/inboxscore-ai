@@ -57,41 +57,50 @@ class TestPort25BlockedFallback:
         return patch("checks.socket.create_connection",
                      side_effect=OSError("Connection refused — port 25 blocked"))
 
-    def test_google_workspace_no_longer_gets_full_points_on_name_alone(self):
+    def test_google_workspace_with_port_25_blocked_returns_info_only(self):
+        """INBOX-71 (2026-04-26): switched from partial credit (5/10) to
+        info-only (max_points=0) when port 25 is blocked. Hybrid scoring
+        principle: a 100% score should mean 'everything we could verify,
+        passed' — not 'plus we guessed on the unreachable parts.'
+
+        We still infer the provider for the user-facing message — knowing
+        mail goes to Google Workspace is useful context — but no longer
+        award arbitrary partial credit."""
         with patch.object(checks, "safe_dns_query",
                           side_effect=_mx_only_stub({"acme.test": ["10 aspmx.l.google.com"]})), \
              self._block_port_25():
             result = checks.check_tls("acme.test")
 
-        assert result.status == "info", (
-            "INBOX-24 L3 regression: Google-hosted MX with port 25 blocked must "
-            f"return status='info', not {result.status!r}. The old 10/10 pass "
-            "on a hostname match was a lie — we had no TLS evidence."
+        assert result.status == "info"
+        assert result.points == 0, (
+            "INBOX-71: was 5/10 partial credit, now 0 with max_points=0 "
+            "(excluded from denominator). Honesty over guessing."
         )
-        assert result.points == 5, (
-            "Known-provider + port-25-blocked is partial credit (5/10), "
-            "not full credit. 10/10 without evidence is the bug we closed."
+        assert result.max_points == 0, (
+            "INBOX-71: max_points=0 means TLS is dropped from the score "
+            "denominator when verification is impossible from our scan server"
         )
-        assert result.max_points == 10
         assert "Google Workspace" in (result.detail or "")
-        assert "could not be verified" in (result.detail or "").lower() or \
-               "unverified" in (result.detail or "").lower() or \
-               "partial credit" in (result.detail or "").lower()
+        # Detail must point to external verifiers
+        detail = (result.detail or "").lower()
+        assert "checktls" in detail or "hardenize" in detail
         raw = result.raw_data or {}
         assert raw.get("inferred_provider") == "Google Workspace"
         assert raw.get("verification") == "unverified_port_25_blocked"
 
-    def test_unknown_provider_with_port_25_blocked_gets_lower_info_score(self):
+    def test_unknown_provider_with_port_25_blocked_returns_info_only(self):
+        """Same Hybrid principle for unknown providers — info-only when blocked."""
         with patch.object(checks, "safe_dns_query",
                           side_effect=_mx_only_stub({"acme.test": ["10 mail.selfhosted.example"]})), \
              self._block_port_25():
             result = checks.check_tls("acme.test")
 
         assert result.status == "info"
-        assert result.points == 3, (
-            "Unknown-provider + port-25-blocked is 3/10, lower than known-provider "
-            "(5/10) — we have even less evidence."
-        )
+        assert result.points == 0
+        assert result.max_points == 0  # INBOX-71: dropped from denominator
+        # Detail must point to external verifiers
+        detail = (result.detail or "").lower()
+        assert "checktls" in detail or "hardenize" in detail
         assert (result.raw_data or {}).get("verification") == "unverified_unknown_provider"
 
 
@@ -281,8 +290,9 @@ class TestTimeoutBudget:
     def test_all_mx_connect_timeouts_still_reach_pattern_match(self):
         # Simulate the live Render scenario: every connect attempt
         # hits a socket.timeout (port 25 blocked). The function must
-        # STILL produce the INFO-5/10 pattern-match result for Google,
-        # not fall through to any sort of error.
+        # STILL detect the Google provider for the user-facing message
+        # — but per INBOX-71 (Hybrid scoring) score is now info-only
+        # (max_points=0), not partial credit.
         import socket as _socket
         with patch.object(checks, "safe_dns_query",
                           side_effect=_mx_only_stub({"acme.test": ["10 aspmx.l.google.com"]})), \
@@ -290,9 +300,11 @@ class TestTimeoutBudget:
                    side_effect=_socket.timeout("timed out")):
             result = checks.check_tls("acme.test")
 
-        # Expected: pattern-match detected Google → INFO 5/10 (unverified).
+        # INBOX-71: pattern-match still detects Google for the message,
+        # but scoring is info-only (max_points=0, excluded from denominator).
         assert result.status == "info"
-        assert result.points == 5
+        assert result.points == 0
+        assert result.max_points == 0
         raw = result.raw_data or {}
         assert raw.get("inferred_provider") == "Google Workspace"
         assert raw.get("verification") == "unverified_port_25_blocked"
