@@ -316,7 +316,7 @@ function escapeHtml(str) {
   .action-card.priority-2 { border-left-color: var(--yellow); }
   .action-card.priority-3 { border-left-color: var(--text-muted); }
   .action-num { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
-  .priority-2 .action-num { background: var(--yellow); color: #1a1a26; }
+  .priority-2 .action-num { background: var(--yellow); color: white; }
   .priority-3 .action-num { background: var(--text-muted); }
   .action-body { flex: 1; min-width: 0; }
   .action-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -346,7 +346,7 @@ function escapeHtml(str) {
   .email-capture-form input { flex: 1; padding: 12px 16px; background: transparent; border: none; color: var(--text); font-size: 14px; outline: none; }
   .email-capture-form input::placeholder { color: var(--text-muted); }
   .email-capture-btn { padding: 12px 24px; background: var(--accent); color: white; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
-  .email-capture-btn:hover { background: #5558e6; }
+  .email-capture-btn:hover { background: var(--accent-hover); }
   .email-capture-btn:disabled { opacity: 0.6; cursor: not-allowed; }
   .email-capture-note { font-size: 12px; color: var(--text-muted); }
   .email-capture-success { display: none; color: var(--green); font-size: 14px; margin-bottom: 16px; }
@@ -371,23 +371,28 @@ function escapeHtml(str) {
   .btn-secondary { background: var(--surface-2); color: var(--text); padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; border: 1px solid var(--border); cursor: pointer; }
 
   /* PRICING */
-  .pricing-view { max-width: 960px; margin: 0 auto; padding: 60px 40px; text-align: center; }
-  .pricing-view h1 { font-size: 36px; margin-bottom: 12px; }
-  .pricing-view > p { color: var(--text-muted); margin-bottom: 48px; font-size: 16px; }
-  .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; text-align: left; }
-  .pricing-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; position: relative; }
-  .pricing-card.featured { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 8px 32px var(--accent-glow); }
-  .pricing-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-  .pricing-tier { font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-  .pricing-price { font-size: 40px; font-weight: 700; margin-bottom: 4px; }
-  .pricing-price span { font-size: 16px; color: var(--text-muted); font-weight: 400; }
-  .pricing-desc { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5; }
+  .pricing-view { max-width: 1040px; margin: 0 auto; padding: 80px 40px; text-align: center; }
+  .pricing-view h1 { font-size: 40px; margin-bottom: 12px; font-weight: 700; letter-spacing: -0.02em; }
+  .pricing-view > p { color: var(--text-muted); margin-bottom: 56px; font-size: 16px; }
+  .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: left; }
+  .pricing-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px 28px; position: relative; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .pricing-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.06); }
+  .pricing-card.featured { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 12px 40px rgba(124,58,237,0.12); }
+  .pricing-card.featured:hover { box-shadow: 0 0 0 1px var(--accent), 0 16px 48px rgba(124,58,237,0.18); }
+  .pricing-badge { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; padding: 4px 14px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; box-shadow: 0 4px 10px -2px rgba(124,58,237,0.4); }
+  .pricing-tier { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; font-weight: 500; }
+  .pricing-price { font-size: 40px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.02em; font-feature-settings: "tnum"; }
+  .pricing-price span { font-size: 15px; color: var(--text-muted); font-weight: 400; }
+  .pricing-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5; min-height: 38px; }
   .pricing-features { list-style: none; margin-bottom: 28px; }
-  .pricing-features li { padding: 8px 0; font-size: 14px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
-  .pricing-features li::before { content: "\2713"; color: var(--green); font-weight: 600; }
-  .pricing-btn { width: 100%; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
-  .pricing-btn.primary { background: var(--accent); color: white; }
-  .pricing-btn.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+  .pricing-features li { padding: 7px 0; font-size: 13px; color: var(--text); display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; }
+  .pricing-features li::before { content: ""; width: 16px; height: 16px; background: var(--green-bg); color: var(--green); font-weight: 700; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23047857'%3E%3Cpath fill-rule='evenodd' d='M12.78 5.22a.75.75 0 0 1 0 1.06l-5.25 5.25a.75.75 0 0 1-1.06 0L3.22 8.28a.75.75 0 0 1 1.06-1.06L7 9.94l4.72-4.72a.75.75 0 0 1 1.06 0Z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: center; }
+  .pricing-btn { width: 100%; padding: 11px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: background 0.15s, transform 0.1s; font-family: inherit; }
+  .pricing-btn:active { transform: scale(0.99); }
+  .pricing-btn.primary { background: var(--accent); color: white; box-shadow: 0 4px 10px -2px rgba(124,58,237,0.25); }
+  .pricing-btn.primary:hover { background: var(--accent-hover); }
+  .pricing-btn.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); }
+  .pricing-btn.secondary:hover { background: var(--surface-2); border-color: var(--text-muted); }
 
   @media (max-width: 768px) {
     .hero { padding: 48px 20px 40px; }
@@ -895,27 +900,30 @@ function showRateLimitModal(message, plan) {
   let ctaHtml = '';
   if (isAnon) {
     ctaHtml = `
-      <a href="/signup" style="display:inline-block;padding:12px 28px;background:#6366f1;color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">Create Free Account (5 scans/day)</a>
-      <div style="margin-top:12px;font-size:13px;color:#8888a0;">Or <a href="/login" style="color:#6366f1;">log in</a> if you already have an account</div>
+      <a href="/signup" style="display:inline-block;padding:12px 24px;background:var(--accent);color:white;border-radius:8px;text-decoration:none;font-weight:500;font-size:14px;font-family:inherit;box-shadow:0 4px 10px -2px rgba(124,58,237,0.25);transition:background 0.15s;" onmouseover="this.style.background='var(--accent-hover)'" onmouseout="this.style.background='var(--accent)'">Create Free Account (5 scans/day)</a>
+      <div style="margin-top:14px;font-size:13px;color:var(--text-muted);">Or <a href="/login" style="color:var(--accent);text-decoration:none;font-weight:500;">log in</a> if you already have an account</div>
     `;
   } else if (isFree) {
     ctaHtml = `
-      <div style="display:inline-block;padding:12px 28px;background:#6366f1;color:white;border-radius:8px;font-weight:600;font-size:15px;opacity:0.7;cursor:default;">Upgrade to Pro — Coming Soon</div>
-      <div style="margin-top:12px;font-size:13px;color:#8888a0;">Unlimited scans, monitoring, alerts & more</div>
+      <div style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);border-radius:8px;font-weight:500;font-size:14px;cursor:default;">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:999px;">Soon</span>
+        Upgrade to Pro
+      </div>
+      <div style="margin-top:14px;font-size:13px;color:var(--text-muted);">Unlimited scans, monitoring, alerts &amp; more</div>
     `;
   }
 
   const modal = document.createElement('div');
   modal.id = 'rate-limit-modal';
   modal.innerHTML = `
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)this.remove()">
-      <div style="background:#12121a;border:1px solid #2a2a3a;border-radius:16px;padding:32px;max-width:440px;width:100%;text-align:center;">
-        <div style="font-size:40px;margin-bottom:12px;">⚡</div>
-        <h2 style="font-size:20px;font-weight:700;margin-bottom:12px;color:#e4e4ef;">Scan Limit Reached</h2>
-        <p style="font-size:14px;color:#8888a0;line-height:1.6;margin-bottom:24px;">${escapeHtml(message || 'You have reached your daily scan limit.')}</p>
+    <div style="position:fixed;inset:0;background:rgba(24,24,27,0.5);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)this.remove()">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 32px;max-width:440px;width:100%;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,0.18);">
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:var(--accent-soft);margin-bottom:16px;font-size:28px;">⚡</div>
+        <h2 style="font-size:20px;font-weight:600;margin-bottom:10px;color:var(--text);letter-spacing:-0.01em;">Scan limit reached</h2>
+        <p style="font-size:14px;color:var(--text-muted);line-height:1.6;margin-bottom:24px;">${escapeHtml(message || 'You have reached your daily scan limit.')}</p>
         ${ctaHtml}
-        <div style="margin-top:16px;">
-          <button onclick="document.getElementById('rate-limit-modal').remove()" style="background:none;border:none;color:#8888a0;font-size:13px;cursor:pointer;padding:8px;">Dismiss</button>
+        <div style="margin-top:18px;">
+          <button onclick="document.getElementById('rate-limit-modal').remove()" style="background:none;border:none;color:var(--text-subtle);font-size:13px;cursor:pointer;padding:6px 10px;font-family:inherit;">Dismiss</button>
         </div>
       </div>
     </div>
