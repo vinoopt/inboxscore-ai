@@ -41,37 +41,37 @@
       "\"v=DMARC1; p=reject; pct=100, rua=mailto:dmarc@mlrcloud.com; ruf=mailto:dmarc@mlrcloud.com\""
     ],
     "aspmx.l.google.com:A": [
-      "192.178.223.27"
+      "192.178.223.26"
     ],
     "aspmx.l.google.com:AAAA": [
       "2a00:1450:4009:c0f::1b"
     ],
-    "27.223.178.192.in-addr.arpa.:PTR": [
-      "yulhrs-in-f27.1e100.net."
+    "26.223.178.192.in-addr.arpa.:PTR": [
+      "yulhrs-in-f26.1e100.net."
     ],
     "alt3.aspmx.l.google.com:A": [
-      "142.251.127.26"
+      "142.251.127.27"
     ],
     "alt3.aspmx.l.google.com:AAAA": [
-      "2a00:1450:4001:c21::1a"
+      "2a00:1450:4025:c01::1b"
     ],
-    "26.127.251.142.in-addr.arpa.:PTR": [
-      "lcfrai-in-f26.1e100.net."
+    "27.127.251.142.in-addr.arpa.:PTR": [
+      "lcfrai-in-f27.1e100.net."
     ],
     "alt4.aspmx.l.google.com:A": [
-      "142.250.147.26"
+      "142.250.147.27"
     ],
     "alt4.aspmx.l.google.com:AAAA": [
-      "2a00:1450:4025:c01::1a"
+      "2a00:1450:4025:c01::1b"
     ],
-    "26.147.250.142.in-addr.arpa.:PTR": [
-      "rd-in-f26.1e100.net."
+    "27.147.250.142.in-addr.arpa.:PTR": [
+      "rd-in-f27.1e100.net."
     ],
     "alt1.aspmx.l.google.com:A": [
       "142.250.102.27"
     ],
     "alt1.aspmx.l.google.com:AAAA": [
-      "2a00:1450:4025:402::1a"
+      "2a00:1450:4025:402::1b"
     ],
     "27.102.250.142.in-addr.arpa.:PTR": [
       "rb-in-f27.1e100.net."
@@ -80,7 +80,7 @@
       "192.178.213.27"
     ],
     "alt2.aspmx.l.google.com:AAAA": [
-      "2a00:1450:4013:c1e::1b"
+      "2a00:1450:4013:c1e::1a"
     ],
     "27.213.178.192.in-addr.arpa.:PTR": [
       "yugrqzs-in-f27.1e100.net."

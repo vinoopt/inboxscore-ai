@@ -319,7 +319,7 @@ class TestCheckMX:
             assert result.points == 10
 
     def test_mx_single_record(self):
-        """One MX record should pass but with note about redundancy"""
+        """One MX record (non-load-balanced) should pass but with redundancy note."""
         from checks import check_mx_records
 
         with patch("dns.resolver.Resolver") as MockResolver:
@@ -337,6 +337,63 @@ class TestCheckMX:
             assert result.status == "pass"
             assert result.points == 9
             assert "backup" in result.detail.lower() or "redundancy" in result.detail.lower()
+
+
+class TestCheckMXLoadBalancedProvider:
+    """INBOX-72 (2026-04-26) — single MX resolving to a known load-balanced
+    provider pool (Google, Microsoft, Proofpoint, Mimecast) gets full
+    10/10. The redundancy is at the IP layer — `smtp.google.com` resolves
+    to dozens of mail servers behind one DNS name. Pre-INBOX-72 we docked
+    1 point at the DNS layer when redundancy actually existed."""
+
+    def _mx_check_with_single_host(self, mx_host_value):
+        """Helper — patches dns.resolver to return a single MX with the
+        given host. The MX-resolution check is patched separately to
+        return True so we hit the all_resolved branch."""
+        from checks import check_mx_records
+
+        with patch("dns.resolver.Resolver") as MockResolver, \
+             patch("checks.safe_dns_query", return_value=["1.2.3.4"]):
+            mock_resolver = MagicMock()
+            MockResolver.return_value = mock_resolver
+            mx1 = MagicMock()
+            mx1.preference = 10
+            mx1.exchange = MagicMock()
+            mx1.exchange.__str__ = lambda self: mx_host_value
+            mock_resolver.resolve.return_value = [mx1]
+            return check_mx_records("test.example")
+
+    def test_google_smtp_single_mx_gets_full_credit(self):
+        """smtp.google.com is Google's load-balanced pool — IP-layer redundancy."""
+        result = self._mx_check_with_single_host("smtp.google.com.")
+        assert result.status == "pass"
+        assert result.points == 10, (
+            "INBOX-72: was 9/10 (docked for 'no backup'), now 10/10 "
+            "because smtp.google.com is load-balanced across many IPs"
+        )
+        assert "provider pool" in (result.detail or "").lower() or \
+               "ip-layer" in (result.detail or "").lower()
+
+    def test_microsoft_outlook_single_mx_gets_full_credit(self):
+        """*.protection.outlook.com is Microsoft 365's load-balanced pool."""
+        result = self._mx_check_with_single_host("acme-com.mail.protection.outlook.com.")
+        assert result.status == "pass"
+        assert result.points == 10
+
+    def test_proofpoint_single_mx_gets_full_credit(self):
+        """*.pphosted.com is Proofpoint's load-balanced pool."""
+        result = self._mx_check_with_single_host("mx0a-001.pphosted.com.")
+        assert result.status == "pass"
+        assert result.points == 10
+
+    def test_self_hosted_single_mx_still_docked(self):
+        """Non-load-balanced single MX still gets 9/10 with backup advice.
+        Preserves the original behaviour for genuine single-server setups."""
+        result = self._mx_check_with_single_host("mail.selfhosted.example.")
+        assert result.status == "pass"
+        assert result.points == 9
+        assert "backup" in (result.detail or "").lower() or \
+               "redundancy" in (result.detail or "").lower()
 
 
 class TestCheckMXReachability:

@@ -418,8 +418,31 @@ def check_mx_records(domain: str) -> CheckResult:
                 ]
         elif len(mx_records) == 1:
             if all_resolved:
-                detail = "1 MX record found — consider adding a backup mail server for redundancy"
-                points, status, fix_steps = 9, "pass", None
+                # INBOX-72 (2026-04-26): when single MX resolves to a known
+                # load-balanced provider pool (Google, Microsoft, Proofpoint,
+                # Mimecast), award full 10/10. The redundancy is at the IP
+                # layer — `smtp.google.com` resolves to dozens of mail
+                # servers behind one DNS name. Docking 1 point at the DNS
+                # layer when redundancy actually exists is wrong-on-its-face.
+                mx_host = mx_records[0]["host"].lower()
+                load_balanced_pools = (
+                    "google.com",         # smtp.google.com → Google pool
+                    "googlemail.com",
+                    "protection.outlook.com",  # Microsoft 365 pool
+                    "pphosted.com",       # Proofpoint
+                    "mimecast.com",
+                )
+                is_load_balanced = any(pool in mx_host for pool in load_balanced_pools)
+                if is_load_balanced:
+                    detail = (
+                        f"1 MX record ({mx_records[0]['host']}) — provider pool with "
+                        "IP-layer redundancy. Single DNS entry resolves to multiple "
+                        "mail servers behind a load balancer."
+                    )
+                    points, status, fix_steps = 10, "pass", None
+                else:
+                    detail = "1 MX record found — consider adding a backup mail server for redundancy"
+                    points, status, fix_steps = 9, "pass", None
             else:
                 detail = (
                     f"1 MX record found ({mx_records[0]['host']}) but it does not resolve. "
