@@ -159,27 +159,51 @@ class TestEmailHealthPage:
         assert "Email Health" in content
 
     def test_email_health_has_submenu(self, client):
-        """Page should have the 6-section submenu"""
+        """Page should have the surviving 4-section submenu (INBOX-82 Phase 2:
+        Overview moved to Dashboard, Yahoo/AOL removed because CFL data is too
+        thin to be useful)."""
         response = client.get("/email-health")
         content = response.text
         assert "eh-submenu" in content
-        assert "Overview" in content
         assert "Google Postmaster" in content
         assert "Microsoft SNDS" in content
-        assert "Yahoo" in content
         assert "Blacklist Monitor" in content
         assert "IP Reputation" in content
 
     def test_email_health_has_all_sections(self, client):
-        """Page should have all 6 content section IDs"""
+        """Page should have the 4 surviving content section IDs (INBOX-82
+        Phase 2 dropped Overview + Yahoo)."""
         response = client.get("/email-health")
         content = response.text
-        assert 'id="eh-sec-overview"' in content
         assert 'id="eh-sec-google"' in content
         assert 'id="eh-sec-microsoft"' in content
-        assert 'id="eh-sec-yahoo"' in content
         assert 'id="eh-sec-blacklist"' in content
         assert 'id="eh-sec-reputation"' in content
+
+    def test_email_health_overview_section_removed(self, client):
+        """INBOX-82 Phase 2: the Overview tab is gone — the Dashboard now
+        plays this role. Guard against accidental re-introduction."""
+        response = client.get("/email-health")
+        content = response.text
+        assert 'id="eh-sec-overview"' not in content, (
+            "Overview section was removed in INBOX-82 Phase 2 — Dashboard "
+            "absorbed its role. Don't re-introduce."
+        )
+
+    def test_email_health_yahoo_section_removed(self, client):
+        """INBOX-82 Phase 2: Yahoo/AOL section dropped because CFL data is
+        too thin to render useful intelligence (INBOX-79). The Dashboard's
+        Provider Status card explains this to users."""
+        response = client.get("/email-health")
+        content = response.text
+        assert 'id="eh-sec-yahoo"' not in content, (
+            "Yahoo section was removed in INBOX-82 Phase 2."
+        )
+        # The Yahoo CFL link still belongs on the Dashboard's Provider
+        # Status card, just not as an Email Health sub-page.
+        assert 'switchEhSection(\'yahoo\'' not in content, (
+            "Yahoo nav reference still present in Email Health (INBOX-82)."
+        )
 
     def test_email_health_has_google_postmaster_tabs(self, client):
         """Google Postmaster section should have 6 internal tabs (Compliance,
@@ -196,7 +220,11 @@ class TestEmailHealthPage:
         assert "Delivery Error" in content
 
     def test_email_health_has_provider_states(self, client):
-        """Sections should have multiple provider states (data, disconnected, etc.)"""
+        """Surviving provider sections (Google + Microsoft) keep their
+        multi-state UI (data / disconnected / nodata / free).
+
+        INBOX-82 Phase 2: Yahoo provider states removed with the Yahoo
+        section."""
         response = client.get("/email-health")
         content = response.text
         assert 'id="gpm-state-data"' in content
@@ -205,8 +233,9 @@ class TestEmailHealthPage:
         assert 'id="gpm-state-free"' in content
         assert 'id="ms-state-data"' in content
         assert 'id="ms-state-disconnected"' in content
-        assert 'id="yahoo-state-data"' in content
-        assert 'id="yahoo-state-disconnected"' in content
+        # Yahoo states must NOT be present (INBOX-82 Phase 2)
+        assert 'id="yahoo-state-data"' not in content
+        assert 'id="yahoo-state-disconnected"' not in content
 
     def test_email_health_has_sidebar_link(self, client):
         """Email Health page sidebar should have active link"""
