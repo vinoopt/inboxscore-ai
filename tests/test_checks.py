@@ -754,10 +754,15 @@ class TestCheckDKIMSelectorExpansion:
             "No-DKIM detail must point to an external verifier — many "
             "real senders use random selectors we can't probe."
         )
-        # raw_data should expose the full checked list (not just first 10)
+        # raw_data should expose the count of probed selectors. INBOX-69
+        # expanded the probe list from DKIM_SELECTORS (~47) to
+        # DKIM_PROBE_SELECTORS (~102 = static + known-rotating + last
+        # 24 months of YYYYMM01/15 candidates). The test now asserts on
+        # the broader probe list and that we surface a representative
+        # sample for transparency.
         raw = r.raw_data or {}
-        assert raw.get("checked_count") == len(__import__("checks").DKIM_SELECTORS)
-        assert len(raw.get("checked_selectors", [])) >= 40
+        assert raw.get("checked_count") == len(__import__("checks").DKIM_PROBE_SELECTORS)
+        assert len(raw.get("checked_selectors_sample", [])) >= 10
 
     def test_dkim_selectors_list_has_expected_providers(self):
         """Sanity check — the canonical providers must be in the list.
@@ -931,6 +936,119 @@ class TestScoreCalculation:
         maximum = sum(c.max_points for c in checks if c.max_points > 0)
         score = min(100, round((total / maximum * 100)))
         assert score == 0
+
+
+class TestCheckDKIMRotatingSelectors:
+    """INBOX-69 — date-based rotating DKIM selectors (Google, Apple,
+    Stripe, AWS, Cloudflare). google.com publishes selectors in
+    YYYYMMDD format with frequent rotation. Without probing date-based
+    candidates we returned FAIL 0/15 for the entire major-sender class.
+
+    Pinned to google.com finding (2026-04-26):
+      - 20221208._domainkey.google.com → revoked (p=;)
+      - 20210112._domainkey.google.com → revoked (p=;)
+      - 20230601._domainkey.google.com → likely current active
+    """
+
+    def test_probe_list_includes_known_rotating(self):
+        """KNOWN_ROTATING_SELECTORS must appear in DKIM_PROBE_SELECTORS."""
+        from checks import DKIM_PROBE_SELECTORS
+        for known in ["20230601", "20221208", "20210112", "s2048"]:
+            assert known in DKIM_PROBE_SELECTORS, (
+                f"INBOX-69: rotating selector `{known}` must be probed"
+            )
+
+    def test_probe_list_includes_recent_monthly_dates(self):
+        """The last 24 months of YYYYMM01 / YYYYMM15 must be probed."""
+        from checks import DKIM_PROBE_SELECTORS, _generate_monthly_selectors
+        recent = _generate_monthly_selectors(months_back=24)
+        assert len(recent) >= 40, (
+            "Should generate ~48 monthly candidates (24 months × 2 days)"
+        )
+        for sel in recent[:5]:
+            assert sel in DKIM_PROBE_SELECTORS, (
+                f"INBOX-69: monthly candidate `{sel}` must be in probe list"
+            )
+
+    def test_probe_list_size_in_expected_range(self):
+        """Probe list should be ~95-110 selectors (47 static + 7 known +
+        ~48 monthly). Catches accidental over- or under-expansion."""
+        from checks import DKIM_PROBE_SELECTORS
+        size = len(DKIM_PROBE_SELECTORS)
+        assert 90 <= size <= 130, (
+            f"DKIM_PROBE_SELECTORS size {size} outside expected 90-130 range"
+        )
+
+    @patch("checks.safe_dns_query")
+    def test_revoked_only_returns_info_not_fail(self, mock_dns):
+        """The google.com case — only revoked selectors found.
+        Must return INFO 5/15, not FAIL 0/15. Revoked selectors are
+        rotation breadcrumbs; the active key likely uses a format we
+        don't probe yet, but DKIM IS configured."""
+        revoked = '"v=DKIM1; k=rsa; p="'  # empty p = revoked
+
+        def side(qname, rdtype, timeout=2):
+            # Match a couple of known historical Google selectors
+            if "20221208._domainkey." in qname and rdtype == "TXT":
+                return [revoked]
+            if "20210112._domainkey." in qname and rdtype == "TXT":
+                return [revoked]
+            return None
+
+        mock_dns.side_effect = side
+        from checks import check_dkim
+        r = check_dkim("rotating-sender.example")
+
+        assert r.status == "info", "Revoked-only must be INFO, not FAIL"
+        assert r.points == 5, "Revoked-only must score 5/15 (don't torpedo)"
+        assert r.max_points == 15
+        # raw_data must surface the revoked selectors for transparency
+        assert "revoked_selectors" in (r.raw_data or {})
+        assert len(r.raw_data["revoked_selectors"]) >= 1
+        # Detail must mention rotating-sender pattern
+        detail = (r.detail or "").lower()
+        assert "rotat" in detail or "revoked" in detail
+
+    @patch("checks.safe_dns_query")
+    def test_active_plus_revoked_drops_revoked_from_pass_message(self, mock_dns):
+        """If at least one ACTIVE selector found, revoked ones must NOT
+        appear in the PASS detail message — they're noise from history."""
+        active_2048 = '"v=DKIM1; k=rsa; p=' + "A" * 380 + '"'
+        revoked = '"v=DKIM1; k=rsa; p="'
+
+        def side(qname, rdtype, timeout=2):
+            if "default._domainkey." in qname and rdtype == "TXT":
+                return [active_2048]
+            if "20221208._domainkey." in qname and rdtype == "TXT":
+                return [revoked]
+            return None
+
+        mock_dns.side_effect = side
+        from checks import check_dkim
+        r = check_dkim("mixed-active-revoked.example")
+
+        assert r.status == "pass"
+        assert r.points == 15
+        # Detail names `default` (active), not `20221208` (revoked)
+        assert "default" in (r.detail or "")
+        assert "20221208" not in (r.detail or ""), (
+            "Revoked selector must not appear in the PASS detail — "
+            "it's historical noise, the active key is what matters"
+        )
+
+    @patch("checks.safe_dns_query")
+    def test_truly_no_dkim_still_fails(self, mock_dns):
+        """If neither active NOR revoked selectors found, keep the
+        FAIL 0/15 — this is genuinely no DKIM, not a rotation case."""
+        mock_dns.return_value = None
+        from checks import check_dkim
+        r = check_dkim("no-dkim-at-all.example")
+        assert r.status == "fail"
+        assert r.points == 0
+        # Detail must NOT mention rotating senders (no breadcrumbs found)
+        # but should still point to external verifier
+        d = (r.detail or "").lower()
+        assert "dkimvalidator" in d or "port25" in d
 
 
 # ─── CHECK RESULT MODEL TESTS ───────────────────────────────────

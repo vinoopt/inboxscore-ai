@@ -96,6 +96,54 @@ DKIM_SELECTORS = [
     "mailo",
 ]
 
+
+# ─── INBOX-69: Date-based rotating DKIM selectors ─────────────────
+# Major senders (Google, Apple, Stripe, AWS, Cloudflare) rotate DKIM
+# keys using YYYYMMDD-shaped selectors. Confirmed via direct DNS probes
+# 2026-04-26: google.com publishes selectors `20221208`, `20210112`,
+# and `20230601` (historical and current). Without these patterns we
+# return FAIL 0/15 for the entire google.com / apple.com class of
+# domains — false negatives that wreck product credibility.
+KNOWN_ROTATING_SELECTORS = [
+    # Google (historical confirmed selectors)
+    "20230601", "20221208", "20210112", "20191024", "20161025",
+    # Apple
+    "s2048", "sig1",
+]
+
+
+def _generate_monthly_selectors(months_back: int = 24) -> list[str]:
+    """Generate YYYYMM01 and YYYYMM15 selectors for last `months_back` months.
+
+    Covers the most common date-based DKIM rotation patterns:
+      • YYYYMM01 — first-of-month rotation (most common)
+      • YYYYMM15 — mid-month rotation (some providers)
+
+    Returns ~48 candidates for default 24 months.
+    """
+    today = datetime.now(timezone.utc).date()
+    candidates = []
+    year, month = today.year, today.month
+    for _ in range(months_back):
+        candidates.append(f"{year:04d}{month:02d}01")
+        candidates.append(f"{year:04d}{month:02d}15")
+        # Walk back one month
+        month -= 1
+        if month == 0:
+            month = 12
+            year -= 1
+    return candidates
+
+
+# Probe = static common selectors + known rotating + last 24 months of
+# YYYYMMDD candidates. ~95 selectors total at module load. DNS probes
+# parallelize so total wall-clock is bounded by the slowest query.
+DKIM_PROBE_SELECTORS = (
+    DKIM_SELECTORS
+    + KNOWN_ROTATING_SELECTORS
+    + _generate_monthly_selectors(months_back=24)
+)
+
 # ─── DOMAIN BLACKLISTS (INBOX-42) ──────────────────────────────────
 # DBL / SURBL / URIBL — domain-based reputation lists. These flag the
 # DOMAIN itself (regardless of IP), which major mailbox providers
@@ -534,7 +582,14 @@ def check_dkim(domain: str) -> CheckResult:
                 cleaned = re.sub(r'"\s+"', '', record).strip('"')
                 if "v=DKIM1" in cleaned or "p=" in cleaned:
                     key_length = "unknown"
-                    p_match = re.search(r'p=([A-Za-z0-9+/=]+)', cleaned)
+                    # INBOX-69: regex now uses `*` not `+` so `p=` with no
+                    # content (operator-revoked selectors, common in Google's
+                    # rotation breadcrumbs) is captured as an empty string
+                    # and falls into the `key_bits == 0` revoked branch.
+                    # Pre-INBOX-69 the regex required 1+ chars after `p=`,
+                    # so revoked records silently stayed as "unknown" and
+                    # leaked into the PASS branch.
+                    p_match = re.search(r'p=([A-Za-z0-9+/=]*)', cleaned)
                     if p_match:
                         key_b64 = p_match.group(1)
                         # Heuristic: base64 encodes ~6 bits/char of the
@@ -569,8 +624,13 @@ def check_dkim(domain: str) -> CheckResult:
 
     # Probe all selectors in parallel (each is a single DNS query).
     # INBOX-57: bumped pool size to match the expanded selector list.
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(DKIM_SELECTORS), 32)) as executor:
-        future_map = {executor.submit(_probe_selector, s): s for s in DKIM_SELECTORS}
+    # INBOX-69: probe DKIM_PROBE_SELECTORS (= static + known-rotating +
+    # 48 date-based candidates) so we catch Google/Apple/Stripe rotating
+    # selectors. Total ~95 selectors; max_workers caps at 32 so worst
+    # case is ~3 batches of parallel DNS lookups, still fits in the 6s
+    # as_completed budget on a healthy resolver.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        future_map = {executor.submit(_probe_selector, s): s for s in DKIM_PROBE_SELECTORS}
         for future in concurrent.futures.as_completed(future_map, timeout=6):
             try:
                 hit = future.result()
@@ -579,7 +639,27 @@ def check_dkim(domain: str) -> CheckResult:
             except Exception:
                 pass
 
-    if found_selectors:
+    # INBOX-69: filter revoked selectors (key_length == "revoked (p=;)")
+    # out of `found_selectors` for the PASS-branch decision. Operators
+    # publish empty `p=` to retire a selector; an active rotating sender
+    # signs new mail with a NEW selector, leaving these revoked records
+    # behind as historical breadcrumbs. Counting them as "DKIM
+    # configured" is wrong — google.com would PASS with revoked-only
+    # selectors found and we'd miss the real story (active key not in
+    # our list). Keep them in raw_data for transparency.
+    revoked_selectors = [
+        s for s in found_selectors
+        if s.get("key_length") == "revoked (p=;)"
+    ]
+    active_selectors = [
+        s for s in found_selectors
+        if s.get("key_length") != "revoked (p=;)"
+    ]
+
+    if active_selectors:
+        # Only the active set drives the PASS branches; revoked ones
+        # were noise from key-rotation history.
+        found_selectors = active_selectors
         # INBOX-62: per-selector key-size in detail when multiple selectors found.
         # Pre-INBOX-62 the detail said "selectors: k1, resend — using 1024-bit
         # key" which implied the *main* DKIM key was weak when actually only
@@ -669,6 +749,46 @@ def check_dkim(domain: str) -> CheckResult:
             max_points=15
         )
     else:
+        # INBOX-69: branch on whether we found revoked selectors (sender
+        # rotates keys, real DKIM exists but active selector isn't in
+        # our probe list) vs found nothing (probably no DKIM at all).
+        # Different scoring: 5/15 INFO for the rotating case (don't
+        # torpedo google.com), 0/15 FAIL for genuinely missing.
+        if revoked_selectors:
+            revoked_names = ", ".join(s["selector"] for s in revoked_selectors[:3])
+            more = f" (+{len(revoked_selectors)-3} more)" if len(revoked_selectors) > 3 else ""
+            return CheckResult(
+                name="dkim",
+                category="authentication",
+                status="info",
+                title="DKIM",
+                detail=(
+                    f"Found {len(revoked_selectors)} revoked selector(s) ({revoked_names}{more}) "
+                    f"but no active DKIM signing key across {len(DKIM_PROBE_SELECTORS)} probed "
+                    "selectors. This pattern is typical of senders that rotate keys frequently "
+                    "(Google, Apple, Stripe, Cloudflare) — your active selector likely uses a "
+                    "format we don't probe yet. Verify externally with "
+                    "https://www.dkimvalidator.com or check-auth@verifier.port25.com."
+                ),
+                raw_data={
+                    "revoked_selectors": revoked_selectors,
+                    "checked_count": len(DKIM_PROBE_SELECTORS),
+                    "outcome": "revoked_only_likely_rotating_sender",
+                },
+                points=5,
+                max_points=15,
+                fix_steps=[
+                    "Verify externally first — send a test email to https://www.dkimvalidator.com "
+                    "or to check-auth@verifier.port25.com. Most rotating-key senders pass DKIM in "
+                    "real outbound mail even though we couldn't probe the active selector.",
+                    "If verification passes, no action needed — InboxScore will detect your "
+                    "selector once it appears in our probe list (we add new patterns as we find "
+                    "them).",
+                    "If verification fails, enable DKIM signing in your provider — see the "
+                    "no-DKIM-found case for provider-specific instructions."
+                ]
+            )
+
         # INBOX-57: instead of a flat FAIL when none of our ~50 known
         # selectors match, surface the limitation honestly. AWS SES,
         # HubSpot, Salesforce Marketing Cloud, and many self-hosted
@@ -680,7 +800,7 @@ def check_dkim(domain: str) -> CheckResult:
             status="fail",
             title="DKIM",
             detail=(
-                f"No DKIM records found across {len(DKIM_SELECTORS)} common selectors. "
+                f"No DKIM records found across {len(DKIM_PROBE_SELECTORS)} common selectors. "
                 "Either DKIM isn't configured, or your provider uses a custom/rotating "
                 "selector (eg AWS SES, HubSpot, Salesforce MC). Verify externally by "
                 "sending a test email to check-auth@verifier.port25.com or "
@@ -688,8 +808,8 @@ def check_dkim(domain: str) -> CheckResult:
                 "DKIM-Signature header on a real outbound mail."
             ),
             raw_data={
-                "checked_selectors": DKIM_SELECTORS,
-                "checked_count": len(DKIM_SELECTORS),
+                "checked_selectors_sample": DKIM_PROBE_SELECTORS[:20],
+                "checked_count": len(DKIM_PROBE_SELECTORS),
             },
             points=0,
             max_points=15,
