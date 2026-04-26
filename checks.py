@@ -2723,18 +2723,92 @@ def _cymru_asn_lookup(ip: str) -> dict:
     return {}
 
 
-def _check_reputation_dnsbl(ip: str, zone: str) -> bool:
-    """Check a single reputation DNSBL — returns True if listed/found"""
+def _parse_scrollout_response(ip_str: str) -> str:
+    """ScrolloutF1 returns 127.2.X.2 where X is the reputation score (0-100).
+    Higher score = better reputation. Google's IPs return 60 (good).
+    A 'listing' here is NOT a binary positive — it's a numerical score.
+    INBOX-74: pre-fix we treated any response as 'listed' which falsely
+    flagged every legitimate sender (Google, Microsoft, etc.)."""
+    parts = ip_str.split(".")
+    if len(parts) == 4 and parts[0] == "127" and parts[1] == "2":
+        try:
+            score = int(parts[2])
+            if score >= 50:
+                return "good_reputation"  # Score ≥ 50 = positive signal
+            elif score >= 30:
+                return "neutral"          # Mid-range — no strong signal
+            else:
+                return "listed"           # < 30 = real concerning reputation
+        except ValueError:
+            return "unknown"
+    return "unknown"
+
+
+def _parse_hostkarma_response(ip_str: str) -> str:
+    """HostKarma codes (junkemailfilter.com):
+       127.0.0.1 = whitelist (good)
+       127.0.0.2 = blacklist (bad)
+       127.0.0.3 = yellowlist (caution)
+       127.0.0.4 = brownlist (worse)
+       127.0.0.5 = no-op / refused
+    INBOX-74: pre-fix we treated all of these as 'listed' which conflated
+    whitelist and refused responses with actual blacklist hits."""
+    if ip_str == "127.0.0.1":
+        return "whitelisted"
+    elif ip_str == "127.0.0.2":
+        return "listed"
+    elif ip_str in ("127.0.0.3", "127.0.0.4"):
+        return "listed"      # Caution-level, still counts as flagged
+    elif ip_str == "127.0.0.5":
+        return "refused"     # Operator says "we don't have data" — ignore
+    return "unknown"
+
+
+# Per-zone response parsers. INBOX-74: each reputation DNSBL has its own
+# code semantics; we can't use a single binary "listed" interpretation.
+REPUTATION_RESPONSE_PARSERS = {
+    "reputation-ip.rbl.scrolloutf1.com": _parse_scrollout_response,
+    "hostkarma.junkemailfilter.com": _parse_hostkarma_response,
+}
+
+
+def _check_reputation_dnsbl(ip: str, zone: str) -> str:
+    """Check a single reputation DNSBL — returns categorical status.
+
+    Returns one of:
+      - 'listed'           — real positive listing (bad reputation)
+      - 'whitelisted'      — explicit whitelist hit
+      - 'good_reputation'  — high reputation score (Scrollout-style)
+      - 'neutral'          — mid-range score, no signal
+      - 'refused'          — DNSBL operator returned a "no data" sentinel
+      - 'unknown'          — response code didn't match any known pattern
+      - 'not_found'        — no record at all (= clean, not in this DNSBL)
+
+    INBOX-74 (2026-04-26): was returning bool, treated any successful
+    resolve as 'listed'. ScrolloutF1 returns reputation scores not
+    binary listings, so high-reputation IPs (Google = 60) were being
+    falsely flagged as bad. Pre-fix, every clean Google/Microsoft scan
+    showed 'Flagged on ScrolloutF1' and lost 4/8 points.
+    """
     reversed_ip = ".".join(reversed(ip.split(".")))
     query = f"{reversed_ip}.{zone}"
     try:
         resolver = dns.resolver.Resolver()
         resolver.timeout = 3
         resolver.lifetime = 3
-        resolver.resolve(query, "A")
-        return True
+        answers = resolver.resolve(query, "A")
+        for rdata in answers:
+            ip_str = rdata.to_text()
+            parser = REPUTATION_RESPONSE_PARSERS.get(zone)
+            if parser:
+                return parser(ip_str)
+            # Default for zones without a custom parser: any 127.0.0.X
+            # response means "listed" (or "whitelisted" if zone is a
+            # whitelist — that mapping happens in check_ip_reputation).
+            return "listed"
+        return "not_found"
     except Exception:
-        return False
+        return "not_found"
 
 
 def _sender_score_lookup(ip: str) -> Optional[int]:
@@ -2823,15 +2897,26 @@ def check_ip_reputation(domain: str) -> CheckResult:
         except Exception:
             pass
 
-        # Collect reputation DNSBL results
+        # Collect reputation DNSBL results.
+        # INBOX-74: _check_reputation_dnsbl now returns categorical status
+        # ('listed', 'whitelisted', 'good_reputation', 'neutral', 'refused',
+        # 'unknown', 'not_found') instead of bool. Map each category to
+        # whitelist/flag bucket — refused/neutral/unknown/not_found all
+        # produce no signal.
         for future in concurrent.futures.as_completed(rbl_futures, timeout=10):
             rbl = rbl_futures[future]
+            zone_type = rbl.get("type", "blacklist")
             try:
-                listed = future.result()
-                if listed and rbl.get("type") == "whitelist":
+                result = future.result()
+                if result in ("whitelisted", "good_reputation"):
                     whitelisted.append(rbl["name"])
-                elif listed and rbl.get("type") != "whitelist":
-                    reputation_flags.append(rbl["name"])
+                elif result == "listed":
+                    if zone_type == "whitelist":
+                        # Listed in a whitelist zone = the IP is whitelisted
+                        whitelisted.append(rbl["name"])
+                    else:
+                        reputation_flags.append(rbl["name"])
+                # 'neutral', 'refused', 'unknown', 'not_found' → no signal
             except Exception:
                 pass
 

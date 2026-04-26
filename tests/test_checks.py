@@ -1233,6 +1233,130 @@ class TestCanonicalMaxPointsAlignment:
         assert CANONICAL_MAX_POINTS["tls_rpt"] == 3
 
 
+class TestReputationDNSBLParsers:
+    """INBOX-74 — reputation DNSBL response code parsing.
+
+    Pre-INBOX-74 we treated any successful resolve as 'listed', which
+    caused false positives on Google/Microsoft scans because:
+      - ScrolloutF1 returns reputation scores (127.2.X.2 where X = 0-100,
+        higher = better) — a 'listing' there means 'we have a score for
+        you', not 'you're flagged'
+      - HostKarma returns multi-valued codes including refusal sentinels
+
+    Pinned to google.com finding (2026-04-26): 173.194.203.26 was flagged
+    on ScrolloutF1 with score 60 (good reputation) but reported as
+    'Flagged on ScrolloutF1', losing 4/8 points.
+    """
+
+    def test_scrollout_high_score_is_good_reputation(self):
+        """127.2.60.2 = reputation 60 = good (Google's IP)."""
+        from checks import _parse_scrollout_response
+        assert _parse_scrollout_response("127.2.60.2") == "good_reputation"
+        assert _parse_scrollout_response("127.2.50.2") == "good_reputation"
+        assert _parse_scrollout_response("127.2.99.2") == "good_reputation"
+
+    def test_scrollout_mid_score_is_neutral(self):
+        """30-49 = mid-range, no signal."""
+        from checks import _parse_scrollout_response
+        assert _parse_scrollout_response("127.2.30.2") == "neutral"
+        assert _parse_scrollout_response("127.2.45.2") == "neutral"
+
+    def test_scrollout_low_score_is_listed(self):
+        """< 30 = real concerning reputation."""
+        from checks import _parse_scrollout_response
+        assert _parse_scrollout_response("127.2.10.2") == "listed"
+        assert _parse_scrollout_response("127.2.0.2") == "listed"
+        assert _parse_scrollout_response("127.2.29.2") == "listed"
+
+    def test_scrollout_unknown_format_returns_unknown(self):
+        """Defensive: response that doesn't match the 127.2.X.2 pattern."""
+        from checks import _parse_scrollout_response
+        assert _parse_scrollout_response("127.0.0.2") == "unknown"
+        assert _parse_scrollout_response("garbage") == "unknown"
+
+    def test_hostkarma_whitelist_is_whitelisted(self):
+        """127.0.0.1 = whitelist."""
+        from checks import _parse_hostkarma_response
+        assert _parse_hostkarma_response("127.0.0.1") == "whitelisted"
+
+    def test_hostkarma_blacklist_is_listed(self):
+        """127.0.0.2 = blacklist; 0.3 yellow, 0.4 brown — all 'listed'."""
+        from checks import _parse_hostkarma_response
+        assert _parse_hostkarma_response("127.0.0.2") == "listed"
+        assert _parse_hostkarma_response("127.0.0.3") == "listed"
+        assert _parse_hostkarma_response("127.0.0.4") == "listed"
+
+    def test_hostkarma_refused_is_refused(self):
+        """127.0.0.5 = no-op / refused. Must NOT count as listed."""
+        from checks import _parse_hostkarma_response
+        assert _parse_hostkarma_response("127.0.0.5") == "refused"
+
+    def test_check_reputation_dnsbl_returns_categorical(self):
+        """Function returns string category, not bool. Backward-compat
+        check: every public path that previously expected a bool needs
+        to be updated."""
+        import checks
+        # not_found case (no DNS record at all)
+        with patch("dns.resolver.Resolver") as MockResolver:
+            mock_resolver = MagicMock()
+            MockResolver.return_value = mock_resolver
+            mock_resolver.resolve.side_effect = Exception("NXDOMAIN")
+            result = checks._check_reputation_dnsbl(
+                "1.2.3.4", "reputation-ip.rbl.scrolloutf1.com"
+            )
+            assert result == "not_found"
+            assert isinstance(result, str), "must return str, not bool (INBOX-74)"
+
+
+class TestCheckIPReputationGoogleNotFalseFlagged:
+    """INBOX-74 — google.com IP must NOT show 'Flagged on ScrolloutF1'
+    when ScrolloutF1 returns a high reputation score."""
+
+    def test_google_high_scrollout_score_does_not_flag(self):
+        """ScrolloutF1 returns 127.2.60.2 (score 60) for Google.
+        Pre-INBOX-74 this was treated as 'listed' (false positive).
+        Now it must be treated as 'good_reputation' → whitelisted."""
+        import checks
+
+        # Mock _check_reputation_dnsbl to simulate ScrolloutF1 returning
+        # good_reputation for Google's IP (the actual category our parser
+        # returns for 127.2.60.2)
+        def fake_dnsbl(ip, zone):
+            if zone == "reputation-ip.rbl.scrolloutf1.com":
+                return "good_reputation"
+            if zone == "list.dnswl.org":
+                return "listed"   # whitelist hit
+            return "not_found"
+
+        # Mock everything else needed for check_ip_reputation
+        with patch("checks._check_reputation_dnsbl", side_effect=fake_dnsbl), \
+             patch("checks.safe_dns_query") as mock_dns, \
+             patch("checks._cymru_asn_lookup", return_value={"asn": "15169", "asn_name": "Google", "country": "US"}), \
+             patch("checks._sender_score_lookup", return_value=None):
+
+            def dns_side(qname, rdtype="A"):
+                if rdtype == "MX":
+                    return ["10 smtp.google.com"]
+                if rdtype == "A":
+                    return ["173.194.203.26"]
+                return None
+            mock_dns.side_effect = dns_side
+
+            from checks import check_ip_reputation
+            r = check_ip_reputation("google.com")
+
+        # ScrolloutF1 must NOT appear in reputation_flags
+        # (it should be in whitelisted via good_reputation)
+        flag_text = " ".join(r.detail.split()).lower()
+        assert "flagged on scrolloutf1" not in flag_text, (
+            "INBOX-74 regression: ScrolloutF1 with good_reputation must "
+            "NOT appear as a flag. Pre-fix this caused false positives "
+            "on every Google/Microsoft/Apple scan."
+        )
+        # Status should be pass (no warn/fail) when only good_reputation
+        assert r.status == "pass"
+
+
 # ─── CHECK RESULT MODEL TESTS ───────────────────────────────────
 
 class TestCheckResultModel:
