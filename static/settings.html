@@ -5,23 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Settings — InboxScore</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
-  --bg: #0a0a0f; --surface: #12121a; --surface-2: #1a1a26; --border: #2a2a3a;
-  --text: #e4e4ef; --text-muted: #8888a0; --accent: #6366f1; --accent-glow: rgba(99,102,241,0.3);
-  --green: #22c55e; --red: #ef4444; --yellow: #eab308; --orange: #f97316;
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f5; --surface-3: #e4e4e7;
+  --border: #e4e4e7; --border-strong: #d4d4d8;
+  --text: #18181b; --text-muted: #52525b; --text-subtle: #71717a;
+  --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #ede9fe; --accent-glow: rgba(124,58,237,0.18);
+  --green: #047857; --green-bg: #d1fae5;
+  --yellow: #b45309; --yellow-bg: #fef3c7;
+  --orange: #c2410c; --orange-bg: #ffedd5;
+  --red: #b91c1c; --red-bg: #fee2e2;
 }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
 /* Top Nav */
-.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 10; }
-.logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
-.logo-icon { width: 26px; height: 26px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; }
+.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); z-index: 10; }
+.logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); letter-spacing: -0.01em; }
+.logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; box-shadow: 0 4px 8px rgba(139,92,246,0.25); }
 .nav-right { display: flex; align-items: center; gap: 16px; }
 .user-name { font-size: 13px; color: var(--text-muted); }
-.logout-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
-.logout-btn:hover { border-color: var(--red); color: var(--red); }
+.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
 .mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
 
 /* Layout */
@@ -32,7 +40,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .sidebar-nav { list-style: none; }
 .sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
-.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); }
+.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); }
 .sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
 .sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
 .plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
@@ -48,7 +56,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .settings-sidebar { width: 200px; flex-shrink: 0; border-right: 1px solid var(--border); }
 .settings-sidebar a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: var(--text-muted); text-decoration: none; font-size: 13px; border-left: 2px solid transparent; cursor: pointer; transition: all 0.15s; }
 .settings-sidebar a:hover { color: var(--text); background: var(--surface-2); }
-.settings-sidebar a.s-active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.08); font-weight: 600; }
+.settings-sidebar a.s-active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 .settings-sidebar a .s-icon { font-size: 15px; width: 18px; text-align: center; }
 .settings-sidebar a .s-soon { font-size: 9px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); padding: 1px 5px; border-radius: 3px; margin-left: auto; text-transform: uppercase; letter-spacing: 0.3px; }
 
@@ -83,7 +91,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* Buttons */
 .btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
 .btn-primary { background: var(--accent); color: white; }
-.btn-primary:hover { background: #5558e6; }
+.btn-primary:hover { background: var(--accent-hover); }
 .btn-sm { padding: 5px 14px; font-size: 12px; background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; cursor: pointer; transition: all 0.2s; font-weight: 500; }
 .btn-sm:hover { border-color: var(--text-muted); color: var(--text); }
 
@@ -93,8 +101,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* Toast */
 .toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; z-index: 1000; transform: translateY(-20px); opacity: 0; transition: all 0.3s; pointer-events: none; }
 .toast.show { transform: translateY(0); opacity: 1; }
-.toast.success { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
-.toast.error { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.toast.success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.toast.error { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
 
 /* Sidebar Backdrop */
 .sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
@@ -228,7 +236,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
             <div id="gpm-actions"></div>
           </div>
-          <div id="gpm-pro-gate" style="display:none;margin:-6px 0 12px;padding:10px 16px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;">
+          <div id="gpm-pro-gate" style="display:none;margin:-6px 0 12px;padding:10px 16px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;">
             <div style="font-size:12px;color:var(--text-muted);">
               🔒 Google Postmaster integration is available on <strong style="color:var(--accent);">Pro</strong> plans and above.
             </div>
@@ -319,7 +327,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
           <!-- Google Safe Browsing (future) -->
           <div class="connection-card" style="border-style:dashed;opacity:0.6;">
-            <div class="connection-icon" style="background:rgba(99,102,241,0.12);font-size:14px;">🛡️</div>
+            <div class="connection-icon" style="background:var(--accent-soft);font-size:14px;">🛡️</div>
             <div class="connection-info">
               <div class="connection-name">Google Safe Browsing</div>
               <div class="connection-status">Domain safety checks · Coming soon</div>
