@@ -141,8 +141,8 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .scan-box-dash button:disabled { opacity: 0.6; cursor: not-allowed; }
 .scan-error-dash { background: var(--red-bg); border: 1px solid var(--red); color: var(--red); padding: 10px 14px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; display: none; }
 
-.back-to-dash { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; margin-bottom: 20px; cursor: pointer; background: none; border: none; font-family: inherit; padding: 4px 0; }
-.back-to-dash:hover { color: var(--text); }
+.back-to-dash { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); text-decoration: none; font-size: 13px; margin-bottom: 20px; cursor: pointer; background: var(--accent-soft); border: 1px solid var(--accent); font-family: inherit; padding: 8px 14px; border-radius: 8px; font-weight: 500; transition: all 0.15s; }
+.back-to-dash:hover { background: var(--accent); color: white; }
 
 /* Scan-in-progress view */
 .scan-loading { text-align: center; padding: 48px 20px; }
@@ -1482,6 +1482,15 @@ function dashShowView(view) {
   const el = document.getElementById('view-' + view);
   if (el) el.classList.add('active');
   window.scrollTo(0, 0);
+  // INBOX-85: when the user navigates back to the dashboard from the
+  // scanning / scan-results views, re-render the single view so any scan
+  // that just completed is reflected. Without this, the in-memory _dh
+  // cache stays stuck at the page-load snapshot and the user sees stale
+  // data ("No scan yet") even though they just ran a scan.
+  if (view === 'dashboard' && window._dh && typeof dhRenderSingleView === 'function') {
+    if (window._dh.selectedDomain) dhRenderSingleView();
+    if (typeof dhRenderDomainDropdown === 'function') dhRenderDomainDropdown();
+  }
 }
 
 async function dashStartScan() {
@@ -1559,6 +1568,33 @@ async function dashStartScan() {
     }
 
     const data = await response.json();
+
+    // INBOX-85: cache the just-completed scan into the Dashboard's
+    // in-memory state so when the user clicks "Back to Dashboard" the
+    // Score Hero / DNS cards / Recent Scans for this domain reflect the
+    // new result instead of showing "No scan yet". Also flip the selected
+    // domain to whatever was just scanned so the user lands on the
+    // expected card. If the scanned domain isn't in the monitored list
+    // yet, append it as a synthetic entry so the selector includes it
+    // immediately (the user can still hit "+ Save to Monitored" to
+    // persist it via /api/user/domains).
+    if (window._dh) {
+      const fresh = {
+        domain: domain,
+        score: data.score,
+        results: data,
+        created_at: new Date().toISOString(),
+      };
+      window._dh.scansByDomain[domain] = fresh;
+      if (!window._dh.scansListByDomain[domain]) window._dh.scansListByDomain[domain] = [];
+      window._dh.scansListByDomain[domain].unshift(fresh);
+      window._dh.selectedDomain = domain;
+      const inMonitored = window._dh.domains.some(d => d.domain === domain);
+      if (!inMonitored) {
+        // Mark with a flag so the UI can hint that this is unsaved.
+        window._dh.domains = window._dh.domains.concat([{ domain: domain, _unsaved: true }]);
+      }
+    }
 
     // Finish the loading animation before showing results
     clearInterval(interval);
@@ -1890,11 +1926,17 @@ async function dashSaveToMonitored(domain) {
       throw new Error(err && err.detail ? (typeof err.detail === 'string' ? err.detail : err.detail.message) : 'Failed to save domain');
     }
     window._monitoredDomains.add(domain.toLowerCase());
+    // INBOX-85: flip the synthetic _unsaved flag off so the Dashboard
+    // selector reflects the new monitored state when user navigates back.
+    if (window._dh && Array.isArray(window._dh.domains)) {
+      const m = window._dh.domains.find(d => d.domain === domain);
+      if (m) delete m._unsaved;
+    }
     // Replace the card with a success state
     const card = document.getElementById('save-monitor-card');
     if (card) {
       card.style.borderColor = 'var(--green)';
-      card.innerHTML = `<div class="save-monitor-text">✓ <strong>${escapeHtml(domain)}</strong> is now being monitored daily. <a href="/email-health?domain=${encodeURIComponent(domain)}" style="color:var(--accent);">View health page →</a></div>`;
+      card.innerHTML = `<div class="save-monitor-text">✓ <strong>${escapeHtml(domain)}</strong> is now being monitored daily. <a href="#" onclick="dashShowView('dashboard');return false;" style="color:var(--accent);">Back to Dashboard →</a></div>`;
     }
   } catch (err) {
     btn.disabled = false;

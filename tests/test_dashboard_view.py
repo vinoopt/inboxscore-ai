@@ -234,6 +234,39 @@ class TestRefreshButton:
         assert "function dhRefreshSelectedDomain()" in DASHBOARD_HTML
 
 
+class TestDashboardRefreshOnNavBack:
+    """INBOX-85 — after dashStartScan completes, the in-memory _dh state must
+    be updated so navigating back to the Dashboard surfaces the new scan
+    (without a hard page reload). Previously dashShowView only toggled
+    view classes and the user saw 'No scan yet' for a domain they had
+    just scanned."""
+
+    def test_dash_show_view_rerenders_dashboard(self):
+        idx = DASHBOARD_HTML.index("function dashShowView(view)")
+        body = DASHBOARD_HTML[idx : idx + 1000]
+        assert "dhRenderSingleView()" in body, (
+            "dashShowView must call dhRenderSingleView() when switching to "
+            "'dashboard' so just-completed scans appear (INBOX-85)."
+        )
+
+    def test_dash_start_scan_updates_dh_state(self):
+        idx = DASHBOARD_HTML.index("async function dashStartScan()")
+        body = DASHBOARD_HTML[idx : idx + 8000]
+        assert "window._dh.scansByDomain[domain] = fresh" in body, (
+            "dashStartScan must push the new scan into "
+            "window._dh.scansByDomain so the Dashboard renders it on "
+            "return (INBOX-85)."
+        )
+        assert "window._dh.scansListByDomain[domain].unshift(fresh)" in body, (
+            "dashStartScan must prepend the new scan to history so Recent "
+            "Scans on the Dashboard reflects it (INBOX-85)."
+        )
+        assert "window._dh.selectedDomain = domain" in body, (
+            "dashStartScan must flip the selected domain to the just-"
+            "scanned one so the user lands on the right card (INBOX-85)."
+        )
+
+
 class TestScanDetailViewIntact:
     """Sanity: the Scan Detail view (which DOES show BIMI + Domain Age) must
     remain intact. INBOX-82 only changes the Dashboard surface."""
