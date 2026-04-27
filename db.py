@@ -945,19 +945,40 @@ def get_postmaster_domains_for_user(user_id: str) -> list:
 
 
 def get_last_postmaster_sync_at(user_id: str) -> str | None:
-    """INBOX-102: return the ISO timestamp of the most recent metrics row
-    InboxScore wrote for this user — i.e. when we last successfully pulled
-    from Google. Used by /api/postmaster/status to render "Last synced X
-    ago" on the Email Health page. Returns None if the user has no rows."""
+    """INBOX-102: return the ISO timestamp of the user's most recent
+    successful Postmaster sync. Used by /api/postmaster/status to render
+    "Last synced X ago" on the Email Health page.
+
+    Source of truth is postmaster_sync_log.sync_completed_at where
+    status = 'success' (the scheduler writes one row per run via
+    log_postmaster_sync). Falls back to MAX(created_at) on
+    postmaster_metrics if the log table is empty (older accounts that
+    were synced before sync_log existed). Returns None if neither path
+    finds a record."""
     sb = get_supabase()
     if not sb:
         return None
     try:
-        result = sb.table("postmaster_metrics").select("updated_at").eq(
+        # Primary: most recent successful sync run.
+        result = sb.table("postmaster_sync_log").select(
+            "sync_completed_at"
+        ).eq("user_id", user_id).eq("status", "success").order(
+            "sync_completed_at", desc=True
+        ).limit(1).execute()
+        if result.data and result.data[0].get("sync_completed_at"):
+            return result.data[0]["sync_completed_at"]
+
+        # Fallback: most recent metric row created_at. NB this changes
+        # only when a NEW (user, domain, date) tuple is inserted — i.e.
+        # roughly once per day, when the scheduler picks up yesterday's
+        # data. Same-day re-syncs upsert existing rows and don't bump
+        # created_at, but that's an acceptable approximation when the
+        # sync_log isn't available.
+        result = sb.table("postmaster_metrics").select("created_at").eq(
             "user_id", user_id
-        ).order("updated_at", desc=True).limit(1).execute()
+        ).order("created_at", desc=True).limit(1).execute()
         if result.data:
-            return result.data[0].get("updated_at")
+            return result.data[0].get("created_at")
         return None
     except Exception as e:
         print(f"Error getting last postmaster sync time: {e}")
