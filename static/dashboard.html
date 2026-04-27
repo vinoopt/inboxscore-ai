@@ -1204,16 +1204,60 @@ function dhRenderSafety(domain) {
     }
   }
 
-  // INBOX-93: Google Safe Browsing + Phishing Database are not yet wired
-  // up to real external-database checks. Show "Coming soon" honestly
-  // rather than fake "Safe / Clean" — Vinoop's preference is honest
-  // gaps over misleading green ticks.
-  const gsbValue = 'Coming soon';
-  const gsbMeta  = 'Real-time GSB API integration planned';
-  const gsbClass = 'unknown';
-  const phValue  = 'Coming soon';
-  const phMeta   = 'Phishing DB integration planned';
-  const phClass  = 'unknown';
+  // INBOX-95: Real Google Safe Browsing tile — read from results.checks
+  // via the same name→check adapter we use for the diag grid. The 3rd
+  // tile is now Domain Age (replacing the old fake "Phishing Database").
+  let gsbValue = '—', gsbMeta = 'Not checked', gsbClass = 'unknown';
+  let ageValue = '—', ageMeta = 'Not checked', ageClass = 'unknown';
+
+  if (scan) {
+    const byName = dhCheckByName(scan);
+
+    // Google Safe Browsing tile
+    const gsb = byName['google_safe_browsing'];
+    if (gsb) {
+      const st = (gsb.status || '').toLowerCase();
+      if (st === 'pass' || st === 'good') {
+        gsbValue = 'Safe'; gsbClass = 'clean';
+        gsbMeta = 'No threats reported by Google';
+      } else if (st === 'fail') {
+        gsbValue = 'Flagged'; gsbClass = 'flagged';
+        gsbMeta = gsb.detail ? escapeHtml(gsb.detail).slice(0, 80) : 'Flagged by Google Safe Browsing';
+      } else {
+        // 'info' — most commonly: API key not configured yet
+        gsbValue = 'Coming soon'; gsbClass = 'unknown';
+        gsbMeta = gsb.detail && gsb.detail.includes('Not configured')
+          ? 'Awaiting GSB API key setup'
+          : (gsb.detail ? escapeHtml(gsb.detail).slice(0, 80) : 'Lookup unavailable');
+      }
+    }
+
+    // Domain Age tile — replaces the fake "Phishing Database" placeholder.
+    const age = byName['domain_age'];
+    if (age) {
+      const st = (age.status || '').toLowerCase();
+      const years = age.raw_data && age.raw_data.age_years;
+      const days  = age.raw_data && age.raw_data.age_days;
+      if (st === 'pass' && years != null && years >= 1) {
+        ageValue = `${Math.floor(years)} yr${Math.floor(years) === 1 ? '' : 's'}`;
+        ageClass = 'clean';
+        ageMeta = `Established · ${age.raw_data && age.raw_data.created || 'long history'}`;
+      } else if (st === 'pass' && days != null) {
+        ageValue = `${days} days`;
+        ageClass = 'clean';
+        ageMeta = 'Reputation still building';
+      } else if (st === 'warn' && days != null) {
+        ageValue = `${days} days`;
+        ageClass = 'flagged';
+        ageMeta = days < 30 ? 'Brand-new — heavy spam filtering' : 'Warm up volume slowly';
+      } else {
+        // info / unknown — RDAP + WHOIS both failed
+        ageValue = 'Unknown';
+        ageClass = 'unknown';
+        ageMeta = 'WHOIS / RDAP lookup failed';
+      }
+    }
+  }
 
   grid.innerHTML = `
     <div class="safety-card">
@@ -1227,9 +1271,9 @@ function dhRenderSafety(domain) {
       <div class="safety-card-meta">${gsbMeta}</div>
     </div>
     <div class="safety-card">
-      <div class="safety-card-label">Phishing Database</div>
-      <div class="safety-card-value ${phClass}">${phValue}</div>
-      <div class="safety-card-meta">${phMeta}</div>
+      <div class="safety-card-label">Domain Age</div>
+      <div class="safety-card-value ${ageClass}">${ageValue}</div>
+      <div class="safety-card-meta">${ageMeta}</div>
     </div>
   `;
 }

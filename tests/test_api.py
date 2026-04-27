@@ -91,7 +91,8 @@ class TestScanEndpoint:
             assert check["category"] in ["authentication", "reputation", "infrastructure"]
 
     def test_scan_all_checks_present(self, client, mock_db):
-        """All 14 check types (INBOX-42 added domain_blacklists) should be in the response."""
+        """All 15 check types should be in the response.
+           INBOX-42 added domain_blacklists; INBOX-95 added google_safe_browsing."""
         response = client.post("/api/scan", json={"domain": "google.com"})
         data = response.json()
 
@@ -103,6 +104,7 @@ class TestScanEndpoint:
             "domain_blacklists",  # INBOX-42
             "tls", "reverse_dns", "bimi", "mta_sts", "tls_rpt",
             "senders", "domain_age", "ip_reputation",
+            "google_safe_browsing",  # INBOX-95
         }
         actual_checks = {c["name"] for c in data["checks"]}
         assert expected_checks == actual_checks

@@ -40,6 +40,7 @@ from checks import (
     check_sender_detection,
     check_domain_age,
     check_ip_reputation,
+    check_google_safe_browsing,  # INBOX-95
 )
 
 
@@ -68,6 +69,7 @@ CANONICAL_MAX_POINTS = {
     "reverse_dns": 5,
     "domain_age": 3,
     "ip_reputation": 8,
+    "google_safe_browsing": 2,   # INBOX-95 — flagged = -2, clean = +2
     "bimi": 0,
     "mta_sts": 5,             # INBOX-70 — was 0, now scored (Google et al pass enforce)
     "tls_rpt": 3,             # INBOX-70 — was 0, now scored (rewards visibility into TLS failures)
@@ -136,6 +138,7 @@ def run_full_scan(domain: str, source: str = "api") -> dict:
         future_senders = executor.submit(check_sender_detection, domain)
         future_age = executor.submit(check_domain_age, domain)
         future_ip_rep = executor.submit(check_ip_reputation, domain)
+        future_gsb = executor.submit(check_google_safe_browsing, domain)  # INBOX-95
 
         # Timeouts: DNS-only checks get 8s, network-heavy checks get 12s.
         checks = [
@@ -153,6 +156,7 @@ def run_full_scan(domain: str, source: str = "api") -> dict:
             _safe_result(future_senders, "sender_detection", "Email Provider", "infrastructure", 8, domain),
             _safe_result(future_age, "domain_age", "Domain Age", "reputation", 10, domain),
             _safe_result(future_ip_rep, "ip_reputation", "IP Reputation", "reputation", 10, domain),
+            _safe_result(future_gsb, "google_safe_browsing", "Google Safe Browsing", "reputation", 10, domain),
         ]
 
     # Calculate total score — capped at 100.

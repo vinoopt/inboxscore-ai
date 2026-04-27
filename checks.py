@@ -2955,27 +2955,80 @@ def check_sender_detection(domain: str) -> CheckResult:
         )
 
 
+def _candidate_apex_domains(domain: str) -> list:
+    """Return apex-domain candidates from longest to shortest, for RDAP retry.
+
+    INBOX-78 fix: RDAP servers only know about registered (apex) domains,
+    not subdomains. e.g. redrail.redbus.com → 404, but redbus.com → 200.
+    We try the full input first (handles edge cases where the input is
+    already an apex), then walk up the labels until we have 2 parts left.
+
+    >>> _candidate_apex_domains('redrail.redbus.com')
+    ['redrail.redbus.com', 'redbus.com']
+    >>> _candidate_apex_domains('foo.bar.example.com')
+    ['foo.bar.example.com', 'bar.example.com', 'example.com']
+    >>> _candidate_apex_domains('example.com')
+    ['example.com']
+    """
+    parts = domain.lower().strip(".").split(".")
+    if len(parts) <= 2:
+        return [domain.lower().strip(".")]
+    candidates = []
+    for i in range(len(parts) - 1):
+        # Stop when only 2 labels remain (apex.tld); shorter would be just a TLD
+        if len(parts) - i < 2:
+            break
+        candidates.append(".".join(parts[i:]))
+    return candidates
+
+
 def check_domain_age(domain: str) -> CheckResult:
-    """Check domain age via WHOIS/RDAP — newer domains have lower reputation"""
+    """Check domain age via WHOIS/RDAP — newer domains have lower reputation.
+
+    INBOX-78 fix (2026-04-26): subdomains like redrail.redbus.com used to
+    return 404 from rdap.org because RDAP only resolves registered domains.
+    We now walk the candidate apex domains until one returns a registration
+    event, falling back to WHOIS as before.
+    """
     try:
         creation_date = None
         lookup_method = None
+        rdap_attempts = []
 
-        # Method 1: RDAP (fast HTTP call, preferred for speed)
+        # Method 1: RDAP (fast HTTP call, preferred for speed). Try the
+        # input domain first, then walk to apex if it 404s — the most-
+        # specific successful match wins.
         try:
-            rdap_url = f"https://rdap.org/domain/{domain}"
-            with httpx.Client(timeout=5, follow_redirects=True) as client:
-                resp = client.get(rdap_url, headers={"Accept": "application/rdap+json"})
-                if resp.status_code == 200:
-                    data = resp.json()
-                    events = data.get("events", [])
-                    for event in events:
-                        if event.get("eventAction") == "registration":
-                            date_str = event.get("eventDate", "")
-                            if date_str:
-                                creation_date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-                                lookup_method = "RDAP"
+            with httpx.Client(timeout=8, follow_redirects=True) as client:
+                for candidate in _candidate_apex_domains(domain):
+                    try:
+                        resp = client.get(
+                            f"https://rdap.org/domain/{candidate}",
+                            headers={"Accept": "application/rdap+json"},
+                        )
+                        rdap_attempts.append((candidate, resp.status_code))
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            for event in data.get("events", []) or []:
+                                if event.get("eventAction") == "registration":
+                                    date_str = event.get("eventDate", "")
+                                    if date_str:
+                                        creation_date = datetime.fromisoformat(
+                                            date_str.replace("Z", "+00:00")
+                                        )
+                                        lookup_method = (
+                                            "RDAP" if candidate == domain
+                                            else f"RDAP (apex {candidate})"
+                                        )
+                                        break
+                            if creation_date:
                                 break
+                        elif resp.status_code != 404:
+                            # 5xx or other transient — stop walking, fall back
+                            break
+                    except Exception:
+                        # Network blip on this candidate — try the next one
+                        continue
         except Exception:
             pass
 
@@ -2989,8 +3042,15 @@ def check_domain_age(domain: str) -> CheckResult:
                     if isinstance(cd, list):
                         cd = cd[0]
                     if cd:
+                        # INBOX-95: removed local `from datetime import timezone`
+                        # that shadowed the module-level import. Python's
+                        # function-scope rule made every later reference to
+                        # `timezone` (e.g. line 3068's datetime.now(timezone.utc))
+                        # raise UnboundLocalError BEFORE this line ran — silently
+                        # swallowed by the outer try/except, returning
+                        # "Could not determine domain age" for every domain
+                        # whose RDAP path succeeded.
                         if cd.tzinfo is None:
-                            from datetime import timezone
                             cd = cd.replace(tzinfo=timezone.utc)
                         creation_date = cd
                         lookup_method = "WHOIS"
@@ -3077,15 +3137,152 @@ def check_domain_age(domain: str) -> CheckResult:
             ] if age_days < 90 else None
         )
 
-    except Exception:
+    except Exception as e:
+        # INBOX-95: capture the actual exception so the failure is debuggable
+        # in Sentry instead of silently degrading to "Could not determine."
+        import logging as _lg
+        _lg.getLogger("inboxscore.checks").exception(
+            "check_domain_age.failed", extra={"domain": domain, "error": str(e)[:200]}
+        )
         return CheckResult(
             name="domain_age",
             category="reputation",
             status="info",
             title="Domain Age",
             detail="Could not determine domain age",
+            raw_data={"error": str(e)[:200]},
             points=0,
             max_points=0
+        )
+
+
+# ─── GOOGLE SAFE BROWSING CHECK ─────────────────────────────────────
+# INBOX-95: real Google Safe Browsing v4 lookup. Replaces the fake "Safe"
+# placeholder on the Dashboard's Domain Safety section. Free Google Cloud
+# API quota: 10,000 requests/day, 1,000/min — plenty for our scan volume.
+
+import os as _os  # alias to avoid clobbering anything called `os` in this module
+
+
+def check_google_safe_browsing(domain: str) -> CheckResult:
+    """Query Google Safe Browsing v4 for the domain. Flags malware,
+    social-engineering (phishing), unwanted-software, and potentially-
+    harmful-application threats.
+
+    Returns CheckResult.status:
+      • 'pass'  — no threats reported
+      • 'fail'  — domain is currently flagged
+      • 'info'  — could not check (no API key OR network failure).
+                  We don't penalise users for our own infra gaps.
+
+    Setup: set GOOGLE_SAFE_BROWSING_API_KEY in Render env. Get a key at
+    https://console.cloud.google.com/apis/library/safebrowsing.googleapis.com
+    """
+    api_key = _os.environ.get("GOOGLE_SAFE_BROWSING_API_KEY", "").strip()
+    if not api_key:
+        return CheckResult(
+            name="google_safe_browsing",
+            category="reputation",
+            status="info",
+            title="Google Safe Browsing",
+            detail=(
+                "Not configured — Google Safe Browsing checks are paused "
+                "until a GOOGLE_SAFE_BROWSING_API_KEY env var is set. "
+                "Free tier covers 10,000 lookups/day."
+            ),
+            raw_data={"reason": "missing_api_key"},
+            points=0,
+            max_points=0,
+        )
+
+    # Build the threat-match request. We probe both http:// and https://
+    # variants of the apex because GSB matches on full URLs.
+    payload = {
+        "client": {"clientId": "inboxscore", "clientVersion": "1.0"},
+        "threatInfo": {
+            "threatTypes": [
+                "MALWARE",
+                "SOCIAL_ENGINEERING",
+                "UNWANTED_SOFTWARE",
+                "POTENTIALLY_HARMFUL_APPLICATION",
+            ],
+            "platformTypes": ["ANY_PLATFORM"],
+            "threatEntryTypes": ["URL"],
+            "threatEntries": [
+                {"url": f"http://{domain}/"},
+                {"url": f"https://{domain}/"},
+            ],
+        },
+    }
+
+    try:
+        with httpx.Client(timeout=8) as client:
+            resp = client.post(
+                f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={api_key}",
+                json=payload,
+            )
+        if resp.status_code == 200:
+            data = resp.json() or {}
+            matches = data.get("matches") or []
+            if not matches:
+                return CheckResult(
+                    name="google_safe_browsing",
+                    category="reputation",
+                    status="pass",
+                    title="Google Safe Browsing",
+                    detail="Safe — no threats reported by Google Safe Browsing.",
+                    raw_data={"matches": 0},
+                    points=2,
+                    max_points=2,
+                )
+            # Aggregate threat types found
+            threat_types = sorted({m.get("threatType", "UNKNOWN") for m in matches})
+            human = ", ".join(t.replace("_", " ").title() for t in threat_types)
+            return CheckResult(
+                name="google_safe_browsing",
+                category="reputation",
+                status="fail",
+                title="Google Safe Browsing",
+                detail=(
+                    f"Flagged by Google Safe Browsing: {human}. "
+                    "Email from this domain may be blocked or quarantined "
+                    "by Gmail and many other providers."
+                ),
+                raw_data={"threat_types": threat_types, "matches": len(matches)},
+                points=0,
+                max_points=2,
+                fix_steps=[
+                    "Visit https://transparencyreport.google.com/safe-browsing/search?url=" + domain,
+                    "Identify the URL(s) Google has flagged on your domain",
+                    "Remove the offending content / malware",
+                    "Once cleaned, request a review through Google Search Console (Security & Manual Actions → Security issues)",
+                    "GSB typically clears within 24–72 hours after re-review",
+                ],
+            )
+        # Non-200: API key invalid, quota exceeded, or transient 5xx
+        return CheckResult(
+            name="google_safe_browsing",
+            category="reputation",
+            status="info",
+            title="Google Safe Browsing",
+            detail=(
+                f"Google Safe Browsing API returned HTTP {resp.status_code}. "
+                "Skipping this check — verify the API key and quota."
+            ),
+            raw_data={"http_status": resp.status_code, "body_snippet": (resp.text or "")[:200]},
+            points=0,
+            max_points=0,
+        )
+    except Exception as e:
+        return CheckResult(
+            name="google_safe_browsing",
+            category="reputation",
+            status="info",
+            title="Google Safe Browsing",
+            detail="Google Safe Browsing lookup failed (network error). Skipping this check.",
+            raw_data={"error": str(e)[:160]},
+            points=0,
+            max_points=0,
         )
 
 

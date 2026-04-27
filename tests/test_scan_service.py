@@ -51,6 +51,7 @@ _FAKE_CHECKS = {
     "check_sender_detection":   _cr("sender_detection", 5, 5, category="infrastructure"),
     "check_domain_age":         _cr("domain_age", 5, 5, category="reputation"),
     "check_ip_reputation":      _cr("ip_reputation", 10, 10, category="reputation"),
+    "check_google_safe_browsing": _cr("google_safe_browsing", 2, 2, category="reputation"),  # INBOX-95
 }
 
 
@@ -77,17 +78,18 @@ class TestRunFullScan:
             for p in patchers:
                 p.stop()
 
-        # 14 checks as of INBOX-42 (domain_blacklists added).
-        assert len(out["checks"]) == 14
+        # 15 checks as of INBOX-95 (google_safe_browsing added).
+        assert len(out["checks"]) == 15
         names = [c["name"] for c in out["checks"]]
         assert "ip_reputation" in names, "monitor/api must run IP reputation — INBOX-3"
         assert "domain_blacklists" in names, "monitor/api must run domain-blacklists — INBOX-42"
+        assert "google_safe_browsing" in names, "monitor/api must run GSB — INBOX-95"
         # Sanity: every expected check is present exactly once
         assert sorted(names) == sorted([
             "mx_records", "spf", "dkim", "dmarc", "blacklists",
             "domain_blacklists", "tls",
             "reverse_dns", "bimi", "mta_sts", "tls_rpt", "sender_detection",
-            "domain_age", "ip_reputation",
+            "domain_age", "ip_reputation", "google_safe_browsing",
         ])
 
     def test_score_is_capped_at_100(self):
