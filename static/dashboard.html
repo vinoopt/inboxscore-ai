@@ -423,6 +423,36 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 #view-dashboard .portfolio-alerts.zero { background: var(--green-bg); color: var(--green); }
 #view-dashboard .portfolio-alerts.has { background: var(--red-bg); color: var(--red); }
 
+/* INBOX-90 — Skeleton loading screens.
+   Replace "Loading…" text with shimmer placeholders that mirror the
+   shape of the final UI. Keeps the page from looking empty during the
+   2-3 sec window between page load and API response. */
+@keyframes dh-shimmer {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.55; }
+  100% { opacity: 1; }
+}
+#view-dashboard .skeleton {
+  display: inline-block;
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: dh-shimmer 1.4s ease-in-out infinite;
+  vertical-align: middle;
+}
+#view-dashboard .skeleton-circle {
+  display: inline-block;
+  width: 96px; height: 96px; border-radius: 50%;
+  background: var(--surface-2);
+  animation: dh-shimmer 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+#view-dashboard .skeleton-bar { display: block; height: 14px; background: var(--surface-2); border-radius: 4px; animation: dh-shimmer 1.4s ease-in-out infinite; margin-bottom: 8px; }
+#view-dashboard .skeleton-bar.lg { height: 22px; }
+#view-dashboard .skeleton-bar.sm { height: 11px; }
+#view-dashboard .skeleton-pill { display: inline-block; height: 14px; width: 70px; background: var(--surface-2); border-radius: 999px; animation: dh-shimmer 1.4s ease-in-out infinite; margin-right: 8px; }
+#view-dashboard .skeleton-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-height: 88px; animation: dh-shimmer 1.4s ease-in-out infinite; }
+
 /* Responsive — Dashboard v2 */
 @media (max-width: 900px) {
   #view-dashboard .diag-grid,
@@ -494,10 +524,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
         <div class="domain-select" id="dh-domain-select" onclick="dhToggleDomainDropdown(event)">
           <span style="font-size:14px">🌐</span>
           <div style="flex:1;min-width:0;">
-            <!-- INBOX-89: friendly loading text instead of "—" / "No domains"
-                 so the first paint doesn't suggest the user has no data. -->
-            <div id="dh-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Loading your domains…</div>
-            <div class="domain-select-meta" id="dh-domain-count">Just a moment</div>
+            <!-- INBOX-90: skeleton bars in the domain selector instead of
+                 text. Replaced once /api/user/domains responds. -->
+            <div id="dh-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="skeleton skeleton-bar" style="width:160px;"></span></div>
+            <div class="domain-select-meta" id="dh-domain-count"><span class="skeleton skeleton-bar sm" style="width:110px;"></span></div>
           </div>
           <span class="domain-select-arrow">▼</span>
           <div class="domain-dropdown" id="dh-domain-dropdown"></div>
@@ -521,21 +551,20 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
       <!-- ─────────── SINGLE DOMAIN VIEW (default) ─────────── -->
       <div class="single-view" id="dh-single-view">
 
-        <!-- Score Hero -->
+        <!-- Score Hero — INBOX-90 ships a skeleton initial state.
+             The dh* render functions overwrite these placeholders with real
+             data once the API responds (typically <2 sec). -->
         <div class="score-hero" id="dh-score-hero">
-          <div class="score-circle none" id="dh-score-circle">
-            <div class="score-number" id="dh-score-number">—</div>
-            <div class="score-label">Out of 100</div>
-          </div>
+          <div class="skeleton-circle" id="dh-score-circle"></div>
           <div class="score-summary">
-            <h2 id="dh-score-band">Loading…</h2>
-            <!-- INBOX-89: friendlier first-paint copy. The previous
-                 "No domain selected" / "Run a scan…" empty-state text
-                 flashed for ~2 sec before real data arrived, suggesting
-                 the user had nothing tracked when they actually did. -->
-            <div class="domain-name" id="dh-score-meta">Fetching your latest deliverability snapshot…</div>
-            <div class="verdict" id="dh-score-verdict">This usually takes 1–2 seconds.</div>
-            <div class="score-stats" id="dh-score-stats"></div>
+            <h2 id="dh-score-band"><span class="skeleton skeleton-bar lg" style="width:140px;"></span></h2>
+            <div class="domain-name" id="dh-score-meta"><span class="skeleton skeleton-bar" style="width:240px;"></span></div>
+            <div class="verdict" id="dh-score-verdict"><span class="skeleton skeleton-bar" style="width:80%;"></span></div>
+            <div class="score-stats" id="dh-score-stats">
+              <span class="skeleton skeleton-pill"></span>
+              <span class="skeleton skeleton-pill"></span>
+              <span class="skeleton skeleton-pill"></span>
+            </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
             <button class="score-trend-btn" onclick="dhRefreshSelectedDomain()" id="dh-refresh-btn" title="Re-scan the selected domain right now">🔄 Refresh</button>
@@ -559,20 +588,31 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
             <div class="section-meta">Auto-scanned · No provider connection required</div>
           </div>
           <div class="diag-grid" id="dh-diag-grid">
-            <div class="loading" style="grid-column:1/-1;"><div class="loading-spinner"></div>Loading…</div>
+            <!-- INBOX-90: 7 skeleton cards mirroring the final 7 diag cards -->
+            <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:60%;"></div><div class="skeleton skeleton-bar lg" style="width:40%;"></div><div class="skeleton skeleton-bar sm" style="width:80%;"></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:50%;"></div><div class="skeleton skeleton-bar lg" style="width:35%;"></div><div class="skeleton skeleton-bar sm" style="width:75%;"></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:55%;"></div><div class="skeleton skeleton-bar lg" style="width:40%;"></div><div class="skeleton skeleton-bar sm" style="width:85%;"></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:65%;"></div><div class="skeleton skeleton-bar lg" style="width:38%;"></div><div class="skeleton skeleton-bar sm" style="width:70%;"></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:70%;"></div><div class="skeleton skeleton-bar lg" style="width:42%;"></div><div class="skeleton skeleton-bar sm" style="width:78%;"></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:60%;"></div><div class="skeleton skeleton-bar lg" style="width:50%;"></div><div class="skeleton skeleton-bar sm" style="width:65%;"></div></div>
+            <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:55%;"></div><div class="skeleton skeleton-bar lg" style="width:38%;"></div><div class="skeleton skeleton-bar sm" style="width:72%;"></div></div>
           </div>
         </div>
 
-        <!-- Provider Status -->
+        <!-- INBOX-93 reorder: Domain Safety → Active Alerts → Provider Status.
+             "Am I blacklisted?" is more urgent than provider intelligence,
+             so safety + alerts come before postmaster metrics. -->
+
+        <!-- Domain Safety (was 5th, now 3rd) -->
         <div class="section-block">
           <div class="section-header">
-            <div class="section-title">📡 Provider Status</div>
-            <div class="section-meta">Inbox-placement intelligence from mailbox providers</div>
+            <div class="section-title">🛡️ Domain Safety</div>
+            <div class="section-meta">External-database checks</div>
           </div>
-          <div class="provider-grid" id="dh-provider-grid"></div>
+          <div class="safety-grid" id="dh-safety-grid"></div>
         </div>
 
-        <!-- Active Alerts -->
+        <!-- Active Alerts (was 4th, now 4th) -->
         <div class="section-block">
           <div class="section-header">
             <div class="section-title">🔔 Active Alerts</div>
@@ -589,19 +629,27 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           </div>
         </div>
 
-        <!-- Domain Safety -->
+        <!-- Provider Status (was 3rd, now 5th) -->
         <div class="section-block">
           <div class="section-header">
-            <div class="section-title">🛡️ Domain Safety</div>
-            <div class="section-meta">External-database checks</div>
+            <div class="section-title">📡 Provider Status</div>
+            <div class="section-meta">Inbox-placement intelligence from mailbox providers</div>
           </div>
-          <div class="safety-grid" id="dh-safety-grid"></div>
+          <div class="provider-grid" id="dh-provider-grid">
+            <!-- INBOX-90: 3 skeleton provider cards -->
+            <div class="skeleton-card" style="min-height:140px;"><div class="skeleton skeleton-bar" style="width:65%;margin-bottom:12px;"></div><div class="skeleton skeleton-bar sm" style="width:90%;"></div><div class="skeleton skeleton-bar sm" style="width:75%;"></div><div class="skeleton skeleton-bar sm" style="width:80%;"></div></div>
+            <div class="skeleton-card" style="min-height:140px;"><div class="skeleton skeleton-bar" style="width:60%;margin-bottom:12px;"></div><div class="skeleton skeleton-bar sm" style="width:85%;"></div><div class="skeleton skeleton-bar sm" style="width:70%;"></div><div class="skeleton skeleton-bar sm" style="width:78%;"></div></div>
+            <div class="skeleton-card" style="min-height:140px;"><div class="skeleton skeleton-bar" style="width:55%;margin-bottom:12px;"></div><div class="skeleton skeleton-bar sm" style="width:88%;"></div><div class="skeleton skeleton-bar sm" style="width:74%;"></div><div class="skeleton skeleton-bar sm" style="width:82%;"></div></div>
+          </div>
         </div>
 
         <!-- Recent Scans -->
         <div class="section-block">
           <div class="section-header">
             <div class="section-title">📜 Recent Scans</div>
+            <!-- INBOX-93: removed dead "View all →" link — pointed at
+                 /email-health which has no scan-history view. We can put
+                 it back when there's a real history page. -->
             <div class="section-meta" id="dh-history-meta"></div>
           </div>
           <ul class="history-list" id="dh-history-list">
@@ -1024,7 +1072,7 @@ function dhRenderProviderGrid(domain) {
   const googleConnected = !!(pm && (pm.spam_rate !== null || pm.domain_reputation));
   const googleCta = googleConnected
     ? `<div class="provider-cta"><a href="/email-health?domain=${encodeURIComponent(domain)}&tab=google" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">Postmaster Tools</span></div>`
-    : `<div class="provider-cta"><a href="/settings" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
+    : `<div class="provider-cta"><a href="/settings?tab=connections" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
 
   // Microsoft card
   let msHtml;
@@ -1040,11 +1088,14 @@ function dhRenderProviderGrid(domain) {
   }
   const msCta = msConnected
     ? `<div class="provider-cta"><a href="/email-health?domain=${encodeURIComponent(domain)}&tab=microsoft" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">SNDS</span></div>`
-    : `<div class="provider-cta"><a href="/settings" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
+    : `<div class="provider-cta"><a href="/settings?tab=connections" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
 
   // Yahoo card — always "Not connected" since we don't ingest CFL yet
   const yahooHtml = `<div class="provider-explainer">Yahoo doesn't offer a Postmaster API. We can ingest Yahoo's Complaint Feedback Loop (CFL) reports if you set one up.</div>`;
-  const yahooCta = `<div class="provider-cta"><span style="font-size:11px;color:var(--text-subtle)">Optional setup</span><a href="https://senders.yahooinc.com/feedback-loop/" target="_blank" rel="noopener" class="provider-cta-btn">Set up CFL →</a></div>`;
+  // INBOX-92: route through Settings → Connected Services so users see the
+  // CFL setup option in context (the external Yahoo signup link is on that
+  // page too, with the right surrounding state).
+  const yahooCta = `<div class="provider-cta"><span style="font-size:11px;color:var(--text-subtle)">Optional setup</span><a href="/settings?tab=connections" class="provider-cta-btn">Set up CFL →</a></div>`;
 
   grid.innerHTML = `
     <div class="provider-card">
@@ -1140,18 +1191,16 @@ function dhRenderSafety(domain) {
     }
   }
 
-  // Google Safe Browsing — placeholder until check exists; show "Safe" if scan ran cleanly
-  // (Not yet a real check — present optimistically when domain has a passing scan.)
-  let gsbValue = '—', gsbMeta = 'Not checked', gsbClass = 'unknown';
-  if (scan) {
-    gsbValue = 'Safe'; gsbClass = 'clean'; gsbMeta = 'No threats reported';
-  }
-
-  // Phishing DB — same placeholder pattern
-  let phValue = '—', phMeta = 'Not checked', phClass = 'unknown';
-  if (scan) {
-    phValue = 'Clean'; phClass = 'clean'; phMeta = 'Not flagged';
-  }
+  // INBOX-93: Google Safe Browsing + Phishing Database are not yet wired
+  // up to real external-database checks. Show "Coming soon" honestly
+  // rather than fake "Safe / Clean" — Vinoop's preference is honest
+  // gaps over misleading green ticks.
+  const gsbValue = 'Coming soon';
+  const gsbMeta  = 'Real-time GSB API integration planned';
+  const gsbClass = 'unknown';
+  const phValue  = 'Coming soon';
+  const phMeta   = 'Phishing DB integration planned';
+  const phClass  = 'unknown';
 
   grid.innerHTML = `
     <div class="safety-card">
@@ -1182,9 +1231,10 @@ function dhScoreClassFromScore(score) {
 function dhRenderHistory(domain) {
   const list = document.getElementById('dh-history-list');
   const meta = document.getElementById('dh-history-meta');
-  meta.innerHTML = domain
-    ? `${escapeHtml(domain)} · <a href="/email-health?domain=${encodeURIComponent(domain)}">View all →</a>`
-    : '';
+  // INBOX-93: dropped the "View all →" link — it pointed at
+  // /email-health which has no scan-history view. Show just the domain
+  // name as the meta until a real history page exists.
+  meta.textContent = domain || '';
   const scans = (window._dh.scansListByDomain[domain] || []).slice(0, 5);
   if (scans.length === 0) {
     list.innerHTML = '<li style="padding:14px 0;color:var(--text-subtle);font-size:13px;">No scan history yet.</li>';

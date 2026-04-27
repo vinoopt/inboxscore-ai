@@ -817,6 +817,11 @@ window.addEventListener('DOMContentLoaded', () => {
     showToast('Failed to connect Google Postmaster. Please try again.', 'error');
     window.history.replaceState({}, '', '/settings');
     showSettingsPanel('connections', document.querySelectorAll('.settings-sidebar a')[1]);
+  } else if (params.get('tab') === 'connections' || params.get('tab') === 'connected-services') {
+    // INBOX-92: Dashboard's Provider Status cards (Google / Microsoft / Yahoo)
+    // deep-link here with ?tab=connections so users land directly on the
+    // connect/disconnect/sync controls instead of the General tab.
+    showSettingsPanel('connections', document.querySelectorAll('.settings-sidebar a')[1]);
   }
 
   // Close sidebar on main click (mobile)
