@@ -425,7 +425,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                    chart with policy/recommended thresholds + auto-scaled
                    y-axis surfaces deviations far better. -->
               <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;">
-                <svg id="gpm-spam-chart" viewBox="0 0 600 180" preserveAspectRatio="none" style="width:100%;height:180px;">
+                <svg id="gpm-spam-chart" viewBox="0 0 600 180" preserveAspectRatio="xMidYMid meet" style="width:100%;height:180px;">
                   <!-- threshold lines + line path rendered by JS -->
                 </svg>
                 <div id="gpm-spam-dates" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);padding-left:4px;">
@@ -482,7 +482,11 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                    overwhelming. Lines are the standard for time-series
                    percentages near 100% — dips are instantly visible. -->
               <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;">
-                <svg id="gpm-auth-chart" viewBox="0 0 600 180" preserveAspectRatio="none" style="width:100%;height:180px;">
+                <!-- 2026-04-27: dropped preserveAspectRatio="none" — it was
+                     stretching the chart vertically when the container is
+                     wider than the viewBox aspect. xMidYMid meet keeps
+                     the chart's natural proportions at any width. -->
+                <svg id="gpm-auth-chart" viewBox="0 0 600 180" preserveAspectRatio="xMidYMid meet" style="width:100%;height:180px;">
                   <!-- y-grid + axis labels rendered by JS -->
                 </svg>
                 <div id="gpm-auth-dates" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);padding-left:4px;">
@@ -1219,14 +1223,9 @@ function animateGpmSpam() {
     spamSvg.appendChild(c);
   });
 
-  // --- Spam Date Labels ---
-  const spamDates = document.getElementById('gpm-spam-dates');
-  spamDates.innerHTML = '';
-  metrics.forEach(m => {
-    const span = document.createElement('span');
-    span.textContent = m.date ? m.date.slice(5) : '';  // show MM-DD
-    spamDates.appendChild(span);
-  });
+  // --- Spam Date Labels — sampled to ~7 visible labels in "MMM DD".
+  // See DESIGN-SYSTEM.md §11.6 "Chart conventions".
+  ehRenderSampledDates('gpm-spam-dates', metrics);
 
   // --- Spam Rate Table ---
   const tbody = document.getElementById('gpm-spam-table-body');
@@ -1250,14 +1249,16 @@ function animateGpmSpam() {
   // fetches the compliance API).
 }
 
-/* === GPM Auth Chart (grouped bars per day) === */
+/* === GPM Auth Chart (line chart, auto-scaled y-axis) === */
 function animateGpmAuth() {
   const metrics = gpmMetricsCache || [];
   if (metrics.length === 0) return;
 
   // INBOX-112: SVG line chart instead of grouped bars. 3 lines for
   // DMARC / DKIM / SPF tracking ~100% — dips are instantly visible.
-  // viewBox 0 0 600 180 with 16px y-axis pad on left, 8px right.
+  // 2026-04-27: y-axis is now auto-scaled to the data range so a flat
+  // 100% chart doesn't waste 60% of vertical space on empty 40-95% band.
+  // See DESIGN-SYSTEM.md §11.6 "Chart conventions".
   const authSvg = document.getElementById('gpm-auth-chart');
   authSvg.innerHTML = '';
   const W = 600, H = 180, padL = 30, padR = 8, padT = 8, padB = 16;
@@ -1266,10 +1267,31 @@ function animateGpmAuth() {
   const n = metrics.length;
   if (n === 0) return;
 
-  // Y-axis grid + labels (40, 60, 80, 100)
+  // Find the lowest auth value across all 3 series. Choose the
+  // y-axis floor based on the worst dip:
+  //   ≥ 95%  → axis 95-100 (every 0.5% visible)
+  //   ≥ 90%  → axis 90-100
+  //   ≥ 80%  → axis 80-100
+  //   else   → axis 40-100 (full range — there's a real problem)
+  const allVals = [];
+  metrics.forEach(m => {
+    [m.auth_success_dmarc, m.auth_success_dkim, m.auth_success_spf].forEach(v => {
+      if (v != null) allVals.push(v * 100);
+    });
+  });
+  const minObserved = allVals.length ? Math.min(...allVals) : 100;
+  let yMin = 40;
+  if (minObserved >= 95) yMin = 95;
+  else if (minObserved >= 90) yMin = 90;
+  else if (minObserved >= 80) yMin = 80;
+  const yRange = 100 - yMin;
+
+  // Y-axis grid + labels — 5 evenly-spaced ticks across the range.
   const ns = "http://www.w3.org/2000/svg";
-  [40, 60, 80, 100].forEach(pct => {
-    const y = padT + (innerH * (100 - pct) / 60); // map 40-100 to 0-innerH
+  const tickStep = yRange / 4;  // gives 5 ticks: yMin, +¼, +½, +¾, 100
+  for (let i = 0; i <= 4; i++) {
+    const pct = yMin + tickStep * i;
+    const y = padT + (innerH * (100 - pct) / yRange);
     const line = document.createElementNS(ns, 'line');
     line.setAttribute('x1', padL); line.setAttribute('x2', W - padR);
     line.setAttribute('y1', y); line.setAttribute('y2', y);
@@ -1280,16 +1302,18 @@ function animateGpmAuth() {
     lbl.setAttribute('x', padL - 4); lbl.setAttribute('y', y + 3);
     lbl.setAttribute('text-anchor', 'end');
     lbl.setAttribute('font-size', '9'); lbl.setAttribute('fill', 'var(--text-muted)');
-    lbl.textContent = pct + '%';
+    // 95-100 axis shows decimals (95.0, 96.25 …) — round to 1dp; lower
+    // ranges show integers.
+    lbl.textContent = (yMin >= 95 ? pct.toFixed(1) : Math.round(pct)) + '%';
     authSvg.appendChild(lbl);
-  });
+  }
 
-  // Series builders. Map auth value (0..1) → y on innerH where 100% → top, 40% → bottom.
+  // Series builders. Map auth value (0..1) → y in the active range.
   function ptY(v) {
     const pct = v != null ? v * 100 : null;
     if (pct === null) return null;
-    const clamped = Math.max(40, Math.min(100, pct));
-    return padT + (innerH * (100 - clamped) / 60);
+    const clamped = Math.max(yMin, Math.min(100, pct));
+    return padT + (innerH * (100 - clamped) / yRange);
   }
   function ptX(i) {
     return padL + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
@@ -1322,14 +1346,10 @@ function animateGpmAuth() {
   drawSeries(m => m.auth_success_dkim,  '#EA4335', 'DKIM');
   drawSeries(m => m.auth_success_spf,   '#FBBC05', 'SPF');
 
-  // --- Date labels ---
-  const authDates = document.getElementById('gpm-auth-dates');
-  authDates.innerHTML = '';
-  metrics.forEach(m => {
-    const span = document.createElement('span');
-    span.textContent = m.date ? m.date.slice(5) : '';
-    authDates.appendChild(span);
-  });
+  // --- Date labels — sampled to ~7 visible labels in "MMM DD" format.
+  // 30 raw "MM-DD" labels collide; modern dashboards (Linear, Mixpanel,
+  // Stripe) all sample. See DESIGN-SYSTEM.md §11.6.
+  ehRenderSampledDates('gpm-auth-dates', metrics);
 
   // --- Auth table ---
   const tbody = document.getElementById('gpm-auth-table-body');
@@ -1948,6 +1968,51 @@ function ehUpdateRefreshStamp(label) {
   if (el && label) el.textContent = 'Last synced ' + label;
 }
 
+/* Sampled date labels for chart x-axes — see DESIGN-SYSTEM.md §11.6.
+   Renders at most `targetCount` (default 7) evenly-spaced labels in
+   "MMM DD" format. First and last are always shown so the user can
+   anchor the time range. */
+function ehRenderSampledDates(containerId, metrics, targetCount) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  const n = metrics.length;
+  if (n === 0) return;
+
+  // Layout: each <span> takes flex-1 width, but only the sampled
+  // indices show text. Empty spans keep the layout grid even.
+  const want = Math.min(targetCount || 7, n);
+  const sampled = new Set();
+  if (want === 1) {
+    sampled.add(0);
+  } else {
+    // Evenly-spaced including endpoints.
+    for (let i = 0; i < want; i++) {
+      sampled.add(Math.round((n - 1) * (i / (want - 1))));
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const span = document.createElement('span');
+    if (sampled.has(i)) {
+      const m = metrics[i];
+      span.textContent = m.date ? ehFormatDateShortMD(m.date) : '';
+    } else {
+      span.innerHTML = '&nbsp;';
+    }
+    span.style.flex = '1 0 auto';
+    span.style.textAlign = 'center';
+    el.appendChild(span);
+  }
+}
+
+/* "Apr 26" — drop the year for chart axes (year is implied by the
+   header range). Returns "" on bad input. */
+function ehFormatDateShortMD(iso) {
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return EH_MONTHS[d.getMonth()] + ' ' + d.getDate();
+}
+
 /* === GPM: Switch provider state
    (init | error | data | nodata | disconnected | free) === */
 function setGpmState(state, errorMsg) {
@@ -2427,6 +2492,18 @@ async function loadGpmStatus() {
     }
   }
 
+  // SWR: persist status so future cold starts hydrate paywall / connect
+  // / data states from cache instead of waiting on the network.
+  if (window.cacheSet) {
+    window.cacheSet('pm.status', {
+      is_pro: !!data.is_pro,
+      connected: !!data.connected,
+      google_email: data.google_email || null,
+      connected_at: data.connected_at || null,
+      last_sync_at: data.last_sync_at || null,
+    });
+  }
+
   // Stay on init — ehInit will load domains then metrics, which sets the
   // final state to data / nodata.
   return data;
@@ -2875,6 +2952,13 @@ async function loadEhDomains() {
     select.value = urlDomain;
   }
   ehCurrentDomain = select.value;
+
+  // SWR: persist domain list so the cold-start hydrator can populate
+  // the dropdown from cache before /api/user/domains resolves.
+  if (window.cacheSet) {
+    window.cacheSet('eh.domains', domains);
+  }
+
   onEhDomainChange(ehCurrentDomain);
   return domains;
 }
@@ -2885,13 +2969,79 @@ async function loadEhDomains() {
    domains → metrics. Every fetch has a 5s timeout. On any error we land
    on the gpm-state-error UI with a Retry button that calls ehInit again.
    ====================================================================== */
+/* === ehHydrateFromCache — SWR cold-start hydration, 2026-04-27 ==========
+   Reads three cached layers (pm.status, eh.domains, pm.metrics.<domain>)
+   synchronously and paints the entire Postmaster page from localStorage.
+   Returns true if every layer hit and the page is fully painted; the
+   caller then fires network revalidation in parallel with a corner pill
+   instead of the old full-screen "Loading…" overlays. */
+function ehHydrateFromCache() {
+  if (!window.cacheGet) return false;
+
+  const status = window.cacheGet('pm.status', PM_STATUS_CACHE_TTL_MS);
+  if (!status) return false;
+
+  // Free / disconnected: still useful to paint paywall / connect CTA from
+  // cache so the user doesn't see "Loading…" before the same screen.
+  if (!status.is_pro) { setGpmState('free'); return true; }
+  if (!status.connected) { setGpmState('disconnected'); return true; }
+
+  const domains = window.cacheGet('eh.domains', EH_DOMAINS_CACHE_TTL_MS);
+  if (!Array.isArray(domains) || domains.length === 0) return false;
+
+  // Populate the dropdown from cache.
+  const sel = document.getElementById('eh-domain-select');
+  if (sel) {
+    sel.innerHTML = '';
+    domains.forEach(d => {
+      const opt = document.createElement('option');
+      const name = d.domain || d.name || d;
+      opt.value = name;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    // Honour ?domain= deep-link if it points at a known domain.
+    const urlDomain = new URLSearchParams(window.location.search).get('domain');
+    const nameSet = new Set(domains.map(d => d.domain || d.name || d));
+    if (urlDomain && nameSet.has(urlDomain)) sel.value = urlDomain;
+    ehCurrentDomain = sel.value;
+    gpmCurrentDomain = sel.value;
+  }
+
+  // Pull this domain's metrics out of cache and paint them.
+  const dom = ehCurrentDomain || (domains[0].domain || domains[0].name || domains[0]);
+  const metricsCached = window.cacheGet('pm.metrics.' + dom, GPM_CACHE_TTL_MS);
+  if (metricsCached && Array.isArray(metricsCached.metrics) && metricsCached.metrics.length > 0) {
+    _gpmFullCache = { domain: dom, metrics: metricsCached.metrics };
+    setGpmState('data');
+    applyGpmPeriod();
+    ehUpdateRefreshStamp(window.cacheAgeLabel('pm.metrics.' + dom));
+    return true;
+  }
+
+  // Status + domains hit but no metrics for this domain. Don't claim
+  // we hydrated; let the network call paint when it lands.
+  return false;
+}
+
+const PM_STATUS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;  // 24h — auth/connect rarely changes
+const EH_DOMAINS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h — domain list rarely changes
+
 async function ehInit() {
-  setGpmState('init');
+  // SWR step 1: try painting from cache instantly. If we succeed, the
+  // network call below revalidates silently with a corner pill.
+  const _hydrated = ehHydrateFromCache();
+  if (!_hydrated) setGpmState('init');
+  if (_hydrated) ehShowRefreshingPill(true);
+
   try {
     const status = await loadGpmStatus();
     // status is null only if loadGpmStatus already routed somewhere
     // (free / disconnected) — in that case nothing more to do for GPM.
-    if (!status || !status.is_pro || !status.connected) return;
+    if (!status || !status.is_pro || !status.connected) {
+      ehHideRefreshingPill();
+      return;
+    }
     // Pro + Connected — load domains. ehLatestScan / per-section fetches
     // happen via onEhDomainChange after the dropdown is populated.
     await loadEhDomains();
@@ -2900,6 +3050,8 @@ async function ehInit() {
   } catch (e) {
     // loadGpmStatus already set the error state; nothing else to do.
     console.warn('[EH] init aborted:', e?.message || e);
+  } finally {
+    ehHideRefreshingPill();
   }
 }
 

@@ -37,14 +37,41 @@
   /** Read the bearer token, the same way the app's other code does. */
   function _readToken() {
     try {
-      return localStorage.getItem('access_token') || localStorage.getItem('token') || '';
+      return (
+        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('access_token') ||
+        localStorage.getItem('token') ||
+        ''
+      );
     } catch (e) { return ''; }
   }
 
-  /** Returns "u_<hash>." for an authed user, or "anon." otherwise. */
+  /** Decode a JWT's payload (no signature check — we're just pulling sub). */
+  function _decodeJwtPayload(token) {
+    try {
+      var parts = token.split('.');
+      if (parts.length !== 3) return null;
+      var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      // atob doesn't tolerate missing padding; pad to 4-char blocks.
+      while (b64.length % 4) b64 += '=';
+      return JSON.parse(atob(b64));
+    } catch (e) { return null; }
+  }
+
+  /** Returns "u_<user_id>." (stable across token rotations) or "anon.".
+   *  Falls back to a token hash if no sub claim is present, so we still
+   *  get isolation even on a malformed JWT. */
   function cacheUserNamespace() {
     var t = _readToken();
-    return t ? 'u_' + _hash(t) + '.' : 'anon.';
+    if (!t) return 'anon.';
+    var payload = _decodeJwtPayload(t);
+    if (payload && payload.sub) {
+      // sub is usually a UUID — hash it just to keep namespace short and
+      // avoid leaking a UUID in localStorage keys.
+      return 'u_' + _hash(String(payload.sub)) + '.';
+    }
+    // Fallback: hash the token itself (old behaviour).
+    return 'u_' + _hash(t) + '.';
   }
 
   function _key(rawKey) {
