@@ -20,15 +20,33 @@ Fail-loud but never fatal:
   ALL helpers swallow exceptions after logging — a broken heartbeat table
   must not crash the scheduler cycle that depends on it. If Supabase is
   unreachable, record_start returns None and record_end is a no-op.
+
+INBOX-87 (2026-04-26): The watchdog used to fire 3 separate queries every
+5 min (one per cycle_type), and any transient Supabase hiccup logged at
+error-level — surfacing 85+ noisy events/day in Sentry without an
+actual stacktrace. This module now:
+  • retries each heartbeat-table query once with 250 ms backoff,
+  • captures the exception with `logger.exception` so Sentry has a
+    stacktrace to debug from,
+  • downgrades the recoverable cases to warning-level (the watchdog
+    tolerates 'unknown' just like 'ok' for one tick),
+  • batches the watchdog's 3 fetches into 1 query.
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
 logger = logging.getLogger("inboxscore.heartbeat")
+
+# Number of retries for transient heartbeat-table queries before we give up
+# and emit a single warning. The watchdog runs every 5 min so even a 30 sec
+# Supabase hiccup wouldn't cause a missed alert if we briefly retry here.
+_RETRY_ATTEMPTS = 2
+_RETRY_BACKOFF_SEC = 0.25
 
 # How long we tolerate silence from each cycle before considering it stale.
 # - monitor runs every 15 min: one missed cycle = 30 min window
@@ -38,6 +56,36 @@ STALENESS_MINUTES = {
     "postmaster_sync": 25 * 60,
     "snds_sync": 25 * 60,
 }
+
+
+def _retry(op_name: str, fn, *, attempts: int = _RETRY_ATTEMPTS,
+           backoff: float = _RETRY_BACKOFF_SEC):
+    """Run `fn()` up to `attempts` times, sleeping `backoff` between tries.
+
+    Returns the function's return value on success, or raises the final
+    exception after all retries are exhausted.
+
+    Used by every heartbeat helper to absorb transient Supabase hiccups
+    (connection-reset, timeout, brief 5xx) before they reach Sentry. The
+    op_name is purely for logging context.
+    """
+    last_exc: Optional[BaseException] = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as e:  # noqa: BLE001 — intentional broad catch
+            last_exc = e
+            if attempt < attempts:
+                logger.debug(
+                    "heartbeat.retry",
+                    extra={"op": op_name, "attempt": attempt, "error": str(e)[:160]},
+                )
+                time.sleep(backoff * attempt)
+                continue
+            raise
+    # Unreachable but appeases type-checker: re-raise the last exception
+    if last_exc is not None:
+        raise last_exc
 
 
 def record_start(cycle_type: str) -> Optional[str]:
@@ -52,21 +100,24 @@ def record_start(cycle_type: str) -> Optional[str]:
         logger.warning("heartbeat.start_skipped_no_db", extra={"cycle_type": cycle_type})
         return None
     try:
-        result = sb.table("monitoring_heartbeats").insert({
-            "cycle_type": cycle_type,
-        }).execute()
-        if result.data:
+        result = _retry(
+            "record_start",
+            lambda: sb.table("monitoring_heartbeats").insert({
+                "cycle_type": cycle_type,
+            }).execute(),
+        )
+        if result and result.data:
             hb_id = result.data[0].get("id")
             logger.info("heartbeat.start", extra={
                 "cycle_type": cycle_type,
                 "heartbeat_id": hb_id,
             })
             return hb_id
-    except Exception as e:
-        logger.error("heartbeat.start_failed", extra={
-            "cycle_type": cycle_type,
-            "error": str(e)[:200],
-        })
+    except Exception:
+        # Use logger.exception so Sentry receives the stacktrace, not just
+        # the bare event name (INBOX-87: previously str(e)[:200] in extra
+        # didn't reach Sentry's tag/context, leaving us unable to debug).
+        logger.exception("heartbeat.start_failed", extra={"cycle_type": cycle_type})
     return None
 
 
@@ -89,39 +140,92 @@ def record_end(heartbeat_id: Optional[str],
         }
         if notes:
             payload["notes"] = str(notes)[:500]
-        sb.table("monitoring_heartbeats").update(payload).eq("id", heartbeat_id).execute()
+        _retry(
+            "record_end",
+            lambda: sb.table("monitoring_heartbeats")
+                       .update(payload)
+                       .eq("id", heartbeat_id)
+                       .execute(),
+        )
         logger.info("heartbeat.end", extra={
             "heartbeat_id": heartbeat_id,
             "domains_processed": payload["domains_processed"],
             "errors_count": payload["errors_count"],
         })
-    except Exception as e:
-        logger.error("heartbeat.end_failed", extra={
-            "heartbeat_id": heartbeat_id,
-            "error": str(e)[:200],
-        })
+    except Exception:
+        logger.exception("heartbeat.end_failed", extra={"heartbeat_id": heartbeat_id})
 
 
 def _latest_heartbeat(cycle_type: str) -> Optional[dict]:
-    """Return the latest heartbeat row for a cycle_type, or None."""
+    """Return the latest heartbeat row for a single cycle_type, or None.
+
+    Prefer `_latest_heartbeats()` (plural) when you need multiple cycle
+    types — it batches into a single Supabase round-trip.
+    """
     from db import get_supabase
     sb = get_supabase()
     if not sb:
         return None
     try:
-        result = (sb.table("monitoring_heartbeats")
-                  .select("*")
-                  .eq("cycle_type", cycle_type)
-                  .order("cycle_started_at", desc=True)
-                  .limit(1)
-                  .execute())
-        return result.data[0] if result.data else None
-    except Exception as e:
-        logger.error("heartbeat.fetch_failed", extra={
-            "cycle_type": cycle_type,
-            "error": str(e)[:200],
-        })
+        result = _retry(
+            "fetch_one",
+            lambda: (sb.table("monitoring_heartbeats")
+                       .select("*")
+                       .eq("cycle_type", cycle_type)
+                       .order("cycle_started_at", desc=True)
+                       .limit(1)
+                       .execute()),
+        )
+        return result.data[0] if result and result.data else None
+    except Exception:
+        # Best-effort — recoverable. Warning level keeps it out of Sentry's
+        # error stream while still being grep-able. The watchdog accepts
+        # 'unknown' state just like 'ok' for a single tick.
+        logger.warning("heartbeat.fetch_failed", exc_info=True,
+                       extra={"cycle_type": cycle_type})
         return None
+
+
+def _latest_heartbeats(cycle_types: list) -> dict:
+    """Batched: return the latest heartbeat row for each requested cycle_type
+    in a single Supabase query. Reduces watchdog load from 3 queries every
+    5 min to 1 (INBOX-87).
+
+    Returns a dict mapping cycle_type → latest row (or omits the key if no
+    rows exist for that cycle_type or the query failed).
+    """
+    if not cycle_types:
+        return {}
+    from db import get_supabase
+    sb = get_supabase()
+    if not sb:
+        return {}
+    try:
+        # Pull a window of recent rows large enough to contain at least one
+        # entry per cycle_type; we dedupe to "latest per cycle_type" client-
+        # side. 50 rows covers ~12 hours of monitor cycles + the daily
+        # postmaster_sync + snds_sync rows comfortably.
+        result = _retry(
+            "fetch_batch",
+            lambda: (sb.table("monitoring_heartbeats")
+                       .select("*")
+                       .in_("cycle_type", cycle_types)
+                       .order("cycle_started_at", desc=True)
+                       .limit(50)
+                       .execute()),
+        )
+        out: dict = {}
+        for row in (result.data if result else []) or []:
+            ct = row.get("cycle_type")
+            if ct in cycle_types and ct not in out:
+                out[ct] = row
+            if len(out) == len(cycle_types):
+                break
+        return out
+    except Exception:
+        logger.warning("heartbeat.fetch_failed", exc_info=True,
+                       extra={"cycle_types": cycle_types, "batch": True})
+        return {}
 
 
 def _age_minutes(iso_ts: Optional[str]) -> Optional[float]:
@@ -165,8 +269,11 @@ def heartbeat_status() -> dict:
     cycles: dict = {}
     overall = "ok"
 
+    # INBOX-87: batch the 3 fetches into 1 round-trip.
+    batch = _latest_heartbeats(list(STALENESS_MINUTES.keys()))
+
     for cycle_type, threshold in STALENESS_MINUTES.items():
-        latest = _latest_heartbeat(cycle_type)
+        latest = batch.get(cycle_type)
         if not latest:
             cycles[cycle_type] = {
                 "status": "unknown",
