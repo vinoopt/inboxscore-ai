@@ -201,6 +201,11 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 }
 
 </style>
+
+<!-- SWR cache helper — see DESIGN-SYSTEM.md §11.5. Loads first so
+     ehInit() can hydrate from localStorage before the network call
+     resolves, eliminating the "Loading…" cold-start spinner. -->
+<script src="/static/cache.js"></script>
 </head>
 <body>
 
@@ -301,33 +306,27 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
         </div>
         <style>
           @keyframes gpmSpin { to { transform: rotate(360deg); } }
-          /* INBOX-102: subtle "Refreshing…" overlay shown on the GPM data
-             widget while loadGpmMetrics is in flight. Triggered by adding
-             .gpm-refreshing to #gpm-widget. */
-          #gpm-widget.gpm-refreshing { position: relative; }
-          #gpm-widget.gpm-refreshing::after {
-            content: '';
-            position: absolute; inset: 0;
-            background: rgba(10, 10, 15, 0.45);
-            backdrop-filter: blur(0.5px);
-            border-radius: inherit;
-            pointer-events: none;
-            z-index: 4;
-          }
-          #gpm-widget.gpm-refreshing::before {
+          /* 2026-04-27 SWR: replaced the full-panel dim overlay with a
+             small top-right corner pill. The user keeps reading the
+             previous data while we revalidate — no grey-out, no flicker.
+             See DESIGN-SYSTEM.md §11.5. */
+          #gpm-widget.gpm-refreshing-pill { position: relative; }
+          #gpm-widget.gpm-refreshing-pill::after {
             content: '↻ Refreshing…';
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
+            position: absolute;
+            top: 12px; right: 12px;
             background: var(--surface-2);
-            color: var(--text);
-            padding: 8px 16px;
+            color: var(--text-muted);
+            padding: 4px 10px;
             border-radius: 999px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
             border: 1px solid var(--border);
             z-index: 5;
             pointer-events: none;
+            animation: gpmPillFade 0.18s ease-out;
           }
+          @keyframes gpmPillFade { from { opacity: 0; } to { opacity: 1; } }
         </style>
 
         <!-- GPM State: Error — INBOX-101.
@@ -909,6 +908,9 @@ function getToken() {
 }
 
 function logout() {
+  // 2026-04-27 SWR: wipe cache before deleting the token so the
+  // user-namespaced entries are correctly resolved.
+  if (window.cacheClear) window.cacheClear();
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('user');
@@ -1822,19 +1824,42 @@ function getActivePeriodDays() {
 
 /* === GPM: Fetch metrics for a domain and populate tabs ===
    INBOX-112 followup: always pull the longest period (30d) once, cache
-   the full array in _gpmFullCache, then slice to the active period for
-   rendering. Period switches (7/14/30) skip this function and use
-   applyGpmPeriod() against the cache. */
+   the full array in _gpmFullCache (in-memory), then slice to the active
+   period for rendering.
+   2026-04-27 SWR: also hydrate from localStorage (cross-session cache)
+   on cold start so users see real numbers in <100ms instead of a
+   spinner. Network call still runs in parallel; quietly swaps when
+   fresh data lands. See DESIGN-SYSTEM.md §11.5. */
 const GPM_FULL_DAYS = 30;
+const GPM_CACHE_TTL_MS = 4 * 60 * 60 * 1000;  // 4h — Google syncs daily
+
+function _gpmCacheKey(domain) { return 'pm.metrics.' + domain; }
+
 async function loadGpmMetrics(domain) {
   const token = getToken();
   if (!token || !domain) return;
 
-  // INBOX-102: surface a short "Refreshing…" overlay on the data widget
-  // while the fetch is in flight, so period switches and manual syncs
-  // feel responsive instead of silent.
-  const widget = document.getElementById('gpm-widget');
-  if (widget) widget.classList.add('gpm-refreshing');
+  // ── SWR step 1: hydrate from localStorage if available ──────────
+  // If we have a recent cached payload, render it immediately so the
+  // user never sees a blank "Loading…" panel on cold start.
+  let renderedFromCache = false;
+  if (window.cacheGet) {
+    const cached = window.cacheGet(_gpmCacheKey(domain), GPM_CACHE_TTL_MS);
+    if (cached && Array.isArray(cached.metrics) && cached.metrics.length > 0) {
+      _gpmFullCache = { domain: domain, metrics: cached.metrics };
+      setGpmState('data');
+      applyGpmPeriod();
+      ehUpdateRefreshStamp(window.cacheAgeLabel(_gpmCacheKey(domain)));
+      renderedFromCache = true;
+      // Compliance verdicts also cache separately — see populateGpmCompliance.
+    }
+  }
+
+  // ── SWR step 2: revalidate in the background ────────────────────
+  // If we already painted from cache, use the small corner pill to
+  // show the refresh is in flight. If we didn't, the existing init
+  // skeleton stays visible until data lands.
+  ehShowRefreshingPill(renderedFromCache);
 
   let res;
   try {
@@ -1845,6 +1870,13 @@ async function loadGpmMetrics(domain) {
       5000
     );
   } catch (e) {
+    ehHideRefreshingPill();
+    if (renderedFromCache) {
+      // Cached data is still on screen — flag the refresh failure
+      // gently in the stamp instead of swapping to an error panel.
+      ehUpdateRefreshStamp((window.cacheAgeLabel(_gpmCacheKey(domain)) || '') + ' · refresh failed');
+      return;
+    }
     const msg = e.name === 'AbortError'
       ? 'Metrics request timed out after 5 seconds.'
       : 'Couldn’t fetch metrics. Check your connection.';
@@ -1853,11 +1885,19 @@ async function loadGpmMetrics(domain) {
   }
 
   try {
-    if (!res.ok) { setGpmState('nodata'); return; }
+    if (!res.ok) {
+      ehHideRefreshingPill();
+      if (!renderedFromCache) setGpmState('nodata');
+      return;
+    }
     const data = await res.json();
     const metrics = data.metrics || [];
 
-    if (metrics.length === 0) { setGpmState('nodata'); return; }
+    if (metrics.length === 0) {
+      ehHideRefreshingPill();
+      if (!renderedFromCache) setGpmState('nodata');
+      return;
+    }
 
     // Stash the full 30-day window so period switches don't refetch.
     _gpmFullCache = { domain: domain, metrics: metrics };
@@ -1867,17 +1907,45 @@ async function loadGpmMetrics(domain) {
     // dropped down to 7 or 14 before this fetch completed).
     applyGpmPeriod();
 
+    // Persist to localStorage for next cold start.
+    if (window.cacheSet) {
+      window.cacheSet(_gpmCacheKey(domain), { metrics: metrics });
+    }
+    ehUpdateRefreshStamp('just now');
+
     // Compliance verdicts are current state, not a time series — fetch
     // once after the metrics land. Period switches don't trigger this.
     await populateGpmCompliance();
 
   } catch (e) {
     console.error('[GPM] Failed to load metrics:', e);
-    setGpmState('nodata');
+    if (!renderedFromCache) setGpmState('nodata');
   } finally {
-    // INBOX-102: clear the "Refreshing…" overlay regardless of outcome
-    if (widget) widget.classList.remove('gpm-refreshing');
+    ehHideRefreshingPill();
   }
+}
+
+/* SWR helpers — small corner pill + freshness stamp.
+   Uses the existing #gpm-last-sync element for the stamp so users
+   see one canonical "Last synced …" line instead of two. */
+function ehShowRefreshingPill(haveCachedData) {
+  const widget = document.getElementById('gpm-widget');
+  if (!widget) return;
+  // Only show the corner pill when we already have cached data
+  // visible — otherwise the init skeleton is doing the loading job.
+  if (haveCachedData) {
+    widget.classList.add('gpm-refreshing-pill');
+  } else {
+    widget.classList.remove('gpm-refreshing-pill');
+  }
+}
+function ehHideRefreshingPill() {
+  const widget = document.getElementById('gpm-widget');
+  if (widget) widget.classList.remove('gpm-refreshing-pill');
+}
+function ehUpdateRefreshStamp(label) {
+  const el = document.getElementById('gpm-last-sync');
+  if (el && label) el.textContent = 'Last synced ' + label;
 }
 
 /* === GPM: Switch provider state

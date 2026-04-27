@@ -488,7 +488,32 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
   #view-dashboard .scan-cta { margin-left: 0; }
   #view-dashboard .scan-cta button { width: 100%; }
 }
+
+/* SWR refresh pill — see DESIGN-SYSTEM.md §11.5. Sits in the top-right
+   while the dashboard revalidates from network after a localStorage
+   hydration. Never dims the existing data. */
+body.dh-refreshing-pill::after {
+  content: '↻ Refreshing…';
+  position: fixed;
+  top: 80px; right: 24px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  z-index: 1000;
+  pointer-events: none;
+  animation: dhPillFade 0.18s ease-out;
+}
+@keyframes dhPillFade { from { opacity: 0; } to { opacity: 1; } }
 </style>
+
+<!-- SWR cache helper — see DESIGN-SYSTEM.md §11.5. Loads first so the
+     Dashboard can hydrate from localStorage before /api/user/* resolves,
+     eliminating the cold-start spinner. -->
+<script src="/static/cache.js"></script>
 </head>
 <body>
 
@@ -760,6 +785,10 @@ function getToken() {
 }
 
 function logout() {
+  // Wipe SWR cache so the next user on this browser doesn't see leaked
+  // data — must run BEFORE we delete the token, since cacheClear() uses
+  // the token-derived namespace.
+  if (window.cacheClear) window.cacheClear();
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('user');
@@ -1545,6 +1574,54 @@ function dhFocusScanInput() {
   setTimeout(() => document.getElementById('dash-domain-input').focus(), 50);
 }
 
+// SWR cache — see DESIGN-SYSTEM.md §11.5 + feedback_loading_ux_pattern.md.
+// Cold-start: hydrate the Dashboard from localStorage if we have a recent
+// snapshot, then revalidate in parallel. This is what stops every page nav
+// from showing 1-2s of "Loading…" spinners.
+const DASH_CACHE_KEY = 'dash.bundle';
+const DASH_CACHE_TTL_MS = 1 * 60 * 60 * 1000;  // 1h — scans run every 15 min
+
+function _dhHydrateFromCache() {
+  if (!window.cacheGet) return false;
+  const snap = window.cacheGet(DASH_CACHE_KEY, DASH_CACHE_TTL_MS);
+  if (!snap || typeof snap !== 'object') return false;
+  // Repaint name + plan badge from the snapshot so the topbar isn't blank.
+  if (snap.name) {
+    const ne = document.getElementById('user-name');
+    if (ne) ne.textContent = snap.name;
+  }
+  if (snap.plan) {
+    const pe = document.getElementById('plan-name');
+    if (pe) pe.textContent = snap.plan;
+  }
+  if (snap.alertCount > 0) {
+    const badge = document.getElementById('sidebar-badge');
+    if (badge) {
+      badge.textContent = snap.alertCount > 99 ? '99+' : snap.alertCount;
+      badge.style.display = 'inline';
+    }
+  }
+  // Hydrate the per-domain state shapes that dhRenderSingleView reads.
+  window._dh.domains = snap.domains || [];
+  window._dh.scansByDomain = snap.scansByDomain || {};
+  window._dh.scansListByDomain = snap.scansListByDomain || {};
+  window._dh.pmByDomain = snap.pmByDomain || {};
+  window._dh.alertsByDomain = snap.alertsByDomain || {};
+  window._dh.selectedDomain = dhPickDefaultDomain();
+  // Show a small corner pill so the user knows we're refreshing.
+  _dhShowRefreshingPill();
+  dhRenderDomainDropdown();
+  dhRenderSingleView();
+  return true;
+}
+
+function _dhShowRefreshingPill() {
+  document.body.classList.add('dh-refreshing-pill');
+}
+function _dhHideRefreshingPill() {
+  document.body.classList.remove('dh-refreshing-pill');
+}
+
 // Auth check + load data
 window.addEventListener('DOMContentLoaded', () => {
   const token = getToken();
@@ -1558,7 +1635,10 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sidebar-backdrop').classList.remove('show');
   });
 
-  // Load all data in parallel
+  // SWR step 1: paint instantly from cache if we have a recent snapshot.
+  const _hydrated = _dhHydrateFromCache();
+
+  // SWR step 2: revalidate in parallel.
   Promise.all([
     fetch('/api/auth/me', { headers }).then(r => { if (!r.ok) throw new Error('auth'); return r.json(); }),
     fetch('/api/user/stats', { headers }).then(r => r.ok ? r.json() : null),
@@ -1635,6 +1715,21 @@ window.addEventListener('DOMContentLoaded', () => {
 
     dhRenderDomainDropdown();
     dhRenderSingleView();
+
+    // SWR step 3: persist the freshly-rendered bundle for the next cold start.
+    if (window.cacheSet) {
+      window.cacheSet(DASH_CACHE_KEY, {
+        name: name,
+        plan: plan,
+        alertCount: (alertCount && alertCount.unread_count) || 0,
+        domains: domains,
+        scansByDomain: scansByDomain,
+        scansListByDomain: scansListByDomain,
+        pmByDomain: pmByDomain,
+        alertsByDomain: alertsByDomain,
+      });
+    }
+    _dhHideRefreshingPill();
 
   }).catch((err) => {
     if (err.message === 'auth') {
