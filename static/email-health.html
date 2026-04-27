@@ -275,8 +275,24 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
              so the right pane rendered blank on first visit. -->
         <div class="eh-section active" id="eh-sec-google">
 
-        <!-- GPM State: With Data (default for Task 4) -->
-        <div class="provider-state active" id="gpm-state-data">
+        <!-- GPM State: Init / Loading — INBOX-100 follow-up.
+             This is now the FIRST visible state. We used to default to
+             gpm-state-data, which paints the Pro UI shell (Compliance
+             tabs etc.) with "Loading..." placeholders even for Free
+             users — confusing and wrong. Init shows a neutral spinner
+             until loadGpmStatus determines the real state. -->
+        <div class="provider-state active" id="gpm-state-init">
+          <div class="pm-widget" style="text-align:center;padding:48px 20px;">
+            <div style="font-size:13px;color:var(--text-muted);display:inline-flex;align-items:center;gap:8px;">
+              <span style="display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:gpmSpin 0.8s linear infinite;"></span>
+              Loading Google Postmaster…
+            </div>
+          </div>
+        </div>
+        <style>@keyframes gpmSpin { to { transform: rotate(360deg); } }</style>
+
+        <!-- GPM State: With Data -->
+        <div class="provider-state" id="gpm-state-data">
         <div class="pm-widget" id="gpm-widget">
           <div class="pm-header">
             <div class="pm-title">
@@ -1460,9 +1476,12 @@ async function loadGpmMetrics(domain) {
   }
 }
 
-/* === GPM: Switch provider state (data | nodata | disconnected | free) === */
+/* === GPM: Switch provider state (init | data | nodata | disconnected | free) === */
 function setGpmState(state) {
-  ['data','nodata','disconnected','free'].forEach(s => {
+  // INBOX-100 follow-up: 'init' is the first visible state, used until
+  // loadGpmStatus determines the user's real plan/connection. Adding it
+  // here so any subsequent setGpmState call hides the spinner.
+  ['init','data','nodata','disconnected','free'].forEach(s => {
     const el = document.getElementById('gpm-state-' + s);
     if (el) el.classList.toggle('active', s === state);
   });
