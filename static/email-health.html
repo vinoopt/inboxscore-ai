@@ -1388,15 +1388,17 @@ function populateGpmEncryption() {
   if (tlsOutVal && tlsOutSub) {
     if (outRates.length > 0) {
       const oavg = outRates.reduce((a, b) => a + b, 0) / outRates.length;
-      tlsOutVal.textContent = oavg.toFixed(1) + '%';
-      tlsOutVal.style.color = oavg >= 95 ? 'var(--green)' : oavg >= 80 ? 'var(--yellow)' : 'var(--red)';
-      // INBOX-112 follow-up: 0% outbound is the real value when the
-      // domain doesn't send mail TO Gmail. Show it honestly with a
-      // helpful sub-label rather than treating it as missing data.
       const allZero = outRates.every(r => r === 0);
+      tlsOutVal.textContent = oavg.toFixed(1) + '%';
+      // INBOX-112 followup-2: empty state ≠ failure. Per DESIGN-SYSTEM.md
+      // (status-info = zinc/muted). 0% outbound = no Gmail-to-domain
+      // traffic in this period (Gmail wasn't sending us mail). That's a
+      // neutral fact, not an alert — colour muted, not red.
       if (allZero) {
-        tlsOutSub.textContent = 'No outbound mail to Gmail in this period';
+        tlsOutVal.style.color = 'var(--text-muted)';
+        tlsOutSub.textContent = 'No Gmail-to-domain traffic in this period';
       } else {
+        tlsOutVal.style.color = oavg >= 95 ? 'var(--green)' : oavg >= 80 ? 'var(--yellow)' : 'var(--red)';
         tlsOutSub.textContent = outRates.every(r => r >= 99.9) ? 'All days at 100%' : 'Avg over ' + outRates.length + ' days';
       }
     } else {
@@ -1414,8 +1416,20 @@ function populateGpmEncryption() {
     const color = pct != null ? (pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-muted)';
     const outVal = getOutbound(m);
     const outPct = outVal != null ? outVal * 100 : null;
-    const outColor = outPct != null ? (outPct >= 95 ? 'var(--green)' : outPct >= 80 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-muted)';
-    const outText = outPct != null ? outPct.toFixed(2) + '%' : '—';
+    // INBOX-112 followup-2: 0% outbound = no Gmail-to-domain traffic
+    // that day, not a failure. Render as muted "—" so the table doesn't
+    // scream red on receive-light domains.
+    let outColor, outText;
+    if (outPct == null) {
+      outColor = 'var(--text-muted)';
+      outText = '—';
+    } else if (outPct === 0) {
+      outColor = 'var(--text-muted)';
+      outText = '—';
+    } else {
+      outColor = outPct >= 95 ? 'var(--green)' : outPct >= 80 ? 'var(--yellow)' : 'var(--red)';
+      outText = outPct.toFixed(2) + '%';
+    }
     const tr = document.createElement('tr');
     if (i < metrics.length - 1) tr.style.borderBottom = '1px solid var(--border)';
     tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(m.date || '—') + '</td>'

@@ -1075,26 +1075,47 @@ function dhRenderProviderGrid(domain) {
   const pm = window._dh.pmByDomain[domain];
   const snds = window._dh.sndsByDomain[domain];
 
-  // Google card
+  // Google card — 2026-04-27 v2-API alignment.
+  // Postmaster v2 (March 2025) RETIRED the domain_reputation metric, so
+  // it always rendered "—". Replaced with daily delivery error rate —
+  // a real v2 metric that lights up only when Gmail is rejecting or
+  // deferring real mail.
   let googleHtml;
-  if (pm && (pm.spam_rate !== null || pm.domain_reputation)) {
+  // pm.delivery_errors is an object keyed by error type
+  // (RATE_LIMIT_EXCEEDED, POLICY_REJECTION, etc.) with percentage values.
+  // Aggregate to a single % for the card.
+  function _pmTotalErrorPct(pmRow) {
+    if (!pmRow || !pmRow.delivery_errors || typeof pmRow.delivery_errors !== 'object') return null;
+    const vals = Object.values(pmRow.delivery_errors).map(v => Number(v)).filter(v => !isNaN(v));
+    if (vals.length === 0) return null;
+    return vals.reduce((a, b) => a + b, 0);
+  }
+  const googleHasData = !!(pm && (pm.spam_rate !== null || pm.auth_success_dmarc !== null || _pmTotalErrorPct(pm) !== null));
+  if (googleHasData) {
     const spam = pm.spam_rate !== null ? (pm.spam_rate * 100).toFixed(2) + '%' : '—';
     const auth = pm.auth_success_dmarc !== null ? (pm.auth_success_dmarc * 100).toFixed(1) + '%' : '—';
-    const rep = pm.domain_reputation || '—';
+    const errPct = _pmTotalErrorPct(pm);
+    const errText = errPct !== null ? errPct.toFixed(2) + '%' : '0.00%';
     const spamClass = pm.spam_rate !== null ? (pm.spam_rate < 0.001 ? 'good' : pm.spam_rate < 0.003 ? 'warn' : 'fail') : 'none';
     const authClass = pm.auth_success_dmarc !== null ? (pm.auth_success_dmarc >= 0.95 ? 'good' : pm.auth_success_dmarc >= 0.8 ? 'warn' : 'fail') : 'none';
-    const repClass = (rep === 'HIGH' || rep === 'MEDIUM') ? 'good' : (rep === 'LOW' ? 'warn' : (rep === 'BAD' ? 'fail' : 'none'));
+    // Delivery error tiers: < 0.5% green, < 2% warn, ≥ 2% fail.
+    // null / 0 both render as 'good' — empty state ≠ failure
+    // (DESIGN-SYSTEM.md "Color usage rules").
+    const errClass = errPct === null || errPct < 0.5 ? 'good' : errPct < 2 ? 'warn' : 'fail';
     googleHtml = `
       <div class="provider-metric"><span class="provider-metric-label">Spam rate</span><span class="provider-metric-value ${spamClass}">${spam}</span></div>
-      <div class="provider-metric"><span class="provider-metric-label">Domain reputation</span><span class="provider-metric-value ${repClass}">${escapeHtml(rep)}</span></div>
       <div class="provider-metric"><span class="provider-metric-label">Auth pass</span><span class="provider-metric-value ${authClass}">${auth}</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Delivery errors</span><span class="provider-metric-value ${errClass}">${errText}</span></div>
     `;
   } else {
-    googleHtml = `<div class="provider-explainer">Connect Google Postmaster Tools to surface spam rate, reputation, and authentication metrics for Gmail recipients.</div>`;
+    googleHtml = `<div class="provider-explainer">Connect Google Postmaster Tools to surface spam rate, authentication, and delivery error metrics for Gmail recipients.</div>`;
   }
-  const googleConnected = !!(pm && (pm.spam_rate !== null || pm.domain_reputation));
+  const googleConnected = googleHasData;
+  // INBOX-110: /email-health was deleted; flat routes now live at
+  // /postmaster, /microsoft, /blacklist, /reputation. Repoint
+  // "View details →" to the new path so the deep-link works.
   const googleCta = googleConnected
-    ? `<div class="provider-cta"><a href="/email-health?domain=${encodeURIComponent(domain)}&tab=google" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">Postmaster Tools</span></div>`
+    ? `<div class="provider-cta"><a href="/postmaster?domain=${encodeURIComponent(domain)}" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">Postmaster Tools</span></div>`
     : `<div class="provider-cta"><a href="/settings?tab=connections" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
 
   // Microsoft card
@@ -1109,8 +1130,9 @@ function dhRenderProviderGrid(domain) {
   } else {
     msHtml = `<div class="provider-explainer">Connect Microsoft SNDS to monitor sending IP reputation across Outlook, Hotmail, and Live mailboxes.</div>`;
   }
+  // INBOX-110: /email-health was deleted; SNDS now lives at /microsoft.
   const msCta = msConnected
-    ? `<div class="provider-cta"><a href="/email-health?domain=${encodeURIComponent(domain)}&tab=microsoft" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">SNDS</span></div>`
+    ? `<div class="provider-cta"><a href="/microsoft?domain=${encodeURIComponent(domain)}" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">SNDS</span></div>`
     : `<div class="provider-cta"><a href="/settings?tab=connections" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
 
   // Yahoo card — always "Not connected" since we don't ingest CFL yet
@@ -1872,7 +1894,7 @@ function dashRenderResults(data) {
   // Save-to-Monitored CTA — unchanged from INBOX-33.
   const saveCardHtml = alreadyMonitored
     ? `<div class="save-monitor-card" style="border-color:var(--green);">
-         <div class="save-monitor-text">✓ <strong>${escapeHtml(domain)}</strong> is already being monitored. <a href="/email-health?domain=${encodeURIComponent(domain)}" style="color:var(--accent);">View its health page →</a></div>
+         <div class="save-monitor-text">✓ <strong>${escapeHtml(domain)}</strong> is already being monitored. <a href="/postmaster?domain=${encodeURIComponent(domain)}" style="color:var(--accent);">View its health page →</a></div>
        </div>`
     : `<div class="save-monitor-card" id="save-monitor-card">
          <div class="save-monitor-text">Want continuous monitoring for <strong>${escapeHtml(domain)}</strong>? Get daily scans, trend tracking, and alerts when something breaks.</div>
