@@ -234,17 +234,22 @@ class TestEmailHealthPage:
 
     def test_email_health_has_google_postmaster_tabs(self, client):
         """Google Postmaster section should have 6 internal tabs (Compliance,
-        Spam, Feedback Loop, Authentication, Encryption, Delivery Error)."""
+        Spam, Feedback Loop, Authentication, Encryption, Delivery Errors).
+
+        INBOX-102 normalised the labels to Title Case ("Compliance Status",
+        "Delivery Errors") so they read consistently with each other."""
         response = client.get("/email-health")
         content = response.text
         assert "gpm-tab" in content
         # The 6 tabs were split out of the old 5-tab 'Spam & Feedback' in v1.14.
-        assert "Compliance status" in content
+        # INBOX-102: Title Case normalisation.
+        assert "Compliance Status" in content
         assert ">Spam<" in content
         assert "Feedback Loop" in content
         assert "Authentication" in content
         assert "Encryption" in content
-        assert "Delivery Error" in content
+        # "Delivery Errors" (plural) after INBOX-102.
+        assert "Delivery Error" in content  # substring match still holds
 
     def test_email_health_has_provider_states(self, client):
         """Surviving provider sections (Google + Microsoft) keep their

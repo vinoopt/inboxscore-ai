@@ -289,7 +289,36 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
             </div>
           </div>
         </div>
-        <style>@keyframes gpmSpin { to { transform: rotate(360deg); } }</style>
+        <style>
+          @keyframes gpmSpin { to { transform: rotate(360deg); } }
+          /* INBOX-102: subtle "Refreshing…" overlay shown on the GPM data
+             widget while loadGpmMetrics is in flight. Triggered by adding
+             .gpm-refreshing to #gpm-widget. */
+          #gpm-widget.gpm-refreshing { position: relative; }
+          #gpm-widget.gpm-refreshing::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: rgba(10, 10, 15, 0.45);
+            backdrop-filter: blur(0.5px);
+            border-radius: inherit;
+            pointer-events: none;
+            z-index: 4;
+          }
+          #gpm-widget.gpm-refreshing::before {
+            content: '↻ Refreshing…';
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--surface-2);
+            color: var(--text);
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid var(--border);
+            z-index: 5;
+            pointer-events: none;
+          }
+        </style>
 
         <!-- GPM State: Error — INBOX-101.
              Shown when the Postmaster status fetch times out, returns 5xx,
@@ -312,26 +341,37 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
               <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
               Google Postmaster
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <button id="gpm-sync-btn" onclick="gpmManualSync()" style="padding:4px 12px;font-size:11px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer;transition:all 0.2s;font-weight:500;" onmouseover="this.style.background='var(--accent)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">↻ Sync</button>
-              <span class="pm-date-range" id="gpm-date-range">Last 7 days</span>
+            <!-- INBOX-102: header shows Last-synced timestamp + Sync button +
+                 friendly date range. The "Last synced X ago" tells users
+                 when InboxScore last pulled from Google (different from
+                 when Google's data is fresh — that's the "Last updated"
+                 line on the Compliance tab). -->
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span id="gpm-last-sync" style="font-size:11px;color:var(--text-muted);"></span>
+              <button id="gpm-sync-btn" onclick="gpmManualSync()" style="padding:4px 12px;font-size:11px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer;transition:all 0.2s;font-weight:500;" onmouseover="this.style.background='var(--accent)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">↻ Sync now</button>
+              <span class="pm-date-range" id="gpm-date-range" style="font-size:11px;color:var(--text-muted);"></span>
             </div>
           </div>
 
-          <!-- Tab Navigation (mirrors Google Postmaster sidebar) -->
+          <!-- Tab Navigation (mirrors Google Postmaster sidebar)
+               INBOX-102: tab labels normalised to Title Case so they read
+               consistently with each other. -->
           <div class="gpm-tabs">
-            <button class="gpm-tab active" onclick="switchGpmTab('compliance')">Compliance status</button>
+            <button class="gpm-tab active" onclick="switchGpmTab('compliance')">Compliance Status</button>
             <button class="gpm-tab" onclick="switchGpmTab('spam')">Spam</button>
             <button class="gpm-tab" onclick="switchGpmTab('fbl')">Feedback Loop</button>
             <button class="gpm-tab" onclick="switchGpmTab('auth')">Authentication</button>
             <button class="gpm-tab" onclick="switchGpmTab('encryption')">Encryption</button>
-            <button class="gpm-tab" onclick="switchGpmTab('errors')">Delivery Error</button>
+            <button class="gpm-tab" onclick="switchGpmTab('errors')">Delivery Errors</button>
           </div>
 
           <!-- TAB 1: Compliance Status (default/first tab) -->
           <div class="gpm-panel active" id="gpm-compliance">
             <div style="margin-top:16px;">
-              <div class="pm-trend-title">Compliance Status <span style="font-size:11px;color:var(--text-muted);font-weight:400;" id="gpm-comp-updated">Loading...</span></div>
+              <!-- INBOX-102: dropped the duplicate "Compliance Status" header.
+                   The active tab name already labels the section; the only
+                   info this line needs to carry is the Last-updated date. -->
+              <div class="pm-trend-title" style="font-size:11px;color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:normal;" id="gpm-comp-updated"></div>
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
                 <thead><tr style="border-bottom:1px solid var(--border);">
                   <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Requirement</th>
@@ -1194,9 +1234,9 @@ async function populateGpmCompliance() {
 
   const latest = metrics[metrics.length - 1];
 
-  // Update "Last updated" label
+  // Update "Last updated" label (INBOX-102: friendly date format)
   if (updatedEl && latest.date) {
-    updatedEl.textContent = 'Last updated: ' + latest.date;
+    updatedEl.textContent = `Last updated ${ehFormatDateShort(latest.date)}`;
   }
 
   // ── Fetch real compliance status from Google's getComplianceStatus API ──
@@ -1407,18 +1447,24 @@ document.addEventListener('DOMContentLoaded', () => {
 let gpmCurrentDomain = null;
 let gpmMetricsCache = null;   // stores fetched metrics array for other tabs
 
-/* === GPM Manual Sync: triggers backend sync then reloads metrics === */
+/* === GPM Manual Sync: triggers backend sync then reloads metrics ===
+   INBOX-102: clearer pressed-state text + after-sync confirmation that
+   includes the number of metrics fetched. Sync calls /api/postmaster/sync
+   which calls fetch_metrics_for_user (same code path the daily 6am UTC
+   scheduler runs), so this really does pull fresh data from Google. */
 async function gpmManualSync() {
   const btn = document.getElementById('gpm-sync-btn');
+  const lastSyncEl = document.getElementById('gpm-last-sync');
   const domain = gpmCurrentDomain || ehCurrentDomain;
   if (!domain) return;
   const token = getToken();
   if (!token) return;
 
   // Show syncing state
-  btn.textContent = '⟳ Syncing...';
+  btn.textContent = '⟳ Syncing… (~30s)';
   btn.disabled = true;
   btn.style.opacity = '0.6';
+  if (lastSyncEl) lastSyncEl.textContent = 'Pulling latest from Google…';
 
   try {
     const res = await fetch('/api/postmaster/sync', {
@@ -1427,17 +1473,22 @@ async function gpmManualSync() {
     });
 
     if (!res.ok) throw new Error('sync-fail');
+    const data = await res.json();
+    const synced = data.domains_synced || 0;
+    const saved = data.metrics_saved || 0;
 
     // Wait a moment for data to propagate, then reload metrics
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 800));
     await loadGpmMetrics(domain);
 
-    btn.textContent = '✓ Synced';
-    setTimeout(() => { btn.textContent = '↻ Sync'; }, 2000);
+    btn.textContent = saved > 0 ? `✓ Synced — ${saved} metrics` : '✓ Synced (no new data)';
+    if (lastSyncEl) lastSyncEl.textContent = 'Last synced just now';
+    setTimeout(() => { btn.textContent = '↻ Sync now'; }, 3500);
   } catch (e) {
     console.error('[GPM] Manual sync failed:', e);
-    btn.textContent = '✗ Failed';
-    setTimeout(() => { btn.textContent = '↻ Sync'; }, 2000);
+    btn.textContent = '✗ Sync failed';
+    if (lastSyncEl) lastSyncEl.textContent = 'Last sync failed — try again';
+    setTimeout(() => { btn.textContent = '↻ Sync now'; }, 3500);
   } finally {
     btn.disabled = false;
     btn.style.opacity = '1';
@@ -1466,6 +1517,12 @@ async function loadGpmMetrics(domain) {
   if (!token || !domain) return;
   const days = getActivePeriodDays();
 
+  // INBOX-102: surface a short "Refreshing…" overlay on the data widget
+  // while the fetch is in flight, so period switches (7d / 30d / 90d) and
+  // manual syncs feel responsive instead of silent.
+  const widget = document.getElementById('gpm-widget');
+  if (widget) widget.classList.add('gpm-refreshing');
+
   let res;
   try {
     // INBOX-101: 5s timeout — same UX as the status fetch.
@@ -1493,10 +1550,13 @@ async function loadGpmMetrics(domain) {
     gpmMetricsCache = metrics;
     setGpmState('data');
 
-    // Update date range label
+    // INBOX-102: human-friendly date range — was "2026-03-29 — 2026-04-25",
+    // now "Mar 29 – Apr 25, 2026".
     const dateRange = document.getElementById('gpm-date-range');
-    if (dateRange && metrics.length >= 2) {
-      dateRange.textContent = metrics[0].date + ' — ' + metrics[metrics.length - 1].date;
+    if (dateRange && metrics.length >= 1) {
+      dateRange.textContent = metrics.length >= 2
+        ? ehFormatDateRange(metrics[0].date, metrics[metrics.length - 1].date)
+        : ehFormatDateShort(metrics[0].date);
     }
 
     // Populate other tabs with real data
@@ -1508,6 +1568,9 @@ async function loadGpmMetrics(domain) {
   } catch (e) {
     console.error('[GPM] Failed to load metrics:', e);
     setGpmState('nodata');
+  } finally {
+    // INBOX-102: clear the "Refreshing…" overlay regardless of outcome
+    if (widget) widget.classList.remove('gpm-refreshing');
   }
 }
 
@@ -1524,6 +1587,48 @@ function setGpmState(state, errorMsg) {
     const msgEl = document.getElementById('gpm-state-error-msg');
     if (msgEl) msgEl.textContent = errorMsg;
   }
+}
+
+/* === Friendly date helpers — INBOX-102 =========================
+   Replace raw ISO timestamps ("2026-04-25") and "X minutes ago"
+   computations with consistent, human-readable strings used across
+   the Postmaster page header. */
+const EH_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function ehFormatDateShort(isoOrDate) {
+  // "2026-04-25" or Date object → "Apr 25, 2026"
+  const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+  if (isNaN(d.getTime())) return '';
+  return `${EH_MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function ehFormatDateRange(startIso, endIso) {
+  // Two dates → "Mar 29 – Apr 25, 2026" or "Dec 28, 2025 – Jan 5, 2026"
+  // when months differ across years.
+  const a = new Date(startIso);
+  const b = new Date(endIso);
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return '';
+  if (a.getFullYear() === b.getFullYear()) {
+    return `${EH_MONTHS[a.getMonth()]} ${a.getDate()} – ${EH_MONTHS[b.getMonth()]} ${b.getDate()}, ${b.getFullYear()}`;
+  }
+  return `${ehFormatDateShort(a)} – ${ehFormatDateShort(b)}`;
+}
+
+function ehFormatRelative(isoStr) {
+  // "2026-04-27T08:00:00Z" → "4 hours ago" / "just now" / "yesterday" /
+  // "Apr 25, 2026" if older than a week.
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return '';
+  const diffSec = Math.max(0, (Date.now() - d.getTime()) / 1000);
+  if (diffSec < 45) return 'just now';
+  if (diffSec < 90) return '1 minute ago';
+  if (diffSec < 3600) return `${Math.round(diffSec / 60)} minutes ago`;
+  if (diffSec < 5400) return '1 hour ago';
+  if (diffSec < 86400) return `${Math.round(diffSec / 3600)} hours ago`;
+  if (diffSec < 172800) return 'yesterday';
+  if (diffSec < 604800) return `${Math.round(diffSec / 86400)} days ago`;
+  return ehFormatDateShort(d);
 }
 
 /* === fetchWithTimeout — INBOX-101 ============================
@@ -1935,6 +2040,17 @@ async function loadGpmStatus() {
   if (ndSync && data.connected_at) {
     const d = new Date(data.connected_at);
     ndSync.textContent = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  }
+
+  // INBOX-102: render "Last synced X ago" in the data-state header so
+  // users know if InboxScore's copy of the Google data is fresh.
+  const lastSyncEl = document.getElementById('gpm-last-sync');
+  if (lastSyncEl) {
+    if (data.last_sync_at) {
+      lastSyncEl.textContent = `Last synced ${ehFormatRelative(data.last_sync_at)}`;
+    } else {
+      lastSyncEl.textContent = 'Not synced yet';
+    }
   }
 
   // Stay on init — ehInit will load domains then metrics, which sets the

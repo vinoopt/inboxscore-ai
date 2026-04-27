@@ -944,6 +944,26 @@ def get_postmaster_domains_for_user(user_id: str) -> list:
         return []
 
 
+def get_last_postmaster_sync_at(user_id: str) -> str | None:
+    """INBOX-102: return the ISO timestamp of the most recent metrics row
+    InboxScore wrote for this user — i.e. when we last successfully pulled
+    from Google. Used by /api/postmaster/status to render "Last synced X
+    ago" on the Email Health page. Returns None if the user has no rows."""
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("postmaster_metrics").select("updated_at").eq(
+            "user_id", user_id
+        ).order("updated_at", desc=True).limit(1).execute()
+        if result.data:
+            return result.data[0].get("updated_at")
+        return None
+    except Exception as e:
+        print(f"Error getting last postmaster sync time: {e}")
+        return None
+
+
 def get_all_postmaster_connections() -> list:
     """Get all active Postmaster connections (for scheduler sync)"""
     sb = get_supabase()

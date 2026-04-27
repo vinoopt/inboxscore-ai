@@ -36,6 +36,7 @@ from db import (
     update_domain_monitoring, get_monitored_domains, get_monitoring_logs,
     save_postmaster_connection, get_postmaster_connection,
     delete_postmaster_connection, get_postmaster_metrics as db_get_postmaster_metrics,
+    get_last_postmaster_sync_at,
     save_snds_connection, get_snds_connection, delete_snds_connection,
     get_snds_metrics as db_get_snds_metrics, update_snds_sync_status,
     upsert_snds_metrics,
@@ -1629,10 +1630,14 @@ async def api_postmaster_status(req: Request):
     connection = get_postmaster_connection(user_id)
 
     if connection:
+        # INBOX-102: include last_sync_at so the Email Health page can
+        # render "Last synced X ago" next to the Sync button.
+        last_sync_at = get_last_postmaster_sync_at(user_id)
         return {
             "connected": True,
             "google_email": connection.get("google_email", ""),
             "connected_at": connection.get("connected_at", ""),
+            "last_sync_at": last_sync_at,
             "is_pro": is_pro,
         }
     else:
@@ -1640,6 +1645,7 @@ async def api_postmaster_status(req: Request):
             "connected": False,
             "google_email": None,
             "connected_at": None,
+            "last_sync_at": None,
             "is_pro": is_pro,
         }
 
