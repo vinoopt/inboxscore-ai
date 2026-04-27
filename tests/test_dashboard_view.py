@@ -141,7 +141,7 @@ class TestDashboardJavaScriptHooks:
             "dhShowSingleView",
             "dhShowPortfolioView",
             "dhSelectDomain",
-            "dhToggleTrend",
+            # INBOX-97: dhToggleTrend removed (chart is always visible now)
         ],
     )
     def test_render_function_defined(self, fn: str):

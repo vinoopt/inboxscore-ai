@@ -389,14 +389,22 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 #view-dashboard .history-score.danger { color: var(--red); }
 #view-dashboard .history-date { color: var(--text-muted); font-size: 12px; }
 
-/* Trend chart inline */
-#view-dashboard .trend-card { display: none; margin-bottom: 16px; }
-#view-dashboard .trend-card.expanded { display: block; }
-#view-dashboard .trend-bars { display: flex; gap: 3px; align-items: flex-end; height: 80px; }
-#view-dashboard .trend-bar { flex: 1; border-radius: 2px 2px 0 0; min-width: 4px; transition: height 0.3s ease; }
+/* INBOX-97 — Score Trend chart: always visible, 7 fixed day slots.
+   Each slot is a vertical column with a bar (real data) or a thin
+   placeholder (no scan that day) plus a date label below. */
+#view-dashboard .trend-card { display: block; margin-bottom: 16px; }
+#view-dashboard .trend-bars { display: flex; gap: 8px; align-items: stretch; height: 110px; }
+#view-dashboard .trend-slot { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
+#view-dashboard .trend-bar-wrap { flex: 1; display: flex; align-items: flex-end; width: 100%; max-width: 38px; }
+#view-dashboard .trend-bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.4s ease; cursor: default; }
 #view-dashboard .trend-bar.good { background: var(--green); }
 #view-dashboard .trend-bar.moderate { background: var(--orange); }
 #view-dashboard .trend-bar.danger { background: var(--red); }
+#view-dashboard .trend-bar.empty { background: var(--surface-3); height: 12% !important; min-height: 8px; opacity: 0.6; }
+#view-dashboard .trend-label { font-size: 10px; color: var(--text-subtle); font-weight: 500; text-align: center; line-height: 1.2; }
+#view-dashboard .trend-label .day { display: block; }
+#view-dashboard .trend-label .score { display: block; font-family: 'Geist Mono', ui-monospace, monospace; color: var(--text-muted); font-size: 9px; margin-top: 1px; }
+#view-dashboard .trend-slot.empty .trend-label { color: var(--text-subtle); opacity: 0.7; }
 
 /* Single / Portfolio toggle */
 #view-dashboard .single-view.hidden { display: none; }
@@ -579,14 +587,13 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
             <button class="score-trend-btn" onclick="dhRefreshSelectedDomain()" id="dh-refresh-btn" title="Re-scan the selected domain right now">🔄 Refresh</button>
-            <button class="score-trend-btn" onclick="dhToggleTrend()" id="dh-trend-btn">📈 Score Trend ▼</button>
           </div>
         </div>
 
-        <!-- Score Trend Chart (collapsed by default) -->
+        <!-- Score Trend Chart — INBOX-97: always visible, 7 fixed day slots -->
         <div class="section-block trend-card" id="dh-trend-card">
           <div class="section-header">
-            <div class="section-title">Score Trend (30 days)</div>
+            <div class="section-title">📈 Score Trend (Last 7 days)</div>
             <div class="section-meta" id="dh-trend-meta"></div>
           </div>
           <div class="trend-bars" id="dh-trend-bars"></div>
@@ -1327,38 +1334,66 @@ function dhRenderHistory(domain) {
   list.innerHTML = html;
 }
 
-/* ─── Score Trend (collapsible) ─────────────────────────────────── */
+/* ─── Score Trend — 7-day fixed slots (INBOX-97) ─────────────────
+ * Always visible. One slot per day for the last 7 days, today on the
+ * right. Days without a scan render as a thin gray placeholder so the
+ * chart never looks "broken" with sparse data. Hovering a populated
+ * bar shows the date + score. */
+const DH_TREND_DAYS = 7;
+const DH_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 function dhRenderTrend(domain) {
   const meta = document.getElementById('dh-trend-meta');
-  meta.textContent = domain || '';
   const bars = document.getElementById('dh-trend-bars');
-  const scans = (window._dh.scansListByDomain[domain] || []).slice().reverse(); // oldest → newest
-  if (scans.length < 2) {
-    bars.innerHTML = '<div style="color:var(--text-subtle);font-size:13px;padding:10px 0;">Not enough scans yet for a trend chart.</div>';
+  meta.textContent = domain || '';
+  if (!domain) {
+    bars.innerHTML = '';
     return;
   }
-  // Group by day, take latest score per day
+
+  // Build a date-keyed map of the latest score per day. Pulls from the
+  // selected domain's scan history.
   const byDate = {};
-  scans.forEach(s => {
+  (window._dh.scansListByDomain[domain] || []).forEach(s => {
     const day = new Date(s.created_at).toISOString().split('T')[0];
-    byDate[day] = s.score;
+    // Latest scan per day wins (ListByDomain is sorted newest-first, so
+    // first write wins — already correct.)
+    if (!(day in byDate)) byDate[day] = s.score;
   });
-  const days = Object.keys(byDate).sort().slice(-30);
+
+  // Walk back 7 days from today (today on the rightmost slot)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const slots = [];
+  for (let i = DH_TREND_DAYS - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const iso = d.toISOString().split('T')[0];
+    slots.push({
+      iso: iso,
+      dayLabel: DH_DAY_NAMES[d.getDay()],
+      isToday: i === 0,
+      score: byDate[iso] !== undefined ? byDate[iso] : null,
+    });
+  }
+
   let html = '';
-  days.forEach(day => {
-    const score = byDate[day];
-    const klass = dhScoreClassFromScore(score);
-    const height = Math.max(8, Math.round(score * 0.8)); // % of 80px height
-    html += `<div class="trend-bar ${klass}" style="height:${height}%;" title="${day}: ${score}"></div>`;
+  slots.forEach(slot => {
+    if (slot.score === null) {
+      html += `<div class="trend-slot empty">
+        <div class="trend-bar-wrap"><div class="trend-bar empty" title="${slot.iso}: no scan"></div></div>
+        <div class="trend-label"><span class="day">${slot.dayLabel}</span><span class="score">—</span></div>
+      </div>`;
+    } else {
+      const klass = dhScoreClassFromScore(slot.score);
+      const height = Math.max(12, slot.score);  // % height; min 12% so even 0 is visible
+      html += `<div class="trend-slot">
+        <div class="trend-bar-wrap"><div class="trend-bar ${klass}" style="height:${height}%;" title="${slot.iso}: ${slot.score}"></div></div>
+        <div class="trend-label"><span class="day">${slot.dayLabel}${slot.isToday ? ' (today)' : ''}</span><span class="score">${slot.score}</span></div>
+      </div>`;
+    }
   });
   bars.innerHTML = html;
-}
-
-function dhToggleTrend() {
-  const card = document.getElementById('dh-trend-card');
-  card.classList.toggle('expanded');
-  const btn = document.getElementById('dh-trend-btn');
-  btn.textContent = card.classList.contains('expanded') ? '📈 Score Trend ▲' : '📈 Score Trend ▼';
 }
 
 /* ─── Refresh: re-scan the currently selected domain ─────────────
