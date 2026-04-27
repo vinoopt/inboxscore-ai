@@ -420,17 +420,21 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                   <option value="30" selected>Last 30 days</option>
                 </select>
               </div>
-              <div style="position:relative;">
-                <div style="display:flex;align-items:flex-end;height:160px;border-left:1px solid var(--border);border-bottom:1px solid var(--border);padding:0 4px;position:relative;">
-                  <div style="position:absolute;left:0;right:0;bottom:53%;border-top:1px dashed var(--red);z-index:1;">
-                    <span style="position:absolute;right:4px;top:-14px;font-size:9px;color:var(--red);">0.3% Policy</span>
-                  </div>
-                  <div style="position:absolute;left:0;right:0;bottom:18%;border-top:1px dashed var(--yellow);z-index:1;">
-                    <span style="position:absolute;right:4px;top:-14px;font-size:9px;color:var(--yellow);">0.1% Recommended</span>
-                  </div>
-                  <div class="pm-trend-bars" id="gpm-spam-bars" style="height:100%;width:100%;"></div>
+              <!-- INBOX-112 followup: bar chart → SVG line chart. Most
+                   senders sit at ~0% spam, so 30 thin bars looked empty
+                   and inconsistent with the Authentication tab. A line
+                   chart with policy/recommended thresholds + auto-scaled
+                   y-axis surfaces deviations far better. -->
+              <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;">
+                <svg id="gpm-spam-chart" viewBox="0 0 600 180" preserveAspectRatio="none" style="width:100%;height:180px;">
+                  <!-- threshold lines + line path rendered by JS -->
+                </svg>
+                <div id="gpm-spam-dates" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);padding-left:4px;">
                 </div>
-                <div id="gpm-spam-dates" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);">
+                <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:11px;">
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#4285F4;border-radius:2px;display:inline-block;"></span> Spam Rate</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:0;border-top:1px dashed var(--yellow);display:inline-block;"></span> 0.1% Recommended</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:0;border-top:1px dashed var(--red);display:inline-block;"></span> 0.3% Policy</span>
                 </div>
               </div>
             </div>
@@ -450,20 +454,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 
           </div>
 
-          <!-- TAB 3: Unsubscribe Compliance — INBOX-112 rebrand.
-               Google deprecated the FBL spam-by-identifier metric in v2.
-               The retained signal is the unsubscribe compliance verdict
-               from /api/postmaster/compliance, which we already fetch.
-               Surfacing it here gives users actionable Pro-tier value
-               instead of the old "No FBL data available" empty state. -->
+          <!-- TAB 3: Unsubscribe Compliance -->
           <div class="gpm-panel" id="gpm-fbl">
             <div style="margin-top:16px;">
-              <div class="pm-trend-title">Unsubscribe Compliance
-                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(reported by Google's compliance API)</span>
-              </div>
+              <div class="pm-trend-title">Unsubscribe Compliance</div>
               <div style="font-size:12px;color:var(--text-muted);margin-top:6px;margin-bottom:14px;">
                 Per Gmail's 2024 sender requirements, bulk senders must implement one-click unsubscribe (RFC 8058) and honor unsubscribe requests within 2 days.
-                Google's previous Feedback Loop spam-by-identifier metric was retired in the v2 API; these two unsubscribe verdicts are the current actionable signals.
               </div>
               <div id="gpm-fbl-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
                 <!-- Cards rendered by populateGpmUnsubscribe() -->
@@ -542,17 +538,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
             </div>
           </div>
 
-          <!-- TAB 6: Delivery Error Rate — INBOX-112 renamed.
-               Per-error-type breakdown is NOT exposed by Google Postmaster
-               v2 API (the per-error-class filter returns HTTP 400). We
-               show the rolled-up rate + count Google does provide, plus a
-               note explaining the limitation so users don't expect more. -->
+          <!-- TAB 6: Delivery Error Rate -->
           <div class="gpm-panel" id="gpm-errors">
             <div style="margin-top:16px;">
               <div class="pm-trend-title">Delivery Error Rate</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;margin-bottom:8px;">
-                Per-error-type breakdown is not exposed by Google Postmaster v2 API. Showing the aggregated daily rate.
-              </div>
               <div class="pm-grid" style="grid-template-columns:1fr;margin-top:8px;">
                 <div class="pm-metric">
                   <div class="pm-label">Error Rate</div>
@@ -1058,15 +1047,51 @@ function switchEhSection(section) {
 
 /* === INBOX-112: Per-chart period dropdown handler ===
    Each chart-bearing tab (Spam, Authentication) has its own dropdown.
-   We keep a single in-memory selected period and re-render whichever
-   chart triggered the change after re-fetching metrics. */
+   We keep a single in-memory selected period.
+
+   INBOX-112 followup: switched from "refetch on every change" to a
+   client-side slice. We pull the full 30-day window once (the longest
+   period the dropdown offers), stash it in _gpmFullCache, and on period
+   change just slice the tail and re-render. Saves a round-trip per
+   switch and feels instant. */
 let _ehSelectedPeriod = 30;
+let _gpmFullCache = { domain: null, metrics: [] };
+
 function ehChangePeriod(selectEl) {
   const days = parseInt(selectEl.value, 10) || 30;
   _ehSelectedPeriod = days;
   // Sync all per-tab dropdowns so user sees consistent state
   document.querySelectorAll('.eh-period-select').forEach(s => { s.value = String(days); });
-  if (gpmCurrentDomain) loadGpmMetrics(gpmCurrentDomain);
+  // If we have a fresh full cache for this domain, slice locally and
+  // re-render without a network call. Otherwise fall back to a fetch.
+  if (gpmCurrentDomain && _gpmFullCache.domain === gpmCurrentDomain && _gpmFullCache.metrics.length > 0) {
+    applyGpmPeriod();
+  } else if (gpmCurrentDomain) {
+    loadGpmMetrics(gpmCurrentDomain);
+  }
+}
+
+/* Slice the full 30-day cache to the active period and re-render
+   all chart-bearing tabs. No network. */
+function applyGpmPeriod() {
+  const days = _ehSelectedPeriod || 30;
+  const all = _gpmFullCache.metrics || [];
+  // Metrics arrive ordered oldest → newest. Take the last `days` rows.
+  const sliced = all.slice(-days);
+  gpmMetricsCache = sliced;
+
+  const dateRange = document.getElementById('gpm-date-range');
+  if (dateRange && sliced.length >= 1) {
+    dateRange.textContent = sliced.length >= 2
+      ? ehFormatDateRange(sliced[0].date, sliced[sliced.length - 1].date)
+      : ehFormatDateShort(sliced[0].date);
+  }
+
+  animateGpmSpam();
+  animateGpmAuth();
+  populateGpmEncryption();
+  // Compliance is independent of period (verdicts are current state, not
+  // a time series), so we skip its refetch on period switch.
 }
 
 /* === Google Postmaster: Tab Switching === */
@@ -1090,26 +1115,106 @@ function animateFblBars() {
   });
 }
 
-/* === GPM Spam Rate Bars + FBL animation (uses real data from gpmMetricsCache) === */
+/* === GPM Spam Rate SVG line chart (uses real data from gpmMetricsCache) === */
 function animateGpmSpam() {
   const metrics = gpmMetricsCache || [];
   if (metrics.length === 0) return;
 
-  // --- Spam Rate Bar Chart ---
-  const spamBars = document.getElementById('gpm-spam-bars');
-  spamBars.innerHTML = '';
-  metrics.forEach((m, i) => {
-    const rate = m.spam_rate != null ? m.spam_rate * 100 : 0;
-    const bar = document.createElement('div');
-    bar.className = 'pm-trend-bar';
-    bar.style.flex = '1';
-    const h = rate === 0 ? 3 : Math.max(6, Math.min(140, Math.round(rate / 0.3 * 140)));
-    bar.style.height = '0px';
-    bar.style.background = rate === 0 ? 'var(--green)' : rate < 0.1 ? 'var(--green)' : rate < 0.3 ? 'var(--orange)' : 'var(--red)';
-    bar.title = m.date + ': ' + rate.toFixed(2) + '%';
-    bar.style.minWidth = '16px';
-    spamBars.appendChild(bar);
-    setTimeout(() => { bar.style.height = h + 'px'; }, 200 + i * 80);
+  // --- INBOX-112 followup: SVG line chart instead of bars ---
+  // Most senders sit at ~0% spam, which made 30 thin bars look empty
+  // and inconsistent with the Authentication tab. A line chart with
+  // policy/recommended threshold dashed lines plus an auto-scaled
+  // y-axis surfaces deviations far better.
+  const spamSvg = document.getElementById('gpm-spam-chart');
+  spamSvg.innerHTML = '';
+  const W = 600, H = 180, padL = 36, padR = 8, padT = 8, padB = 16;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const n = metrics.length;
+  if (n === 0) return;
+  const ns = "http://www.w3.org/2000/svg";
+
+  // Decide y-axis max: 0.4% (one notch above policy) by default, but
+  // grow if any value exceeds that. Min 0.4 so policy/recommended
+  // dashed lines remain visible even on healthy senders.
+  const rates = metrics.map(m => m.spam_rate != null ? m.spam_rate * 100 : null);
+  const maxObserved = Math.max(0, ...rates.filter(v => v != null));
+  const yMax = Math.max(0.4, Math.ceil(maxObserved * 10) / 10 + 0.1);
+
+  function ptY(pct) {
+    if (pct == null) return null;
+    const clamped = Math.max(0, Math.min(yMax, pct));
+    return padT + (innerH * (yMax - clamped) / yMax);
+  }
+  function ptX(i) {
+    return padL + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
+  }
+
+  // Y-axis grid + labels at 0%, yMax/2, yMax
+  [0, yMax / 2, yMax].forEach(pct => {
+    const y = ptY(pct);
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', padL); line.setAttribute('x2', W - padR);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('stroke', 'rgba(124,58,237,0.08)');
+    line.setAttribute('stroke-dasharray', '2 3');
+    spamSvg.appendChild(line);
+    const lbl = document.createElementNS(ns, 'text');
+    lbl.setAttribute('x', padL - 4); lbl.setAttribute('y', y + 3);
+    lbl.setAttribute('text-anchor', 'end');
+    lbl.setAttribute('font-size', '9'); lbl.setAttribute('fill', 'var(--text-muted)');
+    lbl.textContent = pct.toFixed(pct < 0.1 ? 2 : 1) + '%';
+    spamSvg.appendChild(lbl);
+  });
+
+  // Threshold lines: 0.1% recommended (yellow), 0.3% policy (red)
+  function drawThreshold(pct, color, label) {
+    if (pct > yMax) return;  // off-screen
+    const y = ptY(pct);
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', padL); line.setAttribute('x2', W - padR);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', '1');
+    line.setAttribute('stroke-dasharray', '4 3');
+    spamSvg.appendChild(line);
+    const lbl = document.createElementNS(ns, 'text');
+    lbl.setAttribute('x', W - padR - 4); lbl.setAttribute('y', y - 3);
+    lbl.setAttribute('text-anchor', 'end');
+    lbl.setAttribute('font-size', '9'); lbl.setAttribute('fill', color);
+    lbl.textContent = label;
+    spamSvg.appendChild(lbl);
+  }
+  drawThreshold(0.1, 'var(--yellow)', '0.1% Recommended');
+  drawThreshold(0.3, 'var(--red)', '0.3% Policy');
+
+  // Build the spam-rate series
+  const pts = metrics.map((m, i) => {
+    const pct = m.spam_rate != null ? m.spam_rate * 100 : null;
+    return { x: ptX(i), y: ptY(pct), val: pct, date: m.date };
+  });
+  const valid = pts.filter(p => p.y !== null);
+  if (valid.length >= 2) {
+    const d = valid.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' ');
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#4285F4');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-linecap', 'round');
+    spamSvg.appendChild(path);
+  }
+  // Dots at each point with tooltip — also handles single-point case
+  valid.forEach(p => {
+    const c = document.createElementNS(ns, 'circle');
+    c.setAttribute('cx', p.x); c.setAttribute('cy', p.y); c.setAttribute('r', 2.5);
+    const color = p.val < 0.1 ? 'var(--green)' : p.val < 0.3 ? 'var(--yellow)' : 'var(--red)';
+    c.setAttribute('fill', color);
+    const t = document.createElementNS(ns, 'title');
+    t.textContent = 'Spam on ' + p.date + ': ' + p.val.toFixed(2) + '%';
+    c.appendChild(t);
+    spamSvg.appendChild(c);
   });
 
   // --- Spam Date Labels ---
@@ -1285,11 +1390,19 @@ function populateGpmEncryption() {
       const oavg = outRates.reduce((a, b) => a + b, 0) / outRates.length;
       tlsOutVal.textContent = oavg.toFixed(1) + '%';
       tlsOutVal.style.color = oavg >= 95 ? 'var(--green)' : oavg >= 80 ? 'var(--yellow)' : 'var(--red)';
-      tlsOutSub.textContent = outRates.every(r => r >= 99.9) ? 'All days at 100%' : 'Avg over ' + outRates.length + ' days';
+      // INBOX-112 follow-up: 0% outbound is the real value when the
+      // domain doesn't send mail TO Gmail. Show it honestly with a
+      // helpful sub-label rather than treating it as missing data.
+      const allZero = outRates.every(r => r === 0);
+      if (allZero) {
+        tlsOutSub.textContent = 'No outbound mail to Gmail in this period';
+      } else {
+        tlsOutSub.textContent = outRates.every(r => r >= 99.9) ? 'All days at 100%' : 'Avg over ' + outRates.length + ' days';
+      }
     } else {
       tlsOutVal.textContent = '—';
       tlsOutVal.style.color = 'var(--text-muted)';
-      tlsOutSub.textContent = 'Pending — appears on next 06:00 UTC sync';
+      tlsOutSub.textContent = 'Pending — appears after next sync';
     }
   }
 
@@ -1693,15 +1806,19 @@ function getActivePeriodDays() {
   return _ehSelectedPeriod || 30;
 }
 
-/* === GPM: Fetch metrics for a domain and populate tabs === */
+/* === GPM: Fetch metrics for a domain and populate tabs ===
+   INBOX-112 followup: always pull the longest period (30d) once, cache
+   the full array in _gpmFullCache, then slice to the active period for
+   rendering. Period switches (7/14/30) skip this function and use
+   applyGpmPeriod() against the cache. */
+const GPM_FULL_DAYS = 30;
 async function loadGpmMetrics(domain) {
   const token = getToken();
   if (!token || !domain) return;
-  const days = getActivePeriodDays();
 
   // INBOX-102: surface a short "Refreshing…" overlay on the data widget
-  // while the fetch is in flight, so period switches (7d / 30d / 90d) and
-  // manual syncs feel responsive instead of silent.
+  // while the fetch is in flight, so period switches and manual syncs
+  // feel responsive instead of silent.
   const widget = document.getElementById('gpm-widget');
   if (widget) widget.classList.add('gpm-refreshing');
 
@@ -1709,7 +1826,7 @@ async function loadGpmMetrics(domain) {
   try {
     // INBOX-101: 5s timeout — same UX as the status fetch.
     res = await fetchWithTimeout(
-      '/api/postmaster/metrics/' + encodeURIComponent(domain) + '?days=' + days,
+      '/api/postmaster/metrics/' + encodeURIComponent(domain) + '?days=' + GPM_FULL_DAYS,
       { headers: { 'Authorization': 'Bearer ' + token } },
       5000
     );
@@ -1728,23 +1845,16 @@ async function loadGpmMetrics(domain) {
 
     if (metrics.length === 0) { setGpmState('nodata'); return; }
 
-    // Cache for other tabs (B4-B7)
-    gpmMetricsCache = metrics;
+    // Stash the full 30-day window so period switches don't refetch.
+    _gpmFullCache = { domain: domain, metrics: metrics };
     setGpmState('data');
 
-    // INBOX-102: human-friendly date range — was "2026-03-29 — 2026-04-25",
-    // now "Mar 29 – Apr 25, 2026".
-    const dateRange = document.getElementById('gpm-date-range');
-    if (dateRange && metrics.length >= 1) {
-      dateRange.textContent = metrics.length >= 2
-        ? ehFormatDateRange(metrics[0].date, metrics[metrics.length - 1].date)
-        : ehFormatDateShort(metrics[0].date);
-    }
+    // Render at the active period (defaults to 30, but user may have
+    // dropped down to 7 or 14 before this fetch completed).
+    applyGpmPeriod();
 
-    // Populate other tabs with real data
-    animateGpmSpam();
-    animateGpmAuth();
-    populateGpmEncryption();
+    // Compliance verdicts are current state, not a time series — fetch
+    // once after the metrics land. Period switches don't trigger this.
     await populateGpmCompliance();
 
   } catch (e) {
