@@ -243,16 +243,15 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
     <h1 class="page-title" id="eh-page-title">Google Postmaster</h1>
     <p class="page-subtitle" id="eh-page-subtitle">Compliance, spam, authentication, and delivery data from Google.</p>
 
-    <!-- Toolbar -->
+    <!-- Toolbar — INBOX-112: dropped global period buttons. Period only
+         affects chart-bearing tabs (Spam, Authentication), so the dropdown
+         lives inside those tab headers now. Tabs without a chart (Compliance
+         Status, Unsubscribe Compliance, Encryption, Delivery Error Rate)
+         use a fixed 30-day window via getActivePeriodDays() default. -->
     <div class="eh-toolbar">
       <select class="eh-select" id="eh-domain-select" onchange="onEhDomainChange(this.value)">
         <option value="">Loading domains...</option>
       </select>
-      <div class="eh-period">
-        <button>7d</button>
-        <button class="active">30d</button>
-        <button>90d</button>
-      </div>
     </div>
 
     <!-- Submenu Layout -->
@@ -367,13 +366,19 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           <!-- Tab Navigation (mirrors Google Postmaster sidebar)
                INBOX-102: tab labels normalised to Title Case so they read
                consistently with each other. -->
+          <!-- INBOX-112: Feedback Loop renamed → Unsubscribe Compliance.
+               Google v2 dropped the FBL spam-by-identifier metric; the
+               replacement signal is the Compliance API's
+               oneClickUnsubscribeVerdict + honorUnsubscribeVerdict.
+               Delivery Errors → Delivery Error Rate (per-type breakdown
+               not exposed by v2). -->
           <div class="gpm-tabs">
             <button class="gpm-tab active" onclick="switchGpmTab('compliance')">Compliance Status</button>
             <button class="gpm-tab" onclick="switchGpmTab('spam')">Spam</button>
-            <button class="gpm-tab" onclick="switchGpmTab('fbl')">Feedback Loop</button>
+            <button class="gpm-tab" onclick="switchGpmTab('fbl')">Unsubscribe Compliance</button>
             <button class="gpm-tab" onclick="switchGpmTab('auth')">Authentication</button>
             <button class="gpm-tab" onclick="switchGpmTab('encryption')">Encryption</button>
-            <button class="gpm-tab" onclick="switchGpmTab('errors')">Delivery Errors</button>
+            <button class="gpm-tab" onclick="switchGpmTab('errors')">Delivery Error Rate</button>
           </div>
 
           <!-- TAB 1: Compliance Status (default/first tab) -->
@@ -404,7 +409,17 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           <!-- TAB 2: Spam -->
           <div class="gpm-panel" id="gpm-spam">
             <div style="margin-top:16px;">
-              <div class="pm-trend-title">User-Reported Spam Rate</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div class="pm-trend-title" style="margin:0;">User-Reported Spam Rate</div>
+                <!-- INBOX-112: per-chart period selector — replaces the
+                     old global 7d/30d/90d buttons. 90d dropped (chart too
+                     dense), 14d added. -->
+                <select class="eh-period-select" data-period-target="spam" onchange="ehChangePeriod(this)" style="padding:4px 8px;font-size:11px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-muted);">
+                  <option value="7">Last 7 days</option>
+                  <option value="14">Last 14 days</option>
+                  <option value="30" selected>Last 30 days</option>
+                </select>
+              </div>
               <div style="position:relative;">
                 <div style="display:flex;align-items:flex-end;height:160px;border-left:1px solid var(--border);border-bottom:1px solid var(--border);padding:0 4px;position:relative;">
                   <div style="position:absolute;left:0;right:0;bottom:53%;border-top:1px dashed var(--red);z-index:1;">
@@ -435,42 +450,46 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 
           </div>
 
-          <!-- TAB 3: Feedback Loop -->
+          <!-- TAB 3: Unsubscribe Compliance — INBOX-112 rebrand.
+               Google deprecated the FBL spam-by-identifier metric in v2.
+               The retained signal is the unsubscribe compliance verdict
+               from /api/postmaster/compliance, which we already fetch.
+               Surfacing it here gives users actionable Pro-tier value
+               instead of the old "No FBL data available" empty state. -->
           <div class="gpm-panel" id="gpm-fbl">
             <div style="margin-top:16px;">
-              <div class="pm-trend-title">Feedback Loop <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(FBL spam rate by identifier)</span></div>
-              <div id="gpm-fbl-bars" style="display:flex;gap:3px;align-items:flex-end;height:100px;margin-top:8px;background:var(--surface-2);border-radius:8px;padding:12px;">
+              <div class="pm-trend-title">Unsubscribe Compliance
+                <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(reported by Google's compliance API)</span>
               </div>
-              <div id="gpm-fbl-dates" style="display:flex;justify-content:space-around;margin-top:4px;font-size:10px;color:var(--text-muted);">
+              <div style="font-size:12px;color:var(--text-muted);margin-top:6px;margin-bottom:14px;">
+                Per Gmail's 2024 sender requirements, bulk senders must implement one-click unsubscribe (RFC 8058) and honor unsubscribe requests within 2 days.
+                Google's previous Feedback Loop spam-by-identifier metric was retired in the v2 API; these two unsubscribe verdicts are the current actionable signals.
               </div>
-              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
-                <thead><tr style="border-bottom:1px solid var(--border);">
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Identifiers</th>
-                  <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Spam Rate</th>
-                </tr></thead>
-                <tbody id="gpm-fbl-table-body">
-                  <tr><td colspan="3" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
-                </tbody>
-              </table>
+              <div id="gpm-fbl-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
+                <!-- Cards rendered by populateGpmUnsubscribe() -->
+              </div>
             </div>
           </div>
 
-          <!-- TAB 3: Authentication -->
+          <!-- TAB 3: Authentication — INBOX-112 -->
           <div class="gpm-panel" id="gpm-auth">
             <div style="margin-top:16px;">
-              <div class="pm-trend-title">Authentication Rates (SPF Alignment, DKIM, DMARC)</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div class="pm-trend-title" style="margin:0;">Authentication Rates (SPF Alignment, DKIM, DMARC)</div>
+                <select class="eh-period-select" data-period-target="auth" onchange="ehChangePeriod(this)" style="padding:4px 8px;font-size:11px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-muted);">
+                  <option value="7">Last 7 days</option>
+                  <option value="14">Last 14 days</option>
+                  <option value="30" selected>Last 30 days</option>
+                </select>
+              </div>
+              <!-- INBOX-112: replaced grouped-bar chart with multi-line SVG.
+                   Bar chart at 30 days × 3 series = 90 bars was visually
+                   overwhelming. Lines are the standard for time-series
+                   percentages near 100% — dips are instantly visible. -->
               <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;">
-                <div style="display:flex;align-items:flex-end;height:140px;position:relative;border-left:1px solid var(--border);border-bottom:1px solid var(--border);">
-                  <div style="position:absolute;left:-36px;top:0;font-size:9px;color:var(--text-muted);">100%</div>
-                  <div style="position:absolute;left:-30px;top:25%;font-size:9px;color:var(--text-muted);">80%</div>
-                  <div style="position:absolute;left:-30px;top:50%;font-size:9px;color:var(--text-muted);">60%</div>
-                  <div style="position:absolute;left:-30px;top:75%;font-size:9px;color:var(--text-muted);">40%</div>
-                  <div style="position:absolute;left:0;right:0;top:25%;border-top:1px solid rgba(255,255,255,0.05);"></div>
-                  <div style="position:absolute;left:0;right:0;top:50%;border-top:1px solid rgba(255,255,255,0.05);"></div>
-                  <div style="position:absolute;left:0;right:0;top:75%;border-top:1px solid rgba(255,255,255,0.05);"></div>
-                  <div class="pm-trend-bars" id="gpm-auth-chart" style="width:100%;height:100%;"></div>
-                </div>
+                <svg id="gpm-auth-chart" viewBox="0 0 600 180" preserveAspectRatio="none" style="width:100%;height:180px;">
+                  <!-- y-grid + axis labels rendered by JS -->
+                </svg>
                 <div id="gpm-auth-dates" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);padding-left:4px;">
                 </div>
                 <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:11px;">
@@ -506,8 +525,8 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                 </div>
                 <div class="pm-metric">
                   <div class="pm-label">Outbound TLS</div>
-                  <div class="pm-value" style="color:var(--text-muted);">—</div>
-                  <div class="pm-sub">No outbound data</div>
+                  <div class="pm-value" id="gpm-enc-tls-outbound-val">—</div>
+                  <div class="pm-sub" id="gpm-enc-tls-outbound-sub">Loading…</div>
                 </div>
               </div>
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
@@ -523,10 +542,17 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
             </div>
           </div>
 
-          <!-- TAB 6: Delivery Error -->
+          <!-- TAB 6: Delivery Error Rate — INBOX-112 renamed.
+               Per-error-type breakdown is NOT exposed by Google Postmaster
+               v2 API (the per-error-class filter returns HTTP 400). We
+               show the rolled-up rate + count Google does provide, plus a
+               note explaining the limitation so users don't expect more. -->
           <div class="gpm-panel" id="gpm-errors">
             <div style="margin-top:16px;">
-              <div class="pm-trend-title">Delivery Errors</div>
+              <div class="pm-trend-title">Delivery Error Rate</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;margin-bottom:8px;">
+                Per-error-type breakdown is not exposed by Google Postmaster v2 API. Showing the aggregated daily rate.
+              </div>
               <div class="pm-grid" style="grid-template-columns:1fr;margin-top:8px;">
                 <div class="pm-metric">
                   <div class="pm-label">Error Rate</div>
@@ -1030,17 +1056,18 @@ function switchEhSection(section) {
   }
 })();
 
-/* === Email Health: Period Button Toggle === */
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.eh-period button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.eh-period button').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      // Reload GPM data with new period
-      if (gpmCurrentDomain) loadGpmMetrics(gpmCurrentDomain);
-    });
-  });
-});
+/* === INBOX-112: Per-chart period dropdown handler ===
+   Each chart-bearing tab (Spam, Authentication) has its own dropdown.
+   We keep a single in-memory selected period and re-render whichever
+   chart triggered the change after re-fetching metrics. */
+let _ehSelectedPeriod = 30;
+function ehChangePeriod(selectEl) {
+  const days = parseInt(selectEl.value, 10) || 30;
+  _ehSelectedPeriod = days;
+  // Sync all per-tab dropdowns so user sees consistent state
+  document.querySelectorAll('.eh-period-select').forEach(s => { s.value = String(days); });
+  if (gpmCurrentDomain) loadGpmMetrics(gpmCurrentDomain);
+}
 
 /* === Google Postmaster: Tab Switching === */
 function switchGpmTab(tab) {
@@ -1110,51 +1137,10 @@ function animateGpmSpam() {
     tbody.appendChild(tr);
   });
 
-  // --- FBL Section (populated from raw_data if available) ---
-  const fblBars = document.getElementById('gpm-fbl-bars');
-  const fblDates = document.getElementById('gpm-fbl-dates');
-  const fblBody = document.getElementById('gpm-fbl-table-body');
-  fblBars.innerHTML = '';
-  fblDates.innerHTML = '';
-  fblBody.innerHTML = '';
-
-  // Extract FBL data from raw_data.spammyFeedbackLoops if present
-  const fblRows = [];
-  metrics.forEach(m => {
-    const raw = m.raw_data;
-    if (raw && raw.spammyFeedbackLoops) {
-      raw.spammyFeedbackLoops.forEach(loop => {
-        fblRows.push({ date: m.date, id: loop.id || '—', spamRatio: loop.spamRatio || 0 });
-      });
-    }
-  });
-
-  if (fblRows.length === 0) {
-    fblBars.innerHTML = '<div style="color:var(--text-muted);font-size:12px;display:flex;align-items:center;justify-content:center;width:100%;height:100%;">No FBL data available</div>';
-    fblBody.innerHTML = '<tr><td colspan="3" style="padding:12px;color:var(--text-muted);text-align:center;">No feedback loop data</td></tr>';
-  } else {
-    fblRows.forEach((row, i) => {
-      const pct = (row.spamRatio * 100);
-      const bar = document.createElement('div');
-      bar.style.cssText = 'flex:1;background:var(--accent);border-radius:2px 2px 0 0;height:0%;transition:height 0.5s;';
-      const h = Math.max(5, Math.min(90, pct / 1 * 90));
-      setTimeout(() => { bar.style.height = h + '%'; }, 300 + i * 100);
-      bar.title = row.date + ': ' + pct.toFixed(2) + '%';
-      fblBars.appendChild(bar);
-
-      const span = document.createElement('span');
-      span.textContent = row.date ? row.date.slice(5) : '';
-      fblDates.appendChild(span);
-
-      const tr = document.createElement('tr');
-      if (i < fblRows.length - 1) tr.style.borderBottom = '1px solid var(--border)';
-      const rateColor = pct < 0.1 ? 'var(--green)' : pct < 0.3 ? 'var(--orange)' : 'var(--red)';
-      tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(row.date) + '</td>'
-        + '<td style="padding:8px 12px;">' + escapeHtml(row.id) + '</td>'
-        + '<td style="padding:8px 12px;text-align:right;color:' + rateColor + ';">' + pct.toFixed(2) + '%</td>';
-      fblBody.appendChild(tr);
-    });
-  }
+  // INBOX-112: FBL bars/table removed — Google v2 deprecated the metric.
+  // The "Feedback Loop" tab is now "Unsubscribe Compliance" rendered by
+  // populateGpmUnsubscribe() inside populateGpmCompliance (which already
+  // fetches the compliance API).
 }
 
 /* === GPM Auth Chart (grouped bars per day) === */
@@ -1162,27 +1148,72 @@ function animateGpmAuth() {
   const metrics = gpmMetricsCache || [];
   if (metrics.length === 0) return;
 
-  // --- Grouped bar chart (DMARC / DKIM / SPF per day) ---
-  const authChart = document.getElementById('gpm-auth-chart');
-  authChart.innerHTML = '';
-  metrics.forEach((m, i) => {
-    const dkim  = m.auth_success_dkim  != null ? m.auth_success_dkim  * 100 : 0;
-    const spf   = m.auth_success_spf   != null ? m.auth_success_spf   * 100 : 0;
-    const dmarc = m.auth_success_dmarc != null ? m.auth_success_dmarc * 100 : 0;
+  // INBOX-112: SVG line chart instead of grouped bars. 3 lines for
+  // DMARC / DKIM / SPF tracking ~100% — dips are instantly visible.
+  // viewBox 0 0 600 180 with 16px y-axis pad on left, 8px right.
+  const authSvg = document.getElementById('gpm-auth-chart');
+  authSvg.innerHTML = '';
+  const W = 600, H = 180, padL = 30, padR = 8, padT = 8, padB = 16;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const n = metrics.length;
+  if (n === 0) return;
 
-    const group = document.createElement('div');
-    group.style.cssText = 'flex:1;display:flex;gap:2px;align-items:flex-end;height:100%;';
-    [{ key: 'dmarc', val: dmarc, color: '#4285F4' },
-     { key: 'dkim',  val: dkim,  color: '#EA4335' },
-     { key: 'spf',   val: spf,   color: '#FBBC05' }].forEach((item, ki) => {
-      const bar = document.createElement('div');
-      bar.style.cssText = 'flex:1;border-radius:2px 2px 0 0;background:' + item.color + ';height:0%;transition:height 0.6s ease;min-width:4px;';
-      bar.title = item.key.toUpperCase() + ': ' + item.val.toFixed(1) + '%';
-      group.appendChild(bar);
-      setTimeout(() => { bar.style.height = item.val + '%'; }, 200 + i * 100 + ki * 50);
-    });
-    authChart.appendChild(group);
+  // Y-axis grid + labels (40, 60, 80, 100)
+  const ns = "http://www.w3.org/2000/svg";
+  [40, 60, 80, 100].forEach(pct => {
+    const y = padT + (innerH * (100 - pct) / 60); // map 40-100 to 0-innerH
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', padL); line.setAttribute('x2', W - padR);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('stroke', 'rgba(124,58,237,0.08)');
+    line.setAttribute('stroke-dasharray', '2 3');
+    authSvg.appendChild(line);
+    const lbl = document.createElementNS(ns, 'text');
+    lbl.setAttribute('x', padL - 4); lbl.setAttribute('y', y + 3);
+    lbl.setAttribute('text-anchor', 'end');
+    lbl.setAttribute('font-size', '9'); lbl.setAttribute('fill', 'var(--text-muted)');
+    lbl.textContent = pct + '%';
+    authSvg.appendChild(lbl);
   });
+
+  // Series builders. Map auth value (0..1) → y on innerH where 100% → top, 40% → bottom.
+  function ptY(v) {
+    const pct = v != null ? v * 100 : null;
+    if (pct === null) return null;
+    const clamped = Math.max(40, Math.min(100, pct));
+    return padT + (innerH * (100 - clamped) / 60);
+  }
+  function ptX(i) {
+    return padL + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
+  }
+  function drawSeries(getter, color, label) {
+    const pts = metrics.map((m, i) => ({ x: ptX(i), y: ptY(getter(m)), val: getter(m), date: m.date }));
+    const valid = pts.filter(p => p.y !== null);
+    if (valid.length < 2) return;
+    const d = valid.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' ');
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-linecap', 'round');
+    authSvg.appendChild(path);
+    // Dots at each point with tooltip
+    valid.forEach(p => {
+      const c = document.createElementNS(ns, 'circle');
+      c.setAttribute('cx', p.x); c.setAttribute('cy', p.y); c.setAttribute('r', 2.5);
+      c.setAttribute('fill', color);
+      const t = document.createElementNS(ns, 'title');
+      t.textContent = `${label} on ${p.date}: ${(p.val * 100).toFixed(2)}%`;
+      c.appendChild(t);
+      authSvg.appendChild(c);
+    });
+  }
+  drawSeries(m => m.auth_success_dmarc, '#4285F4', 'DMARC');
+  drawSeries(m => m.auth_success_dkim,  '#EA4335', 'DKIM');
+  drawSeries(m => m.auth_success_spf,   '#FBBC05', 'SPF');
 
   // --- Date labels ---
   const authDates = document.getElementById('gpm-auth-dates');
@@ -1236,17 +1267,47 @@ function populateGpmEncryption() {
     tlsSub.textContent = 'No TLS data';
   }
 
-  // --- TLS table ---
+  // --- INBOX-112: Outbound TLS summary card ---
+  // Outbound TLS lives in raw_data._tls_outbound (we stash it there during
+  // upsert because postmaster_metrics has no dedicated outbound column —
+  // see db.upsert_postmaster_metrics). Fall back to direct field if present.
+  function getOutbound(m) {
+    if (m.encrypted_traffic_tls_outbound != null) return m.encrypted_traffic_tls_outbound;
+    let raw = m.raw_data;
+    if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch { raw = {}; } }
+    return raw && raw._tls_outbound != null ? raw._tls_outbound : null;
+  }
+  const tlsOutVal = document.getElementById('gpm-enc-tls-outbound-val');
+  const tlsOutSub = document.getElementById('gpm-enc-tls-outbound-sub');
+  const outRates = metrics.filter(m => getOutbound(m) != null).map(m => getOutbound(m) * 100);
+  if (tlsOutVal && tlsOutSub) {
+    if (outRates.length > 0) {
+      const oavg = outRates.reduce((a, b) => a + b, 0) / outRates.length;
+      tlsOutVal.textContent = oavg.toFixed(1) + '%';
+      tlsOutVal.style.color = oavg >= 95 ? 'var(--green)' : oavg >= 80 ? 'var(--yellow)' : 'var(--red)';
+      tlsOutSub.textContent = outRates.every(r => r >= 99.9) ? 'All days at 100%' : 'Avg over ' + outRates.length + ' days';
+    } else {
+      tlsOutVal.textContent = '—';
+      tlsOutVal.style.color = 'var(--text-muted)';
+      tlsOutSub.textContent = 'Pending — appears on next 06:00 UTC sync';
+    }
+  }
+
+  // --- TLS table (with outbound column populated) ---
   const tlsBody = document.getElementById('gpm-enc-tls-table-body');
   tlsBody.innerHTML = '';
   metrics.forEach((m, i) => {
     const pct = m.encrypted_traffic_tls != null ? (m.encrypted_traffic_tls * 100) : null;
     const color = pct != null ? (pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-muted)';
+    const outVal = getOutbound(m);
+    const outPct = outVal != null ? outVal * 100 : null;
+    const outColor = outPct != null ? (outPct >= 95 ? 'var(--green)' : outPct >= 80 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-muted)';
+    const outText = outPct != null ? outPct.toFixed(2) + '%' : '—';
     const tr = document.createElement('tr');
     if (i < metrics.length - 1) tr.style.borderBottom = '1px solid var(--border)';
     tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(m.date || '—') + '</td>'
       + '<td style="padding:8px 12px;color:' + color + ';">' + (pct != null ? pct.toFixed(2) + '%' : 'N/A') + '</td>'
-      + '<td style="padding:8px 12px;color:var(--text-muted);">—</td>';
+      + '<td style="padding:8px 12px;color:' + outColor + ';">' + outText + '</td>';
     tlsBody.appendChild(tr);
   });
 
@@ -1347,6 +1408,15 @@ async function populateGpmCompliance() {
     oneClickVerdict = compData.oneClickUnsubscribeVerdict?.status?.status || null;
     honorVerdict = compData.honorUnsubscribeVerdict?.status?.status || null;
   }
+
+  // INBOX-112: also populate the Unsubscribe Compliance tab (rebranded
+  // from the old Feedback Loop tab) using the same compliance data.
+  populateGpmUnsubscribe(
+    oneClickVerdict,
+    compData?.oneClickUnsubscribeVerdict?.reason,
+    honorVerdict,
+    compData?.honorUnsubscribeVerdict?.reason
+  );
 
   // ── Metrics-based fallback values ──
   const spf   = latest.auth_success_spf   != null ? latest.auth_success_spf   * 100 : null;
@@ -1455,6 +1525,46 @@ async function populateGpmCompliance() {
     }
     tbody.appendChild(tr);
   });
+}
+
+/* === GPM Unsubscribe Compliance — INBOX-112 ============================
+   Renders the rebranded "Unsubscribe Compliance" tab (formerly Feedback
+   Loop). Uses the v2 compliance API verdicts for one-click + honor
+   unsubscribe — these are the live actionable signals after Google
+   deprecated FBL spam-by-identifier in v2. */
+function populateGpmUnsubscribe(oneClick, oneClickReason, honor, honorReason) {
+  const cards = document.getElementById('gpm-fbl-cards');
+  if (!cards) return;
+  const oneClickReasons = {
+    'NO_UNSUB_GENERAL': 'One-click unsubscribe header missing on subscription messages.',
+    'NO_UNSUB_SPAM_REPORTS': 'Messages receiving spam reports lack the one-click header.',
+    'NO_UNSUB_PROMO_SPAM_REPORTS': 'Promotional messages with spam reports lack one-click headers.'
+  };
+  const honorReasons = {
+    'NOT_HONORING': 'Unsubscribe requests not honored within 2 days.',
+    'NOT_HONORING_TOO_FEW_CAMPAIGNS': 'Too few campaigns to evaluate (insufficient data).',
+    'NOT_HONORING_TOO_MANY_CAMPAIGNS': 'Multiple campaigns not honoring within 2 days.'
+  };
+  function renderCard(title, verdict, reason, reasonMap) {
+    const isCompliant = verdict === 'COMPLIANT';
+    const isNoData = !verdict;
+    const color = isCompliant ? 'var(--green)' : isNoData ? 'var(--text-muted)' : 'var(--red)';
+    const bg = isCompliant ? 'var(--green-bg)' : isNoData ? 'var(--surface-2)' : 'var(--red-bg)';
+    const label = isCompliant ? '✓ Compliant' : isNoData ? '— Awaiting Google verdict' : '✗ Needs work';
+    const subText = isCompliant
+      ? 'Google reports this domain meets the requirement.'
+      : isNoData
+        ? 'Google has not yet reported a verdict for this domain — typically appears after meaningful send volume.'
+        : (reasonMap[reason] || 'See Google Postmaster Tools for details.');
+    return `<div style="padding:18px;border-radius:12px;background:${bg};border:1px solid var(--border);">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text);">${escapeHtml(title)}</div>
+      <div style="font-size:18px;font-weight:700;color:${color};margin-bottom:10px;">${label}</div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">${escapeHtml(subText)}</div>
+    </div>`;
+  }
+  cards.innerHTML =
+    renderCard('One-click unsubscribe', oneClick, oneClickReason, oneClickReasons) +
+    renderCard('Honor unsubscribe (within 2 days)', honor, honorReason, honorReasons);
 }
 
 /* === Email Health Trend Animations (Overview + MS + Yahoo) === */
@@ -1576,14 +1686,11 @@ function onGpmDomainChange(domain) {
   loadGpmMetrics(domain);
 }
 
-/* === GPM: Get active period (days) from top-level buttons === */
+/* === GPM: Get active period (days) — INBOX-112 ===
+   Reads from the in-memory _ehSelectedPeriod set by per-tab dropdowns.
+   Falls back to 30 (the default-selected option in HTML). */
 function getActivePeriodDays() {
-  const active = document.querySelector('.eh-period button.active');
-  if (!active) return 30;
-  const txt = active.textContent.trim();
-  if (txt === '7d') return 7;
-  if (txt === '90d') return 90;
-  return 30;
+  return _ehSelectedPeriod || 30;
 }
 
 /* === GPM: Fetch metrics for a domain and populate tabs === */

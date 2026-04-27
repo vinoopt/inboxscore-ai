@@ -165,6 +165,11 @@ async def query_domain_stats(access_token: str, domain_resource: str,
 
     # Define the metrics we want to fetch
     # NOTE: filter values MUST be lowercase per Google v2 API spec
+    # INBOX-112 (live probe 2026-04-27 confirmed v2 only exposes the 8 metrics
+    # below; SPAMMY_FOREIGN_DOMAINS, FEEDBACK_LOOP_SPAM_RATE, DOMAIN_REPUTATION,
+    # IP_REPUTATION, USER_REPORTED_SPAM_RATIO and per-delivery-class filters
+    # all return HTTP 400 — Google deliberately removed them when migrating
+    # v1 → v2 in March 2025).
     metric_definitions = [
         {"name": "spam_rate", "baseMetric": {"standardMetric": "SPAM_RATE"}},
         {"name": "auth_spf", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"},
@@ -173,8 +178,13 @@ async def query_domain_stats(access_token: str, domain_resource: str,
          "filter": 'auth_type = "dkim"'},
         {"name": "auth_dmarc", "baseMetric": {"standardMetric": "AUTH_SUCCESS_RATE"},
          "filter": 'auth_type = "dmarc"'},
-        {"name": "tls_rate", "baseMetric": {"standardMetric": "TLS_ENCRYPTION_RATE"},
+        {"name": "tls_inbound", "baseMetric": {"standardMetric": "TLS_ENCRYPTION_RATE"},
          "filter": 'traffic_direction = "inbound"'},
+        # INBOX-112: outbound TLS was previously not requested. Google v2
+        # supports it via the same metric with a different filter. Lets us
+        # populate the Outbound TLS card on the Encryption tab.
+        {"name": "tls_outbound", "baseMetric": {"standardMetric": "TLS_ENCRYPTION_RATE"},
+         "filter": 'traffic_direction = "outbound"'},
         {"name": "delivery_error_rate", "baseMetric": {"standardMetric": "DELIVERY_ERROR_RATE"}},
         {"name": "delivery_error_count", "baseMetric": {"standardMetric": "DELIVERY_ERROR_COUNT"}},
     ]
@@ -285,7 +295,8 @@ def parse_v2_domain_stats(raw_stats: list) -> list:
                 "auth_success_spf": None,
                 "auth_success_dkim": None,
                 "auth_success_dmarc": None,
-                "encrypted_traffic_tls": None,
+                "encrypted_traffic_tls": None,            # inbound (legacy field name)
+                "encrypted_traffic_tls_outbound": None,   # INBOX-112: outbound
                 "delivery_error_rate": None,
                 "delivery_error_count": None,
                 "domain_reputation": None,    # removed in v2
@@ -304,6 +315,14 @@ def parse_v2_domain_stats(raw_stats: list) -> list:
             entry["auth_success_dkim"] = float(value)
         elif metric_name == "auth_dmarc" and value is not None:
             entry["auth_success_dmarc"] = float(value)
+        elif metric_name == "tls_inbound" and value is not None:
+            # INBOX-112: keep legacy field name `encrypted_traffic_tls` for
+            # inbound (backward-compat with the existing UI), add the new
+            # outbound field separately.
+            entry["encrypted_traffic_tls"] = float(value)
+        elif metric_name == "tls_outbound" and value is not None:
+            entry["encrypted_traffic_tls_outbound"] = float(value)
+        # Backward-compat: older parsed objects may still carry "tls_rate" key
         elif metric_name == "tls_rate" and value is not None:
             entry["encrypted_traffic_tls"] = float(value)
         elif metric_name == "delivery_error_rate" and value is not None:

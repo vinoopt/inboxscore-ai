@@ -885,6 +885,14 @@ def upsert_postmaster_metrics(user_id: str, domain: str, metric_date: str, metri
         if metrics.get("delivery_error_count") is not None:
             delivery_err["_count"] = metrics["delivery_error_count"]
 
+        # INBOX-112: stash outbound TLS into raw_data JSON since the
+        # postmaster_metrics table doesn't have a dedicated column for it
+        # (and adding one needs migration 010, separate ticket). The UI
+        # reads it from raw_data._tls_outbound.
+        raw = dict(metrics.get("raw_data", {}))
+        if metrics.get("encrypted_traffic_tls_outbound") is not None:
+            raw["_tls_outbound"] = metrics["encrypted_traffic_tls_outbound"]
+
         data = {
             "user_id": user_id,
             "domain": domain,
@@ -897,7 +905,7 @@ def upsert_postmaster_metrics(user_id: str, domain: str, metric_date: str, metri
             "auth_success_dmarc": metrics.get("auth_success_dmarc"),
             "delivery_errors": json.dumps(delivery_err),
             "encrypted_traffic_tls": metrics.get("encrypted_traffic_tls"),
-            "raw_data": json.dumps(metrics.get("raw_data", {})),
+            "raw_data": json.dumps(raw),
         }
         result = sb.table("postmaster_metrics").upsert(
             data, on_conflict="user_id,domain,date"
