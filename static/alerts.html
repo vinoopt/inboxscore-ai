@@ -47,7 +47,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
 
 /* Main */
-.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); max-width: 960px; }
+/* 2026-04-27: added margin-inline auto so the content centers when the
+   flex parent gives us more space than max-width allows. Same fix as
+   Dashboard — without this, all empty space ended up on the right. */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); max-width: 960px; margin-left: auto; margin-right: auto; }
 
 /* Page Header */
 .page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }

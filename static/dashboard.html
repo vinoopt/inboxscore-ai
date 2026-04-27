@@ -47,7 +47,11 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
 
 /* Main */
-.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); max-width: 960px; }
+/* 2026-04-27: added margin-inline auto so the content centers when the
+   flex parent gives us more space than max-width allows. Without this,
+   on wide monitors all the empty space ended up on the right side of
+   the page (Vinoop reported this on a 2K display). */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); max-width: 960px; margin-left: auto; margin-right: auto; }
 
 /* Page Header */
 .page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
@@ -271,7 +275,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
  * exists in both — the mockup version uses a coloured background; the
  * scan-results version is transparent with coloured border only).
  * ────────────────────────────────────────────────────────────────── */
-#view-dashboard .main { max-width: 1200px; }
+/* 2026-04-27: bumped from 1200 → 1440 — matches Linear/Stripe-class
+   dashboards. On a 2K monitor, the score hero + diag grid now use
+   ~62% of available space instead of ~47%. Combined with the global
+   margin-auto fix, whitespace is balanced (small) on both sides
+   instead of dumped entirely on the right. */
+#view-dashboard .main { max-width: 1440px; }
 #view-dashboard .domain-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
 #view-dashboard .domain-select { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.15s; min-width: 280px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); position: relative; }
 #view-dashboard .domain-select:hover { border-color: var(--border-strong); }
