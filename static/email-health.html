@@ -1537,6 +1537,29 @@ async function fetchWithTimeout(url, options = {}, ms = 5000) {
   }
 }
 
+/* === Spinner backstop — INBOX-101 follow-up =====================
+   Bulletproof safety net independent of ehInit(). If after 7 seconds
+   the gpm-state-init div is STILL the active state (meaning ehInit
+   silently failed, threw a parse error, or a runtime exception broke
+   the orchestrator), force the error UI so the user has a Retry path
+   no matter what.
+   ============================================================ */
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    const initEl = document.getElementById('gpm-state-init');
+    if (initEl && initEl.classList.contains('active')) {
+      console.warn('[EH] Spinner backstop fired — ehInit did not transition within 7s.');
+      try { setGpmState('error', 'Page took too long to load. Click Retry, and if this keeps happening please open DevTools → Console and share any red errors.'); }
+      catch (_e) {
+        // setGpmState itself broken — fall back to raw DOM toggle.
+        initEl.classList.remove('active');
+        const errEl = document.getElementById('gpm-state-error');
+        if (errEl) errEl.classList.add('active');
+      }
+    }
+  }, 7000);
+});
+
 /* ================================================================
    BLACKLIST MONITOR — HetrixTools Integration
    ================================================================ */
