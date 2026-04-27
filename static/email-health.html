@@ -206,6 +206,13 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
      ehInit() can hydrate from localStorage before the network call
      resolves, eliminating the "Loading…" cold-start spinner. -->
 <script src="/static/cache.js"></script>
+
+<!-- 2026-04-27: Chart.js for Postmaster line charts. Replaces the
+     hand-rolled SVG which had broken hover, axis-label misalignment,
+     and aspect-ratio issues. annotation plugin draws the dashed
+     policy / recommended threshold lines on the Spam chart. -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 </head>
 <body>
 
@@ -419,22 +426,14 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                   <option value="30" selected>Last 30 days</option>
                 </select>
               </div>
-              <!-- INBOX-112 followup: bar chart → SVG line chart. Most
-                   senders sit at ~0% spam, so 30 thin bars looked empty
-                   and inconsistent with the Authentication tab. A line
-                   chart with policy/recommended thresholds + auto-scaled
-                   y-axis surfaces deviations far better. -->
-              <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;">
-                <svg id="gpm-spam-chart" viewBox="0 0 600 180" preserveAspectRatio="xMidYMid meet" style="width:100%;height:180px;">
-                  <!-- threshold lines + line path rendered by JS -->
-                </svg>
-                <div id="gpm-spam-dates" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);padding-left:4px;">
-                </div>
-                <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:11px;">
-                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#4285F4;border-radius:2px;display:inline-block;"></span> Spam Rate</span>
-                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:0;border-top:1px dashed var(--yellow);display:inline-block;"></span> 0.1% Recommended</span>
-                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:0;border-top:1px dashed var(--red);display:inline-block;"></span> 0.3% Policy</span>
-                </div>
+              <!-- 2026-04-27: hand-rolled SVG → Chart.js. The previous
+                   chart had broken hover, axis-label misalignment, and
+                   aspect-ratio distortion. Chart.js handles all three
+                   correctly with built-in crosshair tooltips and proper
+                   responsive sizing. Threshold lines are drawn via the
+                   chartjs-plugin-annotation plugin (loaded in <head>). -->
+              <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;height:240px;position:relative;">
+                <canvas id="gpm-spam-chart"></canvas>
               </div>
             </div>
 
@@ -481,21 +480,11 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                    Bar chart at 30 days × 3 series = 90 bars was visually
                    overwhelming. Lines are the standard for time-series
                    percentages near 100% — dips are instantly visible. -->
-              <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;">
-                <!-- 2026-04-27: dropped preserveAspectRatio="none" — it was
-                     stretching the chart vertically when the container is
-                     wider than the viewBox aspect. xMidYMid meet keeps
-                     the chart's natural proportions at any width. -->
-                <svg id="gpm-auth-chart" viewBox="0 0 600 180" preserveAspectRatio="xMidYMid meet" style="width:100%;height:180px;">
-                  <!-- y-grid + axis labels rendered by JS -->
-                </svg>
-                <div id="gpm-auth-dates" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);padding-left:4px;">
-                </div>
-                <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:11px;">
-                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#4285F4;border-radius:2px;display:inline-block;"></span> DMARC</span>
-                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#EA4335;border-radius:2px;display:inline-block;"></span> DKIM</span>
-                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:3px;background:#FBBC05;border-radius:2px;display:inline-block;"></span> SPF Alignment</span>
-                </div>
+              <!-- 2026-04-27: hand-rolled SVG → Chart.js. See Spam tab
+                   above for full reasoning. Chart.js draws its own legend
+                   so the manual legend row was removed. -->
+              <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;height:280px;position:relative;">
+                <canvas id="gpm-auth-chart"></canvas>
               </div>
 
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:16px;">
@@ -1121,111 +1110,133 @@ function animateFblBars() {
   });
 }
 
-/* === GPM Spam Rate SVG line chart (uses real data from gpmMetricsCache) === */
+/* === Shared Chart.js options for all Postmaster charts =====================
+   Returns a Chart.js v4 options object with sensible defaults:
+   - maintainAspectRatio: false (canvas fills its container; no distortion)
+   - interaction.mode: 'index' so hovering anywhere on a column shows the
+     value for that day across every dataset
+   - tooltip with %-formatted callback
+   - y-axis with caller-supplied min/max + tick formatter
+   - x-axis with auto-rotation + auto-skip so 30 daily labels never collide
+   - registers the annotation plugin globally on first call so threshold
+     lines work on the Spam chart */
+let _chartAnnotationRegistered = false;
+function ehChartBaseOptions(opts) {
+  if (typeof Chart !== 'undefined' && !_chartAnnotationRegistered &&
+      typeof window['chartjs-plugin-annotation'] !== 'undefined') {
+    Chart.register(window['chartjs-plugin-annotation']);
+    _chartAnnotationRegistered = true;
+  }
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false, axis: 'x' },
+    plugins: {
+      legend: {
+        display: !!opts.showLegend,
+        position: 'bottom',
+        labels: { boxWidth: 10, boxHeight: 10, font: { size: 11 }, padding: 14 }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(17,17,27,0.92)',
+        titleFont: { size: 12, weight: '600' },
+        bodyFont: { size: 12 },
+        padding: 10,
+        cornerRadius: 6,
+        displayColors: true,
+        callbacks: {
+          label: opts.tooltipFormat || (ctx => `${ctx.dataset.label}: ${ctx.parsed.y}`)
+        }
+      },
+      annotation: opts.annotations ? { annotations: opts.annotations } : undefined,
+    },
+    scales: {
+      y: {
+        min: opts.yMin,
+        max: opts.yMax,
+        grid: { color: 'rgba(124,58,237,0.08)' },
+        ticks: {
+          font: { size: 10 },
+          color: '#71717a',
+          callback: opts.yTickFormat || (v => v),
+        },
+      },
+      x: {
+        grid: { display: false },
+        ticks: {
+          font: { size: 10 },
+          color: '#71717a',
+          autoSkip: true,
+          maxRotation: 0,
+          maxTicksLimit: 8,  // keep label count sensible at 30-day view
+        },
+      },
+    },
+  };
+}
+
+/* === GPM Spam Rate Chart.js line chart =====================================
+   2026-04-27: replaced hand-rolled SVG with Chart.js. The previous chart had
+   x-axis labels misaligned with data points, broken hover, and aspect-ratio
+   distortion. Chart.js handles all three correctly. Threshold lines (0.1%
+   Recommended, 0.3% Policy) are drawn via chartjs-plugin-annotation. */
+let _gpmSpamChart = null;
 function animateGpmSpam() {
   const metrics = gpmMetricsCache || [];
   if (metrics.length === 0) return;
+  const canvas = document.getElementById('gpm-spam-chart');
+  if (!canvas || typeof Chart === 'undefined') return;
 
-  // --- INBOX-112 followup: SVG line chart instead of bars ---
-  // Most senders sit at ~0% spam, which made 30 thin bars look empty
-  // and inconsistent with the Authentication tab. A line chart with
-  // policy/recommended threshold dashed lines plus an auto-scaled
-  // y-axis surfaces deviations far better.
-  const spamSvg = document.getElementById('gpm-spam-chart');
-  spamSvg.innerHTML = '';
-  const W = 600, H = 180, padL = 36, padR = 8, padT = 8, padB = 16;
-  const innerW = W - padL - padR;
-  const innerH = H - padT - padB;
-  const n = metrics.length;
-  if (n === 0) return;
-  const ns = "http://www.w3.org/2000/svg";
+  const labels = metrics.map(m => ehFormatDateShortMD(m.date));
+  const data = metrics.map(m => m.spam_rate != null ? m.spam_rate * 100 : null);
+  const maxObserved = Math.max(0, ...data.filter(v => v != null));
+  // Y-axis: 0 → max(0.4, observed+10%) so policy/recommended thresholds
+  // stay visible on healthy senders.
+  const yMax = Math.max(0.4, Math.ceil(maxObserved * 11) / 10);
 
-  // Decide y-axis max: 0.4% (one notch above policy) by default, but
-  // grow if any value exceeds that. Min 0.4 so policy/recommended
-  // dashed lines remain visible even on healthy senders.
-  const rates = metrics.map(m => m.spam_rate != null ? m.spam_rate * 100 : null);
-  const maxObserved = Math.max(0, ...rates.filter(v => v != null));
-  const yMax = Math.max(0.4, Math.ceil(maxObserved * 10) / 10 + 0.1);
+  const config = {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Spam Rate',
+        data: data,
+        borderColor: '#4285F4',
+        backgroundColor: 'rgba(66,133,244,0.08)',
+        borderWidth: 2,
+        tension: 0.15,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: data.map(v =>
+          v == null ? '#999' : v < 0.1 ? '#10b981' : v < 0.3 ? '#f59e0b' : '#ef4444'
+        ),
+        spanGaps: true,
+      }]
+    },
+    options: ehChartBaseOptions({
+      yMin: 0,
+      yMax: yMax,
+      yTickFormat: v => v.toFixed(v < 0.1 ? 2 : 1) + '%',
+      tooltipFormat: ctx => `Spam: ${ctx.parsed.y.toFixed(2)}%`,
+      annotations: {
+        recommended: {
+          type: 'line', yMin: 0.1, yMax: 0.1,
+          borderColor: '#f59e0b', borderWidth: 1, borderDash: [4, 3],
+          label: { content: '0.1% Recommended', display: true, position: 'end',
+                   backgroundColor: 'transparent', color: '#f59e0b', font: { size: 10 } }
+        },
+        policy: {
+          type: 'line', yMin: 0.3, yMax: 0.3,
+          borderColor: '#ef4444', borderWidth: 1, borderDash: [4, 3],
+          label: { content: '0.3% Policy', display: true, position: 'end',
+                   backgroundColor: 'transparent', color: '#ef4444', font: { size: 10 } }
+        }
+      }
+    })
+  };
 
-  function ptY(pct) {
-    if (pct == null) return null;
-    const clamped = Math.max(0, Math.min(yMax, pct));
-    return padT + (innerH * (yMax - clamped) / yMax);
-  }
-  function ptX(i) {
-    return padL + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
-  }
-
-  // Y-axis grid + labels at 0%, yMax/2, yMax
-  [0, yMax / 2, yMax].forEach(pct => {
-    const y = ptY(pct);
-    const line = document.createElementNS(ns, 'line');
-    line.setAttribute('x1', padL); line.setAttribute('x2', W - padR);
-    line.setAttribute('y1', y); line.setAttribute('y2', y);
-    line.setAttribute('stroke', 'rgba(124,58,237,0.08)');
-    line.setAttribute('stroke-dasharray', '2 3');
-    spamSvg.appendChild(line);
-    const lbl = document.createElementNS(ns, 'text');
-    lbl.setAttribute('x', padL - 4); lbl.setAttribute('y', y + 3);
-    lbl.setAttribute('text-anchor', 'end');
-    lbl.setAttribute('font-size', '9'); lbl.setAttribute('fill', 'var(--text-muted)');
-    lbl.textContent = pct.toFixed(pct < 0.1 ? 2 : 1) + '%';
-    spamSvg.appendChild(lbl);
-  });
-
-  // Threshold lines: 0.1% recommended (yellow), 0.3% policy (red)
-  function drawThreshold(pct, color, label) {
-    if (pct > yMax) return;  // off-screen
-    const y = ptY(pct);
-    const line = document.createElementNS(ns, 'line');
-    line.setAttribute('x1', padL); line.setAttribute('x2', W - padR);
-    line.setAttribute('y1', y); line.setAttribute('y2', y);
-    line.setAttribute('stroke', color);
-    line.setAttribute('stroke-width', '1');
-    line.setAttribute('stroke-dasharray', '4 3');
-    spamSvg.appendChild(line);
-    const lbl = document.createElementNS(ns, 'text');
-    lbl.setAttribute('x', W - padR - 4); lbl.setAttribute('y', y - 3);
-    lbl.setAttribute('text-anchor', 'end');
-    lbl.setAttribute('font-size', '9'); lbl.setAttribute('fill', color);
-    lbl.textContent = label;
-    spamSvg.appendChild(lbl);
-  }
-  drawThreshold(0.1, 'var(--yellow)', '0.1% Recommended');
-  drawThreshold(0.3, 'var(--red)', '0.3% Policy');
-
-  // Build the spam-rate series
-  const pts = metrics.map((m, i) => {
-    const pct = m.spam_rate != null ? m.spam_rate * 100 : null;
-    return { x: ptX(i), y: ptY(pct), val: pct, date: m.date };
-  });
-  const valid = pts.filter(p => p.y !== null);
-  if (valid.length >= 2) {
-    const d = valid.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' ');
-    const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', d);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', '#4285F4');
-    path.setAttribute('stroke-width', '2');
-    path.setAttribute('stroke-linejoin', 'round');
-    path.setAttribute('stroke-linecap', 'round');
-    spamSvg.appendChild(path);
-  }
-  // Dots at each point with tooltip — also handles single-point case
-  valid.forEach(p => {
-    const c = document.createElementNS(ns, 'circle');
-    c.setAttribute('cx', p.x); c.setAttribute('cy', p.y); c.setAttribute('r', 2.5);
-    const color = p.val < 0.1 ? 'var(--green)' : p.val < 0.3 ? 'var(--yellow)' : 'var(--red)';
-    c.setAttribute('fill', color);
-    const t = document.createElementNS(ns, 'title');
-    t.textContent = 'Spam on ' + p.date + ': ' + p.val.toFixed(2) + '%';
-    c.appendChild(t);
-    spamSvg.appendChild(c);
-  });
-
-  // --- Spam Date Labels — sampled to ~7 visible labels in "MMM DD".
-  // See DESIGN-SYSTEM.md §11.6 "Chart conventions".
-  ehRenderSampledDates('gpm-spam-dates', metrics);
+  if (_gpmSpamChart) _gpmSpamChart.destroy();
+  _gpmSpamChart = new Chart(canvas, config);
 
   // --- Spam Rate Table ---
   const tbody = document.getElementById('gpm-spam-table-body');
@@ -1249,30 +1260,19 @@ function animateGpmSpam() {
   // fetches the compliance API).
 }
 
-/* === GPM Auth Chart (line chart, auto-scaled y-axis) === */
+/* === GPM Auth Chart.js line chart (3 series: DMARC / DKIM / SPF) =========
+   2026-04-27: replaced hand-rolled SVG with Chart.js for the same reasons
+   as the Spam chart — built-in crosshair tooltip, automatic axis-label
+   alignment, proper responsive sizing. Y-axis floor auto-scales to the
+   worst observed dip so a 99.5% drop is visually obvious. */
+let _gpmAuthChart = null;
 function animateGpmAuth() {
   const metrics = gpmMetricsCache || [];
   if (metrics.length === 0) return;
+  const canvas = document.getElementById('gpm-auth-chart');
+  if (!canvas || typeof Chart === 'undefined') return;
 
-  // INBOX-112: SVG line chart instead of grouped bars. 3 lines for
-  // DMARC / DKIM / SPF tracking ~100% — dips are instantly visible.
-  // 2026-04-27: y-axis is now auto-scaled to the data range so a flat
-  // 100% chart doesn't waste 60% of vertical space on empty 40-95% band.
-  // See DESIGN-SYSTEM.md §11.6 "Chart conventions".
-  const authSvg = document.getElementById('gpm-auth-chart');
-  authSvg.innerHTML = '';
-  const W = 600, H = 180, padL = 30, padR = 8, padT = 8, padB = 16;
-  const innerW = W - padL - padR;
-  const innerH = H - padT - padB;
-  const n = metrics.length;
-  if (n === 0) return;
-
-  // Find the lowest auth value across all 3 series. Choose the
-  // y-axis floor based on the worst dip:
-  //   ≥ 95%  → axis 95-100 (every 0.5% visible)
-  //   ≥ 90%  → axis 90-100
-  //   ≥ 80%  → axis 80-100
-  //   else   → axis 40-100 (full range — there's a real problem)
+  // Auto-scale y-axis floor based on the worst dip across all 3 series.
   const allVals = [];
   metrics.forEach(m => {
     [m.auth_success_dmarc, m.auth_success_dkim, m.auth_success_spf].forEach(v => {
@@ -1284,72 +1284,37 @@ function animateGpmAuth() {
   if (minObserved >= 95) yMin = 95;
   else if (minObserved >= 90) yMin = 90;
   else if (minObserved >= 80) yMin = 80;
-  const yRange = 100 - yMin;
 
-  // Y-axis grid + labels — 5 evenly-spaced ticks across the range.
-  const ns = "http://www.w3.org/2000/svg";
-  const tickStep = yRange / 4;  // gives 5 ticks: yMin, +¼, +½, +¾, 100
-  for (let i = 0; i <= 4; i++) {
-    const pct = yMin + tickStep * i;
-    const y = padT + (innerH * (100 - pct) / yRange);
-    const line = document.createElementNS(ns, 'line');
-    line.setAttribute('x1', padL); line.setAttribute('x2', W - padR);
-    line.setAttribute('y1', y); line.setAttribute('y2', y);
-    line.setAttribute('stroke', 'rgba(124,58,237,0.08)');
-    line.setAttribute('stroke-dasharray', '2 3');
-    authSvg.appendChild(line);
-    const lbl = document.createElementNS(ns, 'text');
-    lbl.setAttribute('x', padL - 4); lbl.setAttribute('y', y + 3);
-    lbl.setAttribute('text-anchor', 'end');
-    lbl.setAttribute('font-size', '9'); lbl.setAttribute('fill', 'var(--text-muted)');
-    // 95-100 axis shows decimals (95.0, 96.25 …) — round to 1dp; lower
-    // ranges show integers.
-    lbl.textContent = (yMin >= 95 ? pct.toFixed(1) : Math.round(pct)) + '%';
-    authSvg.appendChild(lbl);
-  }
+  const labels = metrics.map(m => ehFormatDateShortMD(m.date));
+  const seriesValues = (key) => metrics.map(m => m[key] != null ? m[key] * 100 : null);
 
-  // Series builders. Map auth value (0..1) → y in the active range.
-  function ptY(v) {
-    const pct = v != null ? v * 100 : null;
-    if (pct === null) return null;
-    const clamped = Math.max(yMin, Math.min(100, pct));
-    return padT + (innerH * (100 - clamped) / yRange);
-  }
-  function ptX(i) {
-    return padL + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
-  }
-  function drawSeries(getter, color, label) {
-    const pts = metrics.map((m, i) => ({ x: ptX(i), y: ptY(getter(m)), val: getter(m), date: m.date }));
-    const valid = pts.filter(p => p.y !== null);
-    if (valid.length < 2) return;
-    const d = valid.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' ');
-    const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', d);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', color);
-    path.setAttribute('stroke-width', '2');
-    path.setAttribute('stroke-linejoin', 'round');
-    path.setAttribute('stroke-linecap', 'round');
-    authSvg.appendChild(path);
-    // Dots at each point with tooltip
-    valid.forEach(p => {
-      const c = document.createElementNS(ns, 'circle');
-      c.setAttribute('cx', p.x); c.setAttribute('cy', p.y); c.setAttribute('r', 2.5);
-      c.setAttribute('fill', color);
-      const t = document.createElementNS(ns, 'title');
-      t.textContent = `${label} on ${p.date}: ${(p.val * 100).toFixed(2)}%`;
-      c.appendChild(t);
-      authSvg.appendChild(c);
-    });
-  }
-  drawSeries(m => m.auth_success_dmarc, '#4285F4', 'DMARC');
-  drawSeries(m => m.auth_success_dkim,  '#EA4335', 'DKIM');
-  drawSeries(m => m.auth_success_spf,   '#FBBC05', 'SPF');
+  const config = {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'DMARC', data: seriesValues('auth_success_dmarc'),
+          borderColor: '#4285F4', backgroundColor: 'rgba(66,133,244,0.04)',
+          borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
+        { label: 'DKIM', data: seriesValues('auth_success_dkim'),
+          borderColor: '#EA4335', backgroundColor: 'rgba(234,67,53,0.04)',
+          borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
+        { label: 'SPF Alignment', data: seriesValues('auth_success_spf'),
+          borderColor: '#FBBC05', backgroundColor: 'rgba(251,188,5,0.04)',
+          borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
+      ]
+    },
+    options: ehChartBaseOptions({
+      yMin: yMin,
+      yMax: 100,
+      yTickFormat: v => (yMin >= 95 ? v.toFixed(1) : Math.round(v)) + '%',
+      tooltipFormat: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%`,
+      showLegend: true,
+    })
+  };
 
-  // --- Date labels — sampled to ~7 visible labels in "MMM DD" format.
-  // 30 raw "MM-DD" labels collide; modern dashboards (Linear, Mixpanel,
-  // Stripe) all sample. See DESIGN-SYSTEM.md §11.6.
-  ehRenderSampledDates('gpm-auth-dates', metrics);
+  if (_gpmAuthChart) _gpmAuthChart.destroy();
+  _gpmAuthChart = new Chart(canvas, config);
 
   // --- Auth table ---
   const tbody = document.getElementById('gpm-auth-table-body');
