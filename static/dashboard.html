@@ -1342,6 +1342,18 @@ function dhRenderHistory(domain) {
 const DH_TREND_DAYS = 7;
 const DH_DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+function dhLocalDateKey(d) {
+  // INBOX-99: Local-timezone YYYY-MM-DD. Avoid .toISOString() which
+  // converts to UTC — for users east of UTC (e.g. IST = UTC+5:30) local
+  // midnight becomes "yesterday" in UTC, so the slot grid and scan grid
+  // stop lining up. Result before fix: today's bar showed yesterday's
+  // score and today's actual scans never matched a slot.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function dhRenderTrend(domain) {
   const meta = document.getElementById('dh-trend-meta');
   const bars = document.getElementById('dh-trend-bars');
@@ -1352,23 +1364,24 @@ function dhRenderTrend(domain) {
   }
 
   // Build a date-keyed map of the latest score per day. Pulls from the
-  // selected domain's scan history.
+  // selected domain's scan history. Keys are LOCAL date (INBOX-99).
   const byDate = {};
   (window._dh.scansListByDomain[domain] || []).forEach(s => {
-    const day = new Date(s.created_at).toISOString().split('T')[0];
+    const day = dhLocalDateKey(new Date(s.created_at));
     // Latest scan per day wins (ListByDomain is sorted newest-first, so
     // first write wins — already correct.)
     if (!(day in byDate)) byDate[day] = s.score;
   });
 
-  // Walk back 7 days from today (today on the rightmost slot)
+  // Walk back 7 days from today (today on the rightmost slot). Slot keys
+  // are LOCAL date (INBOX-99) so they line up with the scan keys above.
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const slots = [];
   for (let i = DH_TREND_DAYS - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const iso = d.toISOString().split('T')[0];
+    const iso = dhLocalDateKey(d);
     slots.push({
       iso: iso,
       dayLabel: DH_DAY_NAMES[d.getDay()],
