@@ -452,6 +452,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 #view-dashboard .skeleton-bar.sm { height: 11px; }
 #view-dashboard .skeleton-pill { display: inline-block; height: 14px; width: 70px; background: var(--surface-2); border-radius: 999px; animation: dh-shimmer 1.4s ease-in-out infinite; margin-right: 8px; }
 #view-dashboard .skeleton-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-height: 88px; animation: dh-shimmer 1.4s ease-in-out infinite; }
+/* INBOX-94: score-circle keeps its real DOM (so dhRenderScoreHero can
+   write to dh-score-number) but shimmers via this opacity pulse until
+   the render fn removes the .loading-state class. */
+#view-dashboard .score-hero .score-circle.loading-state { animation: dh-shimmer 1.4s ease-in-out infinite; }
+#view-dashboard .score-hero .score-circle.loading-state .score-number,
+#view-dashboard .score-hero .score-circle.loading-state .score-label { color: var(--text-subtle); }
 
 /* Responsive — Dashboard v2 */
 @media (max-width: 900px) {
@@ -551,11 +557,16 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
       <!-- ─────────── SINGLE DOMAIN VIEW (default) ─────────── -->
       <div class="single-view" id="dh-single-view">
 
-        <!-- Score Hero — INBOX-90 ships a skeleton initial state.
-             The dh* render functions overwrite these placeholders with real
-             data once the API responds (typically <2 sec). -->
+        <!-- Score Hero — INBOX-94: preserve inner IDs (dh-score-number,
+             dh-score-label) so dhRenderScoreHero can write to them.
+             Initial-state shimmer happens via the .loading-state class on
+             the wrapper, which animates opacity. The render fns remove that
+             class once real data is in. -->
         <div class="score-hero" id="dh-score-hero">
-          <div class="skeleton-circle" id="dh-score-circle"></div>
+          <div class="score-circle none loading-state" id="dh-score-circle">
+            <div class="score-number" id="dh-score-number">—</div>
+            <div class="score-label">Out of 100</div>
+          </div>
           <div class="score-summary">
             <h2 id="dh-score-band"><span class="skeleton skeleton-bar lg" style="width:140px;"></span></h2>
             <div class="domain-name" id="dh-score-meta"><span class="skeleton skeleton-bar" style="width:240px;"></span></div>
@@ -933,6 +944,8 @@ function dhRenderScoreHero(domain) {
 
   document.getElementById('dh-score-number').textContent = score === null ? '—' : score;
   const circle = document.getElementById('dh-score-circle');
+  // INBOX-94: setting className wipes loading-state automatically by
+  // overwriting all classes — explicit for clarity.
   circle.className = 'score-circle ' + dhScoreCircleClass(score);
   document.getElementById('dh-score-band').textContent = meta.label;
   document.getElementById('dh-score-meta').textContent = scan
