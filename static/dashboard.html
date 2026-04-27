@@ -494,8 +494,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
         <div class="domain-select" id="dh-domain-select" onclick="dhToggleDomainDropdown(event)">
           <span style="font-size:14px">🌐</span>
           <div style="flex:1;min-width:0;">
-            <div id="dh-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">—</div>
-            <div class="domain-select-meta" id="dh-domain-count">No domains</div>
+            <!-- INBOX-89: friendly loading text instead of "—" / "No domains"
+                 so the first paint doesn't suggest the user has no data. -->
+            <div id="dh-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Loading your domains…</div>
+            <div class="domain-select-meta" id="dh-domain-count">Just a moment</div>
           </div>
           <span class="domain-select-arrow">▼</span>
           <div class="domain-dropdown" id="dh-domain-dropdown"></div>
@@ -527,8 +529,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           </div>
           <div class="score-summary">
             <h2 id="dh-score-band">Loading…</h2>
-            <div class="domain-name" id="dh-score-meta">No domain selected</div>
-            <div class="verdict" id="dh-score-verdict">Run a scan to see your deliverability snapshot.</div>
+            <!-- INBOX-89: friendlier first-paint copy. The previous
+                 "No domain selected" / "Run a scan…" empty-state text
+                 flashed for ~2 sec before real data arrived, suggesting
+                 the user had nothing tracked when they actually did. -->
+            <div class="domain-name" id="dh-score-meta">Fetching your latest deliverability snapshot…</div>
+            <div class="verdict" id="dh-score-verdict">This usually takes 1–2 seconds.</div>
             <div class="score-stats" id="dh-score-stats"></div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
@@ -1255,7 +1261,12 @@ function dhRenderSingleView() {
     ? 'Add a domain to start'
     : count === 1 ? '1 domain monitored' : `${count} domains monitored`;
   if (!domain) {
-    // Empty state — leave placeholder copy
+    // INBOX-89: real empty state — user genuinely has no monitored domains.
+    // Replace the loading copy with an actionable empty-state CTA.
+    document.getElementById('dh-score-band').textContent = 'No domains yet';
+    document.getElementById('dh-score-meta').textContent = 'Scan a domain to get started';
+    document.getElementById('dh-score-verdict').textContent = 'Use "+ Scan New Domain" above to run your first deliverability scan.';
+    document.getElementById('dh-score-stats').innerHTML = '';
     document.getElementById('dh-diag-grid').innerHTML = '<div style="grid-column:1/-1;padding:20px;text-align:center;color:var(--text-subtle);font-size:13px;">Add a domain or scan one to populate the dashboard.</div>';
     document.getElementById('dh-provider-grid').innerHTML = '';
     document.getElementById('dh-safety-grid').innerHTML = '';

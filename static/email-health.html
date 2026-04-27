@@ -269,8 +269,11 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
       <!-- Right Content Area -->
       <div class="eh-content">
 
-        <!-- ===== SECTION: GOOGLE POSTMASTER ===== -->
-        <div class="eh-section" id="eh-sec-google">
+        <!-- ===== SECTION: GOOGLE POSTMASTER (default active) =====
+             INBOX-89: Phase 2 cleanup left the Google submenu item marked
+             active but the section itself didn't have the `active` class,
+             so the right pane rendered blank on first visit. -->
+        <div class="eh-section active" id="eh-sec-google">
 
         <!-- GPM State: With Data (default for Task 4) -->
         <div class="provider-state active" id="gpm-state-data">
@@ -2225,7 +2228,15 @@ async function loadEhDomains() {
       select.appendChild(opt);
     });
 
-    // Auto-select first and load
+    // INBOX-89: honour the ?domain=X URL param if it points to a monitored
+    // domain. The Dashboard's "View its health page →" link uses this to
+    // deep-link straight into the right domain. Falls back to the first
+    // monitored domain if the param is missing or unknown.
+    const urlDomain = new URLSearchParams(window.location.search).get('domain');
+    const nameSet = new Set(domains.map(d => d.domain || d.name || d));
+    if (urlDomain && nameSet.has(urlDomain)) {
+      select.value = urlDomain;
+    }
     ehCurrentDomain = select.value;
     onEhDomainChange(ehCurrentDomain);
   } catch (e) {

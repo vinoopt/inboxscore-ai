@@ -190,6 +190,31 @@ class TestEmailHealthPage:
             "absorbed its role. Don't re-introduce."
         )
 
+    def test_email_health_google_section_active_by_default(self, client):
+        """INBOX-89: After Phase 2 cleanup, the Google section needs the
+        `active` class so the right pane renders content on first visit.
+        Previously the submenu item was active but the section div wasn't,
+        leaving a blank panel."""
+        response = client.get("/email-health")
+        content = response.text
+        assert 'class="eh-section active" id="eh-sec-google"' in content, (
+            "eh-sec-google must default to .active so the right pane "
+            "renders Google Postmaster content on first load (INBOX-89)."
+        )
+
+    def test_email_health_reads_url_domain_param(self, client):
+        """INBOX-89: The Dashboard's 'View its health page →' link uses
+        ?domain=X to deep-link into the right monitored domain. The page
+        must read this param and select the matching domain in the
+        dropdown rather than always defaulting to the first one."""
+        response = client.get("/email-health")
+        content = response.text
+        assert "URLSearchParams" in content
+        assert "get('domain')" in content, (
+            "Email Health must read the ?domain= URL param so deep-links "
+            "from the Dashboard / scan results work (INBOX-89)."
+        )
+
     def test_email_health_yahoo_section_removed(self, client):
         """INBOX-82 Phase 2: Yahoo/AOL section dropped because CFL data is
         too thin to render useful intelligence (INBOX-79). The Dashboard's
