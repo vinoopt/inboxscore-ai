@@ -43,11 +43,6 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 500; }
 .sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
 .alert-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; }
-/* INBOX-110: PRO badge on locked sidebar items. Visible by default for
-   Free users; hidden when body has .is-pro (set by auth check below). */
-.pro-pill { font-size: 9px; background: var(--accent); color: #fff; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 6px; letter-spacing: 0.5px; }
-body.is-pro .pro-pill { display: none; }
-
 .plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
 .plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
 
@@ -516,10 +511,10 @@ body.is-pro .pro-pill { display: none; }
   <aside class="sidebar">
     <ul class="sidebar-nav">
       <li><a href="/dashboard" class="active"><span class="nav-icon">📊</span> Dashboard</a></li>
-      <li><a href="/postmaster"><span class="nav-icon">📬</span> Google Postmaster <span class="pro-pill">PRO</span></a></li>
-      <li><a href="/microsoft"><span class="nav-icon">📨</span> Microsoft SNDS <span class="pro-pill">PRO</span></a></li>
+      <li><a href="/postmaster"><span class="nav-icon">📬</span> Google Postmaster</a></li>
+      <li><a href="/microsoft"><span class="nav-icon">📨</span> Microsoft SNDS</a></li>
       <li><a href="/blacklist"><span class="nav-icon">🛡️</span> Blacklist Monitor</a></li>
-      <li><a href="/reputation"><span class="nav-icon">⭐</span> IP Reputation <span class="pro-pill">PRO</span></a></li>
+      <li><a href="/reputation"><span class="nav-icon">⭐</span> IP Reputation</a></li>
       <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
       <li><a href="/sending-ips"><span class="nav-icon">🖥️</span> Sending IPs</a></li>
       <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
@@ -1557,8 +1552,6 @@ window.addEventListener('DOMContentLoaded', () => {
     // Plan badge
     const plan = userData.user.plan || 'free';
     document.getElementById('plan-name').textContent = plan;
-      // INBOX-110: hide [PRO] sidebar pills for Pro users
-      if (plan !== 'free') document.body.classList.add('is-pro');
 
     // Alert badge
     if (alertCount && alertCount.unread_count > 0) {
