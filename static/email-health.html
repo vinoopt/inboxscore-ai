@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Email Health — InboxScore</title>
+<title>Google Postmaster — InboxScore</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -236,8 +236,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
   </aside>
 
   <main class="main">
-    <h1 class="page-title">Email Health</h1>
-    <p class="page-subtitle">Detailed deliverability intelligence per domain.</p>
+    <!-- INBOX-110 follow-up: H1 + subtitle are populated dynamically by
+         ehNavInit() based on the current URL (/postmaster, /microsoft,
+         /blacklist, /reputation). Defaults shown here are placeholders
+         that get replaced before paint. -->
+    <h1 class="page-title" id="eh-page-title">Google Postmaster</h1>
+    <p class="page-subtitle" id="eh-page-subtitle">Compliance, spam, authentication, and delivery data from Google.</p>
 
     <!-- Toolbar -->
     <div class="eh-toolbar">
@@ -962,26 +966,55 @@ function switchEhSection(section) {
   });
 }
 
-/* === INBOX-110: URL → section mapping ===
+/* === INBOX-110: URL → section + page-title mapping ===
    email-health.html is now served by 4 distinct URLs (/postmaster,
-   /microsoft, /blacklist, /reputation). On load we read the path and
-   switch to the right section. Also highlights the matching sidebar
-   item (which can't be hardcoded since one HTML file serves 4 URLs). */
+   /microsoft, /blacklist, /reputation). On load we read the path and:
+     1. Switch to the matching section
+     2. Highlight the matching sidebar item
+     3. Update the H1 + subtitle + document.title to match the section
+        (the static "Email Health" header was a leftover from when this
+        was a single parent page — now misleading since each URL is a
+        distinct provider intelligence page). */
 (function ehNavInit() {
-  const PATH_TO_SECTION = {
-    '/postmaster': 'google',
-    '/microsoft': 'microsoft',
-    '/blacklist': 'blacklist',
-    '/reputation': 'reputation',
+  const PATH_TO_META = {
+    '/postmaster': {
+      section: 'google',
+      title: 'Google Postmaster',
+      subtitle: 'Compliance, spam, authentication, and delivery data from Google.',
+    },
+    '/microsoft': {
+      section: 'microsoft',
+      title: 'Microsoft SNDS',
+      subtitle: 'IP-level reputation and complaint rates from Microsoft Outlook.',
+    },
+    '/blacklist': {
+      section: 'blacklist',
+      title: 'Blacklist Monitor',
+      subtitle: 'Domain and IP blacklist status across 1000+ blocklists.',
+    },
+    '/reputation': {
+      section: 'reputation',
+      title: 'IP Reputation',
+      subtitle: 'Combined reputation view across SNDS, blacklists, and your sending IPs.',
+    },
   };
   const path = window.location.pathname;
-  const section = PATH_TO_SECTION[path] || 'google';
+  const meta = PATH_TO_META[path] || PATH_TO_META['/postmaster'];
 
   function applyNav() {
+    // Sidebar active highlight
     document.querySelectorAll('.sidebar-nav a').forEach(a => {
       a.classList.toggle('active', a.getAttribute('href') === path);
     });
-    if (typeof switchEhSection === 'function') switchEhSection(section);
+    // Page H1 + subtitle
+    const h1 = document.getElementById('eh-page-title');
+    const sub = document.getElementById('eh-page-subtitle');
+    if (h1) h1.textContent = meta.title;
+    if (sub) sub.textContent = meta.subtitle;
+    // Browser tab title
+    document.title = `${meta.title} — InboxScore`;
+    // Section switch (Compliance Status / etc tabs underneath)
+    if (typeof switchEhSection === 'function') switchEhSection(meta.section);
   }
 
   if (document.readyState === 'loading') {
