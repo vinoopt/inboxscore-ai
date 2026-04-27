@@ -291,6 +291,19 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
         </div>
         <style>@keyframes gpmSpin { to { transform: rotate(360deg); } }</style>
 
+        <!-- GPM State: Error — INBOX-101.
+             Shown when the Postmaster status fetch times out, returns 5xx,
+             or hits a network error. Gives the user a clear retry path so
+             a hung API doesn't leave the page in a permanent spinner. -->
+        <div class="provider-state" id="gpm-state-error">
+          <div class="pm-widget" style="text-align:center;padding:40px 20px;">
+            <div style="font-size:32px;margin-bottom:10px;opacity:0.7;">⚠️</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Couldn’t load Google Postmaster</div>
+            <div id="gpm-state-error-msg" style="font-size:13px;color:var(--text-muted);max-width:380px;margin:0 auto 16px;">The request timed out. Check your connection and try again.</div>
+            <button class="cta-btn" onclick="ehInit()" style="padding:8px 24px;font-size:13px;">Retry</button>
+          </div>
+        </div>
+
         <!-- GPM State: With Data -->
         <div class="provider-state" id="gpm-state-data">
         <div class="pm-widget" id="gpm-widget">
@@ -876,10 +889,14 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     }).catch(() => {});
 
-  // Load Google Postmaster status + metrics
-  loadGpmStatus();
+  // INBOX-101: single orchestrator replaces the previous loadGpmStatus +
+  // loadSndsStatus + loadEhDomains race. ehInit walks the state machine
+  // sequentially with timeouts, so failed fetches end on a real error
+  // state with a retry button instead of a perpetual spinner.
+  ehInit();
 
-  // Load Microsoft SNDS status + metrics
+  // SNDS keeps its own status loader (out of scope for INBOX-101 — file
+  // a separate ticket if it shows the same flicker class of bug).
   loadSndsStatus();
 
   // Close sidebar on mobile when clicking main
@@ -1444,10 +1461,23 @@ async function loadGpmMetrics(domain) {
   if (!token || !domain) return;
   const days = getActivePeriodDays();
 
+  let res;
   try {
-    const res = await fetch('/api/postmaster/metrics/' + encodeURIComponent(domain) + '?days=' + days, {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
+    // INBOX-101: 5s timeout — same UX as the status fetch.
+    res = await fetchWithTimeout(
+      '/api/postmaster/metrics/' + encodeURIComponent(domain) + '?days=' + days,
+      { headers: { 'Authorization': 'Bearer ' + token } },
+      5000
+    );
+  } catch (e) {
+    const msg = e.name === 'AbortError'
+      ? 'Metrics request timed out after 5 seconds.'
+      : 'Couldn’t fetch metrics. Check your connection.';
+    setGpmState('error', msg);
+    return;
+  }
+
+  try {
     if (!res.ok) { setGpmState('nodata'); return; }
     const data = await res.json();
     const metrics = data.metrics || [];
@@ -1476,15 +1506,35 @@ async function loadGpmMetrics(domain) {
   }
 }
 
-/* === GPM: Switch provider state (init | data | nodata | disconnected | free) === */
-function setGpmState(state) {
-  // INBOX-100 follow-up: 'init' is the first visible state, used until
-  // loadGpmStatus determines the user's real plan/connection. Adding it
-  // here so any subsequent setGpmState call hides the spinner.
-  ['init','data','nodata','disconnected','free'].forEach(s => {
+/* === GPM: Switch provider state
+   (init | error | data | nodata | disconnected | free) === */
+function setGpmState(state, errorMsg) {
+  // INBOX-101: 'error' added so timeout/network failures have a real
+  // surface with a retry button instead of a perpetual spinner.
+  ['init','error','data','nodata','disconnected','free'].forEach(s => {
     const el = document.getElementById('gpm-state-' + s);
     if (el) el.classList.toggle('active', s === state);
   });
+  if (state === 'error' && errorMsg) {
+    const msgEl = document.getElementById('gpm-state-error-msg');
+    if (msgEl) msgEl.textContent = errorMsg;
+  }
+}
+
+/* === fetchWithTimeout — INBOX-101 ============================
+   Wraps fetch with an AbortController so a hung server can't park the
+   page on a perpetual spinner. Default 5s. The timeout is a UPPER bound;
+   a fast response still returns immediately.
+   ============================================================ */
+async function fetchWithTimeout(url, options = {}, ms = 5000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { ...options, signal: ctrl.signal });
+    return res;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /* ================================================================
@@ -1805,70 +1855,63 @@ async function gpmSyncNow(btn) {
   }
 }
 
-/* === GPM: Load connection status + populate domain dropdown === */
+/* === GPM: Load connection status + route to the right state ===
+   INBOX-101 rewrite. Used to be one of 4 racing DOMContentLoaded handlers
+   with no fetch timeout and no error UI. Now driven from ehInit() (single
+   sequential orchestrator). Returns the parsed status dict so ehInit can
+   decide whether to continue loading domains/metrics. Throws on failure
+   so ehInit's try/catch routes to the error state. */
 async function loadGpmStatus() {
   const token = getToken();
-  if (!token) return;
+  if (!token) {
+    setGpmState('error', 'Not signed in. Please log in again.');
+    throw new Error('no-token');
+  }
   const headers = { 'Authorization': 'Bearer ' + token };
 
+  let res;
   try {
-    const res = await fetch('/api/postmaster/status', { headers });
-    if (!res.ok) throw new Error('status-fail');
-    const data = await res.json();
-
-    // Free plan — show paywall state
-    if (!data.is_pro) {
-      setGpmState('free');
-      return;
-    }
-
-    // Not connected — show disconnected state
-    if (!data.connected) {
-      setGpmState('disconnected');
-      return;
-    }
-
-    // Connected — always populate the nodata info fields (in case we land there)
-    const ndEmail = document.getElementById('gpm-nodata-email');
-    if (ndEmail && data.google_email) ndEmail.textContent = data.google_email;
-    const ndSync = document.getElementById('gpm-nodata-sync');
-    if (ndSync && data.connected_at) {
-      const d = new Date(data.connected_at);
-      ndSync.textContent = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-    }
-
-    // Use the main domain selector's current value
-    const activeDomain = ehCurrentDomain || document.getElementById('eh-domain-select')?.value;
-    if (!activeDomain) {
-      // INBOX-100 (G1): loadGpmStatus runs in DOMContentLoaded BEFORE
-      // loadEhDomains finishes populating the dropdown. We used to call
-      // setGpmState('nodata') here, which briefly painted the "Waiting for
-      // data" / "Connect Google" panel — a flicker the user would see for
-      // 200–500ms before loadEhDomains → onGpmDomainChange fixed it. So we
-      // leave the state alone and let loadGpmMetrics drive it.
-      //
-      // INBOX-100 follow-up: but if loadEhDomains is slow or fails, the
-      // default "Loading..." text would stick forever. Watchdog: if neither
-      // gpmCurrentDomain nor ehCurrentDomain is set after 2.5s, fall back
-      // to the nodata state so users see an honest message instead of a
-      // perpetual "Loading...".
-      setTimeout(() => {
-        if (!gpmCurrentDomain && !ehCurrentDomain) {
-          setGpmState('nodata');
-        }
-      }, 2500);
-      return;
-    }
-
-    gpmCurrentDomain = activeDomain;
-    // Don't set state to 'data' yet — let loadGpmMetrics decide
-    // based on whether the API actually returns metrics
-    loadGpmMetrics(activeDomain);
-
+    res = await fetchWithTimeout('/api/postmaster/status', { headers }, 5000);
   } catch (e) {
-    console.error('[GPM] Status check failed:', e);
-    setGpmState('disconnected');
+    if (e.name === 'AbortError') {
+      setGpmState('error', 'The request timed out after 5 seconds. Try again.');
+    } else {
+      setGpmState('error', 'Couldn’t reach the server. Check your connection.');
+    }
+    throw e;
   }
+
+  if (!res.ok) {
+    setGpmState('error', `Server returned ${res.status}. Try again in a moment.`);
+    throw new Error(`status-${res.status}`);
+  }
+
+  const data = await res.json();
+
+  // Free plan → paywall, no further fetches
+  if (!data.is_pro) {
+    setGpmState('free');
+    return data;
+  }
+
+  // Not connected → Connect CTA, no further fetches
+  if (!data.connected) {
+    setGpmState('disconnected');
+    return data;
+  }
+
+  // Connected — pre-populate the nodata info fields (in case we land there)
+  const ndEmail = document.getElementById('gpm-nodata-email');
+  if (ndEmail && data.google_email) ndEmail.textContent = data.google_email;
+  const ndSync = document.getElementById('gpm-nodata-sync');
+  if (ndSync && data.connected_at) {
+    const d = new Date(data.connected_at);
+    ndSync.textContent = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  }
+
+  // Stay on init — ehInit will load domains then metrics, which sets the
+  // final state to data / nodata.
+  return data;
 }
 
 
@@ -2258,58 +2301,87 @@ let ehCurrentDomain = null;
 let ehLatestScan = null;
 
 async function loadEhDomains() {
+  // INBOX-101: now a small sub-step inside ehInit(), with a timeout-
+  // protected fetch. Returns the array of domain names so the caller can
+  // decide what to do with no-domains case.
   const token = getToken();
   const select = document.getElementById('eh-domain-select');
   if (!token) {
     if (select) select.innerHTML = '<option value="">Not logged in</option>';
-    return;
+    return [];
   }
 
+  let resp;
   try {
-    const resp = await fetch('/api/user/domains', {
+    resp = await fetchWithTimeout('/api/user/domains', {
       headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!resp.ok) {
-      // INBOX-100 follow-up: silent return left the dropdown stuck on
-      // "Loading domains..." — give users a real message instead.
-      if (select) select.innerHTML = '<option value="">Couldn’t load domains — try again</option>';
-      return;
-    }
-    const data = await resp.json();
-    const domains = data.domains || [];
-
-    if (select) select.innerHTML = '';
-
-    if (domains.length === 0) {
-      if (select) select.innerHTML = '<option value="">No domains added — go to Domains page</option>';
-      return;
-    }
-
-    domains.forEach((d, i) => {
-      const opt = document.createElement('option');
-      const name = d.domain || d.name || d;
-      opt.value = name;
-      opt.textContent = name;
-      select.appendChild(opt);
-    });
-
-    // INBOX-89: honour the ?domain=X URL param if it points to a monitored
-    // domain. The Dashboard's "View its health page →" link uses this to
-    // deep-link straight into the right domain. Falls back to the first
-    // monitored domain if the param is missing or unknown.
-    const urlDomain = new URLSearchParams(window.location.search).get('domain');
-    const nameSet = new Set(domains.map(d => d.domain || d.name || d));
-    if (urlDomain && nameSet.has(urlDomain)) {
-      select.value = urlDomain;
-    }
-    ehCurrentDomain = select.value;
-    onEhDomainChange(ehCurrentDomain);
+    }, 5000);
   } catch (e) {
-    console.error('[EH] Failed to load domains:', e);
-    // INBOX-100 follow-up: same as the !resp.ok branch — show an honest
-    // error message instead of leaving the dropdown stuck on "Loading
-    // domains...".
+    const msg = e.name === 'AbortError'
+      ? 'Couldn’t load domains — request timed out'
+      : 'Couldn’t load domains — try again';
+    if (select) select.innerHTML = `<option value="">${msg}</option>`;
+    return [];
+  }
+
+  if (!resp.ok) {
     if (select) select.innerHTML = '<option value="">Couldn’t load domains — try again</option>';
+    return [];
+  }
+
+  const data = await resp.json();
+  const domains = data.domains || [];
+
+  if (select) select.innerHTML = '';
+
+  if (domains.length === 0) {
+    if (select) select.innerHTML = '<option value="">No domains added — go to Domains page</option>';
+    return [];
+  }
+
+  domains.forEach(d => {
+    const opt = document.createElement('option');
+    const name = d.domain || d.name || d;
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  });
+
+  // INBOX-89: honour the ?domain=X URL param if it points to a monitored
+  // domain. The Dashboard's "View its health page →" link uses this to
+  // deep-link straight into the right domain. Falls back to the first
+  // monitored domain if the param is missing or unknown.
+  const urlDomain = new URLSearchParams(window.location.search).get('domain');
+  const nameSet = new Set(domains.map(d => d.domain || d.name || d));
+  if (urlDomain && nameSet.has(urlDomain)) {
+    select.value = urlDomain;
+  }
+  ehCurrentDomain = select.value;
+  onEhDomainChange(ehCurrentDomain);
+  return domains;
+}
+
+/* === ehInit — INBOX-101 single sequential orchestrator =================
+   Replaces 4 racing DOMContentLoaded handlers with one async function that
+   walks a clean state machine: status → (paywall|disconnected|continue) →
+   domains → metrics. Every fetch has a 5s timeout. On any error we land
+   on the gpm-state-error UI with a Retry button that calls ehInit again.
+   ====================================================================== */
+async function ehInit() {
+  setGpmState('init');
+  try {
+    const status = await loadGpmStatus();
+    // status is null only if loadGpmStatus already routed somewhere
+    // (free / disconnected) — in that case nothing more to do for GPM.
+    if (!status || !status.is_pro || !status.connected) return;
+    // Pro + Connected — load domains. ehLatestScan / per-section fetches
+    // happen via onEhDomainChange after the dropdown is populated.
+    await loadEhDomains();
+    // SNDS / IP-rep / blacklist are wired through onEhDomainChange, so
+    // no explicit calls needed here.
+  } catch (e) {
+    // loadGpmStatus already set the error state; nothing else to do.
+    console.warn('[EH] init aborted:', e?.message || e);
   }
 }
 
@@ -2500,10 +2572,11 @@ async function loadIpReputation(domain) {
   }
 }
 
-/* === Initialize overview data on page load === */
-document.addEventListener('DOMContentLoaded', () => {
-  loadEhDomains();
-});
+/* INBOX-101: removed the standalone loadEhDomains() DOMContentLoaded
+   handler — ehInit() now calls it as part of the sequential state
+   machine. Keeping this empty handler removed prevents the original race
+   between this loader and loadGpmStatus that drove the flicker /
+   stuck-loading bugs from INBOX-100. */
 </script>
 </body>
 </html>
