@@ -286,9 +286,13 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 #view-dashboard .view-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; gap: 2px; }
 #view-dashboard .view-toggle button { background: none; border: none; padding: 7px 14px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-radius: 7px; transition: all 0.15s; font-family: inherit; }
 #view-dashboard .view-toggle button.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
-#view-dashboard .scan-cta { margin-left: auto; }
+#view-dashboard .scan-cta { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 #view-dashboard .scan-cta button { background: var(--accent); color: white; border: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; box-shadow: 0 4px 10px -2px rgba(124,58,237,0.25); font-family: inherit; transition: background 0.15s; }
 #view-dashboard .scan-cta button:hover { background: var(--accent-hover); }
+/* 2026-04-27: secondary Refresh button — sits next to "+ Scan New Domain"
+   but rendered as a quieter outline so the primary CTA stays primary. */
+#view-dashboard .scan-cta .dh-refresh-secondary { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); box-shadow: none; padding: 9px 14px; }
+#view-dashboard .scan-cta .dh-refresh-secondary:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
 
 /* Score Hero */
 #view-dashboard .score-hero { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 26px 28px; margin-bottom: 18px; display: flex; align-items: center; gap: 28px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); flex-wrap: wrap; }
@@ -479,13 +483,34 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
   #view-dashboard .portfolio-table-head > div:nth-child(6),
   #view-dashboard .portfolio-row > div:nth-child(6) { display: none; } /* hide Last Scan */
 }
+/* 2026-04-27: mid-width cleanup. Between 600 and 900 the domain-bar
+   was cramming domain-select (280 min) + view-toggle + 2 buttons into
+   one row, often forcing ugly overflow. Drop the min-width on the
+   selector and let the bar wrap. */
+@media (max-width: 900px) {
+  #view-dashboard .domain-select { min-width: 220px; flex: 1 1 220px; }
+  #view-dashboard .scan-cta { margin-left: auto; }
+}
+@media (max-width: 768px) {
+  #view-dashboard .domain-bar { gap: 8px; }
+  #view-dashboard .domain-select { width: 100%; min-width: 0; flex: 1 1 100%; }
+  #view-dashboard .view-toggle { flex: 0 0 auto; }
+  #view-dashboard .scan-cta { margin-left: auto; flex: 0 0 auto; }
+  /* Score hero: stack the circle above the summary so neither gets
+     squashed and the verdict text has full width to breathe. */
+  #view-dashboard .score-hero { padding: 20px; gap: 16px; }
+  #view-dashboard .score-summary h2 { font-size: 18px; }
+  #view-dashboard .score-stats { gap: 10px; font-size: 12px; }
+}
 @media (max-width: 600px) {
   #view-dashboard .diag-grid,
   #view-dashboard .provider-grid,
   #view-dashboard .safety-grid { grid-template-columns: 1fr; }
   #view-dashboard .domain-bar { flex-direction: column; align-items: stretch; }
   #view-dashboard .domain-select { min-width: 0; width: 100%; }
-  #view-dashboard .scan-cta { margin-left: 0; }
+  #view-dashboard .view-toggle { width: 100%; }
+  #view-dashboard .view-toggle button { flex: 1; }
+  #view-dashboard .scan-cta { margin-left: 0; width: 100%; flex-direction: column; align-items: stretch; }
   #view-dashboard .scan-cta button { width: 100%; }
 }
 
@@ -579,6 +604,11 @@ body.dh-refreshing-pill::after {
           <button id="dh-toggle-portfolio" onclick="dhShowPortfolioView()">View All Domains</button>
         </div>
         <div class="scan-cta">
+          <!-- 2026-04-27: page-level Refresh moved out of the score hero
+               card. The button revalidates everything on the page (score
+               + trend + diag + provider status), not just the score, so
+               sitting next to "+ Scan New Domain" matches its scope. -->
+          <button class="dh-refresh-secondary" onclick="dhRefreshSelectedDomain()" id="dh-refresh-btn" title="Re-scan the selected domain right now">↻ Refresh</button>
           <button onclick="dhFocusScanInput()">+ Scan New Domain</button>
         </div>
       </div>
@@ -613,10 +643,7 @@ body.dh-refreshing-pill::after {
               <span class="skeleton skeleton-pill"></span>
             </div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
-            <button class="score-trend-btn" onclick="dhRefreshSelectedDomain()" id="dh-refresh-btn" title="Re-scan the selected domain right now">🔄 Refresh</button>
-          </div>
-        </div>
+        </div><!-- /score-hero — refresh button moved to top action row 2026-04-27 -->
 
         <!-- Score Trend Chart — INBOX-97: always visible, 7 fixed day slots -->
         <div class="section-block trend-card" id="dh-trend-card">
