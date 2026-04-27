@@ -2992,6 +2992,7 @@ def check_domain_age(domain: str) -> CheckResult:
     """
     try:
         creation_date = None
+        last_changed_date = None
         lookup_method = None
         rdap_attempts = []
 
@@ -3009,18 +3010,29 @@ def check_domain_age(domain: str) -> CheckResult:
                         rdap_attempts.append((candidate, resp.status_code))
                         if resp.status_code == 200:
                             data = resp.json()
+                            # INBOX-97: capture BOTH events — registration
+                            # (long-term WHOIS history) and last changed
+                            # (recent ownership transfer / DNS update).
+                            # Both signals matter for sender reputation.
                             for event in data.get("events", []) or []:
-                                if event.get("eventAction") == "registration":
-                                    date_str = event.get("eventDate", "")
-                                    if date_str:
-                                        creation_date = datetime.fromisoformat(
-                                            date_str.replace("Z", "+00:00")
-                                        )
-                                        lookup_method = (
-                                            "RDAP" if candidate == domain
-                                            else f"RDAP (apex {candidate})"
-                                        )
-                                        break
+                                action = event.get("eventAction", "")
+                                date_str = event.get("eventDate", "")
+                                if not date_str:
+                                    continue
+                                try:
+                                    parsed = datetime.fromisoformat(
+                                        date_str.replace("Z", "+00:00")
+                                    )
+                                except Exception:
+                                    continue
+                                if action == "registration" and creation_date is None:
+                                    creation_date = parsed
+                                    lookup_method = (
+                                        "RDAP" if candidate == domain
+                                        else f"RDAP (apex {candidate})"
+                                    )
+                                elif action == "last changed" and last_changed_date is None:
+                                    last_changed_date = parsed
                             if creation_date:
                                 break
                         elif resp.status_code != 404:
@@ -3120,13 +3132,27 @@ def check_domain_age(domain: str) -> CheckResult:
             status = "warn"
             points = 0
 
+        # INBOX-97: include last_changed (if RDAP returned one) so the
+        # Dashboard tile can show "First registered · X" + "Last updated · Y".
+        # Often signals an ownership transfer or major DNS change, which
+        # matters for short-term reputation even if the WHOIS history is long.
+        last_changed_str = None
+        if last_changed_date is not None:
+            if last_changed_date.tzinfo is None:
+                last_changed_date = last_changed_date.replace(tzinfo=timezone.utc)
+            last_changed_str = last_changed_date.strftime("%B %d, %Y")
+
+        raw = {"created": created_str, "age_days": age_days, "age_years": round(age_years, 1)}
+        if last_changed_str:
+            raw["last_changed"] = last_changed_str
+
         return CheckResult(
             name="domain_age",
             category="reputation",
             status=status,
             title="Domain Age",
             detail=detail,
-            raw_data={"created": created_str, "age_days": age_days, "age_years": round(age_years, 1)},
+            raw_data=raw,
             points=points,
             max_points=3,
             fix_steps=[

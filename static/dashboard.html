@@ -1232,16 +1232,31 @@ function dhRenderSafety(domain) {
       }
     }
 
-    // Domain Age tile — replaces the fake "Phishing Database" placeholder.
+    // Domain Age tile — INBOX-97: show two lines.
+    //   Line 1 (meta): "First registered · {date}"  — long-term WHOIS history
+    //   Line 2 (sub):  "Last updated · {date}"      — recent change (ownership
+    //                                                 transfer / DNS update)
+    // Both signals matter for sender reputation: ESPs trust the long history
+    // but treat a recently-changed domain as a partial reputation reset.
     const age = byName['domain_age'];
     if (age) {
       const st = (age.status || '').toLowerCase();
       const years = age.raw_data && age.raw_data.age_years;
       const days  = age.raw_data && age.raw_data.age_days;
+      const created = age.raw_data && age.raw_data.created;
+      const lastChanged = age.raw_data && age.raw_data.last_changed;
+
+      // Build the "Last updated" sub-line if RDAP returned one. Suppressed
+      // for very-new domains (where it's redundant with creation date).
+      const subLine = (lastChanged && (days == null || days >= 30))
+        ? `<div class="safety-card-meta" style="margin-top:2px;">Last updated · ${escapeHtml(lastChanged)}</div>`
+        : '';
+      window._dh._ageSubLine = subLine;  // stashed so the safety-grid render can pick it up
+
       if (st === 'pass' && years != null && years >= 1) {
         ageValue = `${Math.floor(years)} yr${Math.floor(years) === 1 ? '' : 's'}`;
         ageClass = 'clean';
-        ageMeta = `Established · ${age.raw_data && age.raw_data.created || 'long history'}`;
+        ageMeta = `First registered · ${created || 'long history'}`;
       } else if (st === 'pass' && days != null) {
         ageValue = `${days} days`;
         ageClass = 'clean';
@@ -1258,6 +1273,7 @@ function dhRenderSafety(domain) {
       }
     }
   }
+  const ageSubLine = (window._dh && window._dh._ageSubLine) || '';
 
   grid.innerHTML = `
     <div class="safety-card">
@@ -1274,8 +1290,12 @@ function dhRenderSafety(domain) {
       <div class="safety-card-label">Domain Age</div>
       <div class="safety-card-value ${ageClass}">${ageValue}</div>
       <div class="safety-card-meta">${ageMeta}</div>
+      ${ageSubLine}
     </div>
   `;
+  // Clear the temporary stash so a follow-up render with no last_changed
+  // doesn't accidentally inherit the previous domain's value.
+  if (window._dh) delete window._dh._ageSubLine;
 }
 
 /* ─── Recent Scans ─────────────────────────────────────────────── */
