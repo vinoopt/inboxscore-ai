@@ -1308,8 +1308,13 @@ async function populateGpmCompliance() {
   labels.push('Honor unsubscribe');
 
   // ── Render the compliance table ──
-  const tbody = document.getElementById('gpm-comp-table-body');
-  tbody.innerHTML = '';
+  // INBOX-100 follow-up #3: tbody is already declared at the top of this
+  // function (added with the G2 empty-state fix). Re-declaring it here
+  // produced "Identifier 'tbody' has already been declared" — a hard
+  // SyntaxError that prevented the entire script from parsing, leaving
+  // the page on its default init spinner forever. We just reuse the
+  // existing reference instead.
+  if (tbody) tbody.innerHTML = '';
 
   checks.forEach((check, i) => {
     const tr = document.createElement('tr');
