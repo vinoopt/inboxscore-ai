@@ -136,7 +136,7 @@ class TestStaticPages:
         assert response.status_code == 200
 
     def test_email_health_loads(self, client):
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         assert response.status_code == 200
 
     def test_login_loads(self, client):
@@ -155,7 +155,7 @@ class TestEmailHealthPage:
 
     def test_email_health_contains_title(self, client):
         """Page should contain the Email Health title"""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         assert response.status_code == 200
         content = response.text
         assert "Email Health" in content
@@ -164,7 +164,7 @@ class TestEmailHealthPage:
         """Page should have the surviving 4-section submenu (INBOX-82 Phase 2:
         Overview moved to Dashboard, Yahoo/AOL removed because CFL data is too
         thin to be useful)."""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         content = response.text
         assert "eh-submenu" in content
         assert "Google Postmaster" in content
@@ -175,7 +175,7 @@ class TestEmailHealthPage:
     def test_email_health_has_all_sections(self, client):
         """Page should have the 4 surviving content section IDs (INBOX-82
         Phase 2 dropped Overview + Yahoo)."""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         content = response.text
         assert 'id="eh-sec-google"' in content
         assert 'id="eh-sec-microsoft"' in content
@@ -185,7 +185,7 @@ class TestEmailHealthPage:
     def test_email_health_overview_section_removed(self, client):
         """INBOX-82 Phase 2: the Overview tab is gone — the Dashboard now
         plays this role. Guard against accidental re-introduction."""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         content = response.text
         assert 'id="eh-sec-overview"' not in content, (
             "Overview section was removed in INBOX-82 Phase 2 — Dashboard "
@@ -197,7 +197,7 @@ class TestEmailHealthPage:
         `active` class so the right pane renders content on first visit.
         Previously the submenu item was active but the section div wasn't,
         leaving a blank panel."""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         content = response.text
         assert 'class="eh-section active" id="eh-sec-google"' in content, (
             "eh-sec-google must default to .active so the right pane "
@@ -209,7 +209,7 @@ class TestEmailHealthPage:
         ?domain=X to deep-link into the right monitored domain. The page
         must read this param and select the matching domain in the
         dropdown rather than always defaulting to the first one."""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         content = response.text
         assert "URLSearchParams" in content
         assert "get('domain')" in content, (
@@ -221,7 +221,7 @@ class TestEmailHealthPage:
         """INBOX-82 Phase 2: Yahoo/AOL section dropped because CFL data is
         too thin to render useful intelligence (INBOX-79). The Dashboard's
         Provider Status card explains this to users."""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         content = response.text
         assert 'id="eh-sec-yahoo"' not in content, (
             "Yahoo section was removed in INBOX-82 Phase 2."
@@ -238,7 +238,7 @@ class TestEmailHealthPage:
 
         INBOX-102 normalised the labels to Title Case ("Compliance Status",
         "Delivery Errors") so they read consistently with each other."""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         content = response.text
         assert "gpm-tab" in content
         # The 6 tabs were split out of the old 5-tab 'Spam & Feedback' in v1.14.
@@ -257,7 +257,7 @@ class TestEmailHealthPage:
 
         INBOX-82 Phase 2: Yahoo provider states removed with the Yahoo
         section."""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         content = response.text
         assert 'id="gpm-state-data"' in content
         assert 'id="gpm-state-disconnected"' in content
@@ -271,13 +271,14 @@ class TestEmailHealthPage:
 
     def test_email_health_has_sidebar_link(self, client):
         """Email Health page sidebar should have active link"""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         content = response.text
-        assert 'href="/email-health" class="active"' in content
+        # INBOX-110: email-health route gone; sidebar shows 4 provider links instead
+        assert 'href="/postmaster"' in content
 
     def test_email_health_has_javascript(self, client):
         """Page should contain the interactive JavaScript functions"""
-        response = client.get("/email-health")
+        response = client.get("/postmaster")
         content = response.text
         assert "switchEhSection" in content
         assert "switchGpmTab" in content
@@ -292,19 +293,19 @@ class TestSidebarConsistency:
 
     def test_dashboard_has_email_health_link(self, client):
         response = client.get("/dashboard")
-        assert 'href="/email-health"' in response.text
+        assert 'href="/postmaster"' in response.text
 
     def test_domains_has_email_health_link(self, client):
         response = client.get("/domains")
-        assert 'href="/email-health"' in response.text
+        assert 'href="/postmaster"' in response.text
 
     def test_alerts_has_email_health_link(self, client):
         response = client.get("/alerts")
-        assert 'href="/email-health"' in response.text
+        assert 'href="/postmaster"' in response.text
 
     def test_settings_has_email_health_link(self, client):
         response = client.get("/settings")
-        assert 'href="/email-health"' in response.text
+        assert 'href="/postmaster"' in response.text
 
 
 # ─── DOMAIN VALIDATION ──────────────────────────────────────────

@@ -136,14 +136,16 @@ The product has 10 HTML pages. Here's what each does, what data it needs, and th
 
 **Render path:** `dashShowView('dashboard')` → `dhRenderSingleView()` orchestrates all sub-renders. Default state pick: `dhPickDefaultDomain()` filters to monitored domains first (INBOX-83) so a one-off scan can't hijack the default.
 
-### 5.4 Email Health (`/email-health`) — most complex
-**File:** `static/email-health.html`
-**Purpose:** detailed deliverability intelligence per domain, segmented by provider.
-**Submenu (4 sections):**
-- **Google Postmaster** — 6 internal tabs: Compliance Status, Spam, Feedback Loop, Authentication, Encryption, Delivery Errors
-- **Microsoft SNDS** — IP-level reputation, complaint rate trend, sample data
-- **Blacklist Monitor** — domain + IP blacklist status (HetrixTools)
-- **IP Reputation** — combined SNDS + blacklist view per IP
+### 5.4 Provider intelligence pages (4 routes — flattened in INBOX-110)
+**File (today):** `static/email-health.html` — single file served by 4 distinct URLs. Phase 2 / INBOX-111 will split this into 4 dedicated HTML files.
+
+**The 4 routes (each loads email-health.html with a path-driven section switch):**
+- `/postmaster` — Google Postmaster (6 internal tabs: Compliance Status, Spam, Feedback Loop, Authentication, Encryption, Delivery Errors). **Pro feature.**
+- `/microsoft` — Microsoft SNDS (IP-level reputation, complaint rate trend, sample data). **Pro feature.**
+- `/blacklist` — Blacklist Monitor (domain + IP blacklist status, HetrixTools). Free + Pro.
+- `/reputation` — IP Reputation (combined SNDS + blacklist view per IP). **Pro feature.**
+
+**Important:** the `/email-health` URL is GONE (INBOX-110, 2026-04-27). The original "Email Health" parent navigation item was retired entirely so each provider becomes a primary nav item. Free users see [PRO] badges next to locked items.
 
 **Load orchestrator:** `ehInit()` (added in INBOX-101) — single sequential async function that walks `init → status → (free|disconnected|continue) → domains → metrics`. All fetches use `fetchWithTimeout()` with 5s timeout. Backstop watchdog at 7s forces error state if `ehInit` silently breaks.
 

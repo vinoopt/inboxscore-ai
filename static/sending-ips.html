@@ -149,6 +149,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
   .ip-card { flex-direction: column; align-items: flex-start; gap: 12px; }
   .ip-actions { align-self: flex-end; }
 }
+
+/* INBOX-110: PRO badge on locked sidebar items. Visible by default for
+   Free users; hidden when body has .is-pro (set by auth check below). */
+.pro-pill { font-size: 9px; background: var(--accent); color: #fff; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 6px; letter-spacing: 0.5px; }
+body.is-pro .pro-pill { display: none; }
+
 </style>
 </head>
 <body>
@@ -173,7 +179,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
   <aside class="sidebar">
     <ul class="sidebar-nav">
       <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
-      <li><a href="/email-health"><span class="nav-icon">🛡️</span> Email Health</a></li>
+      <li><a href="/postmaster"><span class="nav-icon">📬</span> Google Postmaster <span class="pro-pill">PRO</span></a></li>
+      <li><a href="/microsoft"><span class="nav-icon">📨</span> Microsoft SNDS <span class="pro-pill">PRO</span></a></li>
+      <li><a href="/blacklist"><span class="nav-icon">🛡️</span> Blacklist Monitor</a></li>
+      <li><a href="/reputation"><span class="nav-icon">⭐</span> IP Reputation <span class="pro-pill">PRO</span></a></li>
       <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
       <li><a href="/sending-ips" class="active"><span class="nav-icon">🖥️</span> Sending IPs</a></li>
       <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
@@ -720,6 +729,8 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('user-name').textContent = name;
     const plan = userData.user.plan || 'free';
     document.getElementById('plan-name').textContent = plan;
+      // INBOX-110: hide [PRO] sidebar pills for Pro users
+      if (plan !== 'free') document.body.classList.add('is-pro');
   }).catch(() => {
     const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
     if (refresh) {

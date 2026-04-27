@@ -2100,8 +2100,28 @@ async def serve_settings():
     return _html("settings.html")
 
 
-@app.get("/email-health")
-async def serve_email_health():
+# INBOX-110: Email Health flattened into 4 top-level provider pages.
+# /email-health is gone (404). Each provider gets its own URL but they
+# all serve the same email-health.html for now (Phase 2 / INBOX-111
+# splits them into dedicated files). The page reads window.location.pathname
+# on load and switches to the matching section.
+@app.get("/postmaster")
+async def serve_postmaster():
+    return _html("email-health.html")
+
+
+@app.get("/microsoft")
+async def serve_microsoft():
+    return _html("email-health.html")
+
+
+@app.get("/blacklist")
+async def serve_blacklist():
+    return _html("email-health.html")
+
+
+@app.get("/reputation")
+async def serve_reputation():
     return _html("email-health.html")
 
 
