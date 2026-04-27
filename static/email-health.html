@@ -1825,11 +1825,19 @@ async function loadGpmStatus() {
       // loadEhDomains finishes populating the dropdown. We used to call
       // setGpmState('nodata') here, which briefly painted the "Waiting for
       // data" / "Connect Google" panel — a flicker the user would see for
-      // 200–500ms before loadEhDomains → onGpmDomainChange fixed it.
-      // The default DOM already has gpm-state-data active with empty tables,
-      // so leave the state alone and let loadGpmMetrics drive the right
-      // state once the domain is actually known. Same pattern as the
-      // INBOX-89/90 flicker fixes on the Dashboard.
+      // 200–500ms before loadEhDomains → onGpmDomainChange fixed it. So we
+      // leave the state alone and let loadGpmMetrics drive it.
+      //
+      // INBOX-100 follow-up: but if loadEhDomains is slow or fails, the
+      // default "Loading..." text would stick forever. Watchdog: if neither
+      // gpmCurrentDomain nor ehCurrentDomain is set after 2.5s, fall back
+      // to the nodata state so users see an honest message instead of a
+      // perpetual "Loading...".
+      setTimeout(() => {
+        if (!gpmCurrentDomain && !ehCurrentDomain) {
+          setGpmState('nodata');
+        }
+      }, 2500);
       return;
     }
 
@@ -2232,21 +2240,29 @@ let ehLatestScan = null;
 
 async function loadEhDomains() {
   const token = getToken();
-  if (!token) return;
+  const select = document.getElementById('eh-domain-select');
+  if (!token) {
+    if (select) select.innerHTML = '<option value="">Not logged in</option>';
+    return;
+  }
 
   try {
     const resp = await fetch('/api/user/domains', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      // INBOX-100 follow-up: silent return left the dropdown stuck on
+      // "Loading domains..." — give users a real message instead.
+      if (select) select.innerHTML = '<option value="">Couldn’t load domains — try again</option>';
+      return;
+    }
     const data = await resp.json();
     const domains = data.domains || [];
 
-    const select = document.getElementById('eh-domain-select');
-    select.innerHTML = '';
+    if (select) select.innerHTML = '';
 
     if (domains.length === 0) {
-      select.innerHTML = '<option value="">No domains added — go to Domains page</option>';
+      if (select) select.innerHTML = '<option value="">No domains added — go to Domains page</option>';
       return;
     }
 
@@ -2271,6 +2287,10 @@ async function loadEhDomains() {
     onEhDomainChange(ehCurrentDomain);
   } catch (e) {
     console.error('[EH] Failed to load domains:', e);
+    // INBOX-100 follow-up: same as the !resp.ok branch — show an honest
+    // error message instead of leaving the dropdown stuck on "Loading
+    // domains...".
+    if (select) select.innerHTML = '<option value="">Couldn’t load domains — try again</option>';
   }
 }
 
