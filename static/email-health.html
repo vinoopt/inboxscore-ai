@@ -379,10 +379,16 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           <!-- TAB 1: Compliance Status (default/first tab) -->
           <div class="gpm-panel active" id="gpm-compliance">
             <div style="margin-top:16px;">
-              <!-- INBOX-102: dropped the duplicate "Compliance Status" header.
-                   The active tab name already labels the section; the only
-                   info this line needs to carry is the Last-updated date. -->
-              <div class="pm-trend-title" style="font-size:11px;color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:normal;" id="gpm-comp-updated"></div>
+              <!-- INBOX-110 follow-up: removed the inline "Last updated"
+                   line entirely. It duplicated info already shown in the
+                   widget header: "Last synced X ago" tells the user when
+                   InboxScore pulled the data, and the date range badge
+                   ("Mar 28 – Apr 26, 2026") tells them what range it
+                   covers. A separate "Last updated Apr 26" was redundant
+                   and crowded the header area. The element is kept (just
+                   empty) for backward compatibility with populateGpmCompliance,
+                   which writes to it; CSS hides it. -->
+              <div id="gpm-comp-updated" style="display:none;"></div>
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
                 <thead><tr style="border-bottom:1px solid var(--border);">
                   <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Requirement</th>
