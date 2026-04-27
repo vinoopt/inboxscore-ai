@@ -1148,12 +1148,20 @@ function populateGpmEncryption() {
 /* === GPM Compliance tab — fetches real compliance from Google v2 API === */
 async function populateGpmCompliance() {
   const metrics = gpmMetricsCache || [];
-  if (metrics.length === 0) return;
+  // INBOX-100 (G2): if metrics is empty, we used to return early — leaving the
+  // hardcoded "Loading..." text in place forever. Render an honest empty state
+  // instead so users never see stale "Loading..." text.
+  const updatedEl = document.getElementById('gpm-comp-updated');
+  const tbody = document.getElementById('gpm-comp-table-body');
+  if (metrics.length === 0) {
+    if (updatedEl) updatedEl.textContent = '';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="2" style="padding:12px;color:var(--text-muted);text-align:center;">Awaiting data from Google.</td></tr>';
+    return;
+  }
 
   const latest = metrics[metrics.length - 1];
 
   // Update "Last updated" label
-  const updatedEl = document.getElementById('gpm-comp-updated');
   if (updatedEl && latest.date) {
     updatedEl.textContent = 'Last updated: ' + latest.date;
   }
@@ -1211,10 +1219,17 @@ async function populateGpmCompliance() {
   const checks = [
     resolve('SPF_AND_DKIM', (spf != null && dkim != null) ? (spf >= 95 && dkim >= 95) : null,
       'SPF Alignment: ' + (spf != null ? spf.toFixed(1) + '%' : 'N/A') + ', DKIM: ' + (dkim != null ? dkim.toFixed(1) + '%' : 'N/A') + '. Note: SPF Alignment measures Return-Path \u2194 From domain match, not basic SPF pass.'),
-    resolve('DMARC_ALIGNMENT', (dmarc != null) ? dmarc >= 90 : null,
-      'DMARC alignment indicates From: header may not be fully aligned.'),
-    resolve('DMARC_POLICY', dmarc != null ? dmarc >= 95 : null,
-      'DMARC pass rate is ' + (dmarc != null ? dmarc.toFixed(1) + '%' : 'N/A') + '. Should be above 95%.'),
+    // INBOX-100 (G5): DMARC_ALIGNMENT + DMARC_POLICY computed-fallback was
+    // using the auth pass *rate* — but a domain with `p=none` can pass
+    // DMARC at 100% rate while still being NON-COMPLIANT under Gmail's 2024
+    // sender requirements. Pass-rate is not a substitute for the actual
+    // policy. When the v2 compliance API is unavailable we now render these
+    // rows as "no data" (null) instead of an unverified green tick. Same
+    // honest-data theme as INBOX-93 / INBOX-95.
+    resolve('DMARC_ALIGNMENT', null,
+      'Awaiting Google verdict — From: header alignment is reported by the v2 compliance API only.'),
+    resolve('DMARC_POLICY', null,
+      'Awaiting Google verdict — DMARC policy compliance (p=quarantine or stricter for bulk senders) is reported by the v2 compliance API only.'),
     resolve('ENCRYPTION', tls != null ? tls >= 95 : null,
       'TLS encryption is ' + (tls != null ? tls.toFixed(1) + '%' : 'N/A') + '. Should be above 95%.'),
     resolve('USER_REPORTED_SPAM_RATE', spam != null ? spam < 0.3 : null,
@@ -1268,8 +1283,15 @@ async function populateGpmCompliance() {
     if (i < checks.length - 1) tr.style.borderBottom = '1px solid var(--border)';
 
     if (check.pass === null) {
+      // INBOX-100 (G5): when pass is null we used to just render "\u2014 No data",
+      // hiding the failMsg explanation. For rows like DMARC_POLICY that
+      // legitimately can't be computed without the v2 API, surface the
+      // failMsg as a sub-line so users understand why.
+      const reasonLine = check.failMsg
+        ? '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">' + escapeHtml(check.failMsg) + '</div>'
+        : '';
       tr.innerHTML = '<td style="padding:12px;">' + escapeHtml(labels[i]) + '</td>'
-        + '<td style="padding:12px;"><span style="color:var(--text-muted);">\u2014 No data</span></td>';
+        + '<td style="padding:12px;"><span style="color:var(--text-muted);">\u2014 No data</span>' + reasonLine + '</td>';
     } else if (check.pass) {
       tr.innerHTML = '<td style="padding:12px;">' + escapeHtml(labels[i]) + '</td>'
         + '<td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">\u2713 Compliant</span></td>';
@@ -1799,7 +1821,15 @@ async function loadGpmStatus() {
     // Use the main domain selector's current value
     const activeDomain = ehCurrentDomain || document.getElementById('eh-domain-select')?.value;
     if (!activeDomain) {
-      setGpmState('nodata');
+      // INBOX-100 (G1): loadGpmStatus runs in DOMContentLoaded BEFORE
+      // loadEhDomains finishes populating the dropdown. We used to call
+      // setGpmState('nodata') here, which briefly painted the "Waiting for
+      // data" / "Connect Google" panel — a flicker the user would see for
+      // 200–500ms before loadEhDomains → onGpmDomainChange fixed it.
+      // The default DOM already has gpm-state-data active with empty tables,
+      // so leave the state alone and let loadGpmMetrics drive the right
+      // state once the domain is actually known. Same pattern as the
+      // INBOX-89/90 flicker fixes on the Dashboard.
       return;
     }
 
