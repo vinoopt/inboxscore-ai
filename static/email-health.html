@@ -671,10 +671,13 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                 </svg>
                 Microsoft SNDS
               </div>
+              <!-- 2026-04-28: dropped the "Last 30 days" badge from the
+                   header per Vinoop. Period belongs on individual charts
+                   (matches Postmaster's per-tab dropdown pattern), not at
+                   the page level. -->
               <div style="display:flex;align-items:center;gap:10px;">
                 <span class="pm-date-range" id="ms-last-sync" style="font-size:11px;color:var(--text-muted);"></span>
                 <button class="btn btn-sm" id="ms-sync-btn" onclick="msSyncNow()" style="font-size:11px;padding:4px 10px;">↻ Sync now</button>
-                <span class="pm-date-range" id="ms-date-range" style="font-size:11px;color:var(--text-muted);">Last 30 days</span>
               </div>
             </div>
 
@@ -3157,8 +3160,10 @@ async function msSndsConnect() {
 
 async function msSyncNow() {
   const btn = document.getElementById('ms-sync-btn');
-  btn.textContent = 'Syncing...';
+  const original = btn.textContent;
+  btn.textContent = '⟳ Syncing…';
   btn.disabled = true;
+  btn.style.opacity = '0.6';
   try {
     const token = getToken();
     const resp = await fetch('/api/snds/sync', {
@@ -3166,13 +3171,28 @@ async function msSyncNow() {
       headers: { 'Authorization': 'Bearer ' + token },
     });
     if (resp.ok) {
-      loadSndsMetrics();
+      // 2026-04-28: invalidate the SWR cache before reload, otherwise
+      // loadSndsMetrics() returns the stale localStorage hit and the
+      // user sees no change after sync. (Bug Vinoop reported.)
+      if (window.cacheClear) {
+        try { localStorage.removeItem('is.cache.v1.' + (window.cacheUserNamespace?.() || '') + _msCacheKey()); } catch (e) {}
+      }
+      // Also clear in-memory so applyMsView re-renders from fresh data
+      _msFullCache = { metrics: [], domain: null };
+      await loadSndsMetrics();
+      btn.textContent = '✓ Synced';
+      setTimeout(() => { btn.textContent = original || '↻ Sync now'; }, 2500);
+    } else {
+      btn.textContent = '✗ Sync failed';
+      setTimeout(() => { btn.textContent = original || '↻ Sync now'; }, 2500);
     }
   } catch (e) {
     console.error('[SNDS] Sync failed:', e);
+    btn.textContent = '✗ Sync failed';
+    setTimeout(() => { btn.textContent = original || '↻ Sync now'; }, 2500);
   } finally {
-    btn.textContent = 'Sync Now';
     btn.disabled = false;
+    btn.style.opacity = '1';
   }
 }
 
