@@ -1989,7 +1989,19 @@ async function loadGpmMetrics(domain) {
       applyGpmPeriod();
       ehUpdateRefreshStamp(window.cacheAgeLabel(_gpmCacheKey(domain)));
       renderedFromCache = true;
-      // Compliance verdicts also cache separately — see populateGpmCompliance.
+
+      // INBOX-129 follow-up: applyGpmPeriod() paints Spam / Auth / etc
+      // but does NOT touch the Compliance table — that one is wired
+      // to populateGpmCompliance(), which used to only run AFTER the
+      // fresh-fetch on line ~2056. Result: cached metrics painted
+      // every other tab instantly, but Compliance kept the static
+      // "Loading…" placeholder until the network round-trip
+      // completed (~1-2s). Wire it up here to the cache-hydrate path
+      // too — populateGpmCompliance has its own SWR for the
+      // /api/postmaster/compliance API on top of metrics, so calling
+      // it here is safe and idempotent (it'll repaint with fresh
+      // data when this function's network fetch completes).
+      populateGpmCompliance();
     }
   }
 
