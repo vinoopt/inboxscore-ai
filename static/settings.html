@@ -285,9 +285,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                   4. Enable <strong>"Automated Data Access"</strong><br>
                   5. Copy the unique key URL provided
                 </div>
-                <input type="text" id="snds-key-input" placeholder="Paste your SNDS automated access key here..." style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;margin-bottom:12px;box-sizing:border-box;">
+                <input type="text" id="snds-key-input" placeholder="b00b03c1-3ed4-4a7d-8763-0f3a8fee5276" oninput="sndsKeyOnInput(event)" onpaste="sndsKeyOnPaste(event)" autocomplete="off" spellcheck="false" style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:'SF Mono',Menlo,Consolas,monospace;margin-bottom:6px;box-sizing:border-box;">
+                <div id="snds-key-helper" style="font-size:11px;color:var(--text-muted);margin-bottom:6px;line-height:1.4;">Paste only the key (the value after <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px;">key=</code>). Looks like: <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px;">b00b03c1-…-fee5276</code></div>
+                <div id="snds-key-cleaned-note" style="display:none;font-size:11px;color:var(--text-muted);margin-bottom:6px;">✓ Detected a URL — using the key portion only.</div>
+                <div id="snds-key-format-error" style="display:none;font-size:11px;color:var(--red);margin-bottom:6px;">This doesn't look like an SNDS key. It should be 36 characters in the format <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>.</div>
                 <div id="snds-modal-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px;"></div>
-                <button id="snds-connect-btn" onclick="sndsConnect()" style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Connect & Validate</button>
+                <button id="snds-connect-btn" onclick="sndsConnect()" disabled style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;opacity:0.5;">Connect & Validate</button>
               </div>
               <!-- Step 2: Progress steps (shown during validation) -->
               <div id="snds-step-progress" style="display:none;">
@@ -909,8 +912,18 @@ function openSndsModal() {
   document.getElementById('snds-modal-close').style.display = 'block';
   document.getElementById('snds-key-input').value = '';
   document.getElementById('snds-modal-error').style.display = 'none';
-  document.getElementById('snds-connect-btn').disabled = false;
-  document.getElementById('snds-connect-btn').textContent = 'Connect & Validate';
+  // INBOX-124: keep button disabled until user types a valid UUID
+  const btn = document.getElementById('snds-connect-btn');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.textContent = 'Connect & Validate';
+  // Reset helper / cleaned-note / format-error to default state
+  const helper = document.getElementById('snds-key-helper');
+  const cleanedNote = document.getElementById('snds-key-cleaned-note');
+  const formatErr = document.getElementById('snds-key-format-error');
+  if (helper) helper.style.display = 'block';
+  if (cleanedNote) cleanedNote.style.display = 'none';
+  if (formatErr) formatErr.style.display = 'none';
 }
 
 function closeSndsModal() {
@@ -943,10 +956,97 @@ function setSndsProgress(step, status) {
   }
 }
 
+// ─── SNDS key input cleanup (INBOX-124) ─────────────────────────
+// Users frequently paste the full URL from the SNDS portal page
+// (e.g. "/data/?key=<UUID>" or "https://...?key=<UUID>") instead
+// of just the UUID. They also paste with stray whitespace or smart
+// quotes. cleanSndsKey() heals all of that silently and returns the
+// canonical 36-char UUID — or the trimmed input if no UUID found
+// (so the regex check below can flag it).
+const SNDS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function cleanSndsKey(raw) {
+  if (!raw) return { value: '', wasUrl: false };
+  // Strip whitespace + smart quotes / backticks at ends
+  let v = String(raw).trim().replace(/^["'`‘’“”]+|["'`‘’“”]+$/g, '');
+  let wasUrl = false;
+  // If a `key=` segment is present anywhere, take everything after it
+  // up to the next `&` or whitespace — handles full URLs, paths,
+  // query strings, copy-from-browser-address-bar, etc.
+  const keyIdx = v.toLowerCase().indexOf('key=');
+  if (keyIdx >= 0) {
+    v = v.slice(keyIdx + 4);
+    const stop = v.search(/[&\s#]/);
+    if (stop >= 0) v = v.slice(0, stop);
+    wasUrl = true;
+  }
+  return { value: v.trim(), wasUrl };
+}
+
+function sndsKeyOnInput(_e) {
+  const inp = document.getElementById('snds-key-input');
+  const helper = document.getElementById('snds-key-helper');
+  const cleanedNote = document.getElementById('snds-key-cleaned-note');
+  const formatErr = document.getElementById('snds-key-format-error');
+  const btn = document.getElementById('snds-connect-btn');
+  const modalErr = document.getElementById('snds-modal-error');
+  // Hide any prior server error from a failed Connect attempt
+  if (modalErr) modalErr.style.display = 'none';
+
+  const raw = inp.value;
+  const { value: cleaned, wasUrl } = cleanSndsKey(raw);
+
+  // If we cleaned anything, replace input value silently — but only
+  // if the cleaned form differs (avoid resetting the cursor every
+  // keystroke).
+  if (cleaned !== raw && cleaned !== raw.trim()) {
+    inp.value = cleaned;
+  }
+
+  // Empty → reset all messages, disable button
+  if (!cleaned) {
+    helper.style.display = 'block';
+    cleanedNote.style.display = 'none';
+    formatErr.style.display = 'none';
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    return;
+  }
+
+  // Non-empty → check UUID format
+  const valid = SNDS_UUID_RE.test(cleaned);
+  if (valid) {
+    helper.style.display = 'none';
+    formatErr.style.display = 'none';
+    cleanedNote.style.display = wasUrl ? 'block' : 'none';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  } else {
+    helper.style.display = 'none';
+    cleanedNote.style.display = 'none';
+    formatErr.style.display = 'block';
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+  }
+}
+
+function sndsKeyOnPaste(e) {
+  // Let the default paste happen, then run cleanup on next tick.
+  // (Doing it here lets the browser apply the paste, then we tidy.)
+  setTimeout(() => sndsKeyOnInput(e), 0);
+}
+
 async function sndsConnect() {
-  const key = document.getElementById('snds-key-input').value.trim();
+  const inp = document.getElementById('snds-key-input');
+  const { value: key } = cleanSndsKey(inp.value);
+  // Defensive — button should already be disabled, but check format too
   if (!key) {
     document.getElementById('snds-modal-error').textContent = 'Please enter your SNDS key';
+    document.getElementById('snds-modal-error').style.display = 'block';
+    return;
+  }
+  if (!SNDS_UUID_RE.test(key)) {
+    document.getElementById('snds-modal-error').textContent = 'Key format invalid — expected a 36-character UUID.';
     document.getElementById('snds-modal-error').style.display = 'block';
     return;
   }

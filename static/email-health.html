@@ -3164,33 +3164,79 @@ async function msSyncNow() {
   btn.textContent = '⟳ Syncing…';
   btn.disabled = true;
   btn.style.opacity = '0.6';
+
+  // Helper: show a banner above the IP grid for upstream errors.
+  // 2026-04-28: previously, msSyncNow only checked resp.ok. Microsoft
+  // returning 400 (key expired) → backend returns 200 OK with
+  // {success:false} → frontend treated it as success → user saw
+  // mystery "no data" empty state. Now we read the body and surface
+  // the actual error.
+  function _showSyncBanner(html, color) {
+    const widget = document.getElementById('ms-widget');
+    if (!widget) return;
+    let banner = document.getElementById('ms-sync-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'ms-sync-banner';
+      banner.style.cssText = 'margin:12px 0 0 0;padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.5;';
+      const header = widget.querySelector('.pm-header');
+      if (header && header.parentNode === widget) header.after(banner);
+      else widget.prepend(banner);
+    }
+    banner.style.background = color === 'red' ? 'var(--red-bg)' : 'var(--surface-2)';
+    banner.style.color = color === 'red' ? 'var(--red)' : 'var(--text-muted)';
+    banner.style.border = '1px solid ' + (color === 'red' ? 'var(--red)' : 'var(--border)');
+    banner.innerHTML = html;
+  }
+  function _clearSyncBanner() {
+    const b = document.getElementById('ms-sync-banner');
+    if (b) b.remove();
+  }
+
   try {
     const token = getToken();
     const resp = await fetch('/api/snds/sync', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token },
     });
-    if (resp.ok) {
-      // 2026-04-28: invalidate the SWR cache before reload, otherwise
-      // loadSndsMetrics() returns the stale localStorage hit and the
-      // user sees no change after sync. (Bug Vinoop reported.)
+
+    let body = {};
+    try { body = await resp.json(); } catch { /* non-json */ }
+
+    if (!resp.ok) {
+      btn.textContent = '✗ Sync failed';
+      _showSyncBanner('<strong>Sync failed.</strong> ' + (body.detail || 'Server error — try again.'), 'red');
+    } else if (body.success === false) {
+      // Backend completed but Microsoft returned an error. Most common
+      // case: SNDS key expired or was revoked. Tell the user plainly.
+      btn.textContent = '⚠ Sync failed';
+      const isExpired = (body.error || '').toLowerCase().includes('expired') ||
+                       (body.error || '').includes('400') || (body.error || '').includes('401');
+      const msg = isExpired
+        ? '<strong>Your Microsoft SNDS key may have expired.</strong> ' +
+          '<a href="https://postmaster.live.com/snds" target="_blank" style="color:var(--red);text-decoration:underline;">' +
+          'Generate a new key</a> at postmaster.live.com/snds, then disconnect and reconnect SNDS in InboxScore. ' +
+          '<br><small>(Microsoft error: ' + escapeHtml(body.error || '') + ')</small>'
+        : '<strong>Microsoft SNDS returned an error.</strong> ' + escapeHtml(body.error || 'Unknown error') +
+          '. The 07:00 UTC daily sync has likely been failing too — check the same way.';
+      _showSyncBanner(msg, 'red');
+    } else {
+      // Success — invalidate caches and reload.
       if (window.cacheClear) {
         try { localStorage.removeItem('is.cache.v1.' + (window.cacheUserNamespace?.() || '') + _msCacheKey()); } catch (e) {}
       }
-      // Also clear in-memory so applyMsView re-renders from fresh data
       _msFullCache = { metrics: [], domain: null };
       await loadSndsMetrics();
-      btn.textContent = '✓ Synced';
-      setTimeout(() => { btn.textContent = original || '↻ Sync now'; }, 2500);
-    } else {
-      btn.textContent = '✗ Sync failed';
-      setTimeout(() => { btn.textContent = original || '↻ Sync now'; }, 2500);
+      _clearSyncBanner();
+      const saved = body.metrics_saved || 0;
+      btn.textContent = saved > 0 ? `✓ Synced — ${saved} rows` : '✓ Synced (no new data)';
     }
   } catch (e) {
     console.error('[SNDS] Sync failed:', e);
     btn.textContent = '✗ Sync failed';
-    setTimeout(() => { btn.textContent = original || '↻ Sync now'; }, 2500);
+    _showSyncBanner('<strong>Sync request failed.</strong> Check your connection and try again.', 'red');
   } finally {
+    setTimeout(() => { btn.textContent = original || '↻ Sync now'; }, 3500);
     btn.disabled = false;
     btn.style.opacity = '1';
   }
