@@ -1183,22 +1183,37 @@ function dhRenderProviderGrid(domain) {
     ? `<div class="provider-cta"><a href="/postmaster?domain=${encodeURIComponent(domain)}" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">Postmaster Tools</span></div>`
     : `<div class="provider-cta"><a href="/settings?tab=connections" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
 
-  // Microsoft card
-  let msHtml;
-  let msConnected = !!(snds && snds.has_data);
-  if (msConnected) {
+  // Microsoft card — INBOX-125: 4-state model.
+  //   disconnected     → Set up CTA
+  //   no_ips_mapped    → Map IPs CTA (links to /sending-ips)
+  //   no_recent_data   → View details CTA + explainer about lag
+  //   ok               → Show metrics + View details
+  // The state is computed server-side in /api/snds/dashboard-summary.
+  // Fallback: if snds is undefined (e.g. the fetch failed silently),
+  // treat as 'disconnected' so the user gets a real CTA — not a broken
+  // grey card.
+  const msState = (snds && snds.state) || 'disconnected';
+  const msSummary = (snds && snds.summary) || null;
+  const msPillConnected = (msState === 'ok' || msState === 'no_recent_data' || msState === 'no_ips_mapped');
+  let msHtml, msCta;
+  if (msState === 'ok' && msSummary) {
     msHtml = `
-      <div class="provider-metric"><span class="provider-metric-label">IP status</span><span class="provider-metric-value ${snds.status_color || 'good'}">${escapeHtml(snds.status_label || '—')}</span></div>
-      <div class="provider-metric"><span class="provider-metric-label">Complaint rate</span><span class="provider-metric-value ${snds.complaint_color || 'none'}">${escapeHtml(snds.complaint_rate || '—')}</span></div>
-      <div class="provider-metric"><span class="provider-metric-label">Trap hits</span><span class="provider-metric-value ${snds.trap_color || 'none'}">${escapeHtml(snds.trap_hits || '—')}</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">IP status</span><span class="provider-metric-value ${msSummary.status_color || 'good'}">${escapeHtml(msSummary.status_label || '—')}</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Complaint rate</span><span class="provider-metric-value ${msSummary.complaint_color || 'none'}">${escapeHtml(msSummary.complaint_rate || '—')}</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Trap hits</span><span class="provider-metric-value ${msSummary.trap_color || 'none'}">${escapeHtml(msSummary.trap_hits || '—')}</span></div>
     `;
+    msCta = `<div class="provider-cta"><a href="/microsoft?domain=${encodeURIComponent(domain)}" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">SNDS</span></div>`;
+  } else if (msState === 'no_recent_data') {
+    msHtml = `<div class="provider-explainer">Connected — no SNDS data in the last 24 hours. Microsoft data can lag up to 2 days.</div>`;
+    msCta = `<div class="provider-cta"><a href="/microsoft?domain=${encodeURIComponent(domain)}" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">SNDS</span></div>`;
+  } else if (msState === 'no_ips_mapped') {
+    msHtml = `<div class="provider-explainer">SNDS is connected, but no sending IPs are mapped to <strong>${escapeHtml(domain)}</strong> yet. Map IPs to start seeing per-domain reputation.</div>`;
+    msCta = `<div class="provider-cta"><a href="/sending-ips?domain=${encodeURIComponent(domain)}" class="provider-link">Map sending IPs →</a><span style="font-size:11px;color:var(--text-subtle)">Required</span></div>`;
   } else {
+    // disconnected
     msHtml = `<div class="provider-explainer">Connect Microsoft SNDS to monitor sending IP reputation across Outlook, Hotmail, and Live mailboxes.</div>`;
+    msCta = `<div class="provider-cta"><a href="/settings?tab=connections" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
   }
-  // INBOX-110: /email-health was deleted; SNDS now lives at /microsoft.
-  const msCta = msConnected
-    ? `<div class="provider-cta"><a href="/microsoft?domain=${encodeURIComponent(domain)}" class="provider-link">View details →</a><span style="font-size:11px;color:var(--text-subtle)">SNDS</span></div>`
-    : `<div class="provider-cta"><a href="/settings?tab=connections" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
 
   // Yahoo card — always "Not connected" since we don't ingest CFL yet
   const yahooHtml = `<div class="provider-explainer">Yahoo doesn't offer a Postmaster API. We can ingest Yahoo's Complaint Feedback Loop (CFL) reports if you set one up.</div>`;
@@ -1221,7 +1236,7 @@ function dhRenderProviderGrid(domain) {
       <div class="provider-header">
         <svg class="provider-icon" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
         <div class="provider-name">Microsoft SNDS</div>
-        <span class="provider-status-pill ${msConnected ? 'connected' : 'disconnected'}">${msConnected ? 'Connected' : 'Not connected'}</span>
+        <span class="provider-status-pill ${msPillConnected ? 'connected' : 'disconnected'}">${msPillConnected ? 'Connected' : 'Not connected'}</span>
       </div>
       <div class="provider-metrics">${msHtml}</div>
       ${msCta}
@@ -1642,6 +1657,7 @@ function _dhHydrateFromCache() {
   window._dh.scansByDomain = snap.scansByDomain || {};
   window._dh.scansListByDomain = snap.scansListByDomain || {};
   window._dh.pmByDomain = snap.pmByDomain || {};
+  window._dh.sndsByDomain = snap.sndsByDomain || {};
   window._dh.alertsByDomain = snap.alertsByDomain || {};
   window._dh.selectedDomain = dhPickDefaultDomain();
   // Show a small corner pill so the user knows we're refreshing.
@@ -1730,6 +1746,21 @@ window.addEventListener('DOMContentLoaded', () => {
     );
     await Promise.all(pmPromises);
 
+    // INBOX-125: Fetch SNDS dashboard summary per domain in parallel.
+    // Returns one of 4 states (disconnected | no_ips_mapped |
+    // no_recent_data | ok). The card render reads this to pick the
+    // right CTA — see _dh.sndsByDomain in the Microsoft card section.
+    const sndsByDomain = {};
+    const sndsPromises = domains.map(d =>
+      fetch(`/api/snds/dashboard-summary?domain=${encodeURIComponent(d.domain)}`, { headers })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) sndsByDomain[d.domain] = data;
+        })
+        .catch(() => {})
+    );
+    await Promise.all(sndsPromises);
+
     // Group alerts by domain (so the Single view can show alerts for the
     // selected domain only)
     const alertsByDomain = {};
@@ -1746,6 +1777,7 @@ window.addEventListener('DOMContentLoaded', () => {
     window._dh.scansByDomain = scansByDomain;
     window._dh.scansListByDomain = scansListByDomain;
     window._dh.pmByDomain = pmByDomain;
+    window._dh.sndsByDomain = sndsByDomain;
     window._dh.alertsByDomain = alertsByDomain;
     window._dh.selectedDomain = dhPickDefaultDomain();
 
@@ -1762,6 +1794,7 @@ window.addEventListener('DOMContentLoaded', () => {
         scansByDomain: scansByDomain,
         scansListByDomain: scansListByDomain,
         pmByDomain: pmByDomain,
+        sndsByDomain: sndsByDomain,
         alertsByDomain: alertsByDomain,
       });
     }

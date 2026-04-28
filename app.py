@@ -1986,6 +1986,127 @@ async def api_snds_metrics(req: Request, days: int = 30, domain: str = ""):
     }
 
 
+@app.get("/api/snds/dashboard-summary")
+async def api_snds_dashboard_summary(req: Request, domain: str = ""):
+    """
+    Per-domain SNDS state for the Dashboard Microsoft card.
+    Returns one of 4 states (INBOX-125):
+      - disconnected     : user has no SNDS connection at all
+      - no_ips_mapped    : SNDS connected but no IPs in user_ip_domains for this domain
+      - no_recent_data   : IPs mapped but no Microsoft data in last 24h
+      - ok               : happy path — return summary metrics
+    """
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user_id = user_result["user"]["id"]
+
+    if not domain:
+        raise HTTPException(status_code=400, detail="domain query param required")
+
+    connection = get_snds_connection(user_id)
+    if not connection:
+        return {"state": "disconnected", "summary": None, "mapped_ip_count": 0}
+
+    mapped_ips = get_ips_for_domain(user_id, domain)
+    if not mapped_ips:
+        return {
+            "state": "no_ips_mapped",
+            "summary": None,
+            "mapped_ip_count": 0,
+            "last_sync_at": connection.get("last_sync_at"),
+        }
+
+    # Pull last 7 days for the mapped IPs and find the most recent row.
+    metrics = db_get_snds_metrics(user_id, days=7)
+    allowed = set(mapped_ips)
+    metrics = [m for m in metrics if m.get("ip_address") in allowed]
+
+    if not metrics:
+        return {
+            "state": "no_recent_data",
+            "summary": None,
+            "mapped_ip_count": len(mapped_ips),
+            "last_sync_at": connection.get("last_sync_at"),
+        }
+
+    # Latest row per IP — use the most recent metric_date
+    latest_by_ip: dict[str, dict] = {}
+    for m in metrics:
+        ip = m.get("ip_address")
+        if not ip:
+            continue
+        prev = latest_by_ip.get(ip)
+        if prev is None or (m.get("metric_date") or "") > (prev.get("metric_date") or ""):
+            latest_by_ip[ip] = m
+
+    rows = list(latest_by_ip.values())
+    # Aggregate: status (worst), avg complaint rate, total trap hits
+    status_rank = {"GREEN": 0, "YELLOW": 1, "RED": 2}
+    status_label = "GREEN"
+    for r in rows:
+        s = (r.get("filter_result") or "GREEN").upper()
+        if status_rank.get(s, 0) > status_rank.get(status_label, 0):
+            status_label = s
+
+    # complaint_rate stored as e.g. "< 0.1%" or "0.20%" — parse defensively
+    def _to_float(v):
+        if v is None:
+            return None
+        s = str(v).strip().replace("<", "").replace("%", "").strip()
+        try:
+            return float(s)
+        except Exception:
+            return None
+
+    rates = [r for r in (_to_float(m.get("complaint_rate")) for m in rows) if r is not None]
+    avg_complaint = (sum(rates) / len(rates)) if rates else None
+    if avg_complaint is None:
+        complaint_str = "—"
+    elif avg_complaint < 0.1:
+        complaint_str = "< 0.1%"
+    else:
+        complaint_str = f"{avg_complaint:.2f}%"
+
+    total_traps = sum(int(r.get("trap_hits") or 0) for r in rows)
+
+    # Colour mapping (matches DESIGN-SYSTEM.md empty-state rule)
+    status_color = {"GREEN": "good", "YELLOW": "warn", "RED": "bad"}.get(status_label, "good")
+    if avg_complaint is None:
+        complaint_color = "none"
+    elif avg_complaint < 0.3:
+        complaint_color = "good"
+    elif avg_complaint < 1.0:
+        complaint_color = "warn"
+    else:
+        complaint_color = "bad"
+    if total_traps == 0:
+        trap_color = "none"
+    elif total_traps < 5:
+        trap_color = "warn"
+    else:
+        trap_color = "bad"
+
+    return {
+        "state": "ok",
+        "summary": {
+            "has_data": True,
+            "status_label": status_label,
+            "status_color": status_color,
+            "complaint_rate": complaint_str,
+            "complaint_color": complaint_color,
+            "trap_hits": str(total_traps),
+            "trap_color": trap_color,
+        },
+        "mapped_ip_count": len(mapped_ips),
+        "last_sync_at": connection.get("last_sync_at"),
+    }
+
+
 @app.get("/robots.txt", response_class=PlainTextResponse)
 async def robots_txt():
     """Return robots.txt for SEO"""
