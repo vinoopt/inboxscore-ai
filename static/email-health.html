@@ -1611,17 +1611,24 @@ async function populateGpmCompliance() {
   }
 
   // SWR step 1: paint instantly from cached compliance API response
-  // (if any). User sees the table populated within ~5ms instead of
-  // waiting for the network round-trip.
+  // OR (on cache miss) paint immediately with metrics-only fallback —
+  // the render function gracefully handles apiCompliance=null using
+  // computed values from the metrics array. This kills the "Loading…"
+  // flash entirely; the only thing the network refresh adds is the
+  // one-click / honor-unsubscribe verdicts and the few rows the v2
+  // compliance API exposes that we can't compute locally.
   const domain = gpmCurrentDomain || ehCurrentDomain;
   let cachedCompliance = null;
   if (window.cacheGet) {
     const cached = window.cacheGet(_gpmCompCacheKey(domain), PM_COMPLIANCE_CACHE_TTL_MS);
     if (cached && cached.compliance) {
       cachedCompliance = cached.compliance;
-      _renderGpmComplianceTable(metrics, cachedCompliance);
     }
   }
+  // Always paint NOW — with cached compliance if we have it, or with
+  // null (metrics-only fallback) if we don't. Either is better than
+  // the static "Loading…" placeholder.
+  _renderGpmComplianceTable(metrics, cachedCompliance);
 
   // SWR step 2: fetch fresh compliance and repaint silently.
   const token = getToken();
