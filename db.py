@@ -1122,6 +1122,12 @@ def upsert_snds_metrics(user_id: str, ip_address: str, metric_date: str, metrics
     if not sb:
         return None
     try:
+        # INBOX-128: pass dicts directly to supabase-py — it serializes
+        # them once on the wire. Calling json.dumps() here causes a
+        # double-encode: Postgres stores the JSON-encoded *string* as a
+        # jsonb string value, and the frontend gets a string instead of
+        # an object. Bug surfaced when Volume & Delivery's Sent column
+        # showed "—" because filter_results.rcpt_commands was unreadable.
         data = {
             "user_id": user_id,
             "ip_address": ip_address,
@@ -1130,8 +1136,8 @@ def upsert_snds_metrics(user_id: str, ip_address: str, metric_date: str, metrics
             "complaint_rate": metrics.get("complaint_rate"),
             "trap_hits": metrics.get("trap_hits", 0),
             "message_count": metrics.get("message_count", 0),
-            "filter_results": json.dumps(metrics.get("filter_results", {})),
-            "sample_helos": json.dumps(metrics.get("sample_helos", [])),
+            "filter_results": metrics.get("filter_results", {}),
+            "sample_helos": metrics.get("sample_helos", []),
             "raw_data": metrics.get("raw_data", ""),
         }
         result = sb.table("snds_metrics").upsert(

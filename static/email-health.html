@@ -3060,7 +3060,15 @@ function msRenderVolume(metrics) {
     // Sent = RCPT TO commands (recipients attempted)
     // Delivered = message_count (Microsoft accepted into mailbox)
     // Rejection rate = (Sent - Delivered) / Sent
-    const fr = m.filter_results || {};
+    //
+    // INBOX-128: filter_results came back from earlier syncs as a
+    // JSON-encoded *string* (double-encoded into the jsonb column).
+    // Defensive parse — handles both old string-shaped rows and
+    // properly-typed object rows.
+    let fr = m.filter_results || {};
+    if (typeof fr === 'string') {
+      try { fr = JSON.parse(fr); } catch (e) { fr = {}; }
+    }
     const sent = (typeof fr.rcpt_commands === 'number') ? fr.rcpt_commands : null;
     const delivered = m.message_count ?? 0;
     let rejPct = null, rejColor = 'var(--text-muted)';
