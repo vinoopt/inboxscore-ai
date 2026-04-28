@@ -2265,9 +2265,10 @@ async def serve_blacklist():
     return _html("email-health.html")
 
 
-@app.get("/reputation")
-async def serve_reputation():
-    return _html("email-health.html")
+# INBOX-132: /reputation route removed — the IP Reputation page was a
+# duplicate consolidated view of SNDS + blacklist data already shown
+# on /microsoft and /blacklist. No redirect; bookmarks return 404 and
+# users navigate via the sidebar.
 
 
 if __name__ == "__main__":

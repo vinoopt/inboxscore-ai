@@ -173,14 +173,16 @@ class TestEmailHealthPage:
         assert "IP Reputation" in content
 
     def test_email_health_has_all_sections(self, client):
-        """Page should have the 4 surviving content section IDs (INBOX-82
-        Phase 2 dropped Overview + Yahoo)."""
+        """Page should have the 3 surviving content section IDs.
+        INBOX-82 Phase 2 dropped Overview + Yahoo.
+        INBOX-132 dropped IP Reputation (was a duplicate of SNDS +
+        Blacklist data already shown on dedicated pages)."""
         response = client.get("/postmaster")
         content = response.text
         assert 'id="eh-sec-google"' in content
         assert 'id="eh-sec-microsoft"' in content
         assert 'id="eh-sec-blacklist"' in content
-        assert 'id="eh-sec-reputation"' in content
+        assert 'id="eh-sec-reputation"' not in content
 
     def test_email_health_overview_section_removed(self, client):
         """INBOX-82 Phase 2: the Overview tab is gone — the Dashboard now

@@ -238,7 +238,6 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
       <li><a href="/postmaster"><span class="nav-icon">📬</span> Google Postmaster</a></li>
       <li><a href="/microsoft"><span class="nav-icon">📨</span> Microsoft SNDS</a></li>
       <li><a href="/blacklist"><span class="nav-icon">🛡️</span> Blacklist Monitor</a></li>
-      <li><a href="/reputation"><span class="nav-icon">⭐</span> IP Reputation</a></li>
       <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
       <li><a href="/sending-ips"><span class="nav-icon">🖥️</span> Sending IPs</a></li>
       <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
@@ -282,9 +281,6 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
         <div class="eh-submenu-item" onclick="switchEhSection('blacklist')">
           <span class="eh-submenu-icon">🛡️</span> Blacklist Monitor
           <span class="eh-submenu-badge red">1</span>
-        </div>
-        <div class="eh-submenu-item" onclick="switchEhSection('reputation')">
-          <span class="eh-submenu-icon">⭐</span> IP Reputation
         </div>
       </nav>
 
@@ -975,30 +971,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
         </div>
         </div><!-- /eh-sec-blacklist -->
 
-        <!-- ===== SECTION: IP & DOMAIN REPUTATION ===== -->
-        <div class="eh-section" id="eh-sec-reputation">
-        <div class="pm-widget">
-          <div class="pm-header">
-            <div class="pm-title">
-              <span style="font-size:18px;">📊</span>
-              IP Reputation
-            </div>
-            <span class="pm-date-range">Consolidated from all sources</span>
-          </div>
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Each IP's health across Microsoft SNDS and blacklist databases — powered by your <a href="/sending-ips" style="color:var(--accent);">Sending IPs</a>.</div>
-
-          <div id="ip-rep-grid" style="display:flex;flex-direction:column;gap:10px;">
-            <div style="color:var(--text-muted);font-size:13px;padding:20px;text-align:center;">Loading IP reputation data...</div>
-          </div>
-
-          <!-- Legend / Sources -->
-          <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border);display:flex;gap:20px;flex-wrap:wrap;">
-            <div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
-              <span style="font-weight:600;">Sources:</span> Microsoft SNDS · HetrixTools (1000+ blacklists) · Your <a href="/sending-ips" style="color:var(--accent);">Sending IPs</a>
-            </div>
-          </div>
-        </div>
-        </div><!-- /eh-sec-reputation -->
+        <!-- ===== SECTION: IP REPUTATION ===== INBOX-132: deleted.
+             The page consolidated SNDS + blacklist data per IP, but
+             those are already shown on /microsoft and /blacklist
+             individually. Three views of the same data was overhead.
+             Sending IPs page (/sending-ips) covers the per-IP grouping
+             use case better. -->
 
       </div><!-- /eh-content -->
     </div><!-- /eh-layout -->
@@ -1093,15 +1071,17 @@ window.addEventListener('DOMContentLoaded', () => {
 function switchEhSection(section) {
   document.querySelectorAll('.eh-section').forEach(s => s.classList.remove('active'));
   document.getElementById('eh-sec-' + section).classList.add('active');
-  const sections = ['google','microsoft','blacklist','reputation'];
+  // INBOX-132: 'reputation' removed — was a duplicate consolidated
+  // view of SNDS + blacklist data already on dedicated pages.
+  const sections = ['google','microsoft','blacklist'];
   document.querySelectorAll('.eh-submenu-item').forEach((item, i) => {
     item.classList.toggle('active', sections[i] === section);
   });
 }
 
 /* === INBOX-110: URL → section + page-title mapping ===
-   email-health.html is now served by 4 distinct URLs (/postmaster,
-   /microsoft, /blacklist, /reputation). On load we read the path and:
+   email-health.html is now served by 3 distinct URLs (/postmaster,
+   /microsoft, /blacklist). On load we read the path and:
      1. Switch to the matching section
      2. Highlight the matching sidebar item
      3. Update the H1 + subtitle + document.title to match the section
@@ -1124,11 +1104,6 @@ function switchEhSection(section) {
       section: 'blacklist',
       title: 'Blacklist Monitor',
       subtitle: 'Domain and IP blacklist status across 1000+ blocklists.',
-    },
-    '/reputation': {
-      section: 'reputation',
-      title: 'IP Reputation',
-      subtitle: 'Combined reputation view across SNDS, blacklists, and your sending IPs.',
     },
   };
   const path = window.location.pathname;
@@ -3663,170 +3638,13 @@ async function onEhDomainChange(domain) {
   // (Google / Microsoft / Blacklist / Reputation).
 
   // Always reload all provider sections regardless of scan data availability
+  // INBOX-132: loadIpReputation removed (IP Reputation page deleted as
+  // it duplicated SNDS + Blacklist data already on dedicated pages).
   loadSndsMetrics();
-  loadIpReputation(domain);
   onGpmDomainChange(domain);
 
   // Refresh blacklist: show cached data for new domain or clear stale results
   refreshBlacklistForDomain(domain);
-}
-
-/* === IP Reputation (dynamic from user_ips + SNDS + blacklists) === */
-function _renderIpCards(grid, ips, sndsMap, blMap) {
-  grid.innerHTML = ips.map(ip => {
-    const snds = sndsMap[ip];
-    const bl = blMap[ip];
-
-    // SNDS column
-    let sndsLabel = '—', sndsColor = 'var(--text-muted)', sndsSub = 'Not available';
-    if (snds) {
-      const st = snds.ip_status || 'unknown';
-      sndsLabel = st.charAt(0).toUpperCase() + st.slice(1);
-      sndsColor = st === 'green' ? 'var(--green)' : st === 'yellow' ? 'var(--yellow)' : st === 'red' ? 'var(--red)' : 'var(--text-muted)';
-      sndsSub = sndsLabel + ' status';
-    }
-
-    // Blacklist column
-    let blLabel = '—', blColor = 'var(--text-muted)', blSub = 'Not checked';
-    if (bl) {
-      const listed = bl.blacklisted_count || 0;
-      blLabel = listed === 0 ? 'Clear' : listed + ' Listed';
-      blColor = listed === 0 ? 'var(--green)' : 'var(--red)';
-      blSub = listed + ' of ' + (bl.blacklist_count || '1000+');
-    }
-
-    // Overall health badge
-    let badge = 'badge-muted', badgeText = 'No data';
-    if ((snds && snds.ip_status === 'red') || (bl && (bl.blacklisted_count || 0) > 2)) {
-      badge = 'badge-red'; badgeText = 'Critical';
-    } else if ((snds && snds.ip_status === 'yellow') || (bl && (bl.blacklisted_count || 0) > 0)) {
-      badge = 'badge-yellow'; badgeText = 'Warning';
-    } else if (snds || bl) {
-      badge = 'badge-green'; badgeText = 'Healthy';
-    }
-
-    const borderStyle = badge === 'badge-red' ? 'border-left:3px solid var(--red);' : badge === 'badge-yellow' ? 'border-left:3px solid var(--yellow);' : '';
-
-    return '<div style="background:var(--surface-2);border-radius:10px;padding:16px;' + borderStyle + '">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
-      + '<span style="font-size:13px;font-weight:600;font-family:monospace;">' + escapeHtml(ip) + '</span>'
-      + '<span class="badge ' + badge + '">' + badgeText + '</span>'
-      + '</div>'
-      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">'
-      + '<div style="text-align:center;">'
-      + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Microsoft SNDS</div>'
-      + '<div style="font-size:14px;font-weight:700;color:' + sndsColor + ';margin-top:4px;">' + sndsLabel + '</div>'
-      + '<div style="font-size:10px;color:var(--text-muted);">' + sndsSub + '</div>'
-      + '</div>'
-      + '<div style="text-align:center;">'
-      + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Blacklists</div>'
-      + '<div style="font-size:14px;font-weight:700;color:' + blColor + ';margin-top:4px;">' + blLabel + '</div>'
-      + '<div style="font-size:10px;color:var(--text-muted);">' + blSub + '</div>'
-      + '</div>'
-      + '<div style="text-align:center;">'
-      + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Spam Traps</div>'
-      + '<div style="font-size:14px;font-weight:700;color:' + (snds && snds.trap_hits > 0 ? 'var(--red)' : snds ? 'var(--green)' : 'var(--text-muted)') + ';margin-top:4px;">' + (snds ? (snds.trap_hits || 0) : '—') + '</div>'
-      + '<div style="font-size:10px;color:var(--text-muted);">' + (snds ? 'SNDS data' : 'Not available') + '</div>'
-      + '</div>'
-      + '</div></div>';
-  }).join('');
-}
-
-async function loadIpReputation(domain) {
-  const token = getToken();
-  if (!token) return;
-  const grid = document.getElementById('ip-rep-grid');
-  if (!grid) return;
-  const headers = { 'Authorization': 'Bearer ' + token };
-
-  try {
-    // 1) Fetch user's IPs for this domain
-    let ips = [];
-    let domainHasNoIps = false;
-    if (domain) {
-      try {
-        const ipResp = await fetch('/api/user/ips/by-domain/' + encodeURIComponent(domain), { headers });
-        if (ipResp.ok) {
-          const ipData = await ipResp.json();
-          ips = ipData.ips || [];
-          if (ips.length === 0) domainHasNoIps = true;
-        }
-      } catch (e) { console.error('[EH] IP by-domain fetch error:', e); }
-    }
-    // Only fallback to all IPs if no domain was specified (not when domain has no mapped IPs)
-    if (!domain && ips.length === 0) {
-      try {
-        const allResp = await fetch('/api/user/ips', { headers });
-        if (allResp.ok) {
-          const allData = await allResp.json();
-          ips = (allData.ips || []).map(r => r.ip_address);
-        }
-      } catch (e) { console.error('[EH] IP fetch error:', e); }
-    }
-
-    if (ips.length === 0) {
-      const msg = domainHasNoIps
-        ? 'No sending IPs mapped to this domain.<br><a href="/sending-ips" style="color:var(--accent);">Map IPs →</a>'
-        : 'No sending IPs configured yet.<br><a href="/sending-ips" style="color:var(--accent);">Add your IPs →</a>';
-      grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px;">'
-        + '<div style="font-size:28px;margin-bottom:8px;">🖥️</div>'
-        + msg + '</div>';
-      return;
-    }
-
-    // 2) Render immediately with "No data" state
-    let sndsMap = {};
-    let blMap = {};
-    _renderIpCards(grid, ips, sndsMap, blMap);
-
-    // 3) Fetch SNDS + Blacklist in parallel, then re-render
-    const fetches = [];
-
-    // SNDS fetch (with 10s timeout)
-    fetches.push((async () => {
-      try {
-        let sndsUrl = '/api/snds/metrics?days=7';
-        if (domain) sndsUrl += '&domain=' + encodeURIComponent(domain);
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 10000);
-        const sndsResp = await fetch(sndsUrl, { headers, signal: ctrl.signal });
-        clearTimeout(timer);
-        if (sndsResp.ok) {
-          const sndsData = await sndsResp.json();
-          (sndsData.metrics || []).forEach(m => {
-            if (!sndsMap[m.ip_address] || m.metric_date > sndsMap[m.ip_address].metric_date) {
-              sndsMap[m.ip_address] = m;
-            }
-          });
-        }
-      } catch (e) { /* SNDS not connected or timed out */ }
-    })());
-
-    // Blacklist fetch (with 15s timeout)
-    if (domain) {
-      fetches.push((async () => {
-        try {
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 15000);
-          const blResp = await fetch('/api/blacklist/check/' + encodeURIComponent(domain), { headers, signal: ctrl.signal });
-          clearTimeout(timer);
-          if (blResp.ok) {
-            const blData = await blResp.json();
-            (blData.ip_results || []).forEach(r => { blMap[r.ip] = r; });
-          }
-        } catch (e) { /* blacklist check failed or timed out */ }
-      })());
-    }
-
-    await Promise.all(fetches);
-
-    // 4) Re-render with actual data
-    _renderIpCards(grid, ips, sndsMap, blMap);
-
-  } catch (e) {
-    console.error('[EH] IP reputation load error:', e);
-    grid.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:10px;">Failed to load IP reputation data.</div>';
-  }
 }
 
 /* INBOX-101: removed the standalone loadEhDomains() DOMContentLoaded
