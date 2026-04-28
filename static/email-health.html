@@ -654,68 +654,160 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           </div>
         </div>
 
-        <!-- MS State: Data -->
+        <!-- MS State: Data — 5-tab redesign (INBOX-114, 2026-04-28).
+             Mirrors Postmaster's tab structure: IP Health Overview /
+             Complaint Rate / Trap Hits / Filter Result / Volume & Delivery.
+             Reuses Chart.js (already loaded for Postmaster) and the SWR
+             cache helper. -->
         <div class="provider-state" id="ms-state-data">
-        <div class="pm-widget">
-          <div class="pm-header">
-            <div class="pm-title">
-              <svg width="18" height="18" viewBox="0 0 23 23">
-                <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
-                <rect x="12" y="1" width="10" height="10" fill="#7FBA00"/>
-                <rect x="1" y="12" width="10" height="10" fill="#00A4EF"/>
-                <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
-              </svg>
-              Microsoft Outlook Intelligence
+          <div class="pm-widget" id="ms-widget">
+            <div class="pm-header">
+              <div class="pm-title">
+                <svg width="18" height="18" viewBox="0 0 23 23">
+                  <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+                  <rect x="12" y="1" width="10" height="10" fill="#7FBA00"/>
+                  <rect x="1" y="12" width="10" height="10" fill="#00A4EF"/>
+                  <rect x="12" y="12" width="10" height="10" fill="#FFB900"/>
+                </svg>
+                Microsoft SNDS
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="pm-date-range" id="ms-last-sync" style="font-size:11px;color:var(--text-muted);"></span>
+                <button class="btn btn-sm" id="ms-sync-btn" onclick="msSyncNow()" style="font-size:11px;padding:4px 10px;">↻ Sync now</button>
+                <span class="pm-date-range" id="ms-date-range" style="font-size:11px;color:var(--text-muted);">Last 30 days</span>
+              </div>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span class="pm-date-range" id="ms-date-range">Last 30 days</span>
-              <button class="btn btn-sm" id="ms-sync-btn" onclick="msSyncNow()" style="font-size:11px;padding:4px 10px;">Sync Now</button>
+
+            <!-- Tab nav — same CSS as Postmaster's gpm-tabs -->
+            <div class="gpm-tabs" style="margin-top:10px;">
+              <button class="gpm-tab active" onclick="switchMsTab('overview')">IP Health</button>
+              <button class="gpm-tab" onclick="switchMsTab('complaints')">Complaint Rate</button>
+              <button class="gpm-tab" onclick="switchMsTab('traps')">Trap Hits</button>
+              <button class="gpm-tab" onclick="switchMsTab('filter')">Filter Result</button>
+              <button class="gpm-tab" onclick="switchMsTab('volume')">Volume &amp; Delivery</button>
+            </div>
+
+            <!-- TAB 1: IP Health Overview ============================ -->
+            <div class="gpm-panel active" id="ms-panel-overview">
+              <!-- Fleet stat tiles -->
+              <div class="pm-grid" style="grid-template-columns:repeat(4,1fr);margin-top:16px;">
+                <div class="pm-metric">
+                  <div class="pm-label">IPs (last day)</div>
+                  <div class="pm-value" id="ms-stat-ip-count">—</div>
+                  <div class="pm-sub" id="ms-stat-ip-mix"></div>
+                </div>
+                <div class="pm-metric">
+                  <div class="pm-label">Avg Complaint Rate</div>
+                  <div class="pm-value" id="ms-stat-complaint">—</div>
+                  <div class="pm-sub" id="ms-stat-complaint-sub"></div>
+                </div>
+                <div class="pm-metric">
+                  <div class="pm-label">Trap Hits (30d)</div>
+                  <div class="pm-value" id="ms-stat-traps">—</div>
+                  <div class="pm-sub" id="ms-stat-traps-sub"></div>
+                </div>
+                <div class="pm-metric">
+                  <div class="pm-label">Total Volume (30d)</div>
+                  <div class="pm-value" id="ms-stat-volume">—</div>
+                  <div class="pm-sub" id="ms-stat-volume-sub"></div>
+                </div>
+              </div>
+
+              <!-- IP grid: latest status per IP -->
+              <div style="margin-top:20px;">
+                <div class="pm-trend-title" style="margin-bottom:8px;">Sending IPs — latest status</div>
+                <div id="ms-ip-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
+                  <!-- populated by msRenderOverview -->
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 2: Complaint Rate ================================== -->
+            <div class="gpm-panel" id="ms-panel-complaints">
+              <div style="margin-top:16px;">
+                <div class="pm-trend-title">User-Reported Complaint Rate</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;margin-bottom:14px;">
+                  Microsoft flags senders above 0.1% (recommended) and 0.5% (policy).
+                </div>
+                <div style="background:var(--surface-2);border-radius:10px;padding:16px;height:240px;position:relative;">
+                  <canvas id="ms-complaints-chart"></canvas>
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:16px;">
+                  <thead><tr style="border-bottom:1px solid var(--border);">
+                    <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">IPs Reporting</th>
+                    <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Avg Complaint Rate</th>
+                    <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Worst IP</th>
+                  </tr></thead>
+                  <tbody id="ms-complaints-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- TAB 3: Trap Hits ======================================= -->
+            <div class="gpm-panel" id="ms-panel-traps">
+              <div style="margin-top:16px;">
+                <div class="pm-trend-title">Spam Trap Hits</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;margin-bottom:14px;">
+                  Microsoft tracks honeypot addresses. Any hits indicate a list-quality problem.
+                </div>
+                <div id="ms-traps-summary" style="margin-bottom:16px;"></div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                  <thead><tr style="border-bottom:1px solid var(--border);">
+                    <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">IP</th>
+                    <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Trap Hits</th>
+                    <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Volume That Day</th>
+                  </tr></thead>
+                  <tbody id="ms-traps-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- TAB 4: Filter Result Trend ============================= -->
+            <div class="gpm-panel" id="ms-panel-filter">
+              <div style="margin-top:16px;">
+                <div class="pm-trend-title">Filter Result by IP</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;margin-bottom:14px;">
+                  Microsoft's reputation tier per IP per day. GREEN = good, YELLOW = caution, RED = filtered.
+                </div>
+                <!-- Heatmap: rows = IPs, cols = days -->
+                <div id="ms-filter-heatmap" style="overflow-x:auto;"></div>
+                <div style="display:flex;gap:16px;justify-content:center;margin-top:14px;font-size:11px;color:var(--text-muted);">
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#10b981;border-radius:2px;"></span> GREEN</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#f59e0b;border-radius:2px;"></span> YELLOW</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#ef4444;border-radius:2px;"></span> RED</span>
+                  <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:2px;"></span> No data</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 5: Volume & Delivery =============================== -->
+            <div class="gpm-panel" id="ms-panel-volume">
+              <div style="margin-top:16px;">
+                <div class="pm-trend-title">Daily Sending Volume (across all IPs)</div>
+                <div style="background:var(--surface-2);border-radius:10px;padding:16px;height:240px;position:relative;margin-top:8px;">
+                  <canvas id="ms-volume-chart"></canvas>
+                </div>
+                <div style="margin-top:20px;">
+                  <div class="pm-trend-title">Delivery Funnel (last day, by IP)</div>
+                  <div style="font-size:12px;color:var(--text-muted);margin-top:4px;margin-bottom:14px;">
+                    A healthy IP shows RCPT ≈ DATA ≈ Delivered. Drops indicate Microsoft is rejecting at the SMTP layer.
+                  </div>
+                  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead><tr style="border-bottom:1px solid var(--border);">
+                      <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">IP</th>
+                      <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">RCPT</th>
+                      <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DATA</th>
+                      <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Delivered</th>
+                      <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Drop %</th>
+                    </tr></thead>
+                    <tbody id="ms-volume-table-body"></tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
-
-          <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Sending IP Status (SNDS)</div>
-          <div class="pm-grid" id="ms-ip-grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));">
-            <!-- Dynamically populated -->
-          </div>
-
-          <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
-            <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Complaint & Trap Data</div>
-            <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);">
-              <div class="pm-metric">
-                <div class="pm-label">Complaint Rate</div>
-                <div class="pm-value" id="ms-complaint-rate" style="color:var(--green);">—</div>
-                <div class="pm-sub">JMRP reports</div>
-              </div>
-              <div class="pm-metric">
-                <div class="pm-label">Spam Trap Hits</div>
-                <div class="pm-value" id="ms-trap-hits" style="color:var(--green);">—</div>
-                <div class="pm-sub">Last 30 days</div>
-              </div>
-              <div class="pm-metric">
-                <div class="pm-label">Total Messages</div>
-                <div class="pm-value" id="ms-total-messages" style="color:var(--text);">—</div>
-                <div class="pm-sub">Last 30 days</div>
-              </div>
-            </div>
-
-            <div class="pm-trend" style="margin-top:16px;">
-              <div class="pm-trend-title">Complaint Rate Trend (30 days)</div>
-              <div class="pm-trend-bars" id="eh-ms-trend"></div>
-              <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-muted);">
-                <span id="ms-trend-start"></span>
-                <span id="ms-trend-status" style="font-weight:600;"></span>
-                <span id="ms-trend-end"></span>
-              </div>
-            </div>
-          </div><!-- /complaint section -->
-
-          <div class="pm-errors" style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
-            <div class="pm-errors-title">Recent SNDS Sample Data</div>
-            <div id="ms-samples-container">
-              <!-- Dynamically populated -->
-            </div>
-          </div>
-        </div>
         </div><!-- /ms-state-data -->
 
         <!-- MS State: Not Connected -->
@@ -2519,17 +2611,59 @@ async function loadSndsStatus() {
   }
 }
 
+/* ─── SNDS Metrics Loader + 5-tab Render (INBOX-114, 2026-04-28) ──
+   SWR cache pattern (mirrors loadGpmMetrics): hydrate from
+   localStorage on cold start, then revalidate. The full 30-day
+   metrics array is cached client-side; per-tab renders slice and
+   render from this single source. */
+
+let _msFullCache = { metrics: [], domain: null };  // in-memory
+let _msComplaintsChart = null;
+let _msVolumeChart = null;
+const MS_CACHE_TTL_MS = 4 * 60 * 60 * 1000;   // 4h — daily 07:00 UTC sync
+function _msCacheKey() {
+  return 'ms.metrics' + (ehCurrentDomain ? '.' + ehCurrentDomain : '');
+}
+
 async function loadSndsMetrics() {
   const token = getToken();
   if (!token) return;
 
+  // SWR step 1: paint instantly from localStorage if recent.
+  let renderedFromCache = false;
+  if (window.cacheGet) {
+    const cached = window.cacheGet(_msCacheKey(), MS_CACHE_TTL_MS);
+    if (cached && Array.isArray(cached.metrics) && cached.metrics.length > 0) {
+      _msFullCache = { metrics: cached.metrics, domain: ehCurrentDomain };
+      msApplyView();
+      msUpdateLastSync(window.cacheAgeLabel(_msCacheKey()));
+      renderedFromCache = true;
+    }
+  }
+  msShowRefreshingPill(renderedFromCache);
+
+  // SWR step 2: revalidate.
+  let url = '/api/snds/metrics?days=30';
+  if (ehCurrentDomain) url += '&domain=' + encodeURIComponent(ehCurrentDomain);
+
+  let resp;
   try {
-    let url = '/api/snds/metrics?days=30';
-    if (ehCurrentDomain) url += '&domain=' + encodeURIComponent(ehCurrentDomain);
-    const resp = await fetch(url, {
+    resp = await fetchWithTimeout(url, {
       headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (!resp.ok) return;
+    }, 8000);
+  } catch (e) {
+    msHideRefreshingPill();
+    if (!renderedFromCache) {
+      document.getElementById('ms-ip-grid').innerHTML =
+        '<div style="color:var(--text-muted);font-size:13px;padding:10px;">Couldn’t fetch SNDS data — try again.</div>';
+    } else {
+      msUpdateLastSync((window.cacheAgeLabel(_msCacheKey()) || '') + ' · refresh failed');
+    }
+    return;
+  }
+
+  try {
+    if (!resp.ok) { msHideRefreshingPill(); return; }
     const data = await resp.json();
 
     if (!data.metrics || data.metrics.length === 0) {
@@ -2538,166 +2672,356 @@ async function loadSndsMetrics() {
         : 'No SNDS data available yet. Data will appear after the next sync.';
       document.getElementById('ms-ip-grid').innerHTML =
         '<div style="color:var(--text-muted);font-size:13px;padding:10px;">' + msg + '</div>';
-      // Also clear the summary cards when no data
-      const compRate = document.getElementById('ms-complaint-rate');
-      const trapHits = document.getElementById('ms-trap-hits');
-      const totalMsg = document.getElementById('ms-total-messages');
-      if (compRate) compRate.textContent = '—';
-      if (trapHits) trapHits.textContent = '—';
-      if (totalMsg) totalMsg.textContent = '—';
+      msHideRefreshingPill();
       return;
     }
 
-    renderSndsData(data.metrics);
+    _msFullCache = { metrics: data.metrics, domain: ehCurrentDomain };
+    msApplyView();
+    msUpdateLastSync('just now');
+
+    if (window.cacheSet) {
+      window.cacheSet(_msCacheKey(), { metrics: data.metrics });
+    }
   } catch (e) {
     console.error('[SNDS] Metrics load failed:', e);
+  } finally {
+    msHideRefreshingPill();
   }
 }
 
-function renderSndsData(metrics) {
-  // Group by IP — get latest status per IP
-  const ipMap = {};
-  let totalComplaints = 0;
-  let totalTraps = 0;
-  let totalMessages = 0;
-  const dailyRates = {};
+/* Reusable refresh-pill helpers (mirror gpm-refreshing-pill). */
+function msShowRefreshingPill(haveCachedData) {
+  const w = document.getElementById('ms-widget');
+  if (!w) return;
+  if (haveCachedData) w.classList.add('gpm-refreshing-pill');
+  else w.classList.remove('gpm-refreshing-pill');
+}
+function msHideRefreshingPill() {
+  const w = document.getElementById('ms-widget');
+  if (w) w.classList.remove('gpm-refreshing-pill');
+}
+function msUpdateLastSync(label) {
+  const el = document.getElementById('ms-last-sync');
+  if (el && label) el.textContent = 'Last synced ' + label;
+}
 
+/* ─── 5-tab orchestration ─────────────────────────────────── */
+
+function switchMsTab(tab) {
+  document.querySelectorAll('#ms-state-data .gpm-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#ms-state-data .gpm-tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('ms-panel-' + tab);
+  if (panel) panel.classList.add('active');
+  // Find the matching tab button. Order matches the HTML.
+  const tabs = ['overview', 'complaints', 'traps', 'filter', 'volume'];
+  document.querySelectorAll('#ms-state-data .gpm-tab').forEach((b, i) => {
+    if (tabs[i] === tab) b.classList.add('active');
+  });
+  // Lazy-render the tab in case Chart.js needed the canvas to be visible
+  // before sizing. Charts render fine on hidden canvases too, but
+  // re-applying is cheap and keeps things in sync after period changes.
+  msApplyView();
+}
+
+/** Render every tab from the in-memory cache. */
+function msApplyView() {
+  const metrics = _msFullCache.metrics || [];
+  if (metrics.length === 0) return;
+  msRenderOverview(metrics);
+  msRenderComplaints(metrics);
+  msRenderTraps(metrics);
+  msRenderFilter(metrics);
+  msRenderVolume(metrics);
+}
+
+/* ─── Tab 1: IP Health Overview ──────────────────────────── */
+function msRenderOverview(metrics) {
+  // Aggregate the 4 stat tiles + "latest status per IP" grid.
+  const byIp = {};
+  let totalTraps = 0, totalVolume = 0;
   metrics.forEach(m => {
     const ip = m.ip_address;
-    if (!ipMap[ip] || m.metric_date > ipMap[ip].metric_date) {
-      ipMap[ip] = m;
-    }
+    if (!byIp[ip] || m.metric_date > byIp[ip].metric_date) byIp[ip] = m;
     totalTraps += (m.trap_hits || 0);
-    totalMessages += (m.message_count || 0);
-
-    // Build daily complaint rate data
-    const date = m.metric_date;
-    if (!dailyRates[date]) {
-      dailyRates[date] = { totalRate: 0, count: 0 };
-    }
-    if (m.complaint_rate != null) {
-      dailyRates[date].totalRate += m.complaint_rate;
-      dailyRates[date].count += 1;
-    }
+    totalVolume += (m.message_count || 0);
   });
+  const latestIps = Object.values(byIp);
+  const latestDay = latestIps.reduce((a, b) => a.metric_date > b.metric_date ? a : b, latestIps[0]).metric_date;
+  const latestDayIps = latestIps.filter(i => i.metric_date === latestDay);
 
-  // Render IP status grid
-  const ipGrid = document.getElementById('ms-ip-grid');
-  const ips = Object.values(ipMap);
-  ipGrid.innerHTML = ips.map((ip, i) => {
+  const tierMix = { green: 0, yellow: 0, red: 0 };
+  latestDayIps.forEach(i => { tierMix[i.ip_status || 'green']++; });
+
+  // Stat tiles
+  const setStat = (id, val, sub, color) => {
+    const ve = document.getElementById(id);
+    const se = document.getElementById(id + '-sub');
+    if (ve) { ve.textContent = val; if (color) ve.style.color = color; }
+    if (se && sub != null) se.textContent = sub;
+  };
+  setStat('ms-stat-ip-count', latestDayIps.length, '', 'var(--text)');
+  document.getElementById('ms-stat-ip-mix').textContent =
+    `${tierMix.green} green · ${tierMix.yellow} yellow · ${tierMix.red} red`;
+
+  const rates = latestDayIps.map(i => i.complaint_rate).filter(r => r != null);
+  const avg = rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : null;
+  if (avg == null) {
+    setStat('ms-stat-complaint', '—', 'No data', 'var(--text-muted)');
+  } else {
+    const pct = (avg * 100).toFixed(2) + '%';
+    const c = avg === 0 ? 'var(--text-muted)' : avg < 0.001 ? 'var(--green)' : avg < 0.005 ? 'var(--yellow)' : 'var(--red)';
+    setStat('ms-stat-complaint', pct, avg === 0 ? 'No complaints reported' : `Across ${rates.length} IPs`, c);
+  }
+
+  // Empty-state ≠ failure for trap counts (DESIGN-SYSTEM.md §11.5)
+  const trapColor = totalTraps === 0 ? 'var(--text-muted)' : totalTraps <= 5 ? 'var(--yellow)' : 'var(--red)';
+  setStat('ms-stat-traps', totalTraps.toLocaleString(),
+    totalTraps === 0 ? 'No trap hits — list is clean' : `Across ${metrics.length} IP-days`, trapColor);
+
+  setStat('ms-stat-volume', totalVolume.toLocaleString(),
+    `Avg ${Math.round(totalVolume / Math.max(1, metrics.length)).toLocaleString()} per IP-day`, 'var(--text)');
+
+  // IP grid: latest status per IP, sorted worst → best
+  const tierOrder = { red: 0, yellow: 1, green: 2 };
+  latestIps.sort((a, b) => (tierOrder[a.ip_status || 'green'] - tierOrder[b.ip_status || 'green'])
+    || a.ip_address.localeCompare(b.ip_address));
+
+  const grid = document.getElementById('ms-ip-grid');
+  grid.innerHTML = latestIps.map(ip => {
     const status = ip.ip_status || 'green';
-    const emoji = status === 'green' ? '🟢' : status === 'yellow' ? '🟡' : '🔴';
-    const color = status === 'green' ? 'var(--green)' : status === 'yellow' ? 'var(--yellow)' : 'var(--red)';
-    const label = i === 0 ? 'Primary IP' : i === 1 ? 'Secondary IP' : `IP ${i + 1}`;
-    return `<div class="pm-metric">
-      <div class="pm-label">${label}</div>
-      <div class="pm-value" style="color:${color};font-size:16px;">${emoji} ${status.charAt(0).toUpperCase() + status.slice(1)}</div>
-      <div class="pm-sub">${escapeHtml(ip.ip_address)}</div>
+    const dotColor = status === 'green' ? '#10b981' : status === 'yellow' ? '#f59e0b' : '#ef4444';
+    const cr = ip.complaint_rate;
+    const crLabel = cr == null ? '—' : (cr * 100).toFixed(2) + '%';
+    const traps = ip.trap_hits || 0;
+    return `<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+      <div style="display:flex;align-items:center;gap:8px;font-family:'Geist Mono',monospace;font-size:12px;font-weight:500;">
+        <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};display:inline-block;"></span>
+        ${escapeHtml(ip.ip_address)}
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+        ${status.toUpperCase()} · complaint ${crLabel}${traps > 0 ? ' · ' + traps + ' traps' : ''}
+      </div>
     </div>`;
   }).join('');
-
-  // Compute average complaint rate
-  let avgComplaint = null;
-  const latestIps = Object.values(ipMap);
-  const ratesArr = latestIps.map(ip => ip.complaint_rate).filter(r => r != null);
-  if (ratesArr.length > 0) {
-    avgComplaint = ratesArr.reduce((a, b) => a + b, 0) / ratesArr.length;
-  }
-
-  // Render complaint & trap summary
-  const crEl = document.getElementById('ms-complaint-rate');
-  if (avgComplaint != null) {
-    const pct = (avgComplaint * 100).toFixed(2) + '%';
-    crEl.textContent = pct;
-    crEl.style.color = avgComplaint < 0.001 ? 'var(--green)' : avgComplaint < 0.005 ? 'var(--yellow)' : 'var(--red)';
-  } else {
-    crEl.textContent = 'N/A';
-    crEl.style.color = 'var(--text-muted)';
-  }
-
-  const trapEl = document.getElementById('ms-trap-hits');
-  trapEl.textContent = totalTraps.toLocaleString();
-  trapEl.style.color = totalTraps === 0 ? 'var(--green)' : totalTraps <= 5 ? 'var(--yellow)' : 'var(--red)';
-
-  const msgEl = document.getElementById('ms-total-messages');
-  msgEl.textContent = totalMessages.toLocaleString();
-
-  // Render complaint rate trend chart
-  renderMsTrend(dailyRates);
-
-  // Render sample data
-  renderMsSamples(metrics.slice(-5).reverse());
 }
 
-function renderMsTrend(dailyRates) {
-  const trendEl = document.getElementById('eh-ms-trend');
-  const dates = Object.keys(dailyRates).sort();
-
-  if (dates.length === 0) {
-    trendEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">No trend data available</div>';
-    return;
-  }
-
-  const rates = dates.map(d => {
-    const dr = dailyRates[d];
-    return dr.count > 0 ? (dr.totalRate / dr.count) : 0;
+/* ─── Tab 2: Complaint Rate (Chart.js line) ──────────────── */
+function msRenderComplaints(metrics) {
+  // Build daily aggregate: avg complaint rate across IPs that day
+  const byDate = {};
+  metrics.forEach(m => {
+    const d = m.metric_date;
+    if (!byDate[d]) byDate[d] = { rates: [], worstIp: null, worstRate: -1 };
+    if (m.complaint_rate != null) {
+      byDate[d].rates.push(m.complaint_rate);
+      if (m.complaint_rate > byDate[d].worstRate) {
+        byDate[d].worstRate = m.complaint_rate;
+        byDate[d].worstIp = m.ip_address;
+      }
+    }
+  });
+  const dates = Object.keys(byDate).sort();
+  const dailyAvg = dates.map(d => {
+    const r = byDate[d].rates;
+    return r.length ? (r.reduce((a, b) => a + b, 0) / r.length) * 100 : null;
   });
 
-  const maxRate = Math.max(...rates, 0.001); // Ensure non-zero for scaling
-
-  // Handle single data point: show a centered bar with label instead of full-width
-  if (rates.length === 1) {
-    const rate = rates[0];
-    const color = rate < 0.001 ? 'var(--green)' : rate < 0.005 ? 'var(--yellow)' : 'var(--red)';
-    const pct = Math.max((rate / maxRate) * 100, 15);
-    trendEl.innerHTML = `<div style="display:flex;align-items:flex-end;justify-content:center;height:100%;gap:4px;">
-      <div class="pm-trend-bar" style="height:${pct}%;background:${color};width:24px;border-radius:4px 4px 0 0;" title="${dates[0]}: ${(rate * 100).toFixed(3)}%"></div>
-    </div>`;
-    document.getElementById('ms-trend-start').textContent = formatDate(dates[0]);
-    document.getElementById('ms-trend-end').textContent = 'Only 1 day of data';
-  } else {
-    trendEl.innerHTML = rates.map((rate, i) => {
-      const pct = Math.max((rate / maxRate) * 100, 2);
-      const color = rate < 0.001 ? 'var(--green)' : rate < 0.005 ? 'var(--yellow)' : 'var(--red)';
-      return `<div class="pm-trend-bar" style="height:${pct}%;background:${color};" title="${dates[i]}: ${(rate * 100).toFixed(3)}%"></div>`;
-    }).join('');
-
-    // Date labels — show fewer labels on mobile
-    document.getElementById('ms-trend-start').textContent = formatDate(dates[0]);
-    document.getElementById('ms-trend-end').textContent = formatDate(dates[dates.length - 1]);
+  // Chart
+  const canvas = document.getElementById('ms-complaints-chart');
+  if (canvas && typeof Chart !== 'undefined') {
+    const maxObs = Math.max(0, ...dailyAvg.filter(v => v != null));
+    const yMax = Math.max(0.6, Math.ceil(maxObs * 11) / 10);
+    const config = {
+      type: 'line',
+      data: {
+        labels: dates.map(d => ehFormatDateShortMD(d)),
+        datasets: [{
+          label: 'Avg Complaint Rate',
+          data: dailyAvg,
+          borderColor: '#0078D4', // Microsoft blue
+          backgroundColor: 'rgba(0,120,212,0.08)',
+          borderWidth: 2,
+          tension: 0.15,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          spanGaps: true,
+        }]
+      },
+      options: ehChartBaseOptions({
+        yMin: 0,
+        yMax: yMax,
+        yTickFormat: v => v.toFixed(v < 0.1 ? 2 : 1) + '%',
+        tooltipFormat: ctx => `Avg complaint: ${ctx.parsed.y.toFixed(3)}%`,
+        annotations: {
+          recommended: {
+            type: 'line', yMin: 0.1, yMax: 0.1,
+            borderColor: '#f59e0b', borderWidth: 1, borderDash: [4, 3],
+            label: { content: '0.1% Recommended', display: true, position: 'end',
+                     backgroundColor: 'transparent', color: '#f59e0b', font: { size: 10 } }
+          },
+          policy: {
+            type: 'line', yMin: 0.5, yMax: 0.5,
+            borderColor: '#ef4444', borderWidth: 1, borderDash: [4, 3],
+            label: { content: '0.5% Policy', display: true, position: 'end',
+                     backgroundColor: 'transparent', color: '#ef4444', font: { size: 10 } }
+          }
+        }
+      })
+    };
+    if (_msComplaintsChart) _msComplaintsChart.destroy();
+    _msComplaintsChart = new Chart(canvas, config);
   }
 
-  // Status text
-  const latestRate = rates[rates.length - 1];
-  const statusEl = document.getElementById('ms-trend-status');
-  if (latestRate < 0.001) {
-    statusEl.textContent = '▼ Below 0.1% threshold';
-    statusEl.style.color = 'var(--green)';
-  } else if (latestRate < 0.005) {
-    statusEl.textContent = '⚠ Approaching threshold';
-    statusEl.style.color = 'var(--yellow)';
-  } else {
-    statusEl.textContent = '▲ Above 0.1% threshold';
-    statusEl.style.color = 'var(--red)';
-  }
+  // Table
+  const tbody = document.getElementById('ms-complaints-table-body');
+  tbody.innerHTML = dates.slice().reverse().map((d, i) => {
+    const b = byDate[d];
+    const avg = b.rates.length ? (b.rates.reduce((a, x) => a + x, 0) / b.rates.length) * 100 : null;
+    const c = avg == null || avg === 0 ? 'var(--text-muted)' : avg < 0.1 ? 'var(--green)' : avg < 0.5 ? 'var(--yellow)' : 'var(--red)';
+    const worstPct = b.worstRate >= 0 ? (b.worstRate * 100).toFixed(3) + '%' : '—';
+    return `<tr${i < dates.length - 1 ? ' style="border-bottom:1px solid var(--border);"' : ''}>
+      <td style="padding:8px 12px;">${escapeHtml(d)}</td>
+      <td style="padding:8px 12px;">${b.rates.length}</td>
+      <td style="padding:8px 12px;text-align:right;color:${c};">${avg == null ? '—' : avg.toFixed(3) + '%'}</td>
+      <td style="padding:8px 12px;text-align:right;color:var(--text-muted);font-family:'Geist Mono',monospace;font-size:12px;">
+        ${b.worstIp ? escapeHtml(b.worstIp) + ' · ' + worstPct : '—'}
+      </td>
+    </tr>`;
+  }).join('');
 }
 
-function renderMsSamples(recent) {
-  const container = document.getElementById('ms-samples-container');
-  if (!recent || recent.length === 0) {
-    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">No recent data</div>';
-    return;
+/* ─── Tab 3: Trap Hits ──────────────────────────────────── */
+function msRenderTraps(metrics) {
+  const trapRows = metrics.filter(m => (m.trap_hits || 0) > 0)
+    .sort((a, b) => b.metric_date.localeCompare(a.metric_date));
+  const summaryEl = document.getElementById('ms-traps-summary');
+  const total = trapRows.reduce((a, b) => a + (b.trap_hits || 0), 0);
+
+  if (trapRows.length === 0) {
+    summaryEl.innerHTML = '<div style="background:var(--green-bg);color:var(--green);padding:10px 14px;border-radius:8px;font-size:13px;">' +
+      '✓ No spam-trap hits across all IPs in the last 30 days.</div>';
+  } else {
+    summaryEl.innerHTML = `<div style="background:var(--surface-2);padding:10px 14px;border-radius:8px;font-size:13px;">
+      <strong>${total}</strong> total trap hits across <strong>${trapRows.length}</strong> IP-days.
+    </div>`;
   }
 
-  container.innerHTML = recent.map(m => {
-    const samples = typeof m.sample_helos === 'string' ? JSON.parse(m.sample_helos || '{}') : (m.sample_helos || {});
-    const helo = samples.helo || samples.mail_from || m.ip_address;
-    const status = m.ip_status || 'green';
-    const color = status === 'green' ? 'var(--green)' : status === 'yellow' ? 'var(--yellow)' : 'var(--red)';
-    return `<div class="pm-error-row">
-      <span class="pm-error-label">${escapeHtml(m.ip_address)} — HELO: ${escapeHtml(helo)}</span>
-      <span class="pm-error-count" style="color:${color};">${formatDate(m.metric_date)}</span>
-    </div>`;
+  const tbody = document.getElementById('ms-traps-table-body');
+  if (trapRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:20px 12px;text-align:center;color:var(--text-muted);">No trap hits in this period ✓</td></tr>';
+    return;
+  }
+  tbody.innerHTML = trapRows.map((m, i) => {
+    return `<tr${i < trapRows.length - 1 ? ' style="border-bottom:1px solid var(--border);"' : ''}>
+      <td style="padding:8px 12px;">${escapeHtml(m.metric_date)}</td>
+      <td style="padding:8px 12px;font-family:'Geist Mono',monospace;font-size:12px;">${escapeHtml(m.ip_address)}</td>
+      <td style="padding:8px 12px;text-align:right;color:var(--red);font-weight:600;">${m.trap_hits}</td>
+      <td style="padding:8px 12px;text-align:right;color:var(--text-muted);">${(m.message_count || 0).toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ─── Tab 4: Filter Result Heatmap ──────────────────────── */
+function msRenderFilter(metrics) {
+  // Build IP × Date grid
+  const ipSet = new Set();
+  const dateSet = new Set();
+  const cell = {};  // cell[ip][date] = status
+  metrics.forEach(m => {
+    ipSet.add(m.ip_address);
+    dateSet.add(m.metric_date);
+    if (!cell[m.ip_address]) cell[m.ip_address] = {};
+    cell[m.ip_address][m.metric_date] = m.ip_status || 'green';
+  });
+  const ips = Array.from(ipSet).sort();
+  const dates = Array.from(dateSet).sort();
+
+  const colorMap = { green: '#10b981', yellow: '#f59e0b', red: '#ef4444' };
+
+  let html = '<div style="display:grid;grid-template-columns:auto repeat(' + dates.length + ', 1fr);gap:2px;font-size:10px;align-items:center;min-width:600px;">';
+  // Header row
+  html += '<div></div>';
+  // Show every Nth date label to avoid overlap
+  const step = Math.max(1, Math.floor(dates.length / 8));
+  dates.forEach((d, i) => {
+    html += `<div style="text-align:center;color:var(--text-muted);font-size:9px;padding-bottom:4px;">${i % step === 0 ? ehFormatDateShortMD(d).split(' ')[1] : ''}</div>`;
+  });
+  // IP rows
+  ips.forEach(ip => {
+    html += `<div style="font-family:'Geist Mono',monospace;font-size:10px;color:var(--text-muted);padding:0 8px 0 0;text-align:right;white-space:nowrap;">${escapeHtml(ip)}</div>`;
+    dates.forEach(d => {
+      const status = (cell[ip] && cell[ip][d]) || null;
+      const bg = status ? colorMap[status] : 'var(--surface-2)';
+      const border = status ? bg : '1px solid var(--border)';
+      html += `<div title="${escapeHtml(ip)} · ${d} · ${status || 'no data'}" style="height:18px;background:${bg};${status ? '' : 'border:' + border + ';'}border-radius:2px;"></div>`;
+    });
+  });
+  html += '</div>';
+  document.getElementById('ms-filter-heatmap').innerHTML = html;
+}
+
+/* ─── Tab 5: Volume & Delivery ──────────────────────────── */
+function msRenderVolume(metrics) {
+  // Daily total volume across all IPs — Chart.js bar/line
+  const byDate = {};
+  metrics.forEach(m => {
+    const d = m.metric_date;
+    if (!byDate[d]) byDate[d] = 0;
+    byDate[d] += (m.message_count || 0);
+  });
+  const dates = Object.keys(byDate).sort();
+  const data = dates.map(d => byDate[d]);
+
+  const canvas = document.getElementById('ms-volume-chart');
+  if (canvas && typeof Chart !== 'undefined') {
+    const cfg = {
+      type: 'bar',
+      data: {
+        labels: dates.map(d => ehFormatDateShortMD(d)),
+        datasets: [{
+          label: 'Daily Volume',
+          data: data,
+          backgroundColor: 'rgba(0,120,212,0.65)',
+          borderColor: '#0078D4',
+          borderWidth: 1,
+        }]
+      },
+      options: ehChartBaseOptions({
+        yMin: 0,
+        yTickFormat: v => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v,
+        tooltipFormat: ctx => `Volume: ${ctx.parsed.y.toLocaleString()} messages`,
+      })
+    };
+    if (_msVolumeChart) _msVolumeChart.destroy();
+    _msVolumeChart = new Chart(canvas, cfg);
+  }
+
+  // Latest-day funnel table
+  const latestDay = dates[dates.length - 1];
+  if (!latestDay) return;
+  const latestRows = metrics.filter(m => m.metric_date === latestDay)
+    .sort((a, b) => (b.message_count || 0) - (a.message_count || 0));
+
+  const tbody = document.getElementById('ms-volume-table-body');
+  tbody.innerHTML = latestRows.map((m, i) => {
+    const fr = m.filter_results || {};
+    const rcpt = fr.rcpt_commands ?? '—';
+    const data = fr.data_commands ?? '—';
+    const recipients = m.message_count ?? 0;
+    const dropPct = (typeof rcpt === 'number' && rcpt > 0)
+      ? (((rcpt - recipients) / rcpt) * 100).toFixed(2) + '%'
+      : '—';
+    const dropColor = (typeof rcpt === 'number' && rcpt > 0)
+      ? (((rcpt - recipients) / rcpt) > 0.05 ? 'var(--red)' : ((rcpt - recipients) / rcpt) > 0.01 ? 'var(--yellow)' : 'var(--green)')
+      : 'var(--text-muted)';
+    return `<tr${i < latestRows.length - 1 ? ' style="border-bottom:1px solid var(--border);"' : ''}>
+      <td style="padding:8px 12px;font-family:'Geist Mono',monospace;font-size:12px;">${escapeHtml(m.ip_address)}</td>
+      <td style="padding:8px 12px;text-align:right;">${typeof rcpt === 'number' ? rcpt.toLocaleString() : rcpt}</td>
+      <td style="padding:8px 12px;text-align:right;">${typeof data === 'number' ? data.toLocaleString() : data}</td>
+      <td style="padding:8px 12px;text-align:right;">${recipients.toLocaleString()}</td>
+      <td style="padding:8px 12px;text-align:right;color:${dropColor};">${dropPct}</td>
+    </tr>`;
   }).join('');
 }
 
