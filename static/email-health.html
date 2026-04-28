@@ -1573,11 +1573,30 @@ function populateGpmEncryption() {
 }
 
 /* === GPM Compliance tab — fetches real compliance from Google v2 API === */
+// INBOX-129: SWR refactor of populateGpmCompliance.
+//
+// Before: on each visit to /postmaster, the Compliance Status table
+// showed "Loading..." for 1-2 seconds while the function awaited a
+// network fetch to /api/postmaster/compliance/<domain>. Even with
+// gpmMetricsCache hydrated from localStorage, the render path
+// blocked on the API call.
+//
+// After: split into orchestrator + pure render function. On entry,
+// paint instantly from cached metrics + cached API compliance.
+// Fire the network fetch in the background; when fresh data lands,
+// repaint silently. User never sees "Loading..." after the first
+// successful visit.
+//
+// Cache key: pm.compliance.<domain> (4h TTL — matches metrics).
+
+const PM_COMPLIANCE_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
+
+function _gpmCompCacheKey(domain) {
+  return 'pm.compliance.' + (domain || ehCurrentDomain || 'default');
+}
+
 async function populateGpmCompliance() {
   const metrics = gpmMetricsCache || [];
-  // INBOX-100 (G2): if metrics is empty, we used to return early — leaving the
-  // hardcoded "Loading..." text in place forever. Render an honest empty state
-  // instead so users never see stale "Loading..." text.
   const updatedEl = document.getElementById('gpm-comp-updated');
   const tbody = document.getElementById('gpm-comp-table-body');
   if (metrics.length === 0) {
@@ -1587,14 +1606,24 @@ async function populateGpmCompliance() {
   }
 
   const latest = metrics[metrics.length - 1];
-
-  // Update "Last updated" label (INBOX-102: friendly date format)
   if (updatedEl && latest.date) {
     updatedEl.textContent = `Last updated ${ehFormatDateShort(latest.date)}`;
   }
 
-  // ── Fetch real compliance status from Google's getComplianceStatus API ──
+  // SWR step 1: paint instantly from cached compliance API response
+  // (if any). User sees the table populated within ~5ms instead of
+  // waiting for the network round-trip.
   const domain = gpmCurrentDomain || ehCurrentDomain;
+  let cachedCompliance = null;
+  if (window.cacheGet) {
+    const cached = window.cacheGet(_gpmCompCacheKey(domain), PM_COMPLIANCE_CACHE_TTL_MS);
+    if (cached && cached.compliance) {
+      cachedCompliance = cached.compliance;
+      _renderGpmComplianceTable(metrics, cachedCompliance);
+    }
+  }
+
+  // SWR step 2: fetch fresh compliance and repaint silently.
   const token = getToken();
   let apiCompliance = null;
   if (domain && token) {
@@ -1605,11 +1634,31 @@ async function populateGpmCompliance() {
       if (res.ok) {
         const data = await res.json();
         apiCompliance = data.compliance;
+        // Persist for next cold start
+        if (window.cacheSet && apiCompliance) {
+          window.cacheSet(_gpmCompCacheKey(domain), { compliance: apiCompliance });
+        }
       }
     } catch (e) {
       console.warn('[GPM] Compliance API fetch failed, using computed fallback:', e);
     }
   }
+
+  // If we already painted from cache and the fresh fetch failed, keep
+  // the cached paint. Otherwise repaint with fresh data (or null —
+  // pure render handles the metrics-only fallback).
+  if (apiCompliance || !cachedCompliance) {
+    _renderGpmComplianceTable(metrics, apiCompliance);
+  }
+}
+
+// Pure render — no network, no async. Takes parsed metrics + (optional)
+// compliance API response and rebuilds the table body. Safe to call
+// multiple times.
+function _renderGpmComplianceTable(metrics, apiCompliance) {
+  const tbody = document.getElementById('gpm-comp-table-body');
+  if (!metrics || metrics.length === 0 || !tbody) return;
+  const latest = metrics[metrics.length - 1];
 
   // ── Parse API compliance into a lookup map ──
   // API returns: { complianceData: { rowData: [{requirement, status:{status}}], oneClickUnsubscribeVerdict, honorUnsubscribeVerdict }, subdomainComplianceData: ... }
