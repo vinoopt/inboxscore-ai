@@ -143,10 +143,14 @@ def add_user_domain(user_id: str, domain: str) -> dict:
             "domain", domain
         ).order("created_at", desc=True).limit(1).execute()
 
+        # INBOX-126: Auto-monitoring is on by default. Users add domains
+        # because they want to monitor them — there's no realistic story
+        # for "track this domain but don't scan it." The plan-based
+        # domain-count cap (Free=3, Pro=N) naturally bounds load.
         data = {
             "user_id": user_id,
             "domain": domain,
-            "is_monitored": False,
+            "is_monitored": True,
             "alert_threshold": 70,
         }
 
