@@ -23,10 +23,10 @@ UPDATE domains
 SET is_monitored = true
 WHERE is_monitored = false OR is_monitored IS NULL;
 
--- 3) The legacy monitor_frequency column ('weekly' | 'daily') is dead
--- — get_domains_due_for_scan() reads monitor_interval (hours) instead.
--- Dropping the column to remove the contradiction (rows currently say
--- frequency=weekly + interval=24h, which is contradictory). Safe: no
--- code reads this column anywhere in the app.
-ALTER TABLE domains
-    DROP COLUMN IF EXISTS monitor_frequency;
+-- 3) (Deferred) The legacy monitor_frequency column ('weekly' | 'daily')
+-- is dead — get_domains_due_for_scan() reads monitor_interval (hours)
+-- instead. Originally planned to drop here, but the prod-schema dump
+-- in CI's schema-drift check still references it. Path forward:
+-- apply DROP to prod via Supabase, regenerate db/prod-schema-*.sql
+-- snapshot, then add the DROP in a follow-up migration. Tracked
+-- under INBOX-126 follow-up.
