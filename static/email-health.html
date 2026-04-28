@@ -755,7 +755,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                   Microsoft tracks honeypot addresses. Any hits indicate a list-quality problem.
                 </div>
                 <div id="ms-traps-summary" style="margin-bottom:16px;"></div>
-                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <!-- INBOX-127: hide entire table when no trap hits — green
+                     summary banner above is sufficient. Table is shown
+                     only when there ARE incidents to enumerate. -->
+                <table id="ms-traps-table" style="width:100%;border-collapse:collapse;font-size:13px;display:none;">
                   <thead><tr style="border-bottom:1px solid var(--border);">
                     <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
                     <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">IP</th>
@@ -788,22 +791,28 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
             <!-- TAB 5: Volume & Delivery =============================== -->
             <div class="gpm-panel" id="ms-panel-volume">
               <div style="margin-top:16px;">
-                <div class="pm-trend-title">Daily Sending Volume (across all IPs)</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <div class="pm-trend-title">Daily Sending Volume (across all IPs)</div>
+                  <!-- INBOX-127: 7d / 30d period switch (mirrors Postmaster page) -->
+                  <div class="pm-period-switch" style="display:inline-flex;background:var(--surface-2);border-radius:8px;padding:2px;">
+                    <button class="ms-vol-period-btn active" data-period="7" onclick="setMsVolumePeriod(7, this)" style="padding:4px 12px;border:none;background:var(--surface);border-radius:6px;font-size:12px;font-weight:600;color:var(--text);cursor:pointer;">7 days</button>
+                    <button class="ms-vol-period-btn" data-period="30" onclick="setMsVolumePeriod(30, this)" style="padding:4px 12px;border:none;background:transparent;border-radius:6px;font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer;">30 days</button>
+                  </div>
+                </div>
                 <div style="background:var(--surface-2);border-radius:10px;padding:16px;height:240px;position:relative;margin-top:8px;">
                   <canvas id="ms-volume-chart"></canvas>
                 </div>
                 <div style="margin-top:20px;">
                   <div class="pm-trend-title">Delivery Funnel (last day, by IP)</div>
                   <div style="font-size:12px;color:var(--text-muted);margin-top:4px;margin-bottom:14px;">
-                    A healthy IP shows RCPT ≈ DATA ≈ Delivered. Drops indicate Microsoft is rejecting at the SMTP layer.
+                    Sent is recipients you tried to reach. Rejection rate is the share Microsoft refused at the SMTP gate. A healthy IP keeps Rejection rate near 0%.
                   </div>
                   <table style="width:100%;border-collapse:collapse;font-size:13px;">
                     <thead><tr style="border-bottom:1px solid var(--border);">
                       <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">IP</th>
-                      <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">RCPT</th>
-                      <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DATA</th>
+                      <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Sent</th>
                       <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Delivered</th>
-                      <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Drop %</th>
+                      <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Rejection rate</th>
                     </tr></thead>
                     <tbody id="ms-volume-table-body"></tbody>
                   </table>
@@ -2901,20 +2910,23 @@ function msRenderTraps(metrics) {
   const summaryEl = document.getElementById('ms-traps-summary');
   const total = trapRows.reduce((a, b) => a + (b.trap_hits || 0), 0);
 
+  // INBOX-127: hide table headers entirely when no incidents.
+  // The green summary banner is the empty state — no need for a
+  // table with column headers above an empty body.
+  const tableEl = document.getElementById('ms-traps-table');
   if (trapRows.length === 0) {
     summaryEl.innerHTML = '<div style="background:var(--green-bg);color:var(--green);padding:10px 14px;border-radius:8px;font-size:13px;">' +
       '✓ No spam-trap hits across all IPs in the last 30 days.</div>';
-  } else {
-    summaryEl.innerHTML = `<div style="background:var(--surface-2);padding:10px 14px;border-radius:8px;font-size:13px;">
-      <strong>${total}</strong> total trap hits across <strong>${trapRows.length}</strong> IP-days.
-    </div>`;
-  }
-
-  const tbody = document.getElementById('ms-traps-table-body');
-  if (trapRows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="padding:20px 12px;text-align:center;color:var(--text-muted);">No trap hits in this period ✓</td></tr>';
+    if (tableEl) tableEl.style.display = 'none';
     return;
   }
+
+  summaryEl.innerHTML = `<div style="background:var(--surface-2);padding:10px 14px;border-radius:8px;font-size:13px;">
+    <strong>${total}</strong> total trap hits across <strong>${trapRows.length}</strong> IP-days.
+  </div>`;
+  if (tableEl) tableEl.style.display = 'table';
+
+  const tbody = document.getElementById('ms-traps-table-body');
   tbody.innerHTML = trapRows.map((m, i) => {
     return `<tr${i < trapRows.length - 1 ? ' style="border-bottom:1px solid var(--border);"' : ''}>
       <td style="padding:8px 12px;">${escapeHtml(m.metric_date)}</td>
@@ -2965,10 +2977,40 @@ function msRenderFilter(metrics) {
 }
 
 /* ─── Tab 5: Volume & Delivery ──────────────────────────── */
+
+// INBOX-127: 7d / 30d period switch — filter metrics in-memory.
+// Default 7d; user-toggled value persists for the page session.
+let _msVolumePeriodDays = 7;
+
+function setMsVolumePeriod(days, btnEl) {
+  _msVolumePeriodDays = days;
+  // Toggle visual state on the buttons
+  document.querySelectorAll('.ms-vol-period-btn').forEach(b => {
+    b.classList.remove('active');
+    b.style.background = 'transparent';
+    b.style.color = 'var(--text-muted)';
+  });
+  if (btnEl) {
+    btnEl.classList.add('active');
+    btnEl.style.background = 'var(--surface)';
+    btnEl.style.color = 'var(--text)';
+  }
+  // Re-render with the cached metrics
+  if (_msFullCache && _msFullCache.metrics) {
+    msRenderVolume(_msFullCache.metrics);
+  }
+}
+
 function msRenderVolume(metrics) {
-  // Daily total volume across all IPs — Chart.js bar/line
+  // INBOX-127: filter to selected period (default 7d)
+  const todayMs = Date.now();
+  const cutoff = new Date(todayMs - _msVolumePeriodDays * 24 * 60 * 60 * 1000)
+    .toISOString().slice(0, 10);
+  const filtered = metrics.filter(m => (m.metric_date || '') >= cutoff);
+
+  // Daily total volume across all IPs — Chart.js line for trend
   const byDate = {};
-  metrics.forEach(m => {
+  filtered.forEach(m => {
     const d = m.metric_date;
     if (!byDate[d]) byDate[d] = 0;
     byDate[d] += (m.message_count || 0);
@@ -2979,15 +3021,18 @@ function msRenderVolume(metrics) {
   const canvas = document.getElementById('ms-volume-chart');
   if (canvas && typeof Chart !== 'undefined') {
     const cfg = {
-      type: 'bar',
+      type: dates.length > 1 ? 'line' : 'bar',
       data: {
         labels: dates.map(d => ehFormatDateShortMD(d)),
         datasets: [{
           label: 'Daily Volume',
           data: data,
-          backgroundColor: 'rgba(0,120,212,0.65)',
+          backgroundColor: 'rgba(0,120,212,0.15)',
           borderColor: '#0078D4',
-          borderWidth: 1,
+          borderWidth: 2,
+          fill: dates.length > 1,
+          tension: 0.3,
+          pointRadius: dates.length > 1 ? 3 : 0,
         }]
       },
       options: ehChartBaseOptions({
@@ -3000,30 +3045,36 @@ function msRenderVolume(metrics) {
     _msVolumeChart = new Chart(canvas, cfg);
   }
 
-  // Latest-day funnel table
+  // Latest-day funnel table — Sent / Delivered / Rejection rate
   const latestDay = dates[dates.length - 1];
-  if (!latestDay) return;
-  const latestRows = metrics.filter(m => m.metric_date === latestDay)
+  if (!latestDay) {
+    document.getElementById('ms-volume-table-body').innerHTML =
+      '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--text-muted);">No volume data in the selected period.</td></tr>';
+    return;
+  }
+  const latestRows = filtered.filter(m => m.metric_date === latestDay)
     .sort((a, b) => (b.message_count || 0) - (a.message_count || 0));
 
   const tbody = document.getElementById('ms-volume-table-body');
   tbody.innerHTML = latestRows.map((m, i) => {
+    // Sent = RCPT TO commands (recipients attempted)
+    // Delivered = message_count (Microsoft accepted into mailbox)
+    // Rejection rate = (Sent - Delivered) / Sent
     const fr = m.filter_results || {};
-    const rcpt = fr.rcpt_commands ?? '—';
-    const data = fr.data_commands ?? '—';
-    const recipients = m.message_count ?? 0;
-    const dropPct = (typeof rcpt === 'number' && rcpt > 0)
-      ? (((rcpt - recipients) / rcpt) * 100).toFixed(2) + '%'
-      : '—';
-    const dropColor = (typeof rcpt === 'number' && rcpt > 0)
-      ? (((rcpt - recipients) / rcpt) > 0.05 ? 'var(--red)' : ((rcpt - recipients) / rcpt) > 0.01 ? 'var(--yellow)' : 'var(--green)')
-      : 'var(--text-muted)';
+    const sent = (typeof fr.rcpt_commands === 'number') ? fr.rcpt_commands : null;
+    const delivered = m.message_count ?? 0;
+    let rejPct = null, rejColor = 'var(--text-muted)';
+    if (sent !== null && sent > 0) {
+      const ratio = (sent - delivered) / sent;
+      rejPct = (ratio * 100).toFixed(2) + '%';
+      // Empty-state colour rule (DESIGN-SYSTEM): 0% = good (green), not red
+      rejColor = ratio > 0.05 ? 'var(--red)' : ratio > 0.01 ? 'var(--yellow)' : 'var(--green)';
+    }
     return `<tr${i < latestRows.length - 1 ? ' style="border-bottom:1px solid var(--border);"' : ''}>
       <td style="padding:8px 12px;font-family:'Geist Mono',monospace;font-size:12px;">${escapeHtml(m.ip_address)}</td>
-      <td style="padding:8px 12px;text-align:right;">${typeof rcpt === 'number' ? rcpt.toLocaleString() : rcpt}</td>
-      <td style="padding:8px 12px;text-align:right;">${typeof data === 'number' ? data.toLocaleString() : data}</td>
-      <td style="padding:8px 12px;text-align:right;">${recipients.toLocaleString()}</td>
-      <td style="padding:8px 12px;text-align:right;color:${dropColor};">${dropPct}</td>
+      <td style="padding:8px 12px;text-align:right;">${sent !== null ? sent.toLocaleString() : '—'}</td>
+      <td style="padding:8px 12px;text-align:right;">${delivered.toLocaleString()}</td>
+      <td style="padding:8px 12px;text-align:right;color:${rejColor};">${rejPct ?? '—'}</td>
     </tr>`;
   }).join('');
 }

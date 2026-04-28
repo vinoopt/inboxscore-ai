@@ -727,7 +727,12 @@ async function loadPostmasterStatus() {
     proGate.style.display = 'none';
 
     if (data.connected) {
-      status.innerHTML = '<span style="color:var(--green);">● Connected</span> · ' + escapeHtml(data.google_email);
+      // INBOX-127: parity with Microsoft SNDS card — show "Last sync: Xm ago"
+      // so users can validate data freshness at a glance.
+      const lastSyncStr = data.last_sync_at
+        ? ` · Last sync: ${timeAgo(data.last_sync_at)}`
+        : '';
+      status.innerHTML = '<span style="color:var(--green);">● Connected</span> · ' + escapeHtml(data.google_email) + escapeHtml(lastSyncStr);
       actions.innerHTML = `
         <div style="display:flex;gap:8px;">
           <button class="btn-sm" onclick="syncPostmaster()" id="pm-sync-btn">Sync Now</button>

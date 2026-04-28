@@ -1782,7 +1782,7 @@ async def api_snds_connect(req: Request):
         raise HTTPException(status_code=400, detail="SNDS key is required")
 
     # Validate the key by fetching data
-    from snds import validate_snds_key, fetch_snds_data
+    from snds import validate_snds_key, fetch_snds_data, backfill_snds_history
     validation = await validate_snds_key(snds_key)
 
     if not validation["valid"]:
@@ -1794,12 +1794,17 @@ async def api_snds_connect(req: Request):
     # Save connection
     save_snds_connection(user_id, snds_key)
 
-    # Trigger initial sync
+    # INBOX-127: pull today's data + the last 30 days of history.
+    # Without the backfill, /microsoft would show one day of data
+    # until 30 daily syncs pass naturally. Backfill takes ~15-20s
+    # but gives the user a populated dashboard immediately.
+    ip_set = set()
+    rows_saved = 0
     try:
-        result = await fetch_snds_data(snds_key)
-        if result["success"] and result["data"]:
-            ip_set = set()
-            for row in result["data"]:
+        # Today's data first (fast)
+        today_result = await fetch_snds_data(snds_key)
+        if today_result["success"] and today_result["data"]:
+            for row in today_result["data"]:
                 ip_set.add(row["ip_address"])
                 upsert_snds_metrics(
                     user_id=user_id,
@@ -1807,7 +1812,25 @@ async def api_snds_connect(req: Request):
                     metric_date=row["metric_date"],
                     metrics=row,
                 )
-            update_snds_sync_status(user_id, ip_count=len(ip_set))
+                rows_saved += 1
+
+        # 30-day backfill (paced ~0.5s per day so ~15s total)
+        backfill = await backfill_snds_history(snds_key, days=30)
+        for row in backfill.get("rows", []):
+            ip_set.add(row["ip_address"])
+            upsert_snds_metrics(
+                user_id=user_id,
+                ip_address=row["ip_address"],
+                metric_date=row["metric_date"],
+                metrics=row,
+            )
+            rows_saved += 1
+
+        update_snds_sync_status(user_id, ip_count=len(ip_set))
+        print(
+            f"[SNDS] Initial sync + backfill: {rows_saved} rows, {len(ip_set)} IPs, "
+            f"{backfill.get('days_with_data', 0)}/{backfill.get('days_fetched', 0)} days had data"
+        )
     except Exception as e:
         print(f"[SNDS] Initial sync error: {e}")
 
@@ -1815,6 +1838,7 @@ async def api_snds_connect(req: Request):
         "success": True,
         "message": "Microsoft SNDS connected successfully",
         "ip_count": validation["ip_count"],
+        "rows_saved": rows_saved,
     }
 
 

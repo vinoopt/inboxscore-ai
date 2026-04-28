@@ -108,6 +108,89 @@ async def fetch_snds_data(key: str) -> dict:
         return {"success": False, "data": [], "error": f"Fetch error: {str(e)}"}
 
 
+# ─── 30-DAY HISTORICAL BACKFILL (INBOX-127) ─────────────────────
+#
+# Microsoft's SNDS API supports `&date=MMDDYY` to fetch a specific
+# past day. The default URL returns "the most recent day available."
+# Without backfill, a freshly-connected user sees only 1 day of data
+# until 30 days pass naturally — Score Trend / Complaint chart /
+# Volume chart all look empty.
+#
+# This helper walks the last N days (default 30) and pulls each day
+# in turn. Microsoft is conservative on rate limits, so we space
+# requests by ~0.5s. The whole 30-day pull takes ~15-20s.
+#
+# Returns:
+#   {
+#     "success": True/False,
+#     "days_fetched": N,
+#     "days_with_data": M,
+#     "rows": [...],            # All parsed rows across all days
+#     "errors": [{day: ..., error: ...}, ...]
+#   }
+
+
+async def backfill_snds_history(key: str, days: int = 30) -> dict:
+    """
+    Pull the last N days of SNDS history for a given key.
+
+    Iterates day-by-day from yesterday backward to N days ago. Each
+    day's CSV is parsed; resulting rows are concatenated. Skips days
+    where Microsoft returned no data (the IP may not have sent that
+    day, or data is still aggregating).
+    """
+    import asyncio
+    from datetime import date, timedelta
+
+    today = date.today()
+    rows: list = []
+    errors: list = []
+    days_with_data = 0
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        for offset in range(1, days + 1):  # yesterday .. N days ago
+            target = today - timedelta(days=offset)
+            mmddyy = target.strftime("%m%d%y")
+            url = f"{SNDS_DATA_URL}?key={key}&date={mmddyy}"
+
+            try:
+                response = await client.get(url)
+                if response.status_code != 200:
+                    errors.append({"day": target.isoformat(), "error": f"HTTP {response.status_code}"})
+                    continue
+
+                content = response.text.strip()
+                if "<html" in content.lower() or "<!doctype" in content.lower():
+                    errors.append({"day": target.isoformat(), "error": "key invalid"})
+                    # Don't keep hitting Microsoft if the key is dead
+                    break
+
+                if not content:
+                    # No data for this day — common for IPs that didn't send
+                    continue
+
+                day_rows = parse_snds_csv(content)
+                if day_rows:
+                    rows.extend(day_rows)
+                    days_with_data += 1
+
+                # Be polite to Microsoft — small delay between requests
+                await asyncio.sleep(0.5)
+
+            except httpx.TimeoutException:
+                errors.append({"day": target.isoformat(), "error": "timeout"})
+            except Exception as e:
+                errors.append({"day": target.isoformat(), "error": str(e)[:200]})
+
+    return {
+        "success": True,
+        "days_fetched": days,
+        "days_with_data": days_with_data,
+        "rows": rows,
+        "errors": errors,
+    }
+
+
 # ─── CSV PARSING ──────────────────────────────────────────────
 
 def parse_snds_csv(csv_text: str) -> list:
