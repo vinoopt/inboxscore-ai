@@ -5,7 +5,7 @@ Handles all database operations via Supabase
 
 import os
 import json
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 from supabase import create_client, Client
 
 # ─── SUPABASE CLIENT ──────────────────────────────────────────────
@@ -570,48 +570,83 @@ def get_monitored_domains() -> list:
         return []
 
 
+# INBOX-113: scheduled scans run at fixed UTC slots so every timezone gets
+# fresh data before business hours. Previously each domain scanned on a
+# rolling 24h cadence anchored to its first scan, which meant the chart
+# bar for "today" was empty until the rolling-anchor time passed. With
+# fixed slots, the trend chart fills predictably no matter when the user
+# created the domain or signed up.
+#
+#   03:00 UTC  →  08:30 IST  /  04:00 BST  /  20:00 PT (prior day)
+#   09:00 UTC  →  14:30 IST  /  10:00 BST  /  02:00 PT
+#   15:00 UTC  →  20:30 IST  /  16:00 BST  /  08:00 PT
+#   21:00 UTC  →  02:30 IST  /  22:00 BST  /  14:00 PT
+#
+# Every TZ gets a fresh scan within ~6h of any business hour anywhere.
+# Future Pro feature: per-user TZ + custom preferred scan time (INBOX-135).
+SCHEDULED_SCAN_SLOTS_UTC = (3, 9, 15, 21)
+
+
+def _most_recent_open_slot(now_utc: datetime) -> datetime:
+    """Return the most recent fixed UTC slot that has 'opened' relative to
+    `now_utc`. If we're before the first slot today, fall back to the
+    last slot of the previous UTC day. The returned value is tz-AWARE
+    (UTC) so callers can compare directly against last_monitored_at.
+    """
+    today_midnight = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Walk slots from latest to earliest — the first one that's already
+    # passed today is "the most recent open slot".
+    for hour in reversed(SCHEDULED_SCAN_SLOTS_UTC):
+        slot_time = today_midnight.replace(hour=hour)
+        if now_utc >= slot_time:
+            return slot_time
+    # Before today's first slot — fall back to yesterday's last slot.
+    yesterday_midnight = today_midnight - timedelta(days=1)
+    return yesterday_midnight.replace(hour=SCHEDULED_SCAN_SLOTS_UTC[-1])
+
+
 def get_domains_due_for_scan() -> list:
-    """Get monitored domains that are due for their next scan based on interval"""
+    """Get monitored domains that are due for their next scheduled scan.
+
+    INBOX-113: A domain is "due" when the most recent fixed UTC scan slot
+    has opened AND the domain hasn't been scanned since that slot opened.
+    This replaces the old rolling-24h logic which let scan times drift
+    based on when the user first added the domain.
+    """
     sb = get_supabase()
     if not sb:
         return []
     try:
-        # Get all monitored domains
         domains = get_monitored_domains()
         if not domains:
             return []
 
-        # INBOX-29: compare tz-AWARE values end-to-end. Supabase returns
-        # last_monitored_at as an ISO string with "+00:00" or "Z"; Python
-        # datetime with tzinfo=UTC subtracts cleanly. The old code
-        # stripped tz from last_dt and compared it to a naive
-        # datetime.now(timezone.utc) — the exact pattern that masked INBOX-1.
         now = datetime.now(timezone.utc)
+        last_open_slot = _most_recent_open_slot(now)
+
         due = []
         for d in domains:
-            interval_hours = d.get("monitor_interval") or 24
             last_monitored = d.get("last_monitored_at")
 
+            # Never scanned by the monitor — due immediately.
             if not last_monitored:
-                # Never scanned via monitor — due immediately
                 due.append(d)
                 continue
 
-            # Parse the timestamp into a tz-AWARE datetime.
+            # INBOX-29: compare tz-AWARE values end-to-end. Supabase returns
+            # last_monitored_at as an ISO string with "+00:00" or "Z";
+            # Python datetime with tzinfo=UTC subtracts cleanly.
             if isinstance(last_monitored, str):
-                # Normalise the "Z" suffix that Supabase/Postgres emits.
                 iso = last_monitored.replace("Z", "+00:00")
                 last_dt = datetime.fromisoformat(iso)
             else:
                 last_dt = last_monitored
-            # Defensive: if we somehow got a naive datetime (e.g. a test
-            # fixture or a legacy row), assume UTC rather than crashing
-            # on the subtraction.
+            # Defensive: legacy or test rows may be naive — assume UTC.
             if last_dt.tzinfo is None:
                 last_dt = last_dt.replace(tzinfo=timezone.utc)
 
-            hours_since = (now - last_dt).total_seconds() / 3600
-            if hours_since >= interval_hours:
+            # Due if we haven't scanned since the most recent slot opened.
+            if last_dt < last_open_slot:
                 due.append(d)
 
         return due

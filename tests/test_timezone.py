@@ -60,35 +60,29 @@ def _iso_minus(minutes: int) -> str:
 
 
 class TestDomainsDueForScan:
-    """L12 — overdue-vs-not-overdue given a tz-aware last_monitored_at."""
+    """L12 — TZ-awareness invariants for last_monitored_at parsing.
 
-    def test_domain_overdue_by_61_minutes_is_returned(self):
-        # interval=60min (1h), last scan 61min ago -> must be flagged due.
-        domain = _domain(monitor_interval=1, last_monitored_at=_iso_minus(61))
-        # Also pass a mock supabase so is_db_available returns truthy.
-        with patch.object(db, "get_supabase", return_value=MagicMock()):
-            with patch.object(db, "get_monitored_domains", return_value=[domain]):
-                due = db.get_domains_due_for_scan()
-        assert due == [domain], (
-            "L12 regression: tz-aware last_monitored_at 61 minutes ago "
-            "against a 1-hour interval must produce a due domain. "
-            "Old code silently dropped it because it stripped tz from "
-            "last_dt and compared to naive datetime.utcnow()."
-        )
-
-    def test_domain_within_interval_is_not_returned(self):
-        # Mirror case: interval=60min, last scan 10min ago -> NOT due.
-        domain = _domain(monitor_interval=1, last_monitored_at=_iso_minus(10))
-        with patch.object(db, "get_supabase", return_value=MagicMock()):
-            with patch.object(db, "get_monitored_domains", return_value=[domain]):
-                due = db.get_domains_due_for_scan()
-        assert due == [], (
-            "A domain scanned 10 minutes ago with a 1-hour interval "
-            "must NOT be flagged due."
-        )
+    INBOX-113 replaced the rolling-hours interval logic with fixed UTC
+    slots (see tests/test_scan_slots.py for slot-correctness tests).
+    The tests below now exist purely to guard the tz-awareness contract —
+    Supabase 'Z'-suffix strings, naive datetime fallback, and the never-
+    scanned shortcut. They use last-scan times > 25h ago so they're
+    always strictly less than any "most recent open slot" regardless of
+    when the suite runs.
+    """
 
     def test_never_scanned_domain_is_returned_immediately(self):
         domain = _domain(monitor_interval=24, last_monitored_at=None)
+        with patch.object(db, "get_supabase", return_value=MagicMock()):
+            with patch.object(db, "get_monitored_domains", return_value=[domain]):
+                due = db.get_domains_due_for_scan()
+        assert due == [domain]
+
+    def test_z_suffix_iso_string_parses(self):
+        """Supabase emits 'Z' suffix; must parse without crashing."""
+        ts = (datetime.now(timezone.utc) - timedelta(hours=25))
+        z_str = ts.strftime("%Y-%m-%dT%H:%M:%S.") + f"{ts.microsecond:06d}Z"
+        domain = _domain(monitor_interval=24, last_monitored_at=z_str)
         with patch.object(db, "get_supabase", return_value=MagicMock()):
             with patch.object(db, "get_monitored_domains", return_value=[domain]):
                 due = db.get_domains_due_for_scan()
