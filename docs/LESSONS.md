@@ -169,6 +169,45 @@ Wisdom that applies to InboxScore and other email-deliverability products. For p
 
 ---
 
+### O3. Three-clock confusion in "Last synced X ago" labels
+
+**The trap:** 2026-04-29. Vinoop reported "Last synced just now" never changing on `/microsoft` and `/postmaster`. v1.15.9 fixed two literal `'just now'` hardcodes — but the next page reload still showed the bug. v1.15.10 found 5 MORE sites all using `cacheAgeLabel(_gpmCacheKey)` which returns local cache age, not provider sync age.
+
+The deeper bug: there are **three different "X ago" times** in the product, and the codebase mixed them up:
+
+| Concept | Source | Means |
+|---|---|---|
+| **Provider sync age** | `connection.last_sync_at` | "When did we last call Google's API?" |
+| **DB write age** | `row.created_at` | "When did our DB row get written?" |
+| **Local cache age** | `cacheSet()` timestamp | "When did localStorage refresh?" |
+
+The label `id="gpm-last-sync"` promises the first one. Code was using the third one (which is "just now" right after any fetch).
+
+**How to apply:**
+
+1. **A label is a contract.** "Last synced X ago" MUST source from `connection.last_sync_at`. No exceptions.
+2. **Cache the real timestamp** alongside the data. When persisting metrics, also store `last_sync_at` so SWR hydration paints from the right source.
+3. **Hardcoded `'just now'` is OK in exactly one place**: immediately after a successful manual-sync handler.
+4. **When fixing one site, sweep ALL callers of the affected helper.** Don't grep for the symptom string — grep for `getElementById('gpm-last-sync')` / every `ehUpdateRefreshStamp(` call. Trust nothing until you've read each line.
+5. **Tier-3 verification must include first-paint inspection.** Refresh the page, observe the label is correct on first frame AND stays correct after revalidation (no flicker). My v1.15.9 Tier-3 only checked the literal strings were gone — that wasn't enough.
+
+**See:** INBOX-140 (initial fix, v1.15.9), INBOX-140-followup (deeper sweep, v1.15.10), INBOX-141 (sitewide audit ticket).
+
+---
+
+### O4. Symptom-fixing leaves the underlying conceptual bug
+
+**The trap:** Same incident as O3. After I shipped v1.15.9 fixing 2 hardcoded `'just now'` literals, Vinoop reloaded the page within minutes and the bug was still there. The literals were a symptom of a deeper conceptual confusion (three freshness clocks); fixing the symptoms left the cause intact in 5 other sites.
+
+**How to apply:**
+
+1. **Before declaring "fixed," ask: am I patching the symptom or the cause?** If the cause is a confused mental model (three freshness clocks → one label), the symptoms WILL recur in places I haven't grepped for.
+2. **Grep every caller of the affected helper before claiming Tier-3.** Not every literal string — every consumer of the contract. `ehUpdateRefreshStamp(` had 5 callers, not 2.
+3. **A working contract has invariants.** Write them down: "any code path that writes element X must source data from Y." Then audit every site that writes X.
+4. **The verification pyramid (Tier-1 trace → Tier-2 test → Tier-3 prod) must include "first-paint visual inspection" for any UI fix.** Not just "the broken string is gone from the rendered HTML."
+
+---
+
 ## How to use this doc
 
 Read on:
