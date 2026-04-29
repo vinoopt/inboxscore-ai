@@ -1500,9 +1500,18 @@ function animateGpmAuth() {
   // INBOX-133: newest-first per DESIGN-SYSTEM convention.
   const tbody = document.getElementById('gpm-auth-table-body');
   tbody.innerHTML = '';
+  // INBOX-143 (v1.16.2): tightened thresholds to match the alert
+  // Rules tab — warn at <99%, critical at <95%. Previously >=95%
+  // showed solid green which made 96% visually identical to 100%
+  // and contradicted the alert rule that would fire on 96%.
+  //   >= 99.5%  green   (effectively perfect, with rounding tolerance)
+  //   95-99.49% yellow  (warn — below industry-good threshold)
+  //   <  95%    red     (critical — Gmail-block territory)
   function authColor(pct) {
     if (pct == null) return 'var(--text-muted)';
-    return pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)';
+    if (pct >= 99.5) return 'var(--green)';
+    if (pct >= 95)   return 'var(--yellow)';
+    return 'var(--red)';
   }
   const authRows = ehSortByDate(metrics, 'date', 'gpm-auth');
   authRows.forEach((m, i) => {

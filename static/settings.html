@@ -237,12 +237,11 @@ body.settings-refreshing-pill::after {
               </div>
               <button class="btn-sm" onclick="editField('password')">Update</button>
             </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Sync Frequency</div>
-                <div class="settings-desc">Postmaster data syncs daily at 6:00 AM UTC</div>
-              </div>
-            </div>
+            <!-- INBOX-143 (v1.16.2): "Sync Frequency · Postmaster data
+                 syncs daily at 6:00 AM UTC" row removed. It was a
+                 read-only fact with no action attached, and the same
+                 information is shown more usefully on each provider
+                 page (Postmaster card has "Last sync: 2h ago"). -->
           </div>
 
           <div style="margin-top:24px;">

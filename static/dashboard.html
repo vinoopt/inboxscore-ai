@@ -348,9 +348,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 #view-dashboard .diag-card-status.fail { background: var(--red-bg); color: var(--red); }
 #view-dashboard .diag-card-status.info { background: var(--surface-3); color: var(--text-muted); }
 
-/* Provider status */
-#view-dashboard .provider-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-#view-dashboard .provider-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+/* Provider status — INBOX-143 (v1.16.2): Yahoo/AOL card removed
+   (Yahoo CFL is per-IP-block ESP-only signup, not user-connectable).
+   Grid drops from 3 columns to 2 so the remaining Google Postmaster
+   and Microsoft SNDS cards have room to breathe. */
+#view-dashboard .provider-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+#view-dashboard .provider-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; }
 #view-dashboard .provider-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 #view-dashboard .provider-icon { width: 22px; height: 22px; flex-shrink: 0; }
 #view-dashboard .provider-name { font-size: 14px; font-weight: 600; flex: 1; }
@@ -1214,13 +1217,9 @@ function dhRenderProviderGrid(domain) {
     msCta = `<div class="provider-cta"><a href="/settings?tab=connections" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
   }
 
-  // Yahoo card — always "Not connected" since we don't ingest CFL yet
-  const yahooHtml = `<div class="provider-explainer">Yahoo doesn't offer a Postmaster API. We can ingest Yahoo's Complaint Feedback Loop (CFL) reports if you set one up.</div>`;
-  // INBOX-92: route through Settings → Connected Services so users see the
-  // CFL setup option in context (the external Yahoo signup link is on that
-  // page too, with the right surrounding state).
-  const yahooCta = `<div class="provider-cta"><span style="font-size:11px;color:var(--text-subtle)">Optional setup</span><a href="/settings?tab=connections" class="provider-cta-btn">Set up CFL →</a></div>`;
-
+  // INBOX-143 (v1.16.2): Yahoo / AOL card removed. Yahoo CFL is a
+  // per-IP-block ESP-only signup with no public API — not something
+  // an end-user can self-serve. Grid is now 2 columns (CSS above).
   grid.innerHTML = `
     <div class="provider-card">
       <div class="provider-header">
@@ -1239,15 +1238,6 @@ function dhRenderProviderGrid(domain) {
       </div>
       <div class="provider-metrics">${msHtml}</div>
       ${msCta}
-    </div>
-    <div class="provider-card">
-      <div class="provider-header">
-        <svg class="provider-icon" viewBox="0 0 24 24"><path fill="#6001D2" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c.83 0 1.5.67 1.5 1.5S12.83 8 12 8s-1.5-.67-1.5-1.5S11.17 5 12 5zm-2 12v-1h1v-4h-1v-1h3v5h1v1H10z"/></svg>
-        <div class="provider-name">Yahoo / AOL</div>
-        <span class="provider-status-pill disconnected">Not connected</span>
-      </div>
-      <div class="provider-metrics">${yahooHtml}</div>
-      ${yahooCta}
     </div>
   `;
 }
