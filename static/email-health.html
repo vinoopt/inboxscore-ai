@@ -939,14 +939,14 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
               <span id="bl-last-checked" style="font-size:11px;color:var(--text-muted);"></span>
-              <button id="bl-check-btn" onclick="runBlacklistCheck()" style="padding:4px 12px;font-size:11px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer;font-weight:500;">↻ Check now</button>
+              <button id="bl-check-btn" onclick="runBlacklistCheck(true)" style="padding:4px 12px;font-size:11px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer;font-weight:500;">↻ Scan now</button>
             </div>
           </div>
 
           <!-- Loading state -->
           <div id="bl-loading" style="display:none;text-align:center;padding:40px 20px;">
             <div style="font-size:28px;margin-bottom:10px;">🔍</div>
-            <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Checking blacklists…</div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Scanning blacklists…</div>
             <div style="font-size:12px;color:var(--text-muted);">Direct DNS queries to 25 lists — usually under a second.</div>
           </div>
 
@@ -960,14 +960,15 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           <!-- Results -->
           <div id="bl-results" style="display:none;">
 
-            <!-- Severity hero -->
+            <!-- Severity hero — count is conveyed in the subtitle copy
+                 below, so no separate "25 lists" meta pill (avoids
+                 duplicating the same information twice in the same row). -->
             <div id="bl-hero" style="border-radius:10px;padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:14px;">
               <div id="bl-hero-icon" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;font-weight:600;"></div>
               <div style="flex:1;min-width:0;">
                 <div id="bl-hero-title" style="font-size:15px;font-weight:600;"></div>
                 <div id="bl-hero-sub" style="font-size:12px;margin-top:2px;"></div>
               </div>
-              <span id="bl-hero-meta" title="Direct DNS queries to 25 major DNSBLs and DBLs" style="font-size:11px;color:var(--text-muted);border:1px solid var(--border);border-radius:999px;padding:3px 10px;cursor:help;white-space:nowrap;">checked across 25 lists ⓘ</span>
             </div>
 
             <!-- Sending domain (first — single row, always visible) -->
@@ -1142,7 +1143,7 @@ function switchEhSection(section) {
     '/blacklist': {
       section: 'blacklist',
       title: 'Blacklist Monitor',
-      subtitle: 'Domain and IP blacklist status across 1000+ blocklists.',
+      subtitle: 'Real-time blacklist status for your sending domain and IPs.',
     },
   };
   const path = window.location.pathname;
@@ -2399,7 +2400,7 @@ async function refreshBlacklistForDomain(domain) {
     } catch (e) { /* no saved results — fall through */ }
   }
 
-  // 3) No cached or saved results — collapse all states; user can hit Check now.
+  // 3) No cached or saved results — collapse all states; user can hit Scan now.
   const resEl   = document.getElementById('bl-results');
   const loadEl  = document.getElementById('bl-loading');
   const errEl   = document.getElementById('bl-error');
@@ -2411,7 +2412,7 @@ async function refreshBlacklistForDomain(domain) {
   if (noIpsEl) noIpsEl.style.display = 'none';
   const lc = document.getElementById('bl-last-checked');
   if (lc) lc.textContent = '';
-  if (btnEl) { btnEl.disabled = false; btnEl.textContent = '↻ Check now'; }
+  if (btnEl) { btnEl.disabled = false; btnEl.textContent = '↻ Scan now'; }
 }
 
 async function runBlacklistCheck(forceRefresh) {
@@ -2437,7 +2438,7 @@ async function runBlacklistCheck(forceRefresh) {
   if (resEl)   resEl.style.display = 'none';
   if (errEl)   errEl.style.display = 'none';
   if (noIpsEl) noIpsEl.style.display = 'none';
-  if (btnEl)  { btnEl.disabled = true; btnEl.textContent = 'Checking…'; }
+  if (btnEl)  { btnEl.disabled = true; btnEl.textContent = 'Scanning…'; }
 
   try {
     const res = await fetch(`/api/blacklist/check/${encodeURIComponent(domain)}`, {
@@ -2460,7 +2461,7 @@ async function runBlacklistCheck(forceRefresh) {
       document.getElementById('bl-error-msg').textContent = 'Error: ' + e.message;
     }
   } finally {
-    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '↻ Check now'; }
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '↻ Scan now'; }
   }
 }
 
@@ -2590,7 +2591,6 @@ function renderBlacklistResults(data) {
     domRow.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-size:13px;font-weight:600;font-family:'SF Mono', Menlo, monospace;">${escapeHtml(data.domain || '—')}</span>
-        <span style="font-size:10px;color:var(--text-muted);">checked across ${dr.checked_count || 5} domain blacklists</span>
         <span style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;${badgeStyle}">${escapeHtml(badge)}</span>
       </div>
       ${detailRows}
@@ -2733,7 +2733,6 @@ function _blRenderIpRow(r) {
   const listings = r.blacklisted_on || [];
   const count = r.blacklisted_count || 0;
   const highCnt = listings.filter(l => l.severity === 'high').length;
-  const checkedCount = r.checked_count || 15;
 
   let badge, badgeStyle;
   if (count === 0) {
@@ -2759,7 +2758,6 @@ function _blRenderIpRow(r) {
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-size:13px;font-weight:600;font-family:'SF Mono', Menlo, monospace;">${escapeHtml(ip)}</span>
-        <span style="font-size:10px;color:var(--text-muted);">${checkedCount} lists</span>
         <span style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;${badgeStyle}">${escapeHtml(badge)}</span>
       </div>
       ${detail}
