@@ -56,6 +56,57 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
 .page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; }
 
+/* INBOX-143 (v1.16.2): tab nav across the top of /alerts. Replaces
+   the Settings → Notifications page; everything alert-related now
+   lives here under three tabs. */
+.alerts-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 24px; gap: 0; }
+.alerts-tab { padding: 12px 18px; font-size: 14px; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s; user-select: none; }
+.alerts-tab:hover { color: var(--text); }
+.alerts-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.alerts-tab .tab-count { display: inline-block; margin-left: 6px; font-size: 11px; padding: 1px 7px; background: var(--surface-2); color: var(--text-muted); border-radius: 999px; font-weight: 500; }
+.alerts-tab.active .tab-count { background: var(--accent-soft); color: var(--accent); }
+
+/* Tab panels */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Rules + Channels rows */
+.cfg-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0; margin-bottom: 14px; }
+.cfg-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); gap: 12px; }
+.cfg-row:last-child { border-bottom: 0; }
+.cfg-label { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+.cfg-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.cfg-section-h { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; margin: 0 0 10px; }
+.cfg-section { margin-bottom: 24px; }
+
+/* Toggle */
+.toggle { width: 38px; height: 22px; background: var(--surface-3); border-radius: 999px; position: relative; cursor: pointer; transition: background 0.18s; flex-shrink: 0; }
+.toggle::after { content: ''; position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: left 0.18s; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+.toggle.on { background: var(--accent); }
+.toggle.on::after { left: 18px; }
+.toggle.disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Pro-soon hint pill */
+.pro-soon { font-size: 10px; font-weight: 600; padding: 2px 8px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; letter-spacing: 0.02em; }
+
+/* Setup btn (disabled, for Slack/etc) */
+.setup-btn { padding: 5px 12px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 12px; cursor: not-allowed; opacity: 0.5; font-family: inherit; }
+
+/* Save button row */
+.cfg-save-row { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 8px; }
+.cfg-save-btn { padding: 8px 22px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.18s; font-family: inherit; }
+.cfg-save-btn:hover { background: #6d28d9; }
+.cfg-save-btn:disabled { opacity: 0.6; cursor: wait; }
+.cfg-saved-msg { font-size: 12px; color: var(--green); opacity: 0; transition: opacity 0.2s; }
+.cfg-saved-msg.show { opacity: 1; }
+
+/* Pagination */
+.pager { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+.pager-btns { display: flex; gap: 8px; }
+.pager-btn { padding: 5px 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.pager-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* Filter Chips */
 .alerts-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
 .filter-chip { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 12px; cursor: pointer; transition: all 0.2s; }
@@ -177,25 +228,125 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 
   <main class="main">
     <h1 class="page-title">Alerts</h1>
-    <p class="page-subtitle">Stay on top of deliverability issues across all your domains.</p>
+    <p class="page-subtitle">See what fired, configure rules, and choose where alerts go.</p>
 
-    <!-- Filter Chips -->
-    <div class="alerts-filters" id="filters-bar">
-      <span class="filter-chip active" data-filter="all" onclick="setFilter('all')">All</span>
-      <span class="filter-chip" data-filter="critical" onclick="setFilter('critical')">Critical</span>
-      <span class="filter-chip" data-filter="warning" onclick="setFilter('warning')">Warnings</span>
-      <span class="filter-chip" data-filter="resolved" onclick="setFilter('resolved')">Resolved</span>
-      <!-- Domain chips will be dynamically added here -->
-      <button class="mark-all-btn" id="mark-all-btn" onclick="markAllRead()" style="display:none">Mark all read</button>
+    <!-- INBOX-143 (v1.16.2): three-tab consolidation. Feed = the alert
+         stream. Rules = trigger configuration (was Settings →
+         Notifications). Channels = where alerts go + digests. -->
+    <div class="alerts-tabs" role="tablist">
+      <div class="alerts-tab active" data-tab="feed"     role="tab" onclick="setAlertsTab('feed')">Feed</div>
+      <div class="alerts-tab"        data-tab="rules"    role="tab" onclick="setAlertsTab('rules')">Rules</div>
+      <div class="alerts-tab"        data-tab="channels" role="tab" onclick="setAlertsTab('channels')">Channels</div>
     </div>
 
-    <!-- Alert Feed -->
-    <div id="alerts-loading" class="loading"><div class="loading-spinner"></div>Loading alerts...</div>
-    <ul id="alerts-list" class="alert-feed" style="display:none"></ul>
-    <div id="alerts-empty" class="empty-state" style="display:none">
-      <div class="empty-icon">🔔</div>
-      <h3>No alerts yet</h3>
-      <p>When we detect score changes, blacklist events, or DNS issues with your monitored domains, alerts will show up here.</p>
+    <!-- ──────────── FEED ──────────── -->
+    <div class="tab-panel active" id="tab-feed" role="tabpanel">
+      <!-- Filter Chips -->
+      <div class="alerts-filters" id="filters-bar">
+        <span class="filter-chip active" data-filter="all" onclick="setFilter('all')">All</span>
+        <span class="filter-chip" data-filter="critical" onclick="setFilter('critical')">Critical</span>
+        <span class="filter-chip" data-filter="warning" onclick="setFilter('warning')">Warnings</span>
+        <span class="filter-chip" data-filter="resolved" onclick="setFilter('resolved')">Resolved</span>
+        <!-- Domain chips will be dynamically added here -->
+        <button class="mark-all-btn" id="mark-all-btn" onclick="markAllRead()" style="display:none">Mark all read</button>
+      </div>
+
+      <!-- Alert Feed -->
+      <div id="alerts-loading" class="loading"><div class="loading-spinner"></div>Loading alerts...</div>
+      <ul id="alerts-list" class="alert-feed" style="display:none"></ul>
+      <div id="alerts-empty" class="empty-state" style="display:none">
+        <div class="empty-icon">🔔</div>
+        <h3>No alerts yet</h3>
+        <p>When we detect score changes, blacklist events, or DNS issues with your monitored domains, alerts will show up here.</p>
+      </div>
+
+      <!-- Pagination (shown when >20 alerts on a page) -->
+      <div class="pager" id="alerts-pager" style="display:none">
+        <span id="pager-info"></span>
+        <div class="pager-btns">
+          <button class="pager-btn" id="pager-prev" onclick="changePage(-1)">‹ Prev</button>
+          <button class="pager-btn" id="pager-next" onclick="changePage(1)">Next ›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ──────────── RULES ──────────── -->
+    <div class="tab-panel" id="tab-rules" role="tabpanel">
+      <div class="cfg-section">
+        <div class="cfg-section-h">Trigger when…</div>
+        <div class="cfg-card">
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Spam rate threshold</div>
+              <div class="cfg-desc">Warn above 0.1%, escalate to critical above 0.3% (Gmail's own block threshold).</div>
+            </div>
+            <div class="toggle on" data-pref="spam_threshold" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Authentication drops</div>
+              <div class="cfg-desc">Warn when SPF, DKIM, or DMARC pass-rate drops below 99%; critical below 95%.</div>
+            </div>
+            <div class="toggle on" data-pref="auth_drops" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Blacklist detection</div>
+              <div class="cfg-desc">Fire when any sending IP or sending domain is listed.</div>
+            </div>
+            <div class="toggle on" data-pref="blacklist_alerts" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <!-- INBOX-143: DNS record changes deferred — record-diff
+               pipeline not yet built. Re-add when implemented. -->
+        </div>
+      </div>
+
+      <div class="cfg-save-row">
+        <span class="cfg-saved-msg" id="rules-saved-msg">Saved</span>
+        <button class="cfg-save-btn" id="rules-save-btn" onclick="savePrefs('rules')">Save changes</button>
+      </div>
+    </div>
+
+    <!-- ──────────── CHANNELS ──────────── -->
+    <div class="tab-panel" id="tab-channels" role="tabpanel">
+      <div class="cfg-section">
+        <div class="cfg-section-h">Channels</div>
+        <div class="cfg-card">
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Email</div>
+              <div class="cfg-desc" id="channels-email-desc">Send alerts to your account email.</div>
+            </div>
+            <div class="toggle on" data-pref="scan_alerts" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Slack webhook <span class="pro-soon" style="margin-left:6px;">Pro · per-domain routing soon</span></div>
+              <div class="cfg-desc">Not configured — post alerts to a Slack channel.</div>
+            </div>
+            <button class="setup-btn" disabled>Set up</button>
+          </div>
+          <!-- INBOX-143: Custom webhook deferred — Pro/API tier feature. -->
+        </div>
+      </div>
+
+      <div class="cfg-section">
+        <div class="cfg-section-h">Digests</div>
+        <div class="cfg-card">
+          <div class="cfg-row">
+            <div>
+              <div class="cfg-label">Weekly digest</div>
+              <div class="cfg-desc">Email summary every Monday at 9:00 AM with the week's alerts.</div>
+            </div>
+            <div class="toggle" data-pref="weekly_digest" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cfg-save-row">
+        <span class="cfg-saved-msg" id="channels-saved-msg">Saved</span>
+        <button class="cfg-save-btn" id="channels-save-btn" onclick="savePrefs('channels')">Save changes</button>
+      </div>
     </div>
   </main>
 </div>
@@ -228,6 +379,11 @@ let currentFilter = 'all';
 let domainFilter = null;
 let currentModalAlert = null;
 let headers = {};
+
+// INBOX-143: pagination state for the Feed. 20-per-page is plenty
+// since 30-day retention caps the back-catalog at a manageable size.
+const PAGE_SIZE = 20;
+let currentPage = 0;
 
 function getToken() {
   return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
@@ -300,6 +456,7 @@ function renderAlerts() {
   document.getElementById('alerts-loading').style.display = 'none';
   const list = document.getElementById('alerts-list');
   const empty = document.getElementById('alerts-empty');
+  const pager = document.getElementById('alerts-pager');
 
   let filtered = allAlerts;
 
@@ -319,6 +476,7 @@ function renderAlerts() {
 
   if (filtered.length === 0) {
     list.style.display = 'none';
+    if (pager) pager.style.display = 'none';
     empty.style.display = 'block';
     if (currentFilter !== 'all' || domainFilter) {
       empty.querySelector('h3').textContent = 'No matching alerts';
@@ -330,10 +488,33 @@ function renderAlerts() {
     return;
   }
 
+  // INBOX-143: slice for pagination. Filter changes reset to page 0
+  // (handled in setFilter / setDomainFilter).
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  if (currentPage >= totalPages) currentPage = totalPages - 1;
+  const start = currentPage * PAGE_SIZE;
+  const pageSlice = filtered.slice(start, start + PAGE_SIZE);
+
   list.style.display = 'flex';
   empty.style.display = 'none';
 
-  list.innerHTML = filtered.map(alert => {
+  // Pager UI: only show if there's more than one page worth.
+  if (pager) {
+    if (filtered.length > PAGE_SIZE) {
+      pager.style.display = 'flex';
+      const info = document.getElementById('pager-info');
+      const prev = document.getElementById('pager-prev');
+      const next = document.getElementById('pager-next');
+      const last = Math.min(start + PAGE_SIZE, filtered.length);
+      if (info) info.textContent = `Showing ${start + 1}–${last} of ${filtered.length}`;
+      if (prev) prev.disabled = currentPage === 0;
+      if (next) next.disabled = currentPage >= totalPages - 1;
+    } else {
+      pager.style.display = 'none';
+    }
+  }
+
+  list.innerHTML = pageSlice.map(alert => {
     const timeAgo = getTimeAgo(alert.created_at);
     const isResolved = alert.is_read && (alert.severity === 'info' || alert.resolved);
     const icon = alert.severity === 'critical' ? '🔴' : alert.severity === 'warning' ? '⚠️' : '🟢';
@@ -366,6 +547,7 @@ function renderAlerts() {
 function setFilter(filter) {
   currentFilter = filter;
   domainFilter = null;
+  currentPage = 0;  // INBOX-143: reset paging on filter change
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.classList.toggle('active', chip.dataset.filter === filter);
   });
@@ -377,6 +559,7 @@ function setFilter(filter) {
 function setDomainFilter(domain) {
   domainFilter = domain;
   currentFilter = 'all';
+  currentPage = 0;  // INBOX-143: reset paging on filter change
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.classList.toggle('active', chip.dataset.domain === domain);
   });
@@ -482,6 +665,93 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// ─── INBOX-143: tab switching + persistence ────────────────────
+function setAlertsTab(tabName) {
+  document.querySelectorAll('.alerts-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tabName);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'tab-' + tabName);
+  });
+  try { localStorage.setItem('alerts.tab', tabName); } catch (e) {}
+
+  // Lazy-load preferences the first time Rules or Channels is opened.
+  if ((tabName === 'rules' || tabName === 'channels') && !window._prefsLoaded) {
+    loadPrefs();
+  }
+}
+
+// ─── INBOX-143: load + save user preferences for Rules/Channels ──
+async function loadPrefs() {
+  try {
+    const res = await fetch('/api/user/preferences', { headers });
+    if (!res.ok) return;
+    const data = await res.json();
+    const prefs = data.preferences || data || {};
+    document.querySelectorAll('.toggle[data-pref]').forEach(t => {
+      const key = t.dataset.pref;
+      // Default ON for everything except weekly_digest
+      const defaultOn = (key !== 'weekly_digest');
+      const value = (key in prefs) ? !!prefs[key] : defaultOn;
+      if (value) t.classList.add('on'); else t.classList.remove('on');
+    });
+    window._prefsLoaded = true;
+
+    // Show real account email on the channel-row description.
+    const meRes = await fetch('/api/auth/me', { headers });
+    if (meRes.ok) {
+      const me = await meRes.json();
+      const email = me?.user?.email;
+      if (email) {
+        const desc = document.getElementById('channels-email-desc');
+        if (desc) desc.textContent = 'Send alerts to ' + email + '.';
+      }
+    }
+  } catch (e) {
+    console.warn('Could not load preferences', e);
+  }
+}
+
+async function savePrefs(which) {
+  const btnId = which + '-save-btn';
+  const msgId = which + '-saved-msg';
+  const btn = document.getElementById(btnId);
+  const msg = document.getElementById(msgId);
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  try {
+    const prefs = {};
+    document.querySelectorAll('.toggle[data-pref]').forEach(t => {
+      prefs[t.dataset.pref] = t.classList.contains('on');
+    });
+    const res = await fetch('/api/user/preferences', {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(prefs)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Failed to save');
+    }
+    if (msg) {
+      msg.classList.add('show');
+      setTimeout(() => msg.classList.remove('show'), 2000);
+    }
+  } catch (e) {
+    showToast(e.message || 'Failed to save', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save changes'; }
+  }
+}
+
+// ─── INBOX-143: pagination for the Feed ────────────────────────
+function changePage(delta) {
+  currentPage = Math.max(0, currentPage + delta);
+  renderAlerts();
+  // Scroll the feed back into view so the user sees the new page.
+  document.querySelector('.alerts-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function showToast(msg, type = 'success') {
   const toast = document.getElementById('toast');
   toast.textContent = msg;
@@ -528,6 +798,21 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   loadAlerts();
+
+  // INBOX-143: restore the user's last-active tab. URL hash wins over
+  // localStorage so deep-links like /alerts#rules work for support docs.
+  const validTabs = ['feed', 'rules', 'channels'];
+  let initialTab = 'feed';
+  const hash = (window.location.hash || '').replace('#', '');
+  if (validTabs.includes(hash)) {
+    initialTab = hash;
+  } else {
+    try {
+      const saved = localStorage.getItem('alerts.tab');
+      if (validTabs.includes(saved)) initialTab = saved;
+    } catch (e) {}
+  }
+  if (initialTab !== 'feed') setAlertsTab(initialTab);
 
   // Close sidebar on mobile
   document.querySelector('.main').addEventListener('click', () => {

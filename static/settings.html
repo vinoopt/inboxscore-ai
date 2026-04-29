@@ -193,7 +193,9 @@ body.settings-refreshing-pill::after {
       <div class="settings-sidebar">
         <a class="s-active" onclick="showSettingsPanel('general', this)"><span class="s-icon">👤</span> General</a>
         <a onclick="showSettingsPanel('connections', this)"><span class="s-icon">🔗</span> Connected Services</a>
-        <a onclick="showSettingsPanel('notifications', this)"><span class="s-icon">🔔</span> Notifications</a>
+        <!-- INBOX-143 (v1.16.2): Notifications panel moved into /alerts
+             page (Rules + Channels tabs). Single home for everything
+             alert-related. -->
         <a onclick="showSettingsPanel('billing', this)"><span class="s-icon">💳</span> Plan & Billing <span class="s-soon">Soon</span></a>
         <a onclick="showSettingsPanel('api', this)"><span class="s-icon">🔑</span> API Access <span class="s-soon">Soon</span></a>
         <a onclick="showSettingsPanel('team', this)"><span class="s-icon">👥</span> Team <span class="s-soon">Soon</span></a>
@@ -348,109 +350,17 @@ body.settings-refreshing-pill::after {
             </div>
           </div>
 
-          <!-- Yahoo/AOL (future) -->
-          <div class="connection-card" style="border-style:dashed;opacity:0.6;">
-            <div class="connection-icon" style="background:rgba(115,90,210,0.15);font-size:16px;">Y!</div>
-            <div class="connection-info">
-              <div class="connection-name">Yahoo/AOL CFL</div>
-              <div class="connection-status">Complaint feedback loop · Coming soon</div>
-            </div>
-          </div>
-
-          <!-- Google Safe Browsing (future) -->
-          <div class="connection-card" style="border-style:dashed;opacity:0.6;">
-            <div class="connection-icon" style="background:var(--accent-soft);font-size:14px;">🛡️</div>
-            <div class="connection-info">
-              <div class="connection-name">Google Safe Browsing</div>
-              <div class="connection-status">Domain safety checks · Coming soon</div>
-            </div>
-          </div>
+          <!-- INBOX-143 (v1.16.2): removed Yahoo/AOL CFL + Google Safe
+               Browsing cards. Yahoo CFL is per-IP-block ESP-only signup
+               with no public API — not user-connectable. GSB has been
+               running server-side automatically since 2026-04-26 (see
+               reference_inboxscore_gsb.md) — no user action required. -->
         </div>
 
-        <!-- ===== Notifications ===== -->
-        <div class="settings-panel" id="sp-notifications">
-          <div class="s-section-title">Notifications</div>
-          <div class="s-section-desc">Configure alert thresholds, delivery channels, and digest frequency.</div>
-
-          <div class="category-label">Alert Triggers</div>
-          <div class="card" style="padding:0 20px;margin-bottom:20px;">
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Spam rate threshold</div>
-                <div class="settings-desc">Alert when spam rate exceeds 0.1% or 0.3%</div>
-              </div>
-              <div class="toggle on" data-pref="spam_threshold" onclick="this.classList.toggle('on')"></div>
-            </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Authentication drops</div>
-                <div class="settings-desc">Alert when SPF, DKIM, or DMARC drops below 95%</div>
-              </div>
-              <div class="toggle on" data-pref="auth_drops" onclick="this.classList.toggle('on')"></div>
-            </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Blacklist detection</div>
-                <div class="settings-desc">Alert when any IP or domain is listed on a blacklist</div>
-              </div>
-              <div class="toggle on" data-pref="blacklist_alerts" onclick="this.classList.toggle('on')"></div>
-            </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">DNS record changes</div>
-                <div class="settings-desc">Alert when SPF, DKIM, or DMARC records are modified</div>
-              </div>
-              <div class="toggle on" data-pref="dns_changes" onclick="this.classList.toggle('on')"></div>
-            </div>
-          </div>
-
-          <div class="category-label">Delivery Channels</div>
-          <div class="card" style="padding:0 20px;margin-bottom:20px;">
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Email notifications</div>
-                <div class="settings-desc" id="notif-email-desc">Send alert summaries to your email</div>
-              </div>
-              <div class="toggle on" data-pref="scan_alerts" onclick="this.classList.toggle('on')"></div>
-            </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Slack webhook</div>
-                <div class="settings-desc" style="color:var(--text-muted);font-style:italic;">Not configured — send alerts to a Slack channel</div>
-              </div>
-              <button class="btn-sm" disabled style="opacity:0.4;">Setup</button>
-            </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Custom webhook</div>
-                <div class="settings-desc" style="color:var(--text-muted);font-style:italic;">Not configured — POST alert data to your endpoint</div>
-              </div>
-              <button class="btn-sm" disabled style="opacity:0.4;">Setup</button>
-            </div>
-          </div>
-
-          <div class="category-label">Scheduled Digests</div>
-          <div class="card" style="padding:0 20px;">
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Weekly digest</div>
-                <div class="settings-desc">Email health summary every Monday at 9:00 AM</div>
-              </div>
-              <div class="toggle" data-pref="weekly_digest" onclick="this.classList.toggle('on')"></div>
-            </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Monthly report</div>
-                <div class="settings-desc">Comprehensive report on the 1st of each month</div>
-              </div>
-              <div class="toggle" data-pref="monthly_report" onclick="this.classList.toggle('on')"></div>
-            </div>
-          </div>
-
-          <div style="margin-top:20px;">
-            <button class="btn btn-primary" onclick="saveNotifications()" id="save-notif-btn" style="padding:8px 20px;font-size:13px;">Save Preferences</button>
-          </div>
-        </div>
+        <!-- INBOX-143 (v1.16.2): Notifications panel removed. Alert
+             rules + delivery channels + digest now live on /alerts as
+             tabs (Rules + Channels). One mental home for everything
+             alert-related; Settings becomes pure account/billing. -->
 
         <!-- ===== Plan & Billing (Coming Soon) ===== -->
         <div class="settings-panel" id="sp-billing">
@@ -761,34 +671,10 @@ async function loadSettings() {
   }
 }
 
-function setToggle(pref, value) {
-  const el = document.querySelector('.toggle[data-pref="' + pref + '"]');
-  if (el) { if (value) el.classList.add('on'); else el.classList.remove('on'); }
-}
-
-// ─── Save Notifications ────────────────────────────────────
-async function saveNotifications() {
-  const btn = document.getElementById('save-notif-btn');
-  btn.disabled = true; btn.textContent = 'Saving...';
-
-  try {
-    const prefs = {};
-    document.querySelectorAll('.toggle[data-pref]').forEach(t => {
-      prefs[t.dataset.pref] = t.classList.contains('on');
-    });
-
-    const res = await fetch('/api/user/preferences', {
-      method: 'PUT', headers: getHeaders(),
-      body: JSON.stringify(prefs)
-    });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Failed'); }
-    showToast('Notification preferences saved');
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Save Preferences';
-  }
-}
+// INBOX-143 (v1.16.2): setToggle + saveNotifications removed.
+// Their UI now lives on /alerts (Rules + Channels tabs); the underlying
+// /api/user/preferences endpoint is unchanged so the alerts page just
+// calls it directly.
 
 // ─── Postmaster Connection ─────────────────────────────────
 async function loadPostmasterStatus() {

@@ -30,6 +30,7 @@ from db import (
     get_domain_scans, get_scan_detail, update_domain_score,
     get_user_profile, get_user_plan, PLAN_LIMITS, ANONYMOUS_LIMIT,
     get_full_user_profile, update_user_profile, update_user_preferences,
+    get_user_preferences,
     export_user_data, delete_user_data,
     get_user_alerts, get_unread_alert_count, mark_alert_read,
     mark_all_alerts_read, delete_alert,
@@ -70,7 +71,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.16.1")
+    _version = os.environ.get("APP_VERSION", "1.16.2")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -116,7 +117,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.16.1")
+app = FastAPI(title="InboxScore API", version="1.16.2")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -770,6 +771,41 @@ async def api_change_password(req: Request):
         raise HTTPException(status_code=500, detail="Failed to update password")
 
 
+# INBOX-143 (v1.16.2): the alert-rule + delivery-channel UI now lives
+# on /alerts (Rules + Channels tabs). The old Settings → Notifications
+# panel was write-only, but the new UI hydrates its toggles from saved
+# state, so we need a GET pair for the PUT.
+#
+# Defaults match how the UI renders an unconfigured user's first visit:
+# every alert rule is ON; weekly_digest is OFF (opt-in to extra email).
+PREFERENCE_DEFAULTS = {
+    "spam_threshold": True,    # Rules: spam rate exceeds 0.1% / 0.3%
+    "auth_drops": True,        # Rules: SPF/DKIM/DMARC pass-rate drops
+    "blacklist_alerts": True,  # Rules: any IP/domain listed
+    "scan_alerts": True,       # Channels: email
+    "weekly_digest": False,    # Channels: Monday 9am summary (opt-in)
+}
+
+
+@app.get("/api/user/preferences")
+async def api_get_preferences(req: Request):
+    """Get user notification preferences (with defaults for unset keys)."""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    saved = get_user_preferences(user_result["user"]["id"]) or {}
+    # Merge defaults so the response always has the full key set the
+    # UI expects, even for users who haven't hit Save once.
+    prefs = {**PREFERENCE_DEFAULTS, **{k: v for k, v in saved.items() if k in PREFERENCE_DEFAULTS}}
+    return {"preferences": prefs}
+
+
 @app.put("/api/user/preferences")
 async def api_update_preferences(req: Request):
     """Update user notification preferences"""
@@ -783,10 +819,11 @@ async def api_update_preferences(req: Request):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     body = await req.json()
+    # INBOX-143: accept the full key set the /alerts UI emits. Unknown
+    # keys are ignored so a stale client can't corrupt the JSONB blob.
     prefs = {
-        "scan_alerts": body.get("scan_alerts", True),
-        "blacklist_alerts": body.get("blacklist_alerts", True),
-        "weekly_digest": body.get("weekly_digest", False),
+        key: bool(body.get(key, default))
+        for key, default in PREFERENCE_DEFAULTS.items()
     }
 
     success = update_user_preferences(user_result["user"]["id"], prefs)

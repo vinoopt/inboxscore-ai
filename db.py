@@ -394,6 +394,27 @@ def update_user_preferences(user_id: str, preferences: dict) -> bool:
         return False
 
 
+# INBOX-143 (v1.16.2): added GET helper so /alerts → Rules + Channels
+# tabs can hydrate their toggles from saved values. Was previously
+# write-only; the old Settings → Notifications panel rendered toggles
+# from defaults only and re-saved everything every time.
+def get_user_preferences(user_id: str) -> dict:
+    """Read the user's stored alert preferences. Returns {} if unset."""
+    sb = get_supabase()
+    if not sb:
+        return {}
+    try:
+        result = sb.table("profiles").select("preferences").eq(
+            "id", user_id
+        ).execute()
+        if result.data and isinstance(result.data[0].get("preferences"), dict):
+            return result.data[0]["preferences"]
+        return {}
+    except Exception as e:
+        print(f"Error reading preferences: {e}")
+        return {}
+
+
 def export_user_data(user_id: str) -> dict:
     """Export all user data for GDPR/data portability"""
     sb = get_supabase()
