@@ -126,6 +126,15 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .check-pass { color: var(--green); }
 .check-fail { color: var(--red); }
 
+/* ===== EMAIL HEALTH: List filter bar (INBOX-138 / DESIGN-SYSTEM §11.8) =====
+   Reused on Blacklist Monitor IPs section + any future list page.
+   Mirrors the CSS shipped on /domains and /sending-ips. */
+.list-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.list-filters .filter-search { flex: 1 1 220px; min-width: 200px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+.list-filters .filter-search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.list-filters .filter-select { padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; cursor: pointer; outline: none; }
+.list-filters .filter-select:hover { border-color: var(--text-muted); }
+
 /* ===== EMAIL HEALTH: Postmaster Metric Widgets (used in Overview + sections) ===== */
 .pm-widget { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 .pm-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
@@ -917,64 +926,79 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 
         </div><!-- /eh-sec-microsoft -->
 
-        <!-- ===== SECTION: BLACKLIST MONITOR ===== -->
+        <!-- ===== SECTION: BLACKLIST MONITOR (INBOX-142 redesign) =====
+             Layout: severity hero → domain row first → IPs section
+             with search/filter/sort. No "what we monitor" section,
+             no "via HetrixTools" copy, no "1000+" claim. -->
         <div class="eh-section" id="eh-sec-blacklist">
-        <div class="pm-widget">
+        <div class="pm-widget" id="bl-widget">
           <div class="pm-header">
             <div class="pm-title">
               <span style="font-size:18px;">🛡️</span>
               Blacklist Monitor
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
-              <span id="bl-checked-at" class="pm-date-range"></span>
-              <button id="bl-check-btn" onclick="runBlacklistCheck()" style="padding:4px 12px;font-size:11px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;">Check Now</button>
+              <span id="bl-last-checked" style="font-size:11px;color:var(--text-muted);"></span>
+              <button id="bl-check-btn" onclick="runBlacklistCheck()" style="padding:4px 12px;font-size:11px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer;font-weight:500;">↻ Check now</button>
             </div>
           </div>
 
           <!-- Loading state -->
           <div id="bl-loading" style="display:none;text-align:center;padding:40px 20px;">
-            <div style="font-size:28px;margin-bottom:10px;animation:pulse 1.5s infinite;">🔍</div>
-            <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Checking 1000+ blacklists...</div>
-            <div style="font-size:12px;color:var(--text-muted);">This may take up to a minute via HetrixTools</div>
+            <div style="font-size:28px;margin-bottom:10px;">🔍</div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Checking blacklists…</div>
+            <div style="font-size:12px;color:var(--text-muted);">Direct DNS queries to 25 lists — usually under a second.</div>
           </div>
 
-          <!-- Results (hidden until data loads) -->
+          <!-- Empty state: no IPs mapped yet -->
+          <div id="bl-no-ips" style="display:none;background:var(--surface-2);border-radius:10px;padding:24px;text-align:center;">
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px;">No sending IPs mapped to this domain</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">We'll only check the domain itself. Add the IPs you send from to monitor them too.</div>
+            <a href="/sending-ips" style="font-size:12px;color:var(--accent);">Map IPs →</a>
+          </div>
+
+          <!-- Results -->
           <div id="bl-results" style="display:none;">
-            <!-- Summary -->
-            <div class="pm-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
-              <div class="pm-metric">
-                <div class="pm-label">Blacklists Checked</div>
-                <div class="pm-value">1000+</div>
-                <div class="pm-sub">via HetrixTools API</div>
+
+            <!-- Severity hero -->
+            <div id="bl-hero" style="border-radius:10px;padding:16px 20px;margin-bottom:18px;display:flex;align-items:center;gap:14px;">
+              <div id="bl-hero-icon" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;font-weight:600;"></div>
+              <div style="flex:1;min-width:0;">
+                <div id="bl-hero-title" style="font-size:15px;font-weight:600;"></div>
+                <div id="bl-hero-sub" style="font-size:12px;margin-top:2px;"></div>
               </div>
-              <div class="pm-metric">
-                <div class="pm-label">Current Listings</div>
-                <div id="bl-listings-count" class="pm-value">—</div>
-                <div id="bl-listings-sub" class="pm-sub"></div>
-              </div>
-              <div class="pm-metric">
-                <div class="pm-label">Status</div>
-                <div id="bl-status-val" class="pm-value" style="font-size:16px;">—</div>
-                <div id="bl-status-sub" class="pm-sub"></div>
-              </div>
+              <span id="bl-hero-meta" title="Direct DNS queries to 25 major DNSBLs and DBLs" style="font-size:11px;color:var(--text-muted);border:1px solid var(--border);border-radius:999px;padding:3px 10px;cursor:help;white-space:nowrap;">checked across 25 lists ⓘ</span>
             </div>
 
-            <!-- IP Checks -->
+            <!-- Sending domain (first — single row, always visible) -->
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;">Sending domain</div>
+            <div id="bl-domain-row" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:18px;"></div>
+
+            <!-- Sending IPs section -->
             <div id="bl-ip-section" style="display:none;">
-              <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Sending IPs</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-size:12px;font-weight:600;color:var(--text-muted);">Sending IPs</span>
+                <span id="bl-ip-summary" style="font-size:11px;color:var(--text-muted);"></span>
+              </div>
+
+              <!-- Filter bar: same INBOX-138 pattern as Domains/IPs pages -->
+              <div class="list-filters" style="margin-bottom:10px;">
+                <input type="text" id="bl-ip-search" class="filter-search"
+                       placeholder="Search IPs…"
+                       oninput="applyBlIpFilters()" autocomplete="off">
+                <select id="bl-ip-status" class="filter-select" onchange="applyBlIpFilters()">
+                  <option value="all">All</option>
+                  <option value="listed">Listed only</option>
+                  <option value="clean">Clean only</option>
+                </select>
+                <select id="bl-ip-sort" class="filter-select" onchange="applyBlIpFilters()">
+                  <option value="severity">Severity ↓</option>
+                  <option value="ipasc">IP ↑</option>
+                  <option value="ipdesc">IP ↓</option>
+                </select>
+              </div>
+
               <div id="bl-ip-list" style="display:flex;flex-direction:column;gap:6px;"></div>
-            </div>
-
-            <!-- Domain Check -->
-            <div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
-              <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Domain</div>
-              <div id="bl-domain-row" class="pm-error-row" style="align-items:center;"></div>
-            </div>
-
-            <!-- Active Listings Detail -->
-            <div id="bl-listings-section" style="display:none;margin-top:20px;padding-top:16px;border-top:1px dashed var(--border);">
-              <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Active Listings</div>
-              <div id="bl-listings-detail" style="display:flex;flex-direction:column;gap:8px;"></div>
             </div>
           </div>
 
@@ -2326,7 +2350,14 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ================================================================
-   BLACKLIST MONITOR — HetrixTools Integration
+   BLACKLIST MONITOR — DIY DNSBL (INBOX-142)
+   ----------------------------------------------------------------
+   Replaces the HetrixTools "1000+ lists" black box with direct DNS
+   queries to a curated 25-list catalog. Layout: severity hero →
+   sending domain (always visible) → sending IPs (search/filter/
+   sort, listed-first by default). IP source is user-mapped IPs
+   only — NOT SPF expansion (which can balloon to 10k+ IPs from
+   shared ESP includes).
    ================================================================ */
 
 function getBlacklistDomain() {
@@ -2368,15 +2399,19 @@ async function refreshBlacklistForDomain(domain) {
     } catch (e) { /* no saved results — fall through */ }
   }
 
-  // 3) No cached or saved results — show clean state with Check Now button
-  const resEl = document.getElementById('bl-results');
-  const loadEl = document.getElementById('bl-loading');
-  const errEl = document.getElementById('bl-error');
-  const btnEl = document.getElementById('bl-check-btn');
-  if (resEl) resEl.style.display = 'none';
-  if (loadEl) loadEl.style.display = 'none';
-  if (errEl) errEl.style.display = 'none';
-  if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Check Now'; }
+  // 3) No cached or saved results — collapse all states; user can hit Check now.
+  const resEl   = document.getElementById('bl-results');
+  const loadEl  = document.getElementById('bl-loading');
+  const errEl   = document.getElementById('bl-error');
+  const noIpsEl = document.getElementById('bl-no-ips');
+  const btnEl   = document.getElementById('bl-check-btn');
+  if (resEl)   resEl.style.display = 'none';
+  if (loadEl)  loadEl.style.display = 'none';
+  if (errEl)   errEl.style.display = 'none';
+  if (noIpsEl) noIpsEl.style.display = 'none';
+  const lc = document.getElementById('bl-last-checked');
+  if (lc) lc.textContent = '';
+  if (btnEl) { btnEl.disabled = false; btnEl.textContent = '↻ Check now'; }
 }
 
 async function runBlacklistCheck(forceRefresh) {
@@ -2394,13 +2429,15 @@ async function runBlacklistCheck(forceRefresh) {
   const loadEl  = document.getElementById('bl-loading');
   const resEl   = document.getElementById('bl-results');
   const errEl   = document.getElementById('bl-error');
+  const noIpsEl = document.getElementById('bl-no-ips');
   const btnEl   = document.getElementById('bl-check-btn');
 
-  // Show loading
-  if (loadEl) loadEl.style.display = 'block';
-  if (resEl)  resEl.style.display = 'none';
-  if (errEl)  errEl.style.display = 'none';
-  if (btnEl)  { btnEl.disabled = true; btnEl.textContent = 'Checking...'; }
+  // Show loading; collapse other states.
+  if (loadEl)  loadEl.style.display = 'block';
+  if (resEl)   resEl.style.display = 'none';
+  if (errEl)   errEl.style.display = 'none';
+  if (noIpsEl) noIpsEl.style.display = 'none';
+  if (btnEl)  { btnEl.disabled = true; btnEl.textContent = 'Checking…'; }
 
   try {
     const res = await fetch(`/api/blacklist/check/${encodeURIComponent(domain)}`, {
@@ -2412,18 +2449,8 @@ async function runBlacklistCheck(forceRefresh) {
     }
     const data = await res.json();
 
-    // Handle in_progress (HetrixTools still scanning)
-    if (data.overall_status === 'in_progress' || data.domain_result?.status === 'in_progress') {
-      if (loadEl) loadEl.style.display = 'none';
-      if (errEl) {
-        errEl.style.display = 'block';
-        document.getElementById('bl-error-msg').textContent =
-          'Blacklist check is still processing. Please try again in 1-2 minutes.';
-      }
-      return;
-    }
-
-    // Cache successful result
+    // DNSBL is synchronous — no in_progress polling needed (unlike HetrixTools).
+    // Cache successful result.
     _blCache[domain] = { data, ts: Date.now() };
     renderBlacklistResults(data);
   } catch (e) {
@@ -2433,159 +2460,311 @@ async function runBlacklistCheck(forceRefresh) {
       document.getElementById('bl-error-msg').textContent = 'Error: ' + e.message;
     }
   } finally {
-    if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Check Now'; }
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '↻ Check now'; }
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────
+   Blacklist render — shape contract (response from /api/blacklist/check):
+     domain               string
+     domain_result        { domain, blacklisted_count, blacklisted_on:[{rbl,name,severity,operator,delist,codes}], checked_count }
+     ip_results           [{ ip, blacklisted_count, blacklisted_on:[…], checked_count }]
+     total_listings       int   — spam listings only (PBL/error excluded by dnsbl.py)
+     high_severity_count  int
+     overall_status       'clean' | 'warning' | 'critical'
+     checked_at           ISO timestamp
+     lists_checked        int   — total catalogue size (currently 25)
+   No credits_left, no in_progress, no report_link. DIY DNSBL = honest output.
+   ──────────────────────────────────────────────────────────────────  */
+
+// Cache full IP list across renders so the filter bar can re-filter
+// without a re-fetch. Key by the rendered domain so domain switches
+// don't show stale IPs.
+let _blAllIps = [];
+let _blAllIpsDomain = '';
+
 function renderBlacklistResults(data) {
-  const loadEl = document.getElementById('bl-loading');
-  const resEl  = document.getElementById('bl-results');
-  if (loadEl) loadEl.style.display = 'none';
-  if (resEl)  resEl.style.display = 'block';
+  const loadEl  = document.getElementById('bl-loading');
+  const resEl   = document.getElementById('bl-results');
+  const errEl   = document.getElementById('bl-error');
+  const noIpsEl = document.getElementById('bl-no-ips');
+  if (loadEl)  loadEl.style.display = 'none';
+  if (errEl)   errEl.style.display = 'none';
+  if (noIpsEl) noIpsEl.style.display = 'none';
+  if (resEl)   resEl.style.display = 'block';
 
-  // --- Checked at timestamp ---
-  const checkedEl = document.getElementById('bl-checked-at');
-  if (checkedEl && data.checked_at) {
-    const d = new Date(data.checked_at);
-    checkedEl.textContent = 'Checked ' + d.toLocaleString('en-US', {
-      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
-    });
+  // --- Real "checked at" timestamp (no hardcoded "just now" — see
+  //     feedback_no_hardcoded_just_now.md) ---
+  const lastCheckedEl = document.getElementById('bl-last-checked');
+  if (lastCheckedEl) {
+    if (data.checked_at) {
+      const d = new Date(data.checked_at);
+      lastCheckedEl.textContent = 'Checked ' + d.toLocaleString('en-US', {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      });
+    } else {
+      lastCheckedEl.textContent = '';
+    }
   }
 
-  // --- Listings count ---
-  const countEl = document.getElementById('bl-listings-count');
-  const countSub = document.getElementById('bl-listings-sub');
-  const total = data.total_listings || 0;
-  if (countEl) {
-    countEl.textContent = total;
-    countEl.style.color = total === 0 ? 'var(--green)' : total >= 3 ? 'var(--red)' : 'var(--yellow)';
+  // --- Severity hero (top-of-section status block) ---
+  // clean   → green muted (success)
+  // warning → amber (low/medium listings only)
+  // critical→ red (any high-severity listing)
+  const heroEl   = document.getElementById('bl-hero');
+  const heroIcon = document.getElementById('bl-hero-icon');
+  const heroT    = document.getElementById('bl-hero-title');
+  const heroSub  = document.getElementById('bl-hero-sub');
+  const total    = data.total_listings || 0;
+  const highCnt  = data.high_severity_count || 0;
+  const status   = data.overall_status || 'clean';
+
+  const heroMap = {
+    clean: {
+      bg: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.25)',
+      iconBg: 'rgba(34, 197, 94, 0.18)', iconColor: 'var(--green)', icon: '✓',
+      titleColor: 'var(--green)', title: 'All clear',
+      sub: 'Not listed on any of the ' + (data.lists_checked || 25) + ' blacklists we check.'
+    },
+    warning: {
+      bg: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)',
+      iconBg: 'rgba(234, 179, 8, 0.18)', iconColor: 'var(--yellow)', icon: '!',
+      titleColor: 'var(--yellow)', title: total + ' minor listing' + (total === 1 ? '' : 's'),
+      sub: 'Low/medium-severity lists only — monitor and delist where possible.'
+    },
+    critical: {
+      bg: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)',
+      iconBg: 'rgba(239, 68, 68, 0.18)', iconColor: 'var(--red)', icon: '✕',
+      titleColor: 'var(--red)',
+      title: total + ' active listing' + (total === 1 ? '' : 's') +
+             (highCnt > 0 ? ' · ' + highCnt + ' high severity' : ''),
+      sub: 'High-severity listings hurt inbox placement. Start delisting now.'
+    }
+  };
+  const hero = heroMap[status] || heroMap.clean;
+  if (heroEl) {
+    heroEl.style.background  = hero.bg;
+    heroEl.style.border      = hero.border;
   }
-  if (countSub) {
-    countSub.textContent = total === 0 ? 'All clear' :
-      `${data.high_severity_count || 0} high severity`;
+  if (heroIcon) {
+    heroIcon.style.background = hero.iconBg;
+    heroIcon.style.color      = hero.iconColor;
+    heroIcon.textContent      = hero.icon;
+  }
+  if (heroT) {
+    heroT.style.color  = hero.titleColor;
+    heroT.textContent  = hero.title;
+  }
+  if (heroSub) {
+    heroSub.style.color = 'var(--text-muted)';
+    heroSub.textContent = hero.sub;
   }
 
-  // --- Overall status ---
-  const statusVal = document.getElementById('bl-status-val');
-  const statusSub = document.getElementById('bl-status-sub');
-  if (statusVal) {
-    const statusMap = {
-      clean:    { label: '✅ Clean',    color: 'var(--green)' },
-      warning:  { label: '⚠️ Warning',  color: 'var(--yellow)' },
-      critical: { label: '🔴 Critical', color: 'var(--red)' }
-    };
-    const s = statusMap[data.overall_status] || statusMap.clean;
-    statusVal.textContent = s.label;
-    statusVal.style.color = s.color;
-  }
-  if (statusSub) {
-    statusSub.textContent = data.overall_status === 'clean'
-      ? 'No action required'
-      : 'Delisting recommended';
-  }
-
-  // --- IP checks ---
-  const ipSection = document.getElementById('bl-ip-section');
-  const ipList = document.getElementById('bl-ip-list');
-  const ipResults = data.ip_results || [];
-  if (ipList) ipList.innerHTML = '';
-
-  if (ipResults.length > 0 && ipSection) {
-    ipSection.style.display = 'block';
-    ipResults.forEach(ip => {
-      const listed = ip.blacklisted_count || 0;
-      const color = listed === 0 ? 'var(--green)' : listed >= 3 ? 'var(--red)' : 'var(--yellow)';
-      const badge = listed === 0
-        ? '<span class="badge badge-green">Clean</span>'
-        : `<span class="badge badge-${listed >= 3 ? 'red' : 'yellow'}">${listed} listed</span>`;
-      const source = ip.source ? `<span style="font-size:10px;color:var(--text-muted);">(${escapeHtml(ip.source)})</span>` : '';
-      const row = document.createElement('div');
-      row.className = 'pm-error-row';
-      row.style.alignItems = 'center';
-      row.innerHTML = `
-        <span style="font-size:13px;font-weight:600;font-family:monospace;">${escapeHtml(ip.ip || '—')}</span>
-        ${source}
-        <span style="margin-left:auto;">${badge}</span>
-      `;
-      ipList.appendChild(row);
-    });
-  } else if (ipSection) {
-    ipSection.style.display = 'none';
-  }
-
-  // --- Domain check ---
+  // --- Sending domain row (always visible — primary monitoring target) ---
   const domRow = document.getElementById('bl-domain-row');
   if (domRow) {
     const dr = data.domain_result || {};
-    const dListed = dr.blacklisted_count || 0;
-    const dBadge = dListed === 0
-      ? '<span class="badge badge-green">Clean</span>'
-      : `<span class="badge badge-${dListed >= 3 ? 'red' : 'yellow'}">${dListed} listed</span>`;
-    const safeReportUrl = sanitizeUrl(dr.report_link);
-    const reportLink = safeReportUrl
-      ? `<a href="${escapeHtml(safeReportUrl)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);text-decoration:none;margin-left:8px;">Full Report ↗</a>`
-      : '';
+    const dListings = dr.blacklisted_on || [];
+    const dCount = dListings.length;
+    const dHighCnt = dListings.filter(l => l.severity === 'high').length;
+
+    let badge, badgeStyle;
+    if (dCount === 0) {
+      badge = 'Clean';
+      badgeStyle = 'background:rgba(34,197,94,0.15);color:var(--green);';
+    } else if (dHighCnt > 0) {
+      badge = dCount + ' listed';
+      badgeStyle = 'background:rgba(239,68,68,0.15);color:var(--red);';
+    } else {
+      badge = dCount + ' listed';
+      badgeStyle = 'background:rgba(234,179,8,0.15);color:var(--yellow);';
+    }
+
+    let detailRows = '';
+    if (dCount > 0) {
+      detailRows = '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;">' +
+        dListings.map(l => _blRenderListingRow(l)).join('') +
+        '</div>';
+    }
+
     domRow.innerHTML = `
-      <span style="font-size:13px;font-weight:600;">${escapeHtml(data.domain || '—')}</span>
-      ${reportLink}
-      <span style="margin-left:auto;">${dBadge}</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:13px;font-weight:600;font-family:'SF Mono', Menlo, monospace;">${escapeHtml(data.domain || '—')}</span>
+        <span style="font-size:10px;color:var(--text-muted);">checked across ${dr.checked_count || 5} domain blacklists</span>
+        <span style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;${badgeStyle}">${escapeHtml(badge)}</span>
+      </div>
+      ${detailRows}
     `;
   }
 
-  // --- Active Listings Detail ---
-  const listSection = document.getElementById('bl-listings-section');
-  const listDetail = document.getElementById('bl-listings-detail');
+  // --- Sending IPs section ---
+  const ipSection = document.getElementById('bl-ip-section');
+  const ipResults = data.ip_results || [];
 
-  // Collect all listings from domain + IPs
-  const allListings = [];
-  if (data.domain_result?.blacklisted_on) {
-    data.domain_result.blacklisted_on.forEach(l => {
-      allListings.push({ ...l, target: data.domain, type: 'domain' });
+  // Cache for filter pipeline.
+  _blAllIps = ipResults;
+  _blAllIpsDomain = data.domain || '';
+
+  if (ipResults.length === 0) {
+    // No mapped IPs for this domain → show empty state and hide the
+    // IPs section entirely (the domain itself was still checked above).
+    if (ipSection) ipSection.style.display = 'none';
+    if (noIpsEl)   noIpsEl.style.display = 'block';
+  } else {
+    if (noIpsEl) noIpsEl.style.display = 'none';
+    if (ipSection) ipSection.style.display = 'block';
+
+    // Restore persisted filter choices if any.
+    try {
+      const savedSort = localStorage.getItem('bl.ip.sort');
+      const savedStatus = localStorage.getItem('bl.ip.status');
+      if (savedSort) {
+        const s = document.getElementById('bl-ip-sort');
+        if (s) s.value = savedSort;
+      }
+      if (savedStatus) {
+        const s = document.getElementById('bl-ip-status');
+        if (s) s.value = savedStatus;
+      }
+    } catch (e) {}
+
+    applyBlIpFilters();
+  }
+}
+
+// Single listing row renderer (used by domain detail + per-IP expansion)
+function _blRenderListingRow(l) {
+  const sevColor = l.severity === 'high'   ? 'var(--red)'    :
+                   l.severity === 'medium' ? 'var(--yellow)' :
+                                             'var(--text-muted)';
+  const sevLabel = (l.severity || 'low').charAt(0).toUpperCase() + (l.severity || 'low').slice(1);
+  const safeDelist = sanitizeUrl(l.delist);
+  const delistBtn = safeDelist
+    ? `<a href="${escapeHtml(safeDelist)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);text-decoration:none;">Delist ↗</a>`
+    : '';
+  const displayName = l.name || l.rbl || '—';
+  return `
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--surface-2);border-radius:6px;font-size:12px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:${sevColor};flex-shrink:0;"></span>
+      <span style="font-weight:600;min-width:160px;">${escapeHtml(displayName)}</span>
+      <span style="color:var(--text-muted);font-family:'SF Mono',Menlo,monospace;font-size:10px;">${escapeHtml(l.rbl || '')}</span>
+      <span style="color:${sevColor};font-size:10px;font-weight:600;margin-left:auto;">${escapeHtml(sevLabel)}</span>
+      ${delistBtn}
+    </div>
+  `;
+}
+
+// INBOX-138 list-filter pipeline (mirrors sending-ips.html / domains.html).
+// Runs entirely client-side over _blAllIps — no re-fetch on filter change.
+function applyBlIpFilters() {
+  const searchEl = document.getElementById('bl-ip-search');
+  const statusEl = document.getElementById('bl-ip-status');
+  const sortEl   = document.getElementById('bl-ip-sort');
+  const listEl   = document.getElementById('bl-ip-list');
+  const summEl   = document.getElementById('bl-ip-summary');
+  if (!listEl) return;
+
+  const q      = (searchEl ? searchEl.value : '').trim().toLowerCase();
+  const status = statusEl ? statusEl.value : 'all';
+  const sort   = sortEl   ? sortEl.value   : 'severity';
+
+  // Persist user's filter choices for next visit.
+  try {
+    localStorage.setItem('bl.ip.sort', sort);
+    localStorage.setItem('bl.ip.status', status);
+  } catch (e) {}
+
+  // Status filter
+  let rows = _blAllIps.slice();
+  if (status === 'listed') {
+    rows = rows.filter(r => (r.blacklisted_count || 0) > 0);
+  } else if (status === 'clean') {
+    rows = rows.filter(r => (r.blacklisted_count || 0) === 0);
+  }
+
+  // Search
+  if (q) rows = rows.filter(r => (r.ip || '').toLowerCase().includes(q));
+
+  // Sort
+  const ipKey = (s) => (s || '').split('.').map(p => p.padStart(3, '0')).join('.');
+  if (sort === 'ipasc') {
+    rows.sort((a, b) => ipKey(a.ip).localeCompare(ipKey(b.ip)));
+  } else if (sort === 'ipdesc') {
+    rows.sort((a, b) => ipKey(b.ip).localeCompare(ipKey(a.ip)));
+  } else {
+    // Default: severity ↓ — listed-with-high first, listed second, clean last;
+    // tiebreak by listing count desc, then IP asc for determinism.
+    rows.sort((a, b) => {
+      const aHigh = (a.blacklisted_on || []).filter(l => l.severity === 'high').length;
+      const bHigh = (b.blacklisted_on || []).filter(l => l.severity === 'high').length;
+      if (aHigh !== bHigh) return bHigh - aHigh;
+      const aCnt = a.blacklisted_count || 0;
+      const bCnt = b.blacklisted_count || 0;
+      if (aCnt !== bCnt) return bCnt - aCnt;
+      return ipKey(a.ip).localeCompare(ipKey(b.ip));
     });
   }
-  (data.ip_results || []).forEach(ip => {
-    (ip.blacklisted_on || []).forEach(l => {
-      allListings.push({ ...l, target: ip.ip, type: 'ip' });
-    });
-  });
 
-  if (allListings.length > 0 && listSection && listDetail) {
-    listSection.style.display = 'block';
-    listDetail.innerHTML = '';
-    // Sort: high first, then medium, then low
-    const sevOrder = { high: 0, medium: 1, low: 2 };
-    allListings.sort((a, b) => (sevOrder[a.severity] || 2) - (sevOrder[b.severity] || 2));
-
-    allListings.forEach(l => {
-      const sevColor = l.severity === 'high' ? 'var(--red)' :
-                       l.severity === 'medium' ? 'var(--yellow)' : 'var(--text-muted)';
-      const sevLabel = l.severity.charAt(0).toUpperCase() + l.severity.slice(1);
-      const safeDelistUrl = sanitizeUrl(l.delist);
-      const delistBtn = safeDelistUrl
-        ? `<a href="${escapeHtml(safeDelistUrl)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent);text-decoration:none;">Delist ↗</a>`
-        : '';
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface-2);border-radius:8px;font-size:12px;';
-      row.innerHTML = `
-        <span style="width:8px;height:8px;border-radius:50%;background:${sevColor};flex-shrink:0;"></span>
-        <span style="font-weight:600;min-width:180px;">${escapeHtml(l.rbl)}</span>
-        <span style="color:var(--text-muted);font-family:monospace;font-size:11px;">${escapeHtml(l.target)}</span>
-        <span style="color:${sevColor};font-size:11px;font-weight:600;margin-left:auto;">${escapeHtml(sevLabel)}</span>
-        ${delistBtn}
-      `;
-      listDetail.appendChild(row);
-    });
-  } else if (listSection) {
-    listSection.style.display = 'none';
+  // Summary line
+  if (summEl) {
+    const totalIps = _blAllIps.length;
+    const listedIps = _blAllIps.filter(r => (r.blacklisted_count || 0) > 0).length;
+    const isFiltering = q || status !== 'all';
+    summEl.textContent = isFiltering
+      ? 'Showing ' + rows.length + ' of ' + totalIps
+      : totalIps + ' IP' + (totalIps === 1 ? '' : 's') +
+        (listedIps > 0 ? ' · ' + listedIps + ' listed' : ' · all clean');
   }
 
-  // --- Credits info ---
-  if (data.credits_left !== undefined) {
-    const credEl = document.getElementById('bl-checked-at');
-    if (credEl && credEl.textContent) {
-      credEl.textContent += ` · ${data.credits_left.toLocaleString()} credits left`;
-    }
+  // Render
+  if (rows.length === 0) {
+    listEl.innerHTML = `
+      <div style="background:var(--surface-2);border-radius:8px;padding:18px;text-align:center;font-size:12px;color:var(--text-muted);">
+        No IPs match the current filter.
+      </div>`;
+    return;
   }
+
+  listEl.innerHTML = rows.map(r => _blRenderIpRow(r)).join('');
+}
+
+function _blRenderIpRow(r) {
+  const ip = r.ip || '—';
+  const listings = r.blacklisted_on || [];
+  const count = r.blacklisted_count || 0;
+  const highCnt = listings.filter(l => l.severity === 'high').length;
+  const checkedCount = r.checked_count || 15;
+
+  let badge, badgeStyle;
+  if (count === 0) {
+    badge = 'Clean';
+    badgeStyle = 'background:rgba(34,197,94,0.15);color:var(--green);';
+  } else if (highCnt > 0) {
+    badge = count + ' listed';
+    badgeStyle = 'background:rgba(239,68,68,0.15);color:var(--red);';
+  } else {
+    badge = count + ' listed';
+    badgeStyle = 'background:rgba(234,179,8,0.15);color:var(--yellow);';
+  }
+
+  // Detail rows shown inline when this IP has listings.
+  let detail = '';
+  if (count > 0) {
+    detail = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;">' +
+      listings.map(l => _blRenderListingRow(l)).join('') +
+      '</div>';
+  }
+
+  return `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:13px;font-weight:600;font-family:'SF Mono', Menlo, monospace;">${escapeHtml(ip)}</span>
+        <span style="font-size:10px;color:var(--text-muted);">${checkedCount} lists</span>
+        <span style="margin-left:auto;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;${badgeStyle}">${escapeHtml(badge)}</span>
+      </div>
+      ${detail}
+    </div>
+  `;
 }
 
 /* === GPM: Connect (OAuth) === */

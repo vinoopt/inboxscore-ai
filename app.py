@@ -70,7 +70,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.15.10")
+    _version = os.environ.get("APP_VERSION", "1.16.0")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -116,7 +116,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.15.10")
+app = FastAPI(title="InboxScore API", version="1.16.0")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -1452,14 +1452,21 @@ async def health_check():
     }
 
 
-# ─── HETRIXTOOLS BLACKLIST CHECK ENDPOINTS ───────────────────────
+# ─── BLACKLIST CHECK ENDPOINTS (INBOX-142: native DNSBL) ─────────
 
 @app.get("/api/blacklist/check/{domain}")
 async def api_blacklist_check(domain: str, req: Request):
     """
-    Run a full blacklist check for a domain via HetrixTools API (1000+ lists).
-    Resolves MX/A record IPs and checks both domain + IPs.
-    Requires authentication. Uses 1 credit per check (cached 30 min by HetrixTools).
+    Run a full blacklist check for a domain across our 25-list catalog.
+
+    INBOX-142: Replaced HetrixTools with direct DNSBL queries via
+    dnsbl.py. Sub-second response, no third-party API, no per-call
+    cost.
+
+    IP source rule: ONLY user-mapped IPs (from /sending-ips Map Domains).
+    NOT SPF expansion (which can balloon to 10k+ IPs from Google/AWS
+    includes that the user can't act on anyway). Empty mapping →
+    domain-only check + empty ip_results.
     """
     auth_header = req.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
@@ -1469,49 +1476,23 @@ async def api_blacklist_check(domain: str, req: Request):
     if not user_result["success"]:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    from hetrix import full_blacklist_check, HETRIX_API_KEY
-    if not HETRIX_API_KEY:
-        raise HTTPException(status_code=503, detail="Blacklist monitoring not configured")
+    from dnsbl import full_blacklist_check
 
     user_id = user_result["user"]["id"]
 
-    # 1) Use centralized user_ips mapped to this domain (if any)
-    ips = set()
-    ip_sources = {}  # ip -> source label
-    user_domain_ips = get_ips_for_domain(user_id, domain)
-    if user_domain_ips:
-        for ip in user_domain_ips:
-            ips.add(ip)
-            ip_sources[ip] = "Sending IPs"
+    # IPs = strictly user-mapped IPs for this domain. No DNS fallback.
+    user_domain_ips = get_ips_for_domain(user_id, domain) or []
+    ips = sorted(set(user_domain_ips))
 
-    # 2) Also resolve from DNS as additional sources
-    mx_records = safe_dns_query(domain, "MX")
-    if mx_records:
-        for mx in mx_records:
-            mx_host = mx.split()[-1].rstrip(".")
-            a_records = safe_dns_query(mx_host, "A")
-            if a_records:
-                for ip in a_records:
-                    ips.add(ip)
-                    if ip not in ip_sources:
-                        ip_sources[ip] = f"MX: {mx_host}"
+    # Run the check (synchronous DNS but fast — sub-second).
+    result = full_blacklist_check(domain, ips)
 
-    a_records = safe_dns_query(domain, "A")
-    if a_records:
-        for ip in a_records:
-            ips.add(ip)
-            if ip not in ip_sources:
-                ip_sources[ip] = "A record"
-
-    # INBOX-26: sorted() so back-to-back scans pick the same 5 IPs.
-    result = await full_blacklist_check(domain, sorted(ips)[:5])
-
-    # Attach IP source labels for display
+    # Attach a "source" tag per IP for UI consistency with the prior
+    # response shape. All entries are user-mapped now.
     for ip_result in result.get("ip_results", []):
-        ip = ip_result.get("ip", "")
-        ip_result["source"] = ip_sources.get(ip, "unknown")
+        ip_result["source"] = "Sending IPs"
 
-    # Persist results so they survive page navigation
+    # Persist so /api/blacklist/results/{domain} can return cached data.
     save_blacklist_results(user_id, domain, result)
 
     return result
