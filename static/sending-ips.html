@@ -133,20 +133,8 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .domain-check-item input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
 .domain-check-empty { text-align: center; padding: 16px; color: var(--text-muted); font-size: 13px; }
 
-/* SNDS Card */
-.snds-section { margin-top: 32px; }
-.snds-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.snds-info { display: flex; align-items: center; gap: 14px; }
-.snds-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-.snds-name { font-size: 14px; font-weight: 600; }
-.snds-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-.snds-status { font-size: 12px; margin-top: 4px; }
-.snds-status.connected { color: var(--green); }
-.snds-status.disconnected { color: var(--text-muted); }
-.snds-actions { display: flex; gap: 8px; }
-
-/* SNDS Progress Steps */
-@keyframes snds-spin { to { transform: rotate(360deg); } }
+/* INBOX-139: SNDS card + modal CSS removed — duplicated in
+   Settings → Connected Services which is the canonical home. */
 
 .sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
 .sidebar-backdrop.show { display: block; }
@@ -232,28 +220,9 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
       <div class="loading"><div class="loading-spinner"></div>Loading your IPs...</div>
     </div>
 
-    <!-- SNDS Connection Section -->
-    <div class="snds-section">
-      <div class="card snds-card" id="snds-card">
-        <div class="snds-info">
-          <div class="snds-icon">📧</div>
-          <div>
-            <div class="snds-name">Microsoft SNDS</div>
-            <div class="snds-desc">Connect to get Outlook/Hotmail deliverability data for your sending IPs.</div>
-            <div class="snds-status disconnected" id="snds-status-text">Checking...</div>
-          </div>
-        </div>
-        <div class="snds-actions" id="snds-actions">
-          <div id="snds-btn-disconnected" style="display:none;">
-            <button class="btn btn-primary btn-sm" onclick="openSndsModal()">Connect SNDS</button>
-          </div>
-          <div id="snds-btn-connected" style="display:none;gap:8px;display:none;">
-            <button class="btn btn-sm" onclick="sndsSyncNow()">Sync Now</button>
-            <button class="btn btn-sm" style="color:var(--red);border-color:rgba(239,68,68,0.3);" onclick="sndsDisconnect()">Disconnect</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- INBOX-139: SNDS connection card removed — was a duplicate of
+         Settings → Connected Services. Manage Microsoft SNDS from
+         /settings (Connected Services tab). -->
   </main>
 </div>
 
@@ -288,58 +257,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
   </div>
 </div>
 
-<!-- SNDS Connect Modal -->
-<div class="modal-overlay" id="snds-modal" onclick="if(event.target===this) closeSndsModal()">
-  <div class="modal" style="width:440px;">
-    <!-- Step 1: Input -->
-    <div id="snds-step-input">
-      <h3>Connect Microsoft SNDS</h3>
-      <p class="modal-desc">
-        <strong>How to get your SNDS key:</strong><br>
-        1. Go to <a href="https://postmaster.live.com/snds" target="_blank" style="color:var(--accent);">postmaster.live.com/snds</a><br>
-        2. Sign in with your Microsoft account<br>
-        3. Enable "Automated Data Access"<br>
-        4. Copy the generated key and paste it below
-      </p>
-      <div class="form-group">
-        <label>SNDS Automated Access Key</label>
-        <input type="text" id="snds-key-input" placeholder="Paste your SNDS automated access key here...">
-      </div>
-      <div id="snds-modal-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px;"></div>
-      <div class="modal-actions">
-        <button class="btn" onclick="closeSndsModal()">Cancel</button>
-        <button class="btn btn-primary" id="snds-connect-btn" onclick="sndsConnect()">Connect & Validate</button>
-      </div>
-    </div>
+<!-- INBOX-139: SNDS Connect Modal removed — duplicated in Settings →
+     Connected Services which is the canonical place to manage the
+     SNDS connection. -->
 
-    <!-- Step 2: Progress -->
-    <div id="snds-step-progress" style="display:none;">
-      <h3 style="margin-bottom:20px;">Connecting...</h3>
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div class="snds-prog-step" id="snds-prog-1" style="display:flex;align-items:center;gap:10px;font-size:13px;">
-          <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
-          <span>Connecting to Microsoft SNDS...</span>
-        </div>
-        <div class="snds-prog-step" id="snds-prog-2" style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted);">
-          <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
-          <span>Validating access key...</span>
-        </div>
-        <div class="snds-prog-step" id="snds-prog-3" style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted);">
-          <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
-          <span>Fetching IP data...</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Step 3: Success -->
-    <div id="snds-step-success" style="display:none;text-align:center;">
-      <div style="font-size:40px;margin-bottom:12px;">✅</div>
-      <h3 style="margin-bottom:4px;">SNDS Connected!</h3>
-      <p id="snds-success-detail" style="font-size:13px;color:var(--text-muted);margin-bottom:16px;"></p>
-      <button class="btn btn-primary" onclick="closeSndsModal(); loadSndsStatus();">Done</button>
-    </div>
-  </div>
-</div>
 
 <script>
 
@@ -673,165 +594,10 @@ async function removeIp(ip) {
   }
 }
 
-// ─── SNDS CONNECTION ─────────────────────────────────────
-
-function openSndsModal() {
-  document.getElementById('snds-key-input').value = '';
-  document.getElementById('snds-modal-error').style.display = 'none';
-  document.getElementById('snds-step-input').style.display = 'block';
-  document.getElementById('snds-step-progress').style.display = 'none';
-  document.getElementById('snds-step-success').style.display = 'none';
-  document.getElementById('snds-modal').classList.add('show');
-  setTimeout(() => document.getElementById('snds-key-input').focus(), 100);
-}
-
-function closeSndsModal() {
-  document.getElementById('snds-modal').classList.remove('show');
-}
-
-function setSndsProgress(step, status) {
-  const el = document.getElementById('snds-prog-' + step);
-  const icon = el.querySelector('.snds-prog-icon');
-  if (status === 'active') {
-    el.style.color = 'var(--text)';
-    icon.style.borderColor = 'var(--accent)';
-    icon.style.borderTopColor = 'transparent';
-    icon.style.animation = 'snds-spin 0.8s linear infinite';
-    icon.innerHTML = '';
-  } else if (status === 'done') {
-    el.style.color = 'var(--green)';
-    icon.style.borderColor = 'var(--green)';
-    icon.style.background = 'rgba(34,197,94,0.15)';
-    icon.style.animation = 'none';
-    icon.innerHTML = '✓';
-  } else if (status === 'error') {
-    el.style.color = 'var(--red)';
-    icon.style.borderColor = 'var(--red)';
-    icon.style.animation = 'none';
-    icon.innerHTML = '✗';
-  }
-}
-
-async function sndsConnect() {
-  const key = document.getElementById('snds-key-input').value.trim();
-  if (!key) {
-    document.getElementById('snds-modal-error').textContent = 'Please enter your SNDS key.';
-    document.getElementById('snds-modal-error').style.display = 'block';
-    return;
-  }
-
-  // Switch to progress
-  document.getElementById('snds-step-input').style.display = 'none';
-  document.getElementById('snds-step-progress').style.display = 'block';
-
-  // Reset progress steps
-  for (let i = 1; i <= 3; i++) {
-    const el = document.getElementById('snds-prog-' + i);
-    el.style.color = i === 1 ? 'var(--text)' : 'var(--text-muted)';
-    const icon = el.querySelector('.snds-prog-icon');
-    icon.style.borderColor = 'var(--border)';
-    icon.style.background = 'none';
-    icon.style.animation = 'none';
-    icon.innerHTML = '';
-  }
-
-  setSndsProgress(1, 'active');
-  await new Promise(r => setTimeout(r, 600));
-  setSndsProgress(1, 'done');
-
-  setSndsProgress(2, 'active');
-
-  try {
-    const res = await fetch('/api/snds/connect', {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key })
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      setSndsProgress(2, 'error');
-      await new Promise(r => setTimeout(r, 500));
-      // Go back to input with error
-      document.getElementById('snds-step-progress').style.display = 'none';
-      document.getElementById('snds-step-input').style.display = 'block';
-      document.getElementById('snds-modal-error').textContent = data.detail || 'Connection failed. Please check your key.';
-      document.getElementById('snds-modal-error').style.display = 'block';
-      return;
-    }
-
-    setSndsProgress(2, 'done');
-    setSndsProgress(3, 'active');
-    await new Promise(r => setTimeout(r, 800));
-    setSndsProgress(3, 'done');
-
-    await new Promise(r => setTimeout(r, 400));
-
-    // Show success
-    document.getElementById('snds-step-progress').style.display = 'none';
-    document.getElementById('snds-step-success').style.display = 'block';
-    const ipCount = data.ip_count || 0;
-    document.getElementById('snds-success-detail').textContent = 'Found data for ' + ipCount + ' IP' + (ipCount !== 1 ? 's' : '') + '. Data will sync daily.';
-
-  } catch (e) {
-    setSndsProgress(2, 'error');
-    await new Promise(r => setTimeout(r, 500));
-    document.getElementById('snds-step-progress').style.display = 'none';
-    document.getElementById('snds-step-input').style.display = 'block';
-    document.getElementById('snds-modal-error').textContent = 'Network error. Please try again.';
-    document.getElementById('snds-modal-error').style.display = 'block';
-  }
-}
-
-async function loadSndsStatus() {
-  try {
-    const res = await fetch('/api/snds/status', { headers });
-    if (!res.ok) throw new Error();
-    const data = await res.json();
-
-    const statusEl = document.getElementById('snds-status-text');
-    const btnDisconnected = document.getElementById('snds-btn-disconnected');
-    const btnConnected = document.getElementById('snds-btn-connected');
-
-    if (data.connected) {
-      statusEl.className = 'snds-status connected';
-      statusEl.textContent = '✓ Connected — ' + (data.ip_count || 0) + ' IPs tracked';
-      btnDisconnected.style.display = 'none';
-      btnConnected.style.display = 'flex';
-    } else {
-      statusEl.className = 'snds-status disconnected';
-      statusEl.textContent = 'Not connected';
-      btnDisconnected.style.display = 'block';
-      btnConnected.style.display = 'none';
-    }
-  } catch (e) {
-    document.getElementById('snds-status-text').textContent = 'Could not check status';
-  }
-}
-
-async function sndsSyncNow() {
-  try {
-    showToast('Syncing SNDS data...');
-    const res = await fetch('/api/snds/sync', { method: 'POST', headers });
-    if (!res.ok) throw new Error();
-    showToast('SNDS data synced!');
-    loadSndsStatus();
-  } catch (e) {
-    showToast('Sync failed', 'error');
-  }
-}
-
-async function sndsDisconnect() {
-  if (!confirm('Disconnect Microsoft SNDS? This will remove all SNDS data.')) return;
-  try {
-    const res = await fetch('/api/snds/disconnect', { method: 'POST', headers });
-    if (!res.ok) throw new Error();
-    showToast('SNDS disconnected');
-    loadSndsStatus();
-  } catch (e) {
-    showToast('Failed to disconnect', 'error');
-  }
-}
+// INBOX-139: SNDS connection JS removed (openSndsModal, closeSndsModal,
+// setSndsProgress, sndsConnect, loadSndsStatus, sndsSyncNow,
+// sndsDisconnect). All duplicated in settings.html → Connected
+// Services. Manage Microsoft SNDS from /settings.
 
 // ─── INIT ────────────────────────────────────────────────
 
@@ -868,7 +634,8 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   loadIps();
-  loadSndsStatus();
+  // INBOX-139: loadSndsStatus() removed — Settings → Connected
+  // Services owns SNDS status display.
 
   // Load alert badge count
   fetch('/api/user/alerts/count', { headers })
