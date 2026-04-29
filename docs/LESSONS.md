@@ -83,6 +83,18 @@ Wisdom that applies to InboxScore and other email-deliverability products. For p
 
 ---
 
+### P2.1. SNDS returns multiple rows per IP per day when activity spans day boundaries
+
+**The trap:** 2026-04-28. While running the 30-day backfill, the Postgres upsert failed with `ON CONFLICT DO UPDATE command cannot affect row a second time`. Cause: the `&date=MMDDYY` parameter on the SNDS API doesn't return *exactly one row per IP*. If sending activity straddled midnight (e.g., active period 2026-04-26 5:30 AM → 2026-04-27 4:30 AM), an IP gets one row with activity_start=4/26 AND another with activity_start=4/27 in the same daily fetch. After parsing both, you get two rows with the same `(ip, metric_date)` — Postgres rejects the batch upsert.
+
+**The lesson:** When backfilling time-windowed data from external APIs, dedup *before* the database hit. Use `(ip, date)` as the dedup key, prefer the row with the higher message_count (the longer activity window).
+
+**How to apply:** Backfill paths must include a `dedup_by_key()` step. Pattern: `by_key = {}; for r in rows: k = (r["ip"], r["date"]); if k not in by_key or r["count"] > by_key[k]["count"]: by_key[k] = r;`
+
+**See:** INBOX-127 backfill code (snds.py + the upsert script).
+
+---
+
 ### P3. ESP envelope-from rewriting breaks attribution by MAIL FROM
 
 **The trap:** ESPs use VERP (Variable Envelope Return Path). When Red Bus sends through Mailercloud, the SMTP envelope `MAIL FROM` becomes something like `bounce-12345@bounces.mailercloud.com`, NOT `noreply@redbus.com`. SNDS sample MAIL FROM data tells us nothing about the actual sender.

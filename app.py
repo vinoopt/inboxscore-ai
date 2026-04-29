@@ -70,7 +70,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.15.1")
+    _version = os.environ.get("APP_VERSION", "1.15.2")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -116,7 +116,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.15.1")
+app = FastAPI(title="InboxScore API", version="1.15.2")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -148,11 +148,23 @@ scheduler = BackgroundScheduler()
 # Run monitoring check every 15 minutes to find domains due for their scan
 scheduler.add_job(run_monitoring_cycle, 'interval', minutes=15, id='monitoring_cycle',
                   max_instances=1, replace_existing=True)
-# Sync Google Postmaster data daily at 6 AM UTC
-scheduler.add_job(sync_all_postmaster_users, 'cron', hour=6, minute=0,
+# Sync Google Postmaster data daily at 15:00 UTC.
+# INBOX-133: Google Postmaster reports per UTC day, but the day's data is
+# only fully published several hours after midnight UTC. Running at 06:00
+# UTC was too early — the most recent day was almost always missing,
+# making our "Latest" view show data ~2 days behind Google's UI. 15:00
+# UTC gives Google a full half-day to finalise the previous UTC day's
+# aggregates (14h after midnight UTC), and is also after their typical
+# reprocessing window. Tier-3 evidence: latest day appears in our UI
+# within 2 hours of the cron run.
+scheduler.add_job(sync_all_postmaster_users, 'cron', hour=15, minute=0,
                   id='postmaster_sync', max_instances=1, replace_existing=True)
-# Sync Microsoft SNDS data daily at 7 AM UTC
-scheduler.add_job(sync_all_snds_users, 'cron', hour=7, minute=0,
+# Sync Microsoft SNDS data daily at 11:00 UTC.
+# INBOX-133: Microsoft SNDS publishes the previous UTC day's CSV between
+# ~03:00–10:00 UTC. 11:00 UTC is conservative enough that the latest day
+# is reliably present without being so late that overnight clients miss
+# the data on European business hours.
+scheduler.add_job(sync_all_snds_users, 'cron', hour=11, minute=0,
                   id='snds_sync', max_instances=1, replace_existing=True)
 # INBOX-16: Watchdog checks scheduler heartbeats every 5 min; fires Sentry on stale cycles.
 scheduler.add_job(watchdog_tick, 'interval', minutes=5, id='watchdog',
@@ -184,7 +196,7 @@ async def shutdown_event():
 @app.get("/health")
 async def health_check():
     """Health check for Render / load balancers / monitoring"""
-    checks = {"status": "ok", "version": "1.15.1", "db": False, "auth": False}
+    checks = {"status": "ok", "version": "1.15.2", "db": False, "auth": False}
 
     if is_db_available():
         checks["db"] = True

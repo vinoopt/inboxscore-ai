@@ -436,7 +436,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
             <div style="margin-top:20px;">
               <table style="width:100%;border-collapse:collapse;font-size:13px;">
                 <thead><tr style="border-bottom:1px solid var(--border);">
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                  <th onclick="ehToggleSort('gpm-spam', animateGpmSpam)" title="Click to toggle sort" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;cursor:pointer;user-select:none;">Date <span id="gpm-spam-sort-icon">▼</span></th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Spam Rate</th>
                   <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Under 0.3%</th>
                 </tr></thead>
@@ -465,12 +465,28 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           <div class="gpm-panel" id="gpm-auth">
             <div style="margin-top:16px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div class="pm-trend-title" style="margin:0;">Authentication Rates (SPF Alignment, DKIM, DMARC)</div>
+                <div class="pm-trend-title" style="margin:0;">Authentication Rates (SPF, DKIM, DMARC)</div>
                 <select class="eh-period-select" data-period-target="auth" onchange="ehChangePeriod(this)" style="padding:4px 8px;font-size:11px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-muted);">
                   <option value="7">Last 7 days</option>
                   <option value="14">Last 14 days</option>
                   <option value="30" selected>Last 30 days</option>
                 </select>
+              </div>
+              <!-- INBOX-133: honest labelling. Google's web UI shows
+                   alignment-aware rates (Return-Path ↔ From: match for SPF,
+                   d= ↔ From: match for DKIM) — but the v2 API only exposes
+                   basic pass rates. We display what the API actually
+                   returns; expect lower numbers in Google's UI. DMARC is
+                   identical between API and UI because alignment is built
+                   into DMARC by definition. True alignment % is on our
+                   roadmap via DMARC RUA ingestion (INBOX-134). -->
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;line-height:1.5;">
+                Basic SPF and DKIM pass rates from Google's API. Google's web UI shows alignment-aware rates (a stricter measure) — those aren't exposed via API.
+                <a href="#" onclick="event.preventDefault();document.getElementById('eh-auth-explainer').style.display='block';" style="color:var(--accent);text-decoration:none;">Learn more</a>
+                <div id="eh-auth-explainer" style="display:none;margin-top:8px;padding:10px 12px;background:var(--surface-2);border-radius:6px;border-left:3px solid var(--accent);">
+                  <strong style="color:var(--text);">SPF / DKIM pass vs alignment</strong><br>
+                  <span style="color:var(--text-muted);">Basic SPF pass = sending IP authorised by the Return-Path domain. SPF alignment (what Google's UI shows) = pass <em>and</em> Return-Path matches the visible From: domain. Mail relayed through ESPs often passes basic SPF but fails alignment. DMARC inherently requires alignment, so its API value matches the UI.</span>
+                </div>
               </div>
               <!-- INBOX-112: replaced grouped-bar chart with multi-line SVG.
                    Bar chart at 30 days × 3 series = 90 bars was visually
@@ -485,9 +501,9 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:16px;">
                 <thead><tr style="border-bottom:1px solid var(--border);">
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                  <th onclick="ehToggleSort('gpm-auth', animateGpmAuth)" title="Click to toggle sort" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;cursor:pointer;user-select:none;">Date <span id="gpm-auth-sort-icon">▼</span></th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DKIM Rate</th>
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">SPF Alignment</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">SPF Rate</th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DMARC Rate</th>
                 </tr></thead>
                 <tbody id="gpm-auth-table-body">
@@ -515,7 +531,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
               </div>
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
                 <thead><tr style="border-bottom:1px solid var(--border);">
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                  <th onclick="ehToggleSort('gpm-tls', populateGpmEncryption)" title="Click to toggle sort" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;cursor:pointer;user-select:none;">Date <span id="gpm-tls-sort-icon">▼</span></th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Inbound TLS</th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Outbound TLS</th>
                 </tr></thead>
@@ -539,7 +555,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
               </div>
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
                 <thead><tr style="border-bottom:1px solid var(--border);">
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                  <th onclick="ehToggleSort('gpm-err', populateGpmEncryption)" title="Click to toggle sort" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;cursor:pointer;user-select:none;">Date <span id="gpm-err-sort-icon">▼</span></th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Error Type</th>
                   <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Reason</th>
                   <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Percentage</th>
@@ -618,7 +634,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                 <div class="pm-metric"><div class="pm-label">Delivery Errors</div><div class="pm-value" style="color:var(--green);">0%</div></div>
               </div>
               <div class="pm-auth-bars" style="margin-top:16px;">
-                <div class="pm-auth-row"><span class="pm-auth-label">SPF Alignment</span><div class="pm-bar"><div class="pm-bar-fill" style="width:85%;background:var(--green);"></div></div><span class="pm-pct">98.5%</span></div>
+                <div class="pm-auth-row"><span class="pm-auth-label">SPF Rate</span><div class="pm-bar"><div class="pm-bar-fill" style="width:85%;background:var(--green);"></div></div><span class="pm-pct">98.5%</span></div>
                 <div class="pm-auth-row"><span class="pm-auth-label">DKIM</span><div class="pm-bar"><div class="pm-bar-fill" style="width:90%;background:var(--green);"></div></div><span class="pm-pct">99.8%</span></div>
                 <div class="pm-auth-row"><span class="pm-auth-label">DMARC</span><div class="pm-bar"><div class="pm-bar-fill" style="width:95%;background:var(--green);"></div></div><span class="pm-pct">100%</span></div>
               </div>
@@ -733,7 +749,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                 </div>
                 <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:16px;">
                   <thead><tr style="border-bottom:1px solid var(--border);">
-                    <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                    <th onclick="ehToggleSort('ms-complaints', msApplyView)" title="Click to toggle sort" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;cursor:pointer;user-select:none;">Date <span id="ms-complaints-sort-icon">▼</span></th>
                     <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">IPs Reporting</th>
                     <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Avg Complaint Rate</th>
                     <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Worst IP</th>
@@ -756,7 +772,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                      only when there ARE incidents to enumerate. -->
                 <table id="ms-traps-table" style="width:100%;border-collapse:collapse;font-size:13px;display:none;">
                   <thead><tr style="border-bottom:1px solid var(--border);">
-                    <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Date</th>
+                    <th onclick="ehToggleSort('ms-traps', msApplyView)" title="Click to toggle sort" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;cursor:pointer;user-select:none;">Date <span id="ms-traps-sort-icon">▼</span></th>
                     <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">IP</th>
                     <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Trap Hits</th>
                     <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Volume That Day</th>
@@ -1158,6 +1174,54 @@ function ehChangePeriod(selectEl) {
   }
 }
 
+/* === Time-series table sort (INBOX-133) ===================================
+   Per DESIGN-SYSTEM convention, all date-indexed tables render newest-first
+   by default. Users can click the Date column header to flip to oldest-first.
+   Direction persists for the session in localStorage so a user who prefers
+   oldest-first doesn't have to re-toggle on every visit.
+
+   Usage:
+     // In the table HTML:
+     <th onclick="ehToggleSort('gpm-auth', animateGpmAuth)" ...>
+       Date <span id="gpm-auth-sort-icon">▼</span>
+     </th>
+
+     // In the render function:
+     const rows = ehSortByDate(metrics, 'date', 'gpm-auth');
+*/
+const _EH_SORT_LS_KEY = 'eh.tableSort';
+function _ehLoadSortDirs() {
+  try {
+    const raw = localStorage.getItem(_EH_SORT_LS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+function _ehSaveSortDirs(dirs) {
+  try { localStorage.setItem(_EH_SORT_LS_KEY, JSON.stringify(dirs)); } catch (e) {}
+}
+function ehGetSortDir(tableKey) {
+  const dirs = _ehLoadSortDirs();
+  return dirs[tableKey] || 'desc';   // newest-first default
+}
+function ehSortByDate(rows, dateField, tableKey) {
+  const dir = ehGetSortDir(tableKey);
+  const sorted = (rows || []).slice().sort((a, b) => {
+    const aD = a[dateField] || '';
+    const bD = b[dateField] || '';
+    return dir === 'desc' ? bD.localeCompare(aD) : aD.localeCompare(bD);
+  });
+  // Refresh the sort icon for this table (best-effort)
+  const icon = document.getElementById(tableKey + '-sort-icon');
+  if (icon) icon.textContent = dir === 'desc' ? '▼' : '▲';
+  return sorted;
+}
+function ehToggleSort(tableKey, renderFn) {
+  const dirs = _ehLoadSortDirs();
+  dirs[tableKey] = ehGetSortDir(tableKey) === 'desc' ? 'asc' : 'desc';
+  _ehSaveSortDirs(dirs);
+  if (typeof renderFn === 'function') renderFn();
+}
+
 /* Slice the full 30-day cache to the active period and re-render
    all chart-bearing tabs. No network. */
 function applyGpmPeriod() {
@@ -1331,12 +1395,16 @@ function animateGpmSpam() {
   _gpmSpamChart = new Chart(canvas, config);
 
   // --- Spam Rate Table ---
+  // INBOX-133: time-series tables render newest-first per DESIGN-SYSTEM
+  // (the latest date is the most relevant — users shouldn't have to scroll
+  // 30 rows to find today's value).
   const tbody = document.getElementById('gpm-spam-table-body');
   tbody.innerHTML = '';
-  metrics.forEach((m, i) => {
+  const spamRows = ehSortByDate(metrics, 'date', 'gpm-spam');
+  spamRows.forEach((m, i) => {
     const rate = m.spam_rate != null ? m.spam_rate * 100 : null;
     const tr = document.createElement('tr');
-    if (i < metrics.length - 1) tr.style.borderBottom = '1px solid var(--border)';
+    if (i < spamRows.length - 1) tr.style.borderBottom = '1px solid var(--border)';
     const rateColor = rate == null ? 'var(--text-muted)' : rate < 0.1 ? 'var(--green)' : rate < 0.3 ? 'var(--orange)' : 'var(--red)';
     const under = rate != null ? (rate < 0.3 ? 'Yes' : 'No') : '—';
     const underColor = rate != null ? (rate < 0.3 ? 'var(--green)' : 'var(--red)') : 'var(--text-muted)';
@@ -1391,7 +1459,7 @@ function animateGpmAuth() {
         { label: 'DKIM', data: seriesValues('auth_success_dkim'),
           borderColor: '#EA4335', backgroundColor: 'rgba(234,67,53,0.04)',
           borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
-        { label: 'SPF Alignment', data: seriesValues('auth_success_spf'),
+        { label: 'SPF', data: seriesValues('auth_success_spf'),
           borderColor: '#FBBC05', backgroundColor: 'rgba(251,188,5,0.04)',
           borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
       ]
@@ -1409,18 +1477,20 @@ function animateGpmAuth() {
   _gpmAuthChart = new Chart(canvas, config);
 
   // --- Auth table ---
+  // INBOX-133: newest-first per DESIGN-SYSTEM convention.
   const tbody = document.getElementById('gpm-auth-table-body');
   tbody.innerHTML = '';
   function authColor(pct) {
     if (pct == null) return 'var(--text-muted)';
     return pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)';
   }
-  metrics.forEach((m, i) => {
+  const authRows = ehSortByDate(metrics, 'date', 'gpm-auth');
+  authRows.forEach((m, i) => {
     const dkim  = m.auth_success_dkim  != null ? (m.auth_success_dkim  * 100) : null;
     const spf   = m.auth_success_spf   != null ? (m.auth_success_spf   * 100) : null;
     const dmarc = m.auth_success_dmarc != null ? (m.auth_success_dmarc * 100) : null;
     const tr = document.createElement('tr');
-    if (i < metrics.length - 1) tr.style.borderBottom = '1px solid var(--border)';
+    if (i < authRows.length - 1) tr.style.borderBottom = '1px solid var(--border)';
     tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(m.date || '—') + '</td>'
       + '<td style="padding:8px 12px;color:' + authColor(dkim) + ';">' + (dkim != null ? dkim.toFixed(2) + '%' : 'N/A') + '</td>'
       + '<td style="padding:8px 12px;color:' + authColor(spf) + ';">' + (spf != null ? spf.toFixed(2) + '%' : 'N/A') + '</td>'
@@ -1488,9 +1558,11 @@ function populateGpmEncryption() {
   }
 
   // --- TLS table (with outbound column populated) ---
+  // INBOX-133: newest-first per DESIGN-SYSTEM convention.
   const tlsBody = document.getElementById('gpm-enc-tls-table-body');
   tlsBody.innerHTML = '';
-  metrics.forEach((m, i) => {
+  const tlsRows = ehSortByDate(metrics, 'date', 'gpm-tls');
+  tlsRows.forEach((m, i) => {
     const pct = m.encrypted_traffic_tls != null ? (m.encrypted_traffic_tls * 100) : null;
     const color = pct != null ? (pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-muted)';
     const outVal = getOutbound(m);
@@ -1510,7 +1582,7 @@ function populateGpmEncryption() {
       outText = outPct.toFixed(2) + '%';
     }
     const tr = document.createElement('tr');
-    if (i < metrics.length - 1) tr.style.borderBottom = '1px solid var(--border)';
+    if (i < tlsRows.length - 1) tr.style.borderBottom = '1px solid var(--border)';
     tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(m.date || '—') + '</td>'
       + '<td style="padding:8px 12px;color:' + color + ';">' + (pct != null ? pct.toFixed(2) + '%' : 'N/A') + '</td>'
       + '<td style="padding:8px 12px;color:' + outColor + ';">' + outText + '</td>';
@@ -1542,14 +1614,16 @@ function populateGpmEncryption() {
   }
 
   // --- Delivery Errors table ---
+  // INBOX-133: newest-first per DESIGN-SYSTEM convention.
   const errBody = document.getElementById('gpm-enc-err-table-body');
   errBody.innerHTML = '';
   if (allErrors.length === 0) {
     errBody.innerHTML = '<tr><td colspan="4" style="padding:20px 12px;text-align:center;color:var(--text-muted);">No delivery errors in this period ✓</td></tr>';
   } else {
-    allErrors.forEach((e, i) => {
+    const errRows = ehSortByDate(allErrors, 'date', 'gpm-err');
+    errRows.forEach((e, i) => {
       const tr = document.createElement('tr');
-      if (i < allErrors.length - 1) tr.style.borderBottom = '1px solid var(--border)';
+      if (i < errRows.length - 1) tr.style.borderBottom = '1px solid var(--border)';
       const color = e.pct > 5 ? 'var(--red)' : e.pct > 1 ? 'var(--yellow)' : 'var(--text-muted)';
       tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(e.date || '—') + '</td>'
         + '<td style="padding:8px 12px;">' + escapeHtml(e.type) + '</td>'
@@ -1698,7 +1772,7 @@ function _renderGpmComplianceTable(metrics, apiCompliance) {
   // ── Build all 8 compliance checks matching Google Postmaster UI ──
   const checks = [
     resolve('SPF_AND_DKIM', (spf != null && dkim != null) ? (spf >= 95 && dkim >= 95) : null,
-      'SPF Alignment: ' + (spf != null ? spf.toFixed(1) + '%' : 'N/A') + ', DKIM: ' + (dkim != null ? dkim.toFixed(1) + '%' : 'N/A') + '. Note: SPF Alignment measures Return-Path \u2194 From domain match, not basic SPF pass.'),
+      'SPF Rate: ' + (spf != null ? spf.toFixed(1) + '%' : 'N/A') + ', DKIM Rate: ' + (dkim != null ? dkim.toFixed(1) + '%' : 'N/A') + '. Note: these are basic pass rates from Google\u2019s API. The web UI shows alignment-aware rates which aren\u2019t exposed via API.'),
     // INBOX-100 (G5): DMARC_ALIGNMENT + DMARC_POLICY computed-fallback was
     // using the auth pass *rate* — but a domain with `p=none` can pass
     // DMARC at 100% rate while still being NON-COMPLIANT under Gmail's 2024
@@ -2941,14 +3015,18 @@ function msRenderComplaints(metrics) {
     _msComplaintsChart = new Chart(canvas, config);
   }
 
-  // Table
+  // Table — INBOX-133: respect sort toggle (default newest-first).
   const tbody = document.getElementById('ms-complaints-table-body');
-  tbody.innerHTML = dates.slice().reverse().map((d, i) => {
+  const dir = ehGetSortDir('ms-complaints');
+  const sortedDates = dates.slice().sort((a, b) => dir === 'desc' ? b.localeCompare(a) : a.localeCompare(b));
+  const sortIcon = document.getElementById('ms-complaints-sort-icon');
+  if (sortIcon) sortIcon.textContent = dir === 'desc' ? '▼' : '▲';
+  tbody.innerHTML = sortedDates.map((d, i) => {
     const b = byDate[d];
     const avg = b.rates.length ? (b.rates.reduce((a, x) => a + x, 0) / b.rates.length) * 100 : null;
     const c = avg == null || avg === 0 ? 'var(--text-muted)' : avg < 0.1 ? 'var(--green)' : avg < 0.5 ? 'var(--yellow)' : 'var(--red)';
     const worstPct = b.worstRate >= 0 ? (b.worstRate * 100).toFixed(3) + '%' : '—';
-    return `<tr${i < dates.length - 1 ? ' style="border-bottom:1px solid var(--border);"' : ''}>
+    return `<tr${i < sortedDates.length - 1 ? ' style="border-bottom:1px solid var(--border);"' : ''}>
       <td style="padding:8px 12px;">${escapeHtml(d)}</td>
       <td style="padding:8px 12px;">${b.rates.length}</td>
       <td style="padding:8px 12px;text-align:right;color:${c};">${avg == null ? '—' : avg.toFixed(3) + '%'}</td>
@@ -2961,8 +3039,9 @@ function msRenderComplaints(metrics) {
 
 /* ─── Tab 3: Trap Hits ──────────────────────────────────── */
 function msRenderTraps(metrics) {
-  const trapRows = metrics.filter(m => (m.trap_hits || 0) > 0)
-    .sort((a, b) => b.metric_date.localeCompare(a.metric_date));
+  // INBOX-133: respect sort toggle (default newest-first).
+  const filteredTraps = metrics.filter(m => (m.trap_hits || 0) > 0);
+  const trapRows = ehSortByDate(filteredTraps, 'metric_date', 'ms-traps');
   const summaryEl = document.getElementById('ms-traps-summary');
   const total = trapRows.reduce((a, b) => a + (b.trap_hits || 0), 0);
 
