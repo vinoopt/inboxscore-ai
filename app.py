@@ -196,8 +196,15 @@ async def shutdown_event():
 
 @app.get("/health")
 async def health_check():
-    """Health check for Render / load balancers / monitoring"""
-    checks = {"status": "ok", "version": "1.15.10", "db": False, "auth": False}
+    """Health check for Render / load balancers / monitoring.
+
+    INBOX-149 (v1.16.3): version was hard-coded as a string literal,
+    so /health kept reporting an old version even after a successful
+    deploy. Reading from app.version makes the response track what
+    FastAPI actually instantiated with — bumped automatically every
+    time we change the version arg above.
+    """
+    checks = {"status": "ok", "version": app.version, "db": False, "auth": False}
 
     if is_db_available():
         checks["db"] = True
