@@ -2051,7 +2051,9 @@ async function loadGpmMetrics(domain) {
       _gpmFullCache = { domain: domain, metrics: cached.metrics };
       setGpmState('data');
       applyGpmPeriod();
-      ehUpdateRefreshStamp(window.cacheAgeLabel(_gpmCacheKey(domain)));
+      // INBOX-140 follow-up: use real last_sync_at, not cache age.
+      const _realSync = _ehGetCachedRealLastSyncAt();
+      if (_realSync) ehUpdateRefreshStamp(ehFormatRelative(_realSync));
       renderedFromCache = true;
 
       // INBOX-129 follow-up: applyGpmPeriod() paints Spam / Auth / etc
@@ -2088,7 +2090,11 @@ async function loadGpmMetrics(domain) {
     if (renderedFromCache) {
       // Cached data is still on screen — flag the refresh failure
       // gently in the stamp instead of swapping to an error panel.
-      ehUpdateRefreshStamp((window.cacheAgeLabel(_gpmCacheKey(domain)) || '') + ' · refresh failed');
+      // INBOX-140 follow-up: keep showing the real last_sync_at,
+      // append the refresh-failed marker.
+      const _realSync = _ehGetCachedRealLastSyncAt();
+      const _stamp = _realSync ? ehFormatRelative(_realSync) : 'unknown';
+      ehUpdateRefreshStamp(_stamp + ' · refresh failed');
       return;
     }
     const msg = e.name === 'AbortError'
@@ -2163,6 +2169,19 @@ function ehHideRefreshingPill() {
 function ehUpdateRefreshStamp(label) {
   const el = document.getElementById('gpm-last-sync');
   if (el && label) el.textContent = 'Last synced ' + label;
+}
+
+// INBOX-140 follow-up: read the REAL last_sync_at from the cached
+// pm.status payload (which loadGpmStatus persists). Returns ISO string
+// or null. Use ehFormatRelative on the result. Fixes the "29 minutes
+// ago → just now" flicker that Vinoop reported — cacheAgeLabel was
+// pointing at when WE refreshed our DB cache (just now), not when we
+// last pulled fresh data from Google.
+function _ehGetCachedRealLastSyncAt() {
+  if (!window.cacheGet) return null;
+  // pm.status cache is set by loadGpmStatus and survives a day.
+  const status = window.cacheGet('pm.status', 24 * 60 * 60 * 1000);
+  return status && status.last_sync_at ? status.last_sync_at : null;
 }
 
 /* Sampled date labels for chart x-axes — see DESIGN-SYSTEM.md §11.6.
@@ -2776,7 +2795,12 @@ async function loadSndsMetrics() {
     if (cached && Array.isArray(cached.metrics) && cached.metrics.length > 0) {
       _msFullCache = { metrics: cached.metrics, domain: ehCurrentDomain };
       msApplyView();
-      msUpdateLastSync(window.cacheAgeLabel(_msCacheKey()));
+      // INBOX-140 follow-up: use real last_sync_at stored in the
+      // SNDS cache, not cacheAgeLabel (which would say "just now"
+      // since the cache was just hit). Same fix as the GPM side.
+      if (cached.last_sync_at) {
+        msUpdateLastSync(ehFormatRelative(cached.last_sync_at));
+      }
       renderedFromCache = true;
     }
   }
@@ -2797,7 +2821,12 @@ async function loadSndsMetrics() {
       document.getElementById('ms-ip-grid').innerHTML =
         '<div style="color:var(--text-muted);font-size:13px;padding:10px;">Couldn’t fetch SNDS data — try again.</div>';
     } else {
-      msUpdateLastSync((window.cacheAgeLabel(_msCacheKey()) || '') + ' · refresh failed');
+      // INBOX-140 follow-up: keep showing real last_sync_at.
+      const _msCached = window.cacheGet ? window.cacheGet(_msCacheKey(), MS_CACHE_TTL_MS) : null;
+      const _msStamp = _msCached && _msCached.last_sync_at
+        ? ehFormatRelative(_msCached.last_sync_at)
+        : 'unknown';
+      msUpdateLastSync(_msStamp + ' · refresh failed');
     }
     return;
   }
@@ -2825,7 +2854,12 @@ async function loadSndsMetrics() {
     msUpdateLastSync(ehFormatRelative(data.last_sync_at) || '—');
 
     if (window.cacheSet) {
-      window.cacheSet(_msCacheKey(), { metrics: data.metrics });
+      // INBOX-140 follow-up: persist last_sync_at so hydration shows
+      // the real sync age, not the cache age.
+      window.cacheSet(_msCacheKey(), {
+        metrics: data.metrics,
+        last_sync_at: data.last_sync_at || null,
+      });
     }
   } catch (e) {
     console.error('[SNDS] Metrics load failed:', e);
@@ -3658,7 +3692,9 @@ function ehHydrateFromCache() {
     _gpmFullCache = { domain: dom, metrics: metricsCached.metrics };
     setGpmState('data');
     applyGpmPeriod();
-    ehUpdateRefreshStamp(window.cacheAgeLabel('pm.metrics.' + dom));
+    // INBOX-140 follow-up: real last_sync_at from cached pm.status.
+    const _realSync = _ehGetCachedRealLastSyncAt();
+    if (_realSync) ehUpdateRefreshStamp(ehFormatRelative(_realSync));
     return true;
   }
 
