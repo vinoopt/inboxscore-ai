@@ -177,6 +177,15 @@ def get_user_from_token(access_token: str) -> dict:
     """
     Validate an access token and return user info.
     Returns: {"success": True, "user": {...}} or {"success": False, "error": "..."}
+
+    INBOX-137: response.user comes from auth.users (Supabase Auth) which
+    only carries identity fields (email, name, created_at). The application
+    plan lives in public.profiles. We enrich the response with profile.plan
+    so /api/auth/me callers (Dashboard, etc.) read the same plan value as
+    /api/user/plan — eliminating the "Free on Dashboard, Pro on Settings"
+    inconsistency. Profile lookup failures degrade gracefully to
+    plan='free' (conservative default — never accidentally grant Pro
+    features on a profiles outage).
     """
     client = get_auth_client()
     if not client:
@@ -186,6 +195,18 @@ def get_user_from_token(access_token: str) -> dict:
         response = client.auth.get_user(access_token)
 
         if response.user:
+            # INBOX-137: enrich with plan from profiles table.
+            plan = "free"
+            try:
+                from db import get_user_profile
+                profile = get_user_profile(response.user.id)
+                if profile and profile.get("plan"):
+                    plan = profile["plan"]
+            except Exception:
+                # Don't fail token validation if profiles is unreachable —
+                # auth still works, plan defaults to free.
+                pass
+
             return {
                 "success": True,
                 "user": {
@@ -193,6 +214,7 @@ def get_user_from_token(access_token: str) -> dict:
                     "email": response.user.email,
                     "name": response.user.user_metadata.get("name", ""),
                     "created_at": str(response.user.created_at),
+                    "plan": plan,
                 }
             }
         else:
