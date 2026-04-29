@@ -71,7 +71,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.16.2")
+    _version = os.environ.get("APP_VERSION", "1.16.3")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -117,7 +117,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.16.2")
+app = FastAPI(title="InboxScore API", version="1.16.3")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -716,7 +716,15 @@ async def api_get_profile(req: Request):
 
 @app.put("/api/user/profile")
 async def api_update_profile(req: Request):
-    """Update user profile (name, company)"""
+    """Update user profile (name, company).
+
+    INBOX-149 (v1.16.3): only update fields the client actually sent.
+    Previously we used `body.get("name", "").strip()` which returned an
+    empty string when the client only meant to update one field — that
+    silently blanked the OTHER column. Now `body.get("name")` returns
+    None when missing, and the db helper's `if name is not None` guard
+    skips it correctly.
+    """
     auth_header = req.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing authorization")
@@ -727,12 +735,36 @@ async def api_update_profile(req: Request):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     body = await req.json()
-    name = body.get("name", "").strip()
-    company = body.get("company", "").strip()
+    raw_name = body.get("name")
+    raw_company = body.get("company")
+    name = raw_name.strip() if isinstance(raw_name, str) else None
+    company = raw_company.strip() if isinstance(raw_company, str) else None
 
-    updated = update_user_profile(user_result["user"]["id"], name=name, company=company)
+    user_id = user_result["user"]["id"]
+    updated = update_user_profile(user_id, name=name, company=company)
     if updated is None:
-        raise HTTPException(status_code=500, detail="Failed to update profile")
+        # Defensive: if no row was matched (edge case where the auth
+        # trigger missed creating the profile row), upsert it now so
+        # the user isn't permanently locked out of saving their profile.
+        # See INBOX-149 for the bug Vinoop hit on 2026-04-29.
+        from db import get_supabase
+        sb = get_supabase()
+        if sb is not None:
+            try:
+                seed = {"id": user_id}
+                if name is not None:    seed["name"] = name
+                if company is not None: seed["company"] = company
+                upsert_result = sb.table("profiles").upsert(seed).execute()
+                if upsert_result.data:
+                    updated = upsert_result.data[0]
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).exception(
+                    "Profile upsert fallback failed",
+                    extra={"user_id": user_id, "error": str(e)},
+                )
+        if updated is None:
+            raise HTTPException(status_code=500, detail="Failed to update profile")
     return {"success": True, "profile": updated}
 
 

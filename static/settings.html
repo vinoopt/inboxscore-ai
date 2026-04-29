@@ -466,6 +466,16 @@ function showSettingsPanel(panelId, el) {
 // ─── Edit Modal ────────────────────────────────────────────
 let currentEditField = null;
 
+// INBOX-149 (v1.16.3): when reading the current display value to pre-fill
+// the edit input, treat the "—" placeholder as empty. Otherwise users
+// either type after the em-dash (saving "—Vinoop") or have to manually
+// delete it before typing — both are bad UX.
+function _emptyIfPlaceholder(s) {
+  if (!s) return '';
+  const t = String(s).trim();
+  return (t === '—' || t === '-') ? '' : t;
+}
+
 function editField(field) {
   currentEditField = field;
   const modal = document.getElementById('edit-modal');
@@ -474,10 +484,12 @@ function editField(field) {
 
   if (field === 'name') {
     title.textContent = 'Edit Name';
-    body.innerHTML = '<input type="text" id="edit-input" value="' + escapeHtml(document.getElementById('general-name').textContent || '') + '" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;" placeholder="Your name">';
+    const cur = _emptyIfPlaceholder(document.getElementById('general-name').textContent);
+    body.innerHTML = '<input type="text" id="edit-input" value="' + escapeHtml(cur) + '" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;" placeholder="Your name">';
   } else if (field === 'company') {
     title.textContent = 'Edit Company';
-    body.innerHTML = '<input type="text" id="edit-input" value="' + escapeHtml(document.getElementById('general-company').textContent || '') + '" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;" placeholder="Company name">';
+    const cur = _emptyIfPlaceholder(document.getElementById('general-company').textContent);
+    body.innerHTML = '<input type="text" id="edit-input" value="' + escapeHtml(cur) + '" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;" placeholder="Company name">';
   } else if (field === 'password') {
     title.textContent = 'Update Password';
     body.innerHTML = `
@@ -486,6 +498,14 @@ function editField(field) {
     `;
   }
   modal.style.display = 'flex';
+
+  // INBOX-149: focus + select-all the first input on open. If the field
+  // already had a value, select-all means typing replaces (no manual
+  // backspace dance). For an empty field, focus puts the cursor ready.
+  setTimeout(() => {
+    const inp = body.querySelector('input');
+    if (inp) { inp.focus(); inp.select(); }
+  }, 0);
 }
 
 function closeEditModal() {
