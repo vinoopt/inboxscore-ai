@@ -122,7 +122,34 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 }
 @keyframes snds-spin { to { transform: rotate(360deg); } }
 
+/* INBOX-130: SWR refresh pill — see DESIGN-SYSTEM.md §11.5. Sits in
+   the top-right while Settings revalidates from network after
+   localStorage hydration. Never dims existing data. Mirrors the
+   Dashboard pattern (body.dh-refreshing-pill) so the visual is
+   consistent across pages. */
+body.settings-refreshing-pill::after {
+  content: '↻ Refreshing…';
+  position: fixed;
+  top: 80px; right: 24px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  z-index: 1000;
+  pointer-events: none;
+  animation: settingsPillFade 0.18s ease-out;
+}
+@keyframes settingsPillFade { from { opacity: 0; } to { opacity: 1; } }
+
 </style>
+
+<!-- INBOX-130: SWR cache helper — loads first so Settings can hydrate
+     from localStorage before /api/auth/me + /api/user/plan resolve.
+     Eliminates the "Free → Pro" plan-badge flicker on page navigation. -->
+<script src="/static/cache.js"></script>
 </head>
 <body>
 
@@ -154,7 +181,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
       <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
       <li><a href="/settings" class="active"><span class="nav-icon">⚙️</span> Settings</a></li>
     </ul>
-    <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
+    <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">—</span> plan</div>
   </aside>
 
   <main class="main">
@@ -433,7 +460,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           <div class="card" style="padding:40px;text-align:center;">
             <div style="font-size:36px;margin-bottom:12px;">💳</div>
             <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Coming Soon</div>
-            <div style="font-size:13px;color:var(--text-muted);max-width:340px;margin:0 auto;">Plan management, billing history, and payment settings will be available here. You're currently on the <span style="color:var(--accent);font-weight:600;" id="billing-plan-name">Free plan</span>.</div>
+            <div style="font-size:13px;color:var(--text-muted);max-width:340px;margin:0 auto;">Plan management, billing history, and payment settings will be available here. You're currently on the <span style="color:var(--accent);font-weight:600;" id="billing-plan-name">— plan</span>.</div>
           </div>
         </div>
 
@@ -577,6 +604,18 @@ async function saveEditModal() {
       } else {
         document.getElementById('general-company').textContent = val || '—';
       }
+      // INBOX-130: keep the SWR cache in sync with the edit so the next
+      // visit hydrates with the updated value rather than the stale one.
+      if (window.cacheGet && window.cacheSet) {
+        const snap = window.cacheGet(SETTINGS_CACHE_KEY, SETTINGS_CACHE_TTL_MS) || {};
+        if (currentEditField === 'name') {
+          snap.profileName = val;
+          snap.displayName = val;
+        } else {
+          snap.company = val;
+        }
+        window.cacheSet(SETTINGS_CACHE_KEY, snap);
+      }
       showToast('Updated successfully');
     } else if (currentEditField === 'password') {
       const newPw = document.getElementById('edit-pw-new').value;
@@ -602,10 +641,64 @@ document.getElementById('edit-modal').addEventListener('click', function(e) {
 });
 
 // ─── Load Settings ─────────────────────────────────────────
+// INBOX-130: SWR pattern — hydrate the four user-profile fields
+// (display name, email, plan, company + toggles) from localStorage
+// on first paint, then revalidate from the network in parallel.
+// Eliminates the "Free → Pro" badge flicker that Vinoop reported on
+// 2026-04-29. 1h TTL because plan rarely changes within a session.
+const SETTINGS_CACHE_KEY = 'settings.profile';
+const SETTINGS_CACHE_TTL_MS = 1 * 60 * 60 * 1000;
+
+function _settingsApplySnapshot(snap) {
+  if (!snap) return;
+  // User name + email
+  if (snap.displayName) document.getElementById('user-name').textContent = snap.displayName;
+  if (snap.email) {
+    document.getElementById('general-email').textContent = snap.email;
+    document.getElementById('notif-email-desc').textContent = 'Send alert summaries to ' + snap.email;
+  }
+  // Profile name + company
+  if (snap.profileName) document.getElementById('general-name').textContent = snap.profileName;
+  if (snap.company !== undefined) {
+    document.getElementById('general-company').textContent = snap.company || '—';
+  }
+  // Plan badge (sidebar) + Plan & Billing card
+  if (snap.plan) {
+    document.getElementById('plan-name').textContent = snap.plan;
+    const billingEl = document.getElementById('billing-plan-name');
+    if (billingEl) billingEl.textContent = snap.plan.charAt(0).toUpperCase() + snap.plan.slice(1) + ' Plan';
+  }
+  // Notification toggles
+  if (snap.prefs) {
+    setToggle('scan_alerts', snap.prefs.scan_alerts !== false);
+    setToggle('blacklist_alerts', snap.prefs.blacklist_alerts !== false);
+    setToggle('weekly_digest', snap.prefs.weekly_digest === true);
+  }
+}
+
+function _settingsHydrateFromCache() {
+  if (!window.cacheGet) return false;
+  const snap = window.cacheGet(SETTINGS_CACHE_KEY, SETTINGS_CACHE_TTL_MS);
+  if (!snap) return false;
+  _settingsApplySnapshot(snap);
+  return true;
+}
+
+function _settingsShowRefreshingPill() {
+  document.body.classList.add('settings-refreshing-pill');
+}
+function _settingsHideRefreshingPill() {
+  document.body.classList.remove('settings-refreshing-pill');
+}
+
 async function loadSettings() {
   const token = getToken();
   if (!token) { window.location.href = '/login'; return; }
   const headers = { 'Authorization': 'Bearer ' + token };
+
+  // SWR step 1: paint instantly from cache if we have a recent snapshot.
+  const _hydrated = _settingsHydrateFromCache();
+  if (_hydrated) _settingsShowRefreshingPill();
 
   try {
     const [meRes, planRes, profileRes, domainsRes] = await Promise.all([
@@ -620,42 +713,37 @@ async function loadSettings() {
     const me = await meRes.json();
     const email = me.user.email;
     const displayName = me.user.name || email.split('@')[0];
-    document.getElementById('user-name').textContent = displayName;
-    document.getElementById('general-email').textContent = email;
-    document.getElementById('notif-email-desc').textContent = 'Send alert summaries to ' + email;
 
     // Profile data
+    let profileName = displayName;
+    let company = '';
+    let prefs = null;
     if (profileRes.ok) {
       const profile = await profileRes.json();
-      document.getElementById('general-name').textContent = profile.name || displayName;
-      document.getElementById('general-company').textContent = profile.company || '—';
-
-      // Load notification prefs into toggles
-      if (profile.preferences) {
-        const prefs = profile.preferences;
-        setToggle('scan_alerts', prefs.scan_alerts !== false);
-        setToggle('blacklist_alerts', prefs.blacklist_alerts !== false);
-        setToggle('weekly_digest', prefs.weekly_digest === true);
-      }
+      profileName = profile.name || displayName;
+      company = profile.company || '';
+      prefs = profile.preferences || null;
     }
 
     // Plan data
     let planName = 'free';
-    let domainCount = 0;
-    if (domainsRes.ok) {
-      const domains = await domainsRes.json();
-      domainCount = Array.isArray(domains) ? domains.length : 0;
-    }
     if (planRes.ok) {
       const plan = await planRes.json();
       planName = plan.plan || 'free';
     }
 
-    // Update sidebar plan badge
-    const plan = planName || 'free';
-    document.getElementById('plan-name').textContent = plan;
-    const billingEl = document.getElementById('billing-plan-name');
-    if (billingEl) billingEl.textContent = plan.charAt(0).toUpperCase() + plan.slice(1) + ' Plan';
+    // Build the full snapshot, paint it, and cache it for next visit.
+    const snapshot = {
+      displayName,
+      email,
+      profileName,
+      company,
+      plan: planName,
+      prefs,
+    };
+    _settingsApplySnapshot(snapshot);
+    if (window.cacheSet) window.cacheSet(SETTINGS_CACHE_KEY, snapshot);
+    _settingsHideRefreshingPill();
 
   } catch (e) {
     const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
