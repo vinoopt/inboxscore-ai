@@ -66,6 +66,19 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 /* Card */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; }
 
+/* List filter bar — INBOX-138. See DESIGN-SYSTEM §11.8.
+   Sits above the domain/IP list. Search input + sort/filter dropdowns
+   on the left, result count on the right. Stays inline on desktop and
+   wraps under-and-over on narrow screens. */
+.list-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.list-filters .filter-search { flex: 1 1 220px; min-width: 200px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+.list-filters .filter-search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.list-filters .filter-select { padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; cursor: pointer; outline: none; }
+.list-filters .filter-select:hover { border-color: var(--text-muted); }
+.list-filters .filter-count { margin-left: auto; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.list-filters .filter-clear { font-size: 12px; color: var(--accent); text-decoration: none; cursor: pointer; background: none; border: none; padding: 0; }
+.list-filters .filter-clear:hover { text-decoration: underline; }
+
 /* Domain List */
 .domain-list { display: flex; flex-direction: column; gap: 10px; }
 .domain-card { padding: 16px 20px; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; }
@@ -165,6 +178,23 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
         <p class="page-subtitle">Manage the domains you're monitoring.</p>
       </div>
       <button class="btn btn-primary" onclick="openAddModal()">+ Add Domain</button>
+    </div>
+
+    <!-- INBOX-138: filter bar — search + sort + result count.
+         Hidden until at least one domain is loaded so first-run users
+         don't see clutter. applyDomainFilters() reads these and renders
+         a filtered subset of allDomains. -->
+    <div class="list-filters" id="domain-filters" style="display:none;">
+      <input type="text" id="domain-search" class="filter-search"
+             placeholder="Search domains…"
+             oninput="applyDomainFilters()" autocomplete="off">
+      <select id="domain-sort" class="filter-select" onchange="applyDomainFilters()">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="az">A → Z</option>
+        <option value="za">Z → A</option>
+      </select>
+      <span class="filter-count" id="domain-filter-count"></span>
     </div>
 
     <div id="domains-container">
@@ -268,12 +298,83 @@ async function loadDomains() {
     if (!res.ok) throw new Error();
     const data = await res.json();
     allDomains = data.domains || [];
-    renderDomains(allDomains);
+
+    // INBOX-138: restore the saved sort preference (newest-first
+    // default) before the first render so the user's choice survives
+    // reloads. Same persistence pattern as INBOX-133 table sort.
+    try {
+      const savedSort = localStorage.getItem('domains.sort');
+      if (savedSort) document.getElementById('domain-sort').value = savedSort;
+    } catch (e) {}
+
+    // Show the filter bar only when we have domains to filter — first-
+    // run users (0 domains) see the empty state, no clutter.
+    document.getElementById('domain-filters').style.display =
+      allDomains.length > 0 ? 'flex' : 'none';
+
+    applyDomainFilters();
     updateUsageFooter(allDomains.length);
   } catch (e) {
     document.getElementById('domains-container').innerHTML =
       '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load domains</h3><p>Something went wrong. Please try again.</p><button class="btn btn-primary" onclick="loadDomains()" style="margin-top:12px;">Retry</button></div>';
   }
+}
+
+// INBOX-138: read filter inputs, apply to allDomains, render the subset.
+// Pure client-side — lists are tiny and instant feedback matters more
+// than payload size. See DESIGN-SYSTEM §11.8.
+function applyDomainFilters() {
+  const q = (document.getElementById('domain-search').value || '').trim().toLowerCase();
+  const sort = document.getElementById('domain-sort').value;
+
+  // Persist sort choice for next visit.
+  try { localStorage.setItem('domains.sort', sort); } catch (e) {}
+
+  // Filter
+  let filtered = allDomains;
+  if (q) {
+    filtered = allDomains.filter(d => (d.domain || '').toLowerCase().includes(q));
+  }
+
+  // Sort
+  filtered = filtered.slice();
+  if (sort === 'newest') {
+    filtered.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  } else if (sort === 'oldest') {
+    filtered.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+  } else if (sort === 'az') {
+    filtered.sort((a, b) => (a.domain || '').localeCompare(b.domain || ''));
+  } else if (sort === 'za') {
+    filtered.sort((a, b) => (b.domain || '').localeCompare(a.domain || ''));
+  }
+
+  // Update result count
+  const countEl = document.getElementById('domain-filter-count');
+  if (q) {
+    countEl.innerHTML = 'Showing ' + filtered.length + ' of ' + allDomains.length +
+      ' · <button class="filter-clear" onclick="clearDomainFilters()">Clear</button>';
+  } else {
+    countEl.textContent = allDomains.length === 1 ? '1 domain' : allDomains.length + ' domains';
+  }
+
+  // Render — show "no match" empty state when filter yields 0 results.
+  if (filtered.length === 0 && q) {
+    document.getElementById('domains-container').innerHTML =
+      '<div class="empty-state">' +
+      '<div class="empty-icon">🔍</div>' +
+      '<h3>No domains match "' + escapeHtml(q) + '"</h3>' +
+      '<p>Try a different search or clear the filter to see all ' + allDomains.length + ' domains.</p>' +
+      '<button class="btn btn-primary" onclick="clearDomainFilters()" style="margin-top:16px;">Clear filter</button>' +
+      '</div>';
+  } else {
+    renderDomains(filtered);
+  }
+}
+
+function clearDomainFilters() {
+  document.getElementById('domain-search').value = '';
+  applyDomainFilters();
+  document.getElementById('domain-search').focus();
 }
 
 function renderDomains(domains) {
