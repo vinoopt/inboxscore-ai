@@ -165,10 +165,24 @@ async function handleLogin(e) {
       throw new Error(data.detail || 'Login failed');
     }
 
-    // Store tokens
+    // Store tokens.
+    // INBOX-157 (v1.16.4): backend returns {success, session: {access_token,
+    // refresh_token, expires_in}, user: {...}} — we used to read
+    // data.access_token at the top level which was always undefined,
+    // so the literal string "undefined" got stored and every
+    // subsequent /api/auth/me 401'd, looping into logout. The Google
+    // OAuth flow stored tokens via index.html (params.get()) so it
+    // happened to work; password login + every refresh-token retry
+    // was silently broken.
+    const session = data.session || data;  // tolerate both shapes
+    const accessToken  = session.access_token;
+    const refreshToken = session.refresh_token;
+    if (!accessToken || !refreshToken) {
+      throw new Error('Login response missing tokens — please try again or contact support.');
+    }
     const storage = document.getElementById('remember').checked ? localStorage : sessionStorage;
-    storage.setItem('access_token', data.access_token);
-    storage.setItem('refresh_token', data.refresh_token);
+    storage.setItem('access_token', accessToken);
+    storage.setItem('refresh_token', refreshToken);
     storage.setItem('user', JSON.stringify(data.user));
 
     // Track login in GA4

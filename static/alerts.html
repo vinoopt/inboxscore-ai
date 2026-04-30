@@ -789,9 +789,14 @@ window.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ refresh_token: refresh })
       }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
         .then(data => {
+          // INBOX-157 (v1.16.4): unwrap nested session — see dashboard.html.
+          const session = data.session || data;
+          const accessToken  = session.access_token;
+          const refreshToken = session.refresh_token;
+          if (!accessToken || !refreshToken) throw new Error('refresh missing tokens');
           const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
-          storage.setItem('access_token', data.access_token);
-          storage.setItem('refresh_token', data.refresh_token);
+          storage.setItem('access_token', accessToken);
+          storage.setItem('refresh_token', refreshToken);
           location.reload();
         }).catch(() => logout());
     } else { logout(); }
