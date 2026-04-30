@@ -71,7 +71,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.16.6")
+    _version = os.environ.get("APP_VERSION", "1.16.7")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -117,7 +117,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.16.6")
+app = FastAPI(title="InboxScore API", version="1.16.7")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -615,8 +615,21 @@ async def api_refresh_token(request: RefreshTokenRequest):
 
 
 @app.get("/api/user/scans")
-async def api_user_scans(req: Request, limit: int = 20):
-    """Get scan history for authenticated user"""
+async def api_user_scans(req: Request, limit: int = 20,
+                          since_days: int = None):
+    """Get scan history for authenticated user.
+
+    INBOX-160 (2026-04-30): added ``since_days`` query param.
+
+    - ``?limit=N`` (default 20, max 50) — legacy top-N behaviour.
+    - ``?since_days=N`` — return ALL scans within the last N days
+      (max 30 to protect the API). Used by the Dashboard so the
+      7-day Score Trend chart never misses days, regardless of how
+      many domains the user monitors.
+
+    ``since_days`` takes precedence when set. ``limit`` still applies
+    for legacy callers (CSV export, mobile app, marketing site).
+    """
     auth_header = req.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing authorization")
@@ -627,7 +640,15 @@ async def api_user_scans(req: Request, limit: int = 20):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     user_id = user_result["user"]["id"]
-    scans = get_user_scans(user_id, limit=min(limit, 50))
+
+    if since_days is not None:
+        # Defensive cap: even if caller passes since_days=999, only
+        # 30 days of data are returned. Anything beyond is plan-tier
+        # work (INBOX-167 retention).
+        capped_days = max(1, min(since_days, 30))
+        scans = get_user_scans(user_id, since_days=capped_days)
+    else:
+        scans = get_user_scans(user_id, limit=min(limit, 50))
     return {"scans": scans}
 
 

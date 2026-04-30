@@ -77,16 +77,44 @@ def save_scan(domain: str, score: int, results: dict, ip_address: str = None,
         return None
 
 
-def get_user_scans(user_id: str, limit: int = 20) -> list:
-    """Get recent scans for a user"""
+def get_user_scans(user_id: str, limit: int = 20,
+                   since_days: int = None) -> list:
+    """Get recent scans for a user.
+
+    INBOX-160 (2026-04-30): added optional ``since_days`` param.
+
+    - Default behaviour (``since_days=None``): top-``limit`` scans across
+      ALL the user's domains, newest first. Backward-compatible.
+    - With ``since_days``: ALL scans with ``created_at >= now - N days``,
+      newest first, for ALL domains. The Dashboard uses this so the
+      7-day Score Trend chart never misses days for active multi-domain
+      users — the previous global LIMIT=20 only covered ~2 days for users
+      with 5+ daily-scanned domains (today's INBOX-160 symptom).
+
+    Both paths are still bounded — ``since_days`` queries cap at 5,000
+    rows defensively to protect the API from runaway responses if a user
+    has thousands of monitored domains and someone calls with
+    ``since_days=365``.
+    """
     sb = get_supabase()
     if not sb:
         return []
 
     try:
-        result = sb.table("scans").select("*").eq(
-            "user_id", user_id
-        ).order("created_at", desc=True).limit(limit).execute()
+        query = sb.table("scans").select("*").eq("user_id", user_id)
+
+        if since_days is not None and since_days > 0:
+            # Time-window query — ALL scans in the window, no count limit
+            # except the 5,000-row safety cap.
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=since_days)).isoformat()
+            query = query.gte("created_at", cutoff).order(
+                "created_at", desc=True
+            ).limit(5000)
+        else:
+            # Legacy: top-N across all domains.
+            query = query.order("created_at", desc=True).limit(limit)
+
+        result = query.execute()
         return result.data if result.data else []
     except Exception as e:
         print(f"Error fetching user scans: {e}")

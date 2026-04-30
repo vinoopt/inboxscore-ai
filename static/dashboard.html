@@ -1570,9 +1570,22 @@ function dhRenderTrend(domain) {
 
   // Build a date-keyed map of the latest score per day. Pulls from the
   // selected domain's scan history. Keys are LOCAL date (INBOX-99).
+  //
+  // INBOX-174 (F15): defensive 7-day day-cap. The chart only renders
+  // DH_TREND_DAYS slots, so we only need scans from that window. Without
+  // this cap, once F1 (INBOX-160) lands and the API returns 7 days of
+  // scans for active domains, this loop would walk every row even
+  // though only the first-per-day matters. With future history features
+  // (e.g. monthly view, INBOX-167 retention), the list could contain
+  // thousands of rows for a domain — bounded here regardless.
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - DH_TREND_DAYS);
   const byDate = {};
   (window._dh.scansListByDomain[domain] || []).forEach(s => {
-    const day = dhLocalDateKey(new Date(s.created_at));
+    const ts = new Date(s.created_at);
+    if (ts < sevenDaysAgo) return;          // outside trend window
+    const day = dhLocalDateKey(ts);
     // Latest scan per day wins (ListByDomain is sorted newest-first, so
     // first write wins — already correct.)
     if (!(day in byDate)) byDate[day] = s.score;
@@ -1795,7 +1808,10 @@ window.addEventListener('DOMContentLoaded', () => {
     fetch('/api/auth/me', { headers }).then(r => { if (!r.ok) throw new Error('auth'); return r.json(); }),
     fetch('/api/user/stats', { headers }).then(r => r.ok ? r.json() : null),
     fetch('/api/user/domains', { headers }).then(r => r.ok ? r.json() : null),
-    fetch('/api/user/scans', { headers }).then(r => r.ok ? r.json() : null),
+    // INBOX-160: ?since_days=7 returns ALL scans in last 7 days (no
+    // global LIMIT=20 truncation). Required for the Score Trend chart
+    // to show every day for active multi-domain users.
+    fetch('/api/user/scans?since_days=7', { headers }).then(r => r.ok ? r.json() : null),
     fetch('/api/user/alerts', { headers }).then(r => r.ok ? r.json() : null),
     fetch('/api/user/alerts/count', { headers }).then(r => r.ok ? r.json() : null),
   ]).then(async ([userData, stats, domainsData, scansData, alertsData, alertCount]) => {
@@ -1834,8 +1850,13 @@ window.addEventListener('DOMContentLoaded', () => {
     // Fetch postmaster metrics for each domain
     const domains = (domainsData && domainsData.domains) ? domainsData.domains : [];
     const pmByDomain = {};
+    // INBOX-173: Dashboard only renders the latest postmaster row (data.metrics[0]).
+    // Asking for 30 days when we use 1 wasted ~4× bandwidth + 4× DB rows on every
+    // dashboard load. ?days=7 keeps a small buffer in case the latest row is older
+    // than yesterday (e.g. a domain that's mid-sync). Email Health page still uses
+    // the default ?days=30 for its longer chart.
     const pmPromises = domains.map(d =>
-      fetch(`/api/postmaster/metrics/${d.domain}`, { headers })
+      fetch(`/api/postmaster/metrics/${d.domain}?days=7`, { headers })
         .then(r => r.ok ? r.json() : null)
         .then(data => {
           if (data && data.metrics && data.metrics.length > 0) {
