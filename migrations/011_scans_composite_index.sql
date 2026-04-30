@@ -1,0 +1,33 @@
+-- INBOX-168 (F9) — composite index on scans for per-domain history
+-- queries.
+--
+-- Background: db.get_domain_scans runs
+--     SELECT ... FROM scans
+--     WHERE user_id = ? AND domain = ?
+--     ORDER BY created_at DESC
+--     LIMIT N
+-- which is the hottest read after the dashboard's scans bulk fetch.
+-- Existing indexes are single-column (idx_scans_user_id,
+-- idx_scans_domain, idx_scans_created_at). Postgres has to bitmap-merge
+-- the first two then sort — fine while the table is small, costly
+-- once the scans table reaches ~1M rows (today's 5-domain × 4-slots/day
+-- portfolio writes ~20/day; at 10k domains / 1k users it crosses 1M
+-- rows in ~3 months).
+--
+-- Adding (user_id, domain, created_at DESC) lets Postgres serve the
+-- query by a single index scan, no sort. ~10–100× faster at scale.
+--
+-- Why we don't drop the existing single-column indexes:
+--   • idx_scans_user_id is still used for the dashboard's "all scans
+--     for this user" query (no domain filter).
+--   • idx_scans_domain is used by analytics that aggregate across
+--     all users (rare, but exists).
+--   • idx_scans_created_at supports the "newest scans across the
+--     platform" admin view.
+-- Adding one composite is additive; the planner picks the best.
+--
+-- Idempotent — IF NOT EXISTS makes it safe to re-run. Reversible by
+-- DROP INDEX idx_scans_user_domain_created.
+
+CREATE INDEX IF NOT EXISTS idx_scans_user_domain_created
+    ON public.scans (user_id, domain, created_at DESC);
