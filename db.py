@@ -152,7 +152,14 @@ def get_user_scan_stats(user_id: str) -> dict:
 # ─── DOMAIN OPERATIONS ───────────────────────────────────────────
 
 def add_user_domain(user_id: str, domain: str) -> dict:
-    """Add a domain to user's monitored list"""
+    """Add a domain to user's monitored list.
+
+    INBOX-169 (F10, 2026-04-30): enforces ``PLAN_DOMAIN_LIMITS``. Adding
+    a domain that would push the user past their plan cap raises
+    ``PlanDomainLimitExceeded`` so the API layer can return 403 with a
+    friendly upgrade message. Existing domains are NOT removed when the
+    limit is lowered — only new additions are blocked.
+    """
     sb = get_supabase()
     if not sb:
         return None
@@ -166,6 +173,20 @@ def add_user_domain(user_id: str, domain: str) -> dict:
         if existing.data:
             return existing.data[0]  # Already exists, return it
 
+        # INBOX-169: gate by plan-domain limit BEFORE inserting.
+        # Pulled here (not in the API layer) so every code path that
+        # adds a domain — current API + any future bulk import — is
+        # bounded equally.
+        plan = get_user_plan(user_id) or "free"
+        allowed = PLAN_DOMAIN_LIMITS.get(plan, PLAN_DOMAIN_LIMITS["free"])
+        if allowed != -1:
+            # Count existing monitored + unmonitored — both consume a slot.
+            current_count = get_user_domains_count(user_id)
+            if current_count >= allowed:
+                raise PlanDomainLimitExceeded(
+                    plan=plan, current=current_count, allowed=allowed,
+                )
+
         # Get latest scan score for this domain (if any)
         latest_scan = sb.table("scans").select("id, score").eq(
             "domain", domain
@@ -174,7 +195,8 @@ def add_user_domain(user_id: str, domain: str) -> dict:
         # INBOX-126: Auto-monitoring is on by default. Users add domains
         # because they want to monitor them — there's no realistic story
         # for "track this domain but don't scan it." The plan-based
-        # domain-count cap (Free=3, Pro=N) naturally bounds load.
+        # domain-count cap (INBOX-169 / PLAN_DOMAIN_LIMITS, enforced
+        # above) naturally bounds load.
         data = {
             "user_id": user_id,
             "domain": domain,
@@ -188,6 +210,10 @@ def add_user_domain(user_id: str, domain: str) -> dict:
 
         result = sb.table("domains").insert(data).execute()
         return result.data[0] if result.data else None
+    except PlanDomainLimitExceeded:
+        # Re-raise so the API layer can return a 403 with the right
+        # message. Don't swallow this in the broad except below.
+        raise
     except Exception as e:
         print(f"Error adding domain: {e}")
         return None
@@ -375,7 +401,34 @@ PLAN_LIMITS = {
     "enterprise": -1,  # unlimited
 }
 
+# INBOX-169 (F10, 2026-04-30): max number of MONITORED domains per plan.
+# Distinct from PLAN_LIMITS (which gates scans/day). Without this, a free
+# user could add thousands of domains and exhaust scheduler throughput +
+# GSB API quota meant for paid users.
+#
+# Numbers chosen to give Vinoop dogfooding headroom (he has 5 today) and
+# bound abuse at 10. Will be re-tuned when pricing/Stripe launches
+# (INBOX-149) — actual product caps depend on what we charge.
+PLAN_DOMAIN_LIMITS = {
+    "free": 10,
+    "pro": 100,
+    "growth": 500,
+    "enterprise": -1,  # unlimited
+}
+
 ANONYMOUS_LIMIT = 3
+
+
+class PlanDomainLimitExceeded(Exception):
+    """Raised by add_user_domain when adding would exceed the plan cap."""
+
+    def __init__(self, plan: str, current: int, allowed: int):
+        self.plan = plan
+        self.current = current
+        self.allowed = allowed
+        super().__init__(
+            f"Plan '{plan}' allows {allowed} monitored domains; you have {current}."
+        )
 
 
 def get_user_profile(user_id: str) -> dict:
@@ -1591,6 +1644,85 @@ def get_blacklist_results(user_id: str, domain: str) -> dict | None:
                 data = json.loads(data)
             return data
         return None
-    except Exception as e:
+    except Exception:
         # .single() throws if no rows — that's normal (no prior check)
         return None
+
+
+# ─── GSB CACHE (INBOX-171 / F12) ─────────────────────────────────
+
+# How long a GSB lookup is considered fresh. Google updates the GSB
+# threat list daily, so a 24h TTL is loss-free in normal operation.
+GSB_CACHE_TTL_SECONDS = 24 * 60 * 60
+
+
+def get_cached_gsb(domain: str) -> dict | None:
+    """INBOX-171: return ``{"threats": [...], "checked_at": "..."}`` if
+    the cached GSB lookup for ``domain`` is fresh (≤ TTL). Returns None
+    on cache miss, expired entry, or DB unavailability — caller should
+    fall through to a live GSB API call.
+
+    NB ``threats`` is the raw ``matches`` array from the GSB v4
+    response. An empty list = "GSB checked, no threats reported".
+    """
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("gsb_cache").select("threats, checked_at").eq(
+            "domain", domain
+        ).single().execute()
+        if not result.data:
+            return None
+
+        checked_at_raw = result.data.get("checked_at")
+        if not checked_at_raw:
+            return None
+
+        # Postgres returns ISO8601 with timezone; parse defensively.
+        if isinstance(checked_at_raw, str):
+            iso = checked_at_raw.replace("Z", "+00:00")
+            checked_at = datetime.fromisoformat(iso)
+        else:
+            checked_at = checked_at_raw
+        if checked_at.tzinfo is None:
+            checked_at = checked_at.replace(tzinfo=timezone.utc)
+
+        age = (datetime.now(timezone.utc) - checked_at).total_seconds()
+        if age > GSB_CACHE_TTL_SECONDS:
+            return None  # expired
+
+        threats = result.data.get("threats")
+        # JSONB columns may come back as already-parsed Python lists,
+        # or as JSON-encoded strings depending on supabase-py version.
+        if isinstance(threats, str):
+            try:
+                threats = json.loads(threats)
+            except Exception:
+                threats = []
+        return {"threats": threats or [], "checked_at": checked_at_raw}
+    except Exception:
+        # .single() raises when no rows match — normal cold-cache path.
+        return None
+
+
+def set_cached_gsb(domain: str, threats: list) -> bool:
+    """INBOX-171: upsert the latest GSB lookup for ``domain``.
+
+    ``threats`` is the GSB v4 ``matches`` array. Empty list = no
+    threats. We store both shapes so the cached path can reconstruct
+    the same CheckResult the live path would have produced.
+    """
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("gsb_cache").upsert({
+            "domain": domain,
+            "threats": threats or [],
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }, on_conflict="domain").execute()
+        return True
+    except Exception as e:
+        print(f"Error caching GSB result for {domain}: {e}")
+        return False

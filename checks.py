@@ -3190,6 +3190,55 @@ def check_domain_age(domain: str) -> CheckResult:
 import os as _os  # alias to avoid clobbering anything called `os` in this module
 
 
+def _gsb_result_from_matches(domain: str, matches: list, *,
+                              from_cache: bool = False) -> CheckResult:
+    """Build a CheckResult from a GSB v4 ``matches`` array.
+
+    INBOX-171 (F12): factored out so both the live-API path and the
+    cache-hit path produce identical CheckResults. ``from_cache=True``
+    annotates raw_data so future debugging can tell live vs. cached
+    answers apart, but does not change the user-visible verdict.
+    """
+    if not matches:
+        return CheckResult(
+            name="google_safe_browsing",
+            category="reputation",
+            status="pass",
+            title="Google Safe Browsing",
+            detail="Safe — no threats reported by Google Safe Browsing.",
+            raw_data={"matches": 0, "from_cache": from_cache},
+            points=2,
+            max_points=2,
+        )
+    threat_types = sorted({m.get("threatType", "UNKNOWN") for m in matches})
+    human = ", ".join(t.replace("_", " ").title() for t in threat_types)
+    return CheckResult(
+        name="google_safe_browsing",
+        category="reputation",
+        status="fail",
+        title="Google Safe Browsing",
+        detail=(
+            f"Flagged by Google Safe Browsing: {human}. "
+            "Email from this domain may be blocked or quarantined "
+            "by Gmail and many other providers."
+        ),
+        raw_data={
+            "threat_types": threat_types,
+            "matches": len(matches),
+            "from_cache": from_cache,
+        },
+        points=0,
+        max_points=2,
+        fix_steps=[
+            "Visit https://transparencyreport.google.com/safe-browsing/search?url=" + domain,
+            "Identify the URL(s) Google has flagged on your domain",
+            "Remove the offending content / malware",
+            "Once cleaned, request a review through Google Search Console (Security & Manual Actions → Security issues)",
+            "GSB typically clears within 24–72 hours after re-review",
+        ],
+    )
+
+
 def check_google_safe_browsing(domain: str) -> CheckResult:
     """Query Google Safe Browsing v4 for the domain. Flags malware,
     social-engineering (phishing), unwanted-software, and potentially-
@@ -3200,6 +3249,13 @@ def check_google_safe_browsing(domain: str) -> CheckResult:
       • 'fail'  — domain is currently flagged
       • 'info'  — could not check (no API key OR network failure).
                   We don't penalise users for our own infra gaps.
+
+    INBOX-171 (F12, 2026-04-30): consult ``gsb_cache`` (TTL 24h) before
+    hitting the live API. Google's GSB threat list updates daily, so a
+    24h cache is loss-free in normal operation. Without this every
+    scan called the API — at ~10k scans/day a single API key blows
+    through the 10,000 lookups/day free quota. Cache hits also remove
+    GSB latency from the scan critical path.
 
     Setup: set GOOGLE_SAFE_BROWSING_API_KEY in Render env. Get a key at
     https://console.cloud.google.com/apis/library/safebrowsing.googleapis.com
@@ -3221,6 +3277,29 @@ def check_google_safe_browsing(domain: str) -> CheckResult:
             max_points=0,
         )
 
+    # ── Cache layer ────────────────────────────────────────────────
+    # Soft-import: db isn't a hard dependency of the check engine
+    # (some unit tests import checks.py without DB at all). If the
+    # cache helper isn't available or fails, fall through to the
+    # live API call — same observable behaviour as pre-INBOX-171.
+    try:
+        from db import get_cached_gsb, set_cached_gsb
+    except Exception:
+        get_cached_gsb = None
+        set_cached_gsb = None
+
+    if get_cached_gsb is not None:
+        try:
+            cached = get_cached_gsb(domain)
+            if cached is not None:
+                return _gsb_result_from_matches(
+                    domain, cached.get("threats") or [], from_cache=True,
+                )
+        except Exception:
+            # Any cache error → fall through to live call.
+            pass
+
+    # ── Live API call ──────────────────────────────────────────────
     # Build the threat-match request. We probe both http:// and https://
     # variants of the apex because GSB matches on full URLs.
     payload = {
@@ -3250,41 +3329,13 @@ def check_google_safe_browsing(domain: str) -> CheckResult:
         if resp.status_code == 200:
             data = resp.json() or {}
             matches = data.get("matches") or []
-            if not matches:
-                return CheckResult(
-                    name="google_safe_browsing",
-                    category="reputation",
-                    status="pass",
-                    title="Google Safe Browsing",
-                    detail="Safe — no threats reported by Google Safe Browsing.",
-                    raw_data={"matches": 0},
-                    points=2,
-                    max_points=2,
-                )
-            # Aggregate threat types found
-            threat_types = sorted({m.get("threatType", "UNKNOWN") for m in matches})
-            human = ", ".join(t.replace("_", " ").title() for t in threat_types)
-            return CheckResult(
-                name="google_safe_browsing",
-                category="reputation",
-                status="fail",
-                title="Google Safe Browsing",
-                detail=(
-                    f"Flagged by Google Safe Browsing: {human}. "
-                    "Email from this domain may be blocked or quarantined "
-                    "by Gmail and many other providers."
-                ),
-                raw_data={"threat_types": threat_types, "matches": len(matches)},
-                points=0,
-                max_points=2,
-                fix_steps=[
-                    "Visit https://transparencyreport.google.com/safe-browsing/search?url=" + domain,
-                    "Identify the URL(s) Google has flagged on your domain",
-                    "Remove the offending content / malware",
-                    "Once cleaned, request a review through Google Search Console (Security & Manual Actions → Security issues)",
-                    "GSB typically clears within 24–72 hours after re-review",
-                ],
-            )
+            # Cache the result (best-effort; non-fatal if it fails).
+            if set_cached_gsb is not None:
+                try:
+                    set_cached_gsb(domain, matches)
+                except Exception:
+                    pass
+            return _gsb_result_from_matches(domain, matches, from_cache=False)
         # Non-200: API key invalid, quota exceeded, or transient 5xx
         return CheckResult(
             name="google_safe_browsing",

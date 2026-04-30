@@ -36,6 +36,8 @@ from db import (
     mark_all_alerts_read, delete_alert,
     # INBOX-162/163 (F3+F4): count helpers used by paginated endpoints
     get_user_alerts_count, get_user_domains_count,
+    # INBOX-169 (F10): plan domain-count limit + exception
+    PLAN_DOMAIN_LIMITS, PlanDomainLimitExceeded,
     update_domain_monitoring, get_monitored_domains, get_monitoring_logs,
     save_postmaster_connection, get_postmaster_connection,
     delete_postmaster_connection, get_postmaster_metrics as db_get_postmaster_metrics,
@@ -77,7 +79,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.16.9")
+    _version = os.environ.get("APP_VERSION", "1.16.10")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -123,7 +125,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.16.9")
+app = FastAPI(title="InboxScore API", version="1.16.10")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -1167,7 +1169,27 @@ async def api_add_domain(req: Request, body: AddDomainRequest):
     if not domain or '.' not in domain:
         raise HTTPException(status_code=400, detail="Invalid domain")
 
-    result = add_user_domain(user_id, domain)
+    # INBOX-169 (F10): catch the plan-limit exception and return a
+    # structured 403 with the data the frontend needs to render an
+    # upgrade prompt. Other failures still 500 — different code path.
+    try:
+        result = add_user_domain(user_id, domain)
+    except PlanDomainLimitExceeded as e:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "plan_domain_limit_exceeded",
+                "message": (
+                    f"Your '{e.plan}' plan allows up to {e.allowed} monitored "
+                    f"domain{'s' if e.allowed != 1 else ''}. You currently have "
+                    f"{e.current}. Upgrade to add more."
+                ),
+                "plan": e.plan,
+                "current": e.current,
+                "allowed": e.allowed,
+            },
+        )
+
     if result:
         return {"domain": result}
     else:
