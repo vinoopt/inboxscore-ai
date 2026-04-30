@@ -423,6 +423,10 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 #view-dashboard .provider-metric-value.good { color: var(--green); }
 #view-dashboard .provider-metric-value.warn { color: var(--orange); }
 #view-dashboard .provider-metric-value.fail { color: var(--red); }
+/* Phase 1B: empty-state value (em-dash placeholder) — muted, non-mono so
+   it visually reads as "no data" rather than "0". Used in Google card
+   when disconnected. */
+#view-dashboard .provider-metric-value.none { color: var(--text-subtle); font-family: inherit; font-weight: 500; }
 #view-dashboard .provider-cta { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 #view-dashboard .provider-link { font-size: 12px; color: var(--accent); text-decoration: none; font-weight: 500; }
 #view-dashboard .provider-link:hover { text-decoration: underline; }

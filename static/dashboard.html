@@ -674,7 +674,14 @@ function dhRenderProviderGrid(domain) {
       <div class="provider-metric"><span class="provider-metric-label">Delivery errors</span><span class="provider-metric-value ${errClass}">${errText}</span></div>
     `;
   } else {
-    googleHtml = `<div class="provider-explainer">Connect Google Postmaster Tools to surface spam rate, authentication, and delivery error metrics for Gmail recipients.</div>`;
+    /* Phase 1B: empty-state ghost stat tiles instead of long description text.
+       Mirrors the connected card's structure (3 metric rows) so the two cards
+       have the same visual weight even when one has no data yet. */
+    googleHtml = `
+      <div class="provider-metric"><span class="provider-metric-label">Spam rate</span><span class="provider-metric-value none">—</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Auth pass</span><span class="provider-metric-value none">—</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Delivery errors</span><span class="provider-metric-value none">—</span></div>
+    `;
   }
   const googleConnected = googleHasData;
   // INBOX-110: /email-health was deleted; flat routes now live at
@@ -711,8 +718,12 @@ function dhRenderProviderGrid(domain) {
     msHtml = `<div class="provider-explainer">SNDS is connected, but no sending IPs are mapped to <strong>${escapeHtml(domain)}</strong> yet. Map IPs to start seeing per-domain reputation.</div>`;
     msCta = `<div class="provider-cta"><a href="/sending-ips?domain=${encodeURIComponent(domain)}" class="provider-link">Map sending IPs →</a><span style="font-size:11px;color:var(--text-subtle)">Required</span></div>`;
   } else {
-    // disconnected
-    msHtml = `<div class="provider-explainer">Connect Microsoft SNDS to monitor sending IP reputation across Outlook, Hotmail, and Live mailboxes.</div>`;
+    // disconnected — Phase 1B: ghost stat tiles to match Google's empty state
+    msHtml = `
+      <div class="provider-metric"><span class="provider-metric-label">IP status</span><span class="provider-metric-value none">—</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Complaint rate</span><span class="provider-metric-value none">—</span></div>
+      <div class="provider-metric"><span class="provider-metric-label">Trap hits</span><span class="provider-metric-value none">—</span></div>
+    `;
     msCta = `<div class="provider-cta"><a href="/settings?tab=connections" class="provider-link">Set up →</a><span style="font-size:11px;color:var(--text-subtle)">Optional · Free</span></div>`;
   }
 
