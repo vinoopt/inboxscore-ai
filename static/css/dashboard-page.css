@@ -934,7 +934,10 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-light { display: block; }
 .check-card-score { font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 6px; white-space: nowrap; font-family: 'Geist Mono', monospace; flex-shrink: 0; margin-left: 8px; }
 .score-perfect { color: var(--success-text); background: var(--success-soft); }
 .score-lost { color: var(--warn-text); background: var(--warn-soft); }
-.score-info { color: var(--fg-2); background: var(--bg-2); font-family: inherit; font-weight: 500; font-size: 11px; }
+/* Class-name collision fix: .score-info is ALSO the score-hero column 2
+   wrapper (mockup parity). Scope this badge variant to .check-card-score
+   so the wrapper isn't given a grey background. */
+.check-card-score.score-info { color: var(--fg-2); background: var(--bg-2); font-family: inherit; font-weight: 500; font-size: 11px; }
 .score-warn { color: var(--warn-text); background: var(--warn-soft); }
 .score-fail { color: var(--danger); background: var(--danger-soft); }
 .check-card-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
