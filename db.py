@@ -1021,6 +1021,73 @@ def get_postmaster_metrics(user_id: str, domain: str, days: int = 30) -> list:
         return []
 
 
+def get_postmaster_metrics_all_domains(user_id: str, days: int = 7) -> dict:
+    """INBOX-161 (F2): one-shot fetch of postmaster metrics across ALL the
+    user's domains. Returns a ``{ "<domain>": <latest_metric_row> }`` map.
+
+    The Dashboard previously fan-out one ``/api/postmaster/metrics/<domain>``
+    request per domain on every page load (40+ parallel requests at 20
+    domains). This helper does it in a single SQL query and groups in
+    Python — independent of domain count.
+
+    Caller is expected to use this for the per-domain "latest snapshot"
+    view (Dashboard cards). For the long-history Email Health chart
+    keep using ``get_postmaster_metrics`` per domain — it serves a
+    different access pattern (~30 days × 1 domain per page view).
+
+    Date order: returns the latest row per domain (highest ``date``).
+    """
+    sb = get_supabase()
+    if not sb:
+        return {}
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+        result = sb.table("postmaster_metrics").select("*").eq(
+            "user_id", user_id
+        ).gte("date", cutoff).order("date", desc=True).execute()
+
+        rows = result.data or []
+        # Group by domain, keep first row per domain (already sorted desc).
+        latest_by_domain: dict[str, dict] = {}
+        for r in rows:
+            d = r.get("domain")
+            if not d:
+                continue
+            if d not in latest_by_domain:
+                latest_by_domain[d] = r
+        return latest_by_domain
+    except Exception as e:
+        print(f"Error getting postmaster metrics bulk: {e}")
+        return {}
+
+
+def get_user_ip_domain_mappings(user_id: str) -> dict:
+    """INBOX-161 (F2): fetch ALL (ip, domain) mappings for the user.
+
+    Returns ``{ "<domain>": ["1.2.3.4", "5.6.7.8", ...] }``. Used by the
+    SNDS bulk dashboard endpoint to pre-compute per-domain IP lists in
+    one query instead of N. Empty dict if no mappings exist.
+    """
+    sb = get_supabase()
+    if not sb:
+        return {}
+    try:
+        result = sb.table("user_ip_domains").select("ip_address, domain").eq(
+            "user_id", user_id
+        ).execute()
+        out: dict[str, list] = {}
+        for row in (result.data or []):
+            d = row.get("domain")
+            ip = row.get("ip_address")
+            if not d or not ip:
+                continue
+            out.setdefault(d, []).append(ip)
+        return out
+    except Exception as e:
+        print(f"Error getting user_ip_domain mappings: {e}")
+        return {}
+
+
 def get_postmaster_domains_for_user(user_id: str) -> list:
     """Get distinct domains that have Postmaster metrics for a user"""
     sb = get_supabase()

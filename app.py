@@ -38,6 +38,10 @@ from db import (
     save_postmaster_connection, get_postmaster_connection,
     delete_postmaster_connection, get_postmaster_metrics as db_get_postmaster_metrics,
     get_last_postmaster_sync_at,
+    # INBOX-161 (F2): bulk fetchers used by the Dashboard to kill the
+    # N+1 per-domain fan-out.
+    get_postmaster_metrics_all_domains as db_get_postmaster_metrics_bulk,
+    get_user_ip_domain_mappings as db_get_user_ip_domain_mappings,
     save_snds_connection, get_snds_connection, delete_snds_connection,
     get_snds_metrics as db_get_snds_metrics, update_snds_sync_status,
     upsert_snds_metrics,
@@ -71,7 +75,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.16.7")
+    _version = os.environ.get("APP_VERSION", "1.16.8")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -117,7 +121,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.16.7")
+app = FastAPI(title="InboxScore API", version="1.16.8")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -1790,6 +1794,58 @@ async def api_postmaster_metrics(domain: str, req: Request, days: int = 30):
     }
 
 
+@app.get("/api/postmaster/metrics-bulk")
+async def api_postmaster_metrics_bulk(req: Request, days: int = 7):
+    """INBOX-161 (F2): bulk Postmaster fetch for the Dashboard.
+
+    The Dashboard previously fired one request per domain
+    (``/api/postmaster/metrics/{d}`` × N domains). This endpoint
+    returns latest-per-domain metrics in a single round trip:
+
+        {
+          "connected": true,
+          "google_email": "...",
+          "metrics": { "domain1.com": {<row>}, "domain2.com": {<row>} }
+        }
+
+    Latency: ~one Supabase round trip vs. N. Independent of domain
+    count. The single-domain endpoint stays live — Email Health page
+    still uses it for its longer history chart.
+
+    ``days`` is the lookback window for the latest-row search. The
+    Dashboard only needs the most recent row, so ``days=7`` is
+    plenty (a domain that's mid-sync may be a day behind). Capped
+    at 30 to protect the API.
+    """
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    connection = get_postmaster_connection(user_id)
+    if not connection:
+        return {
+            "connected": False,
+            "metrics": {},
+            "message": "Connect Google Postmaster in Settings to see metrics",
+        }
+
+    capped_days = max(1, min(days, 30))
+    metrics_by_domain = db_get_postmaster_metrics_bulk(user_id, days=capped_days)
+    return {
+        "connected": True,
+        "google_email": connection.get("google_email", ""),
+        "metrics": metrics_by_domain,
+    }
+
+
 @app.get("/api/postmaster/compliance/{domain}")
 async def api_postmaster_compliance(domain: str, req: Request):
     """Get Google Postmaster compliance status for a domain (v2 API)"""
@@ -2218,6 +2274,177 @@ async def api_snds_dashboard_summary(req: Request, domain: str = ""):
         },
         "mapped_ip_count": len(mapped_ips),
         "last_sync_at": connection.get("last_sync_at"),
+    }
+
+
+def _snds_complaint_to_float(v):
+    """Parse complaint_rate strings like '< 0.1%' or '0.20%' to a float.
+    Shared by single-domain and bulk SNDS endpoints (INBOX-161). Returns
+    None on parse failure so callers render '—'."""
+    if v is None:
+        return None
+    s = str(v).strip().replace("<", "").replace("%", "").strip()
+    try:
+        return float(s)
+    except Exception:
+        return None
+
+
+def _snds_summarise_rows(rows: list, mapped_count: int, last_sync_at: str) -> dict:
+    """Build the {state, summary, ...} shape the Microsoft card renders.
+    Identical aggregation logic to the single-domain endpoint, factored
+    out for the bulk endpoint (INBOX-161 / F2). No behaviour change."""
+    if not rows:
+        return {
+            "state": "no_recent_data",
+            "summary": None,
+            "mapped_ip_count": mapped_count,
+            "last_sync_at": last_sync_at,
+        }
+
+    status_rank = {"GREEN": 0, "YELLOW": 1, "RED": 2}
+    status_label = "GREEN"
+    for r in rows:
+        s = (r.get("filter_result") or "GREEN").upper()
+        if status_rank.get(s, 0) > status_rank.get(status_label, 0):
+            status_label = s
+
+    rates = [
+        r for r in (_snds_complaint_to_float(m.get("complaint_rate")) for m in rows)
+        if r is not None
+    ]
+    avg_complaint = (sum(rates) / len(rates)) if rates else None
+    if avg_complaint is None:
+        complaint_str = "—"
+    elif avg_complaint < 0.1:
+        complaint_str = "< 0.1%"
+    else:
+        complaint_str = f"{avg_complaint:.2f}%"
+
+    total_traps = sum(int(r.get("trap_hits") or 0) for r in rows)
+
+    status_color = {"GREEN": "good", "YELLOW": "warn", "RED": "bad"}.get(status_label, "good")
+    if avg_complaint is None:
+        complaint_color = "none"
+    elif avg_complaint < 0.3:
+        complaint_color = "good"
+    elif avg_complaint < 1.0:
+        complaint_color = "warn"
+    else:
+        complaint_color = "bad"
+    if total_traps == 0:
+        trap_color = "none"
+    elif total_traps < 5:
+        trap_color = "warn"
+    else:
+        trap_color = "bad"
+
+    return {
+        "state": "ok",
+        "summary": {
+            "has_data": True,
+            "status_label": status_label,
+            "status_color": status_color,
+            "complaint_rate": complaint_str,
+            "complaint_color": complaint_color,
+            "trap_hits": str(total_traps),
+            "trap_color": trap_color,
+        },
+        "mapped_ip_count": mapped_count,
+        "last_sync_at": last_sync_at,
+    }
+
+
+@app.get("/api/snds/dashboard-summary-bulk")
+async def api_snds_dashboard_summary_bulk(req: Request):
+    """INBOX-161 (F2): bulk SNDS dashboard summary for the Dashboard.
+
+    Replaces N parallel ``/api/snds/dashboard-summary?domain=X`` calls
+    with one round trip. Returns:
+
+        {
+          "connected": true,
+          "global_state": "connected" | "disconnected",
+          "by_domain": {
+            "a.com": {"state": "ok", "summary": {...}, ...},
+            "b.com": {"state": "no_ips_mapped", ...},
+            "c.com": {"state": "no_recent_data", ...}
+          },
+          "last_sync_at": "..."
+        }
+
+    Same per-domain shape as the single-domain endpoint — the Dashboard
+    just looks up its keys. ``disconnected`` users get an empty
+    ``by_domain`` (frontend already understands that).
+
+    The single-domain endpoint stays live for older callers.
+    """
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+
+    connection = get_snds_connection(user_id)
+    if not connection:
+        return {
+            "connected": False,
+            "global_state": "disconnected",
+            "by_domain": {},
+            "last_sync_at": None,
+        }
+
+    last_sync_at = connection.get("last_sync_at")
+
+    # 1 query: all (ip, domain) mappings for this user.
+    domain_to_ips = db_get_user_ip_domain_mappings(user_id)
+
+    # 1 query: 7 days of metrics for ALL the user's IPs.
+    metrics = db_get_snds_metrics(user_id, days=7) or []
+
+    # Group: for each ip, keep the latest metric_date row.
+    latest_by_ip: dict[str, dict] = {}
+    for m in metrics:
+        ip = m.get("ip_address")
+        if not ip:
+            continue
+        prev = latest_by_ip.get(ip)
+        if prev is None or (m.get("metric_date") or "") > (prev.get("metric_date") or ""):
+            latest_by_ip[ip] = m
+
+    # User's monitored domains from the canonical domains table.
+    domains = get_user_domains(user_id) or []
+
+    by_domain: dict[str, dict] = {}
+    for d in domains:
+        dom = d.get("domain")
+        if not dom:
+            continue
+        mapped_ips = domain_to_ips.get(dom, [])
+        if not mapped_ips:
+            by_domain[dom] = {
+                "state": "no_ips_mapped",
+                "summary": None,
+                "mapped_ip_count": 0,
+                "last_sync_at": last_sync_at,
+            }
+            continue
+        # Pull only the metrics rows for THIS domain's IPs.
+        rows = [latest_by_ip[ip] for ip in mapped_ips if ip in latest_by_ip]
+        by_domain[dom] = _snds_summarise_rows(
+            rows, mapped_count=len(mapped_ips), last_sync_at=last_sync_at,
+        )
+
+    return {
+        "connected": True,
+        "global_state": "connected",
+        "by_domain": by_domain,
+        "last_sync_at": last_sync_at,
     }
 
 

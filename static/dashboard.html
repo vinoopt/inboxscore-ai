@@ -1847,40 +1847,54 @@ window.addEventListener('DOMContentLoaded', () => {
       Object.values(scansListByDomain).forEach(list => list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
     }
 
-    // Fetch postmaster metrics for each domain
+    // INBOX-161 (F2): the Dashboard previously fired 2 × N parallel
+    // fetches per page load (postmaster + SNDS, one per domain). The
+    // bulk endpoints below collapse this into 2 round trips total,
+    // independent of domain count. Old per-domain endpoints stay live
+    // for the Email Health page (which still needs per-domain history).
     const domains = (domainsData && domainsData.domains) ? domainsData.domains : [];
     const pmByDomain = {};
-    // INBOX-173: Dashboard only renders the latest postmaster row (data.metrics[0]).
-    // Asking for 30 days when we use 1 wasted ~4× bandwidth + 4× DB rows on every
-    // dashboard load. ?days=7 keeps a small buffer in case the latest row is older
-    // than yesterday (e.g. a domain that's mid-sync). Email Health page still uses
-    // the default ?days=30 for its longer chart.
-    const pmPromises = domains.map(d =>
-      fetch(`/api/postmaster/metrics/${d.domain}?days=7`, { headers })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (data && data.metrics && data.metrics.length > 0) {
-            pmByDomain[d.domain] = data.metrics[0];
-          }
-        })
-        .catch(() => {})
-    );
-    await Promise.all(pmPromises);
-
-    // INBOX-125: Fetch SNDS dashboard summary per domain in parallel.
-    // Returns one of 4 states (disconnected | no_ips_mapped |
-    // no_recent_data | ok). The card render reads this to pick the
-    // right CTA — see _dh.sndsByDomain in the Microsoft card section.
     const sndsByDomain = {};
-    const sndsPromises = domains.map(d =>
-      fetch(`/api/snds/dashboard-summary?domain=${encodeURIComponent(d.domain)}`, { headers })
+
+    const [pmBulk, sndsBulk] = await Promise.all([
+      fetch('/api/postmaster/metrics-bulk?days=7', { headers })
         .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (data) sndsByDomain[d.domain] = data;
-        })
-        .catch(() => {})
-    );
-    await Promise.all(sndsPromises);
+        .catch(() => null),
+      fetch('/api/snds/dashboard-summary-bulk', { headers })
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null),
+    ]);
+
+    // pmBulk shape: { connected, google_email, metrics: { "<domain>": <row> } }
+    if (pmBulk && pmBulk.connected && pmBulk.metrics) {
+      Object.keys(pmBulk.metrics).forEach(dom => {
+        pmByDomain[dom] = pmBulk.metrics[dom];
+      });
+    }
+
+    // sndsBulk shape: { connected, global_state, by_domain: { "<domain>": {state, summary, ...} } }
+    // Frontend Microsoft-card render expects the per-domain shape that the
+    // single-domain endpoint used to return — by_domain values match it.
+    if (sndsBulk && sndsBulk.by_domain) {
+      Object.keys(sndsBulk.by_domain).forEach(dom => {
+        sndsByDomain[dom] = sndsBulk.by_domain[dom];
+      });
+    }
+    // For domains in the user's list but not yet in the bulk response
+    // (e.g. SNDS disconnected): synthesise the disconnected state so the
+    // card render still has something to read.
+    if (sndsBulk && sndsBulk.global_state === 'disconnected') {
+      domains.forEach(d => {
+        if (!sndsByDomain[d.domain]) {
+          sndsByDomain[d.domain] = {
+            state: 'disconnected',
+            summary: null,
+            mapped_ip_count: 0,
+            last_sync_at: null,
+          };
+        }
+      });
+    }
 
     // Group alerts by domain (so the Single view can show alerts for the
     // selected domain only)
