@@ -345,8 +345,13 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 #view-dashboard .view-toggle button { background: none; border: none; padding: 7px 14px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-radius: 7px; transition: all 0.15s; font-family: inherit; }
 #view-dashboard .view-toggle button.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
 #view-dashboard .scan-cta { margin-left: auto; display: flex; gap: 8px; align-items: center; }
-#view-dashboard .scan-cta button { background: var(--accent); color: white; border: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; box-shadow: 0 4px 10px -2px rgba(124,58,237,0.25); font-family: inherit; transition: background 0.15s; }
-#view-dashboard .scan-cta button:hover { background: var(--accent-hover); }
+/* INBOX-178 Batch 4: primary CTA shifted accent purple → black per v2 mockup.
+   Sidebar active state still uses --accent (purple) so brand identity stays
+   where it adds personality, while the page-level CTA is the confident
+   neutral that Vercel/Stripe/Linear all use. */
+#view-dashboard .scan-cta button { background: var(--text); color: var(--surface); border: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.08); font-family: inherit; transition: background 0.15s, transform 0.1s; }
+#view-dashboard .scan-cta button:hover { background: var(--text-muted); }
+#view-dashboard .scan-cta button:active { transform: scale(0.98); }
 /* 2026-04-27: secondary Refresh button — sits next to "+ Scan New Domain"
    but rendered as a quieter outline so the primary CTA stays primary. */
 #view-dashboard .scan-cta .dh-refresh-secondary { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); box-shadow: none; padding: 9px 14px; }
@@ -663,3 +668,160 @@ body.dh-refreshing-pill::after {
   animation: dhPillFade 0.18s ease-out;
 }
 @keyframes dhPillFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INBOX-178 Batch 4 — v2 mockup pixel-close polish (2026-04-30)
+   Adds: brand mark in sidebar, page-header v2 layout, score circle SVG ring,
+   score band pill, domain selector green dot. Topnav rules above are now
+   unused but kept for safety until a future cleanup.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* SIDEBAR BRAND MARK (moved from old topnav) */
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 24px 18px;
+  text-decoration: none;
+  color: var(--text);
+}
+.sidebar .brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.sidebar .brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+/* mobile-toggle was in topnav; in sidebar context we hide on desktop */
+.sidebar .mobile-toggle {
+  display: none;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+}
+@media (max-width: 768px) {
+  .sidebar .mobile-toggle { display: block; }
+}
+
+/* PAGE HEADER (v2 layout: H1 + subtitle on left, actions on right) */
+#view-dashboard .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+#view-dashboard .page-header-left { min-width: 0; flex: 1; }
+#view-dashboard .page-header-left .page-title { margin-bottom: 6px; font-size: 28px; font-weight: 600; letter-spacing: -0.045em; line-height: 1.1; }
+#view-dashboard .page-header-left .page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 0; }
+#view-dashboard .page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+#view-dashboard .page-header-actions .user-name { font-size: 13px; color: var(--text-muted); }
+#view-dashboard .page-header-actions .theme-toggle { width: 32px; height: 32px; }
+#view-dashboard .page-header-actions .logout-btn { padding: 5px 14px; font-size: 12px; background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+#view-dashboard .page-header-actions .logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
+
+/* SCORE CIRCLE — SVG progress ring (replaces solid-bg+border circle) */
+#view-dashboard .score-hero .score-circle {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  border-radius: 0;       /* override solid-circle styles above */
+  border: none;
+  background: transparent;
+  flex-shrink: 0;
+  display: block;         /* override flex-column from above */
+}
+#view-dashboard .score-circle-svg { display: block; }
+#view-dashboard .score-circle-bg { stroke: var(--surface-3); }
+#view-dashboard .score-circle-fg {
+  stroke: var(--text-subtle);
+  transition: stroke-dashoffset 600ms ease, stroke 200ms ease;
+}
+#view-dashboard .score-circle.good .score-circle-fg { stroke: var(--green); }
+#view-dashboard .score-circle.moderate .score-circle-fg { stroke: var(--orange); }
+#view-dashboard .score-circle.danger .score-circle-fg { stroke: var(--red); }
+#view-dashboard .score-circle.good .score-circle-bg { stroke: rgba(4, 120, 87, 0.18); }
+body[data-theme="dark"] #view-dashboard .score-circle.good .score-circle-bg { stroke: rgba(74, 222, 128, 0.14); }
+#view-dashboard .score-circle-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+#view-dashboard .score-circle-text .score-number {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  letter-spacing: -0.03em;
+}
+#view-dashboard .score-circle-text .score-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-subtle);
+  margin-top: 6px;
+  font-weight: 500;
+}
+/* Loading state — use opacity shimmer (don't override the SVG) */
+#view-dashboard .score-circle.loading-state .score-number,
+#view-dashboard .score-circle.loading-state .score-label { color: var(--text-subtle); }
+
+/* SCORE BAND PILL — "All clear" / "Needs attention" / "Action required" */
+#view-dashboard .score-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+#view-dashboard .score-band-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--green-bg);
+  color: var(--green);
+}
+#view-dashboard .score-band-pill.moderate { background: var(--orange-bg); color: var(--orange); }
+#view-dashboard .score-band-pill.danger { background: var(--red-bg); color: var(--red); }
+#view-dashboard .score-band-pill.none { background: var(--surface-2); color: var(--text-muted); }
+
+/* DOMAIN SELECTOR — green dot replaces globe emoji */
+#view-dashboard .domain-select-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}

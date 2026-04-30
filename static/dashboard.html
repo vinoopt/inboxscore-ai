@@ -32,27 +32,18 @@
   })();
 </script>
 
-<nav class="topnav">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
-    <a href="/dashboard" class="logo">
-      <div class="logo-icon" style="font-size:11px;font-weight:700;color:white;">IS</div>
-      InboxScore
-    </a>
-  </div>
-  <div class="nav-right">
-    <span class="user-name" id="user-name"></span>
-    <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle-btn" title="Toggle light/dark theme" aria-label="Toggle theme">
-      <svg class="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-      <svg class="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-    </button>
-    <button class="logout-btn" onclick="logout()">Log Out</button>
-  </div>
-</nav>
-
+<!-- INBOX-178 Batch 4: topnav removed, contents migrated into sidebar (brand mark)
+     and page-header (theme toggle, user-name, Log Out). Matches v2 mockup pattern
+     where the page header is the single integrated band, no separate top bar. -->
 <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
 <div class="layout">
   <aside class="sidebar">
+    <!-- Brand mark — moved here from old topnav -->
+    <a href="/dashboard" class="brand">
+      <div class="brand-mark">IS</div>
+      <div class="brand-name">InboxScore</div>
+    </a>
+    <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
     <ul class="sidebar-nav">
       <li><a href="/dashboard" class="active"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Dashboard</a></li>
       <li><a href="/postmaster"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></span> Google Postmaster</a></li>
@@ -72,22 +63,33 @@
          VIEW: Dashboard (default)
          ===================================================== -->
     <div id="view-dashboard" class="dash-view active">
+      <!-- INBOX-178 Batch 4: H1 + subtitle on left, theme toggle + user + Log Out on right.
+           Single integrated band — no separate topbar (mockup pattern). -->
       <div class="page-header">
-        <div>
+        <div class="page-header-left">
           <h1 class="page-title">Dashboard</h1>
+          <p class="page-subtitle">Live deliverability snapshot for the selected domain.</p>
+        </div>
+        <div class="page-header-actions">
+          <span class="user-name" id="user-name"></span>
+          <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle-btn" title="Toggle light/dark theme" aria-label="Toggle theme">
+            <svg class="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg class="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
+          <button class="logout-btn" onclick="logout()">Log Out</button>
         </div>
       </div>
-      <p class="page-subtitle">Live deliverability snapshot for the selected domain.</p>
 
       <!-- Domain selector + view toggle + scan CTA -->
       <div class="domain-bar">
         <div class="domain-select" id="dh-domain-select" onclick="dhToggleDomainDropdown(event)">
-          <span style="font-size:14px">🌐</span>
+          <!-- INBOX-178 Batch 4: globe emoji → green dot (matches v2 mockup).
+               INBOX-175 (parked): "5 domains monitored" subtitle is now hidden
+               since the Domains nav item already shows the count. -->
+          <span class="domain-select-dot" aria-hidden="true"></span>
           <div style="flex:1;min-width:0;">
-            <!-- INBOX-90: skeleton bars in the domain selector instead of
-                 text. Replaced once /api/user/domains responds. -->
             <div id="dh-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="skeleton skeleton-bar" style="width:160px;"></span></div>
-            <div class="domain-select-meta" id="dh-domain-count"><span class="skeleton skeleton-bar sm" style="width:110px;"></span></div>
+            <div class="domain-select-meta" id="dh-domain-count" style="display:none;"></div>
           </div>
           <span class="domain-select-arrow">▼</span>
           <div class="domain-dropdown" id="dh-domain-dropdown"></div>
@@ -121,13 +123,29 @@
              Initial-state shimmer happens via the .loading-state class on
              the wrapper, which animates opacity. The render fns remove that
              class once real data is in. -->
+        <!-- INBOX-178 Batch 4: Score Hero now uses SVG progress ring (160px) per
+             v2 mockup. Inner IDs preserved (dh-score-number etc) so JS still works.
+             dhRenderScoreHero updates the arc via stroke-dashoffset based on score.
+             Added "All clear" pill next to band for the "score state" signal. -->
         <div class="score-hero" id="dh-score-hero">
           <div class="score-circle none loading-state" id="dh-score-circle">
-            <div class="score-number" id="dh-score-number">—</div>
-            <div class="score-label">Out of 100</div>
+            <svg class="score-circle-svg" width="160" height="160" viewBox="0 0 160 160">
+              <circle class="score-circle-bg" cx="80" cy="80" r="71" fill="none" stroke-width="9"/>
+              <circle class="score-circle-fg" id="dh-score-fg" cx="80" cy="80" r="71" fill="none" stroke-width="9" stroke-linecap="round" stroke-dasharray="446.106" stroke-dashoffset="446.106" transform="rotate(-90 80 80)"/>
+            </svg>
+            <div class="score-circle-text">
+              <div class="score-number" id="dh-score-number">—</div>
+              <div class="score-label">Out of 100</div>
+            </div>
           </div>
           <div class="score-summary">
-            <h2 id="dh-score-band"><span class="skeleton skeleton-bar lg" style="width:140px;"></span></h2>
+            <div class="score-row">
+              <h2 id="dh-score-band"><span class="skeleton skeleton-bar lg" style="width:140px;"></span></h2>
+              <span class="score-band-pill" id="dh-score-pill" style="display:none;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span id="dh-score-pill-text">All clear</span>
+              </span>
+            </div>
             <div class="domain-name" id="dh-score-meta"><span class="skeleton skeleton-bar" style="width:240px;"></span></div>
             <div class="verdict" id="dh-score-verdict"><span class="skeleton skeleton-bar" style="width:80%;"></span></div>
             <div class="score-stats" id="dh-score-stats">
@@ -136,7 +154,7 @@
               <span class="skeleton skeleton-pill"></span>
             </div>
           </div>
-        </div><!-- /score-hero — refresh button moved to top action row 2026-04-27 -->
+        </div><!-- /score-hero -->
 
         <!-- Score Trend Chart — INBOX-97: always visible, 7 fixed day slots -->
         <div class="section-block trend-card" id="dh-trend-card">
@@ -523,6 +541,33 @@ function dhRenderScoreHero(domain) {
   // INBOX-94: setting className wipes loading-state automatically by
   // overwriting all classes — explicit for clarity.
   circle.className = 'score-circle ' + dhScoreCircleClass(score);
+
+  /* INBOX-178 Batch 4: drive the SVG progress arc.
+     Circumference = 2π × 71 = 446.106. dashoffset = full when score=0/null,
+     full minus (score/100 × full) when score is real. */
+  const fg = document.getElementById('dh-score-fg');
+  if (fg) {
+    const FULL = 446.106;
+    const offset = score == null ? FULL : Math.max(0, FULL - (score / 100) * FULL);
+    fg.setAttribute('stroke-dashoffset', offset.toFixed(2));
+  }
+
+  /* INBOX-178 Batch 4: "All clear" pill visibility + label tied to score band.
+     Excellent / Good → green "All clear", Fair → amber "Needs attention",
+     Poor → red "Action required". Hidden if no score yet. */
+  const pill = document.getElementById('dh-score-pill');
+  const pillText = document.getElementById('dh-score-pill-text');
+  if (pill && pillText) {
+    if (score == null) {
+      pill.style.display = 'none';
+    } else {
+      pill.style.display = '';
+      const k = dhScoreCircleClass(score);
+      pill.className = 'score-band-pill ' + k;
+      pillText.textContent = k === 'good' ? 'All clear' : (k === 'moderate' ? 'Needs attention' : 'Action required');
+    }
+  }
+
   document.getElementById('dh-score-band').textContent = meta.label;
   document.getElementById('dh-score-meta').textContent = scan
     ? `${domain} · Last scanned ${dhFormatScanTime(scan.created_at)}`
