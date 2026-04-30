@@ -682,7 +682,15 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-light { display: block; }
 .diag-card-value.warn { color: var(--warn-text); }
 .diag-score .got.fail, .diag-score .got.fail ~ .of,
 .diag-card-value.fail { color: var(--danger); }
-.diag-card-value.none { color: var(--fg-3); font-family: inherit; font-weight: 400; }
+/* INBOX-178: text-only info value (TLS/MTA-STS) renders at body size,
+   not score size. Mockup spec: 13px / weight 500. Without this it
+   inherits the 18px score size and visually outweighs the numeric
+   cards (SPF / DKIM / DMARC / MX). */
+.diag-card-value.none {
+  color: var(--fg-1); font-family: inherit;
+  font-weight: 500; font-size: 13px; line-height: 1.5;
+  letter-spacing: -0.005em;
+}
 .diag-score .of, .diag-card-value .of { font-weight: 400; }
 
 .diag-desc, .diag-card-meta {
