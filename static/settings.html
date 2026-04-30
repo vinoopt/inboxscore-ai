@@ -584,7 +584,15 @@ function _settingsApplySnapshot(snap) {
   if (snap.displayName) document.getElementById('user-name').textContent = snap.displayName;
   if (snap.email) {
     document.getElementById('general-email').textContent = snap.email;
-    document.getElementById('notif-email-desc').textContent = 'Send alert summaries to ' + snap.email;
+    // INBOX-159 (v1.16.5): notif-email-desc was the alert-summary
+    // description inside the old Settings → Notifications panel,
+    // which moved to /alerts in INBOX-143. The element no longer
+    // exists here. Setting textContent on the null return crashed
+    // _settingsApplySnapshot, threw out of loadSettings, triggered
+    // the catch-block refresh + location.reload() → infinite reload
+    // loop. Vinoop hit it on 2026-04-30 after the auth fix landed.
+    const notifDesc = document.getElementById('notif-email-desc');
+    if (notifDesc) notifDesc.textContent = 'Send alert summaries to ' + snap.email;
   }
   // Profile name + company
   if (snap.profileName) document.getElementById('general-name').textContent = snap.profileName;
@@ -597,12 +605,12 @@ function _settingsApplySnapshot(snap) {
     const billingEl = document.getElementById('billing-plan-name');
     if (billingEl) billingEl.textContent = snap.plan.charAt(0).toUpperCase() + snap.plan.slice(1) + ' Plan';
   }
-  // Notification toggles
-  if (snap.prefs) {
-    setToggle('scan_alerts', snap.prefs.scan_alerts !== false);
-    setToggle('blacklist_alerts', snap.prefs.blacklist_alerts !== false);
-    setToggle('weekly_digest', snap.prefs.weekly_digest === true);
-  }
+  // INBOX-159 (v1.16.5): notification toggles moved to /alerts → Rules
+  // and Channels tabs in INBOX-143. The setToggle helper here was
+  // removed at the same time but the calls weren't — every call
+  // raised ReferenceError, which the outer try/catch in loadSettings
+  // mistook for an auth failure and triggered a refresh + reload
+  // loop. Bug bundle with notif-email-desc above.
 }
 
 function _settingsHydrateFromCache() {
