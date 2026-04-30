@@ -694,17 +694,19 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-light { display: block; }
   -webkit-box-orient: vertical;
 }
 
-/* Diag card status pill (legacy) */
+/* Diag card status pill (legacy class used by JS-rendered diag cards).
+   Mockup parity: title-case text (no text-transform), .info uses Vercel
+   blue (accent token) not grey, slight padding bump to match .status-pill. */
 .diag-card-status {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px; border-radius: 6px;
-  font-size: 11px; font-weight: 500;
-  text-transform: uppercase; letter-spacing: 0.05em;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 500;
+  letter-spacing: -0.005em;
 }
 .diag-card-status.pass { background: var(--success-soft); color: var(--success-text); }
 .diag-card-status.warn { background: var(--warn-soft); color: var(--warn-text); }
 .diag-card-status.fail { background: var(--danger-soft); color: var(--danger); }
-.diag-card-status.info { background: var(--bg-3); color: var(--fg-2); }
+.diag-card-status.info { background: var(--accent-soft); color: var(--accent); }
 
 
 /* ═══════════════════ 11. DOMAIN SAFETY (connected stat strip) ═══════════════════
