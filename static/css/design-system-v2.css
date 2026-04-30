@@ -1,0 +1,698 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   InboxScore Design System v2 — "Vercel-grounded"
+   ─────────────────────────────────────────────────────────────────────────
+   Created: 2026-04-30
+   Source:  Vercel.com tokens extracted via SkillUI + production refinements
+   Docs:    /InboxScore/docs/DESIGN-SYSTEM.md (v2 section)
+   Mockup:  /InboxScore/design-mockups/dashboard-v2.html
+
+   USAGE
+   -----
+   1. Include in <head> of every page:
+      <link rel="stylesheet" href="/static/css/design-system-v2.css">
+   2. Set theme on body element:
+      <body data-theme="light">  ← default
+      <body data-theme="dark">
+      Toggle via JavaScript: document.body.dataset.theme = "dark"
+   3. Use the component primitives below — never hand-roll equivalents.
+
+   STRUCTURE
+   ---------
+   Layer 1 — Tokens (CSS variables, light + dark)
+   Layer 2 — Base reset + body type
+   Layer 3 — Typography utilities (.num, .mono, .text-*)
+   Layer 4 — Component primitives
+              §A. Buttons         (.btn, .btn.primary, .icon-btn)
+              §B. Cards           (.card, .score-hero, .trend-card, .diag-card,
+                                    .provider-card, .safety-card, .scan-row)
+              §C. Pills/Badges    (.status-pill, .score-band-pill, .stat-pill)
+              §D. Sidebar nav     (.sidebar, .nav-item)
+              §E. Page header     (.page-header, .page-title, .page-subtitle)
+              §F. Section header  (.section-header, .section-title)
+              §G. Action row      (.action-row, .domain-selector, .toggle-group)
+              §H. Score circle    (.score-circle-*)
+              §I. Trend bars      (.trend-bars, .trend-bar)
+              §J. Provider stats  (.provider-stats, .provider-stat-*)
+              §K. Diag score      (.diag-score, .got, .of)
+   Layer 5 — Layout helpers (.layout, .main, .content)
+
+   IMPORTANT
+   ---------
+   - Empty states use --fg-4 (muted), NEVER --danger. See feedback memory.
+   - Today/now markers always use solid --success-text (darker green) vs
+     history at lower opacity. Pattern: opacity 0.32 history, 1.0 today.
+   - Time-series tables sort newest-first by default.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+
+/* ─── LAYER 1 ─── DESIGN TOKENS ─────────────────────────────────────────── */
+
+/* LIGHT theme — Vercel.com extracted tokens */
+body[data-theme="light"],
+:root {
+  /* Surfaces (background hierarchy: bg ← bg-1 ← bg-2 ← bg-3) */
+  --bg:           #fafafa;   /* page background */
+  --bg-1:         #ffffff;   /* card surfaces */
+  --bg-2:         #f4f4f5;   /* elevated containers, hover states */
+  --bg-3:         #eaeaea;   /* deepest surface */
+
+  /* Foreground (text hierarchy: fg = primary, fg-1 = body, fg-2 = secondary, fg-3/4/5 = increasingly muted) */
+  --fg:           #000000;
+  --fg-1:         #171717;
+  --fg-2:         #404040;
+  --fg-3:         #666666;
+  --fg-4:         #888888;   /* muted state, em-dash placeholders */
+  --fg-5:         #a1a1a1;
+
+  /* Borders */
+  --border:        #eaeaea;
+  --border-strong: #d4d4d8;
+  --border-hover:  #000000;
+
+  /* Brand accent (links, primary actions) */
+  --accent:       #0070f3;
+  --accent-2:     #0050a3;
+  --accent-soft:  #e6f0ff;
+
+  /* Status colours — light mode */
+  --success:        #00875a;
+  --success-soft:   #e6f7ee;
+  --success-text:   #00603f;   /* darker green for "today" emphasis + score numbers */
+
+  --warn:           #b87100;
+  --warn-soft:      #fef7e8;
+  --warn-text:      #8a5500;
+
+  --danger:         #e5484d;
+  --danger-soft:    #ffe7e7;
+
+  --info:           #2c8ce1;
+
+  /* Score ring background (the faint green track behind the score arc) */
+  --score-ring-bg: rgba(0, 135, 90, 0.22);
+
+  /* Shadow — subtle */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+/* DARK theme — Vercel-grounded with refined product-dashboard greens */
+body[data-theme="dark"] {
+  --bg:           #000000;
+  --bg-1:         #0f0f0f;   /* lifted from #0a — Vercel's actual dashboard does this for elevation */
+  --bg-2:         #1a1a1a;
+  --bg-3:         #262626;
+
+  --fg:           #ffffff;
+  --fg-1:         #ededed;
+  --fg-2:         #a1a1a1;
+  --fg-3:         #888888;
+  --fg-4:         #666666;
+  --fg-5:         #525252;
+
+  --border:        rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-hover:  rgba(255, 255, 255, 0.30);
+
+  --accent:        #3291ff;
+  --accent-2:      #59a7ff;
+  --accent-soft:   rgba(50, 145, 255, 0.10);
+
+  /* Grounded green (not Vercel marketing-site mint #45dec4 — that read too neon) */
+  --success:        #26d978;
+  --success-soft:   rgba(38, 217, 120, 0.10);
+  --success-text:   #4ade80;
+
+  --warn:           #f5a623;
+  --warn-soft:      rgba(245, 166, 35, 0.10);
+  --warn-text:      #f5b342;
+
+  --danger:         #e5484d;
+  --danger-soft:    rgba(229, 72, 77, 0.12);
+
+  --info:           #59a7ff;
+
+  /* Reduced from 0.20 — at 0.20 the ring background doubled-up against the arc */
+  --score-ring-bg: rgba(38, 217, 120, 0.12);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* SPACING SCALE — 4px grid */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* RADII */
+  --radius-sm:  4px;   /* buttons, small chips */
+  --radius-md:  6px;   /* nav items, toggle buttons */
+  --radius-lg:  8px;   /* domain selectors, segmented controls */
+  --radius-xl:  12px;  /* cards */
+  --radius-pill: 999px;
+}
+
+
+/* ─── LAYER 2 ─── BASE RESET + BODY TYPE ─────────────────────────────────── */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'ss01', 'cv11';
+  transition: background 200ms ease, color 200ms ease;
+}
+
+
+/* ─── LAYER 3 ─── TYPOGRAPHY UTILITIES ──────────────────────────────────── */
+
+.num  { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+.mono { font-family: 'Geist Mono', 'SF Mono', Menlo, monospace; }
+
+
+/* ─── LAYER 4A ─── BUTTONS ──────────────────────────────────────────────── */
+
+/* Default (secondary) button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-4);
+  background: var(--bg-1);
+  color: var(--fg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease, transform 100ms ease;
+}
+.btn:hover { background: var(--bg-2); border-color: var(--fg); }
+.btn:active { transform: scale(0.98); }
+.btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* Primary button — solid black/white */
+.btn.primary {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+.btn.primary:hover { background: var(--fg-1); border-color: var(--fg-1); }
+.btn.primary svg { color: var(--bg); }
+
+/* Icon-only button (sidebar / topbar utility) */
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--fg-2);
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+}
+.icon-btn:hover { background: var(--bg-2); color: var(--fg); }
+
+
+/* ─── LAYER 4B ─── CARDS ────────────────────────────────────────────────── */
+
+/* Generic card */
+.card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  transition: border-color 150ms ease;
+}
+.card-hover:hover { border-color: var(--border-strong); }
+
+
+/* ─── LAYER 4C ─── STATUS PILLS / BADGES ────────────────────────────────── */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.status-pill .ind {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.status-pill.green { background: var(--success-soft); color: var(--success-text); }
+.status-pill.green .ind { background: var(--success); }
+.status-pill.warn  { background: var(--warn-soft);    color: var(--warn-text); }
+.status-pill.warn  .ind { background: var(--warn); }
+.status-pill.fail  { background: var(--danger-soft);  color: var(--danger); }
+.status-pill.fail  .ind { background: var(--danger); }
+.status-pill.gray  { background: var(--bg-2);         color: var(--fg-3); }
+.status-pill.gray  .ind { background: var(--fg-4); }
+.status-pill.info  { background: var(--accent-soft);  color: var(--accent); }
+.status-pill.info  .ind { background: var(--accent); }
+
+
+/* ─── LAYER 4D ─── SIDEBAR NAVIGATION ──────────────────────────────────── */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  padding: 18px 14px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px 8px var(--space-5) 8px;
+}
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: var(--fg);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--fg);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-2);
+  cursor: pointer;
+  margin-bottom: 1px;
+  transition: background 100ms ease, color 100ms ease;
+}
+.nav-item:hover { background: var(--bg-2); color: var(--fg); }
+.nav-item.active {
+  background: var(--bg-2);
+  color: var(--fg);
+}
+.nav-item svg { flex-shrink: 0; color: var(--fg-3); }
+.nav-item.active svg { color: var(--fg); }
+.nav-item .badge {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--fg-3);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* ─── LAYER 4E ─── PAGE HEADER ──────────────────────────────────────────── */
+
+/* H1 + subtitle on left, action icons on right (single integrated band — no separate topbar) */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+.page-header-left { min-width: 0; flex: 1; }
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+.page-title {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  color: var(--fg);
+  margin-bottom: 6px;
+  line-height: 1.1;
+}
+.page-subtitle {
+  font-size: 15px;
+  color: var(--fg-2);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+
+
+/* ─── LAYER 4F ─── SECTION HEADER (UPPERCASE pattern) ──────────────────── */
+
+.section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin: var(--space-8) 0 14px;
+}
+.section-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.section-title-icon { color: var(--fg-3); }
+.section-meta { font-size: 13px; color: var(--fg-2); }
+
+
+/* ─── LAYER 4G ─── ACTION ROW (domain selector + toggle + buttons) ─────── */
+
+.action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-7);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+.action-row-left { display: flex; align-items: center; gap: 10px; }
+
+.domain-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-3);
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  cursor: pointer;
+  transition: border-color 100ms ease;
+}
+.domain-selector:hover { border-color: var(--fg); }
+.domain-selector-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.toggle-group {
+  display: inline-flex;
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 3px;
+}
+.toggle-btn {
+  padding: 5px var(--space-3);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: -0.005em;
+  transition: background 100ms ease, color 100ms ease;
+}
+.toggle-btn.active { background: var(--bg-2); color: var(--fg); }
+.toggle-btn:hover:not(.active) { color: var(--fg); }
+
+
+/* ─── LAYER 4H ─── SCORE CIRCLE (deliverability hero) ──────────────────── */
+
+.score-hero {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: var(--space-8);
+  padding: var(--space-7);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-6);
+  align-items: center;
+}
+.score-circle-wrap { position: relative; width: 160px; height: 160px; }
+.score-circle-svg { transform: rotate(-90deg); }
+.score-circle-bg { stroke: var(--score-ring-bg); }
+.score-circle-fg {
+  stroke: var(--success-text);
+  transition: stroke-dashoffset 600ms ease;
+}
+.score-circle-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.score-circle-num {
+  font-size: 44px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.score-circle-out {
+  font-size: 10px;
+  color: var(--fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 500;
+  margin-top: 6px;
+}
+.score-band {
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+.score-band-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--success-soft);
+  color: var(--success-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+
+/* ─── LAYER 4I ─── TREND BARS (today emphasis pattern) ─────────────────── */
+
+.trend-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 22px;
+  margin-bottom: var(--space-6);
+}
+.trend-bars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 14px;
+  height: 130px;
+}
+.trend-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+.trend-bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 10px;
+}
+
+/* History bars — light, recede */
+.trend-bar {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  background: var(--success);
+  opacity: 0.32;
+  cursor: pointer;
+  transition: opacity 200ms ease, background 200ms ease;
+}
+.trend-bar:hover { opacity: 0.55; }
+
+/* Today bar — darker, full opacity, subtle highlight */
+.trend-bar.today {
+  background: var(--success-text);
+  opacity: 1;
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.18);
+}
+.trend-bar.today:hover { background: var(--fg); }
+
+/* Today marker dot above the bar */
+.trend-slot.today-slot::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success-text);
+}
+
+.trend-label { display: flex; flex-direction: column; align-items: center; gap: 3px; margin-top: 6px; }
+.trend-day { font-size: 11px; color: var(--fg-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
+.trend-day.today { color: var(--fg); font-weight: 600; }
+.trend-score { font-size: 13px; color: var(--fg-1); font-variant-numeric: tabular-nums; font-weight: 500; }
+.trend-score.today { font-size: 14px; color: var(--fg); font-weight: 600; }
+
+
+/* ─── LAYER 4J ─── PROVIDER STATS (inside provider cards) ──────────────── */
+
+.provider-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+.provider-stat-label {
+  font-size: 11px;
+  color: var(--fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.provider-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.02em;
+}
+.provider-stat-value.warn  { color: var(--warn-text); }
+.provider-stat-value.good  { color: var(--success-text); }
+.provider-stat-value.muted { color: var(--fg-4); font-weight: 500; }
+
+/* Provider card — used for Google Postmaster, Microsoft SNDS, etc. */
+.provider-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  transition: border-color 150ms ease;
+}
+.provider-card:hover { border-color: var(--border-strong); }
+.provider-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.provider-brand { display: flex; align-items: center; gap: var(--space-3); }
+.provider-icon {
+  width: 36px; height: 36px; border-radius: var(--radius-lg);
+  background: var(--bg-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.provider-name { font-size: 14px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
+.provider-sub  { font-size: 12px; color: var(--fg-3); margin-top: 1px; }
+.provider-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+.provider-cta { font-size: 13px; color: var(--accent); font-weight: 500; cursor: pointer; }
+.provider-cta:hover { text-decoration: underline; }
+.provider-source { font-size: 11px; color: var(--fg-3); font-family: 'Geist Mono', monospace; }
+
+
+/* ─── LAYER 4K ─── DIAGNOSTIC SCORE (e.g. SPF: 15/15) ─────────────────── */
+
+.diag-score {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+}
+.diag-score .got { font-weight: 600; }
+.diag-score .of  { font-weight: 400; margin-left: 1px; }
+
+/* Score colour rule — both numerator and denominator share the same colour
+   so the fraction reads as one unit. Hierarchy comes from font weight only.
+   See feedback memory: feedback_diag_score_color_unity. */
+.diag-score .got.good, .diag-score .got.good ~ .of { color: var(--success-text); }
+.diag-score .got.warn, .diag-score .got.warn ~ .of { color: var(--warn-text); }
+.diag-score .got.fail, .diag-score .got.fail ~ .of { color: var(--danger); }
+
+
+/* ─── LAYER 5 ─── LAYOUT HELPERS ────────────────────────────────────────── */
+
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg);
+}
+.content {
+  padding: 36px 40px 80px;
+  max-width: 1200px;
+  width: 100%;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   END design-system-v2.css
+   ─────────────────────────────────────────────────────────────────────────
+   Component additions go below this line, with §-section + date stamp:
+
+   §L. ALERTS PANEL — added 2026-MM-DD
+   §M. DOMAIN ROW — added 2026-MM-DD
+   ...
+   ═══════════════════════════════════════════════════════════════════════════ */
