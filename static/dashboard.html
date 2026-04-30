@@ -8,37 +8,31 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- Phase 1A (INBOX-177): inline <style> block extracted to dashboard-page.css.
-     design-system-v2.css loaded first so v2 tokens are available for any page
-     that opts in (Phase 1B will migrate this page's variables to v2 names). -->
+<!-- INBOX-178 Vercel rewrite (2026-04-30): full v2 design system adoption.
+     dashboard-page.css is now the canonical implementation matching
+     design-mockups/dashboard-v2.html. design-system-v2.css provides
+     fallback tokens for any pages that don't yet have a page-specific css. -->
 <link rel="stylesheet" href="/static/css/design-system-v2.css">
 <link rel="stylesheet" href="/static/css/dashboard-page.css">
-
-<!-- SWR cache helper — see DESIGN-SYSTEM.md §11.5. Loads first so the
-     Dashboard can hydrate from localStorage before /api/user/* resolves,
-     eliminating the cold-start spinner. -->
 <script src="/static/cache.js"></script>
 </head>
 <body data-theme="light">
 <script>
-  /* Theme hydration — runs immediately as body parses, BEFORE any visible
-     content. Reads localStorage and sets data-theme=dark if user opted in.
-     No FOUC because no painted DOM exists yet at this point. */
+  /* Theme hydration — runs immediately, no FOUC */
   (function() {
     try {
       var t = localStorage.getItem('theme');
       if (t === 'dark') document.body.setAttribute('data-theme', 'dark');
-    } catch (e) { /* localStorage blocked — stay on light theme */ }
+    } catch (e) {}
   })();
 </script>
 
-<!-- INBOX-178 Batch 4: topnav removed, contents migrated into sidebar (brand mark)
-     and page-header (theme toggle, user-name, Log Out). Matches v2 mockup pattern
-     where the page header is the single integrated band, no separate top bar. -->
 <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
 <div class="layout">
+
+  <!-- ═══════════ SIDEBAR ═══════════ -->
   <aside class="sidebar">
-    <!-- Brand mark — moved here from old topnav -->
     <a href="/dashboard" class="brand">
       <div class="brand-mark">IS</div>
       <div class="brand-name">InboxScore</div>
@@ -54,142 +48,131 @@
       <li><a href="/alerts"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
       <li><a href="/settings"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/><circle cx="12" cy="12" r="3"/></svg></span> Settings</a></li>
     </ul>
-    <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
+    <div class="sidebar-footer">
+      <div class="plan-pill" id="plan-badge">
+        <span class="plan-pill-tier"><span id="plan-name">Free</span> plan</span>
+      </div>
+    </div>
   </aside>
 
+  <!-- ═══════════ MAIN ═══════════ -->
   <main class="main" id="main-content">
 
-    <!-- =====================================================
-         VIEW: Dashboard (default)
-         ===================================================== -->
+    <!-- ═════════ VIEW: Dashboard ═════════ -->
     <div id="view-dashboard" class="dash-view active">
-      <!-- INBOX-178 Batch 4: H1 + subtitle on left, theme toggle + user + Log Out on right.
-           Single integrated band — no separate topbar (mockup pattern). -->
-      <div class="page-header">
-        <div class="page-header-left">
-          <h1 class="page-title">Dashboard</h1>
-          <p class="page-subtitle">Live deliverability snapshot for the selected domain.</p>
-        </div>
-        <div class="page-header-actions">
-          <span class="user-name" id="user-name"></span>
-          <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle-btn" title="Toggle light/dark theme" aria-label="Toggle theme">
-            <svg class="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            <svg class="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          </button>
-          <button class="logout-btn" onclick="logout()">Log Out</button>
-        </div>
-      </div>
+      <div class="content">
 
-      <!-- Domain selector + view toggle + scan CTA -->
-      <div class="domain-bar">
-        <div class="domain-select" id="dh-domain-select" onclick="dhToggleDomainDropdown(event)">
-          <!-- INBOX-178 Batch 4: globe emoji → green dot (matches v2 mockup).
-               INBOX-175 (parked): "5 domains monitored" subtitle is now hidden
-               since the Domains nav item already shows the count. -->
-          <span class="domain-select-dot" aria-hidden="true"></span>
-          <div style="flex:1;min-width:0;">
-            <div id="dh-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="skeleton skeleton-bar" style="width:160px;"></span></div>
-            <div class="domain-select-meta" id="dh-domain-count" style="display:none;"></div>
+        <!-- Page header — H1 + subtitle on left, theme toggle + user + Log Out on right -->
+        <div class="page-header">
+          <div class="page-header-left">
+            <h1 class="page-title">Dashboard</h1>
+            <p class="page-subtitle">Live deliverability snapshot for the selected domain.</p>
           </div>
-          <span class="domain-select-arrow">▼</span>
-          <div class="domain-dropdown" id="dh-domain-dropdown"></div>
+          <div class="page-header-actions">
+            <span class="user-name" id="user-name"></span>
+            <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle-btn" title="Toggle light/dark theme" aria-label="Toggle theme">
+              <svg class="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              <svg class="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+            <button class="logout-btn" onclick="logout()">Log Out</button>
+          </div>
         </div>
-        <div class="view-toggle">
-          <button class="active" id="dh-toggle-single" onclick="dhShowSingleView()">Single Domain</button>
-          <button id="dh-toggle-portfolio" onclick="dhShowPortfolioView()">View All Domains</button>
-        </div>
-        <div class="scan-cta">
-          <!-- 2026-04-27: page-level Refresh moved out of the score hero
-               card. The button revalidates everything on the page (score
-               + trend + diag + provider status), not just the score, so
-               sitting next to "+ Scan New Domain" matches its scope. -->
-          <button class="dh-refresh-secondary" onclick="dhRefreshSelectedDomain()" id="dh-refresh-btn" title="Re-scan the selected domain right now">↻ Refresh</button>
-          <button onclick="dhFocusScanInput()">+ Scan New Domain</button>
-        </div>
-      </div>
 
-      <!-- Inline scan input (shown when "+ Scan New Domain" clicked) -->
-      <div class="scan-box-dash" id="dh-scan-box" style="display:none;">
-        <input id="dash-domain-input" type="text" placeholder="Scan a new domain (e.g. acme.com)" onkeypress="if(event.key==='Enter') dashStartScan()" autocomplete="off">
-        <button id="dash-scan-btn" onclick="dashStartScan()">Scan Domain</button>
-      </div>
-      <div class="scan-error-dash" id="dash-scan-error"></div>
-
-      <!-- ─────────── SINGLE DOMAIN VIEW (default) ─────────── -->
-      <div class="single-view" id="dh-single-view">
-
-        <!-- Score Hero — INBOX-94: preserve inner IDs (dh-score-number,
-             dh-score-label) so dhRenderScoreHero can write to them.
-             Initial-state shimmer happens via the .loading-state class on
-             the wrapper, which animates opacity. The render fns remove that
-             class once real data is in. -->
-        <!-- INBOX-178 Batch 4: Score Hero now uses SVG progress ring (160px) per
-             v2 mockup. Inner IDs preserved (dh-score-number etc) so JS still works.
-             dhRenderScoreHero updates the arc via stroke-dashoffset based on score.
-             Added "All clear" pill next to band for the "score state" signal. -->
-        <div class="score-hero" id="dh-score-hero">
-          <div class="score-circle none loading-state" id="dh-score-circle">
-            <svg class="score-circle-svg" width="160" height="160" viewBox="0 0 160 160">
-              <circle class="score-circle-bg" cx="80" cy="80" r="71" fill="none" stroke-width="9"/>
-              <circle class="score-circle-fg" id="dh-score-fg" cx="80" cy="80" r="71" fill="none" stroke-width="9" stroke-linecap="round" stroke-dasharray="446.106" stroke-dashoffset="446.106" transform="rotate(-90 80 80)"/>
-            </svg>
-            <div class="score-circle-text">
-              <div class="score-number" id="dh-score-number">—</div>
-              <div class="score-label">Out of 100</div>
+        <!-- Action row -->
+        <div class="action-row">
+          <div class="action-row-left">
+            <div class="domain-select" id="dh-domain-select" onclick="dhToggleDomainDropdown(event)">
+              <span class="domain-select-dot"></span>
+              <div style="flex:1;min-width:0;">
+                <div id="dh-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="skeleton skeleton-bar" style="width:140px;"></span></div>
+                <div class="domain-select-meta" id="dh-domain-count" style="display:none;"></div>
+              </div>
+              <span class="domain-select-arrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+              <div class="domain-dropdown" id="dh-domain-dropdown"></div>
+            </div>
+            <div class="view-toggle">
+              <button class="active" id="dh-toggle-single" onclick="dhShowSingleView()">Single Domain</button>
+              <button id="dh-toggle-portfolio" onclick="dhShowPortfolioView()">View All Domains</button>
             </div>
           </div>
-          <div class="score-summary">
-            <div class="score-row">
-              <h2 id="dh-score-band"><span class="skeleton skeleton-bar lg" style="width:140px;"></span></h2>
-              <span class="score-band-pill" id="dh-score-pill" style="display:none;">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                <span id="dh-score-pill-text">All clear</span>
-              </span>
+          <div class="scan-cta">
+            <button class="dh-refresh-secondary" onclick="dhRefreshSelectedDomain()" id="dh-refresh-btn" title="Re-scan the selected domain right now">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/><path d="M21 21v-5h-5"/></svg>
+              Refresh
+            </button>
+            <button onclick="dhFocusScanInput()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Scan New Domain
+            </button>
+          </div>
+        </div>
+
+        <!-- Inline scan input box (shown when "+ Scan New Domain" clicked) -->
+        <div class="scan-box-dash" id="dh-scan-box" style="display:none;">
+          <input id="dash-domain-input" type="text" placeholder="Scan a new domain (e.g. acme.com)" onkeypress="if(event.key==='Enter') dashStartScan()" autocomplete="off">
+          <button id="dash-scan-btn" onclick="dashStartScan()">Scan Domain</button>
+        </div>
+        <div class="scan-error-dash" id="dash-scan-error"></div>
+
+        <!-- ─────── SINGLE DOMAIN VIEW ─────── -->
+        <div class="single-view" id="dh-single-view">
+
+          <!-- Score Hero — 160px SVG progress ring per v2 mockup -->
+          <div class="score-hero" id="dh-score-hero">
+            <div class="score-circle none loading-state" id="dh-score-circle">
+              <svg class="score-circle-svg" width="160" height="160" viewBox="0 0 160 160">
+                <circle class="score-circle-bg" cx="80" cy="80" r="71" fill="none" stroke-width="9"/>
+                <circle class="score-circle-fg" id="dh-score-fg" cx="80" cy="80" r="71" fill="none" stroke-width="9" stroke-linecap="round" stroke-dasharray="446.106" stroke-dashoffset="446.106"/>
+              </svg>
+              <div class="score-circle-text">
+                <div class="score-circle-num num" id="dh-score-number">—</div>
+                <div class="score-circle-out">OUT OF 100</div>
+              </div>
             </div>
-            <div class="domain-name" id="dh-score-meta"><span class="skeleton skeleton-bar" style="width:240px;"></span></div>
-            <div class="verdict" id="dh-score-verdict"><span class="skeleton skeleton-bar" style="width:80%;"></span></div>
-            <div class="score-stats" id="dh-score-stats">
-              <span class="skeleton skeleton-pill"></span>
-              <span class="skeleton skeleton-pill"></span>
-              <span class="skeleton skeleton-pill"></span>
+            <div class="score-info">
+              <div class="score-row">
+                <h2 class="score-band" id="dh-score-band"><span class="skeleton skeleton-bar lg" style="width:140px;"></span></h2>
+                <span class="score-band-pill" id="dh-score-pill" style="display:none;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span id="dh-score-pill-text">All clear</span>
+                </span>
+              </div>
+              <div class="score-meta" id="dh-score-meta"><span class="skeleton skeleton-bar" style="width:240px;"></span></div>
+              <div class="score-verdict" id="dh-score-verdict"><span class="skeleton skeleton-bar" style="width:80%;"></span></div>
+              <div class="score-stats" id="dh-score-stats">
+                <span class="skeleton skeleton-pill"></span>
+                <span class="skeleton skeleton-pill"></span>
+                <span class="skeleton skeleton-pill"></span>
+                <span class="skeleton skeleton-pill"></span>
+              </div>
             </div>
           </div>
-        </div><!-- /score-hero -->
 
-        <!-- Score Trend Chart — INBOX-97: always visible, 7 fixed day slots -->
-        <div class="section-block trend-card" id="dh-trend-card">
+          <!-- Score Trend -->
           <div class="section-header">
-            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Score Trend · Last 7 days</div>
+            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="section-title-icon"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/></svg> Score trend · Last 7 days</div>
             <div class="section-meta" id="dh-trend-meta">Auto-scans 4× daily · 03:00 / 09:00 / 15:00 / 21:00 UTC</div>
           </div>
-          <div class="trend-bars" id="dh-trend-bars"></div>
-        </div>
+          <div class="trend-card">
+            <div class="trend-bars" id="dh-trend-bars"></div>
+          </div>
 
-        <!-- Provider Status — INBOX-156 (v1.16.6): moved up to slot 3.
-             It's the Pro-tier value prop (Postmaster + SNDS data); was
-             buried 5 sections down. Above the fold = actually used. -->
-        <div class="section-block">
+          <!-- Provider Status -->
           <div class="section-header">
-            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/><path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="9" r="2"/><path d="M16.2 4.8c2 2 2.26 5.11.8 7.47"/><path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1"/><path d="M9.5 18h5"/><path d="m8 22 4-11 4 11"/></svg>Provider status</div>
+            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="section-title-icon"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/><path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="9" r="2"/><path d="M16.2 4.8c2 2 2.26 5.11.8 7.47"/><path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1"/><path d="M9.5 18h5"/><path d="m8 22 4-11 4 11"/></svg> Provider status</div>
             <div class="section-meta">Inbox-placement intelligence from mailbox providers</div>
           </div>
           <div class="provider-grid" id="dh-provider-grid">
-            <!-- INBOX-90: skeleton provider cards (2 now — INBOX-143
-                 dropped Yahoo/AOL from this grid since Yahoo CFL is
-                 ESP-only and not user-connectable). -->
             <div class="skeleton-card" style="min-height:140px;"><div class="skeleton skeleton-bar" style="width:65%;margin-bottom:12px;"></div><div class="skeleton skeleton-bar sm" style="width:90%;"></div><div class="skeleton skeleton-bar sm" style="width:75%;"></div><div class="skeleton skeleton-bar sm" style="width:80%;"></div></div>
             <div class="skeleton-card" style="min-height:140px;"><div class="skeleton skeleton-bar" style="width:60%;margin-bottom:12px;"></div><div class="skeleton skeleton-bar sm" style="width:85%;"></div><div class="skeleton skeleton-bar sm" style="width:70%;"></div><div class="skeleton skeleton-bar sm" style="width:78%;"></div></div>
           </div>
-        </div>
 
-        <!-- DNS & Authentication Diagnostics (7 cards — INBOX-82 trimmed) -->
-        <div class="section-block">
+          <!-- DNS & Auth -->
           <div class="section-header">
-            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>DNS &amp; Authentication Diagnostics</div>
+            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="section-title-icon"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg> DNS &amp; Authentication Diagnostics</div>
             <div class="section-meta">Auto-scanned · No provider connection required</div>
           </div>
           <div class="diag-grid" id="dh-diag-grid">
-            <!-- INBOX-90: 7 skeleton cards mirroring the final 7 diag cards -->
             <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:60%;"></div><div class="skeleton skeleton-bar lg" style="width:40%;"></div><div class="skeleton skeleton-bar sm" style="width:80%;"></div></div>
             <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:50%;"></div><div class="skeleton skeleton-bar lg" style="width:35%;"></div><div class="skeleton skeleton-bar sm" style="width:75%;"></div></div>
             <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:55%;"></div><div class="skeleton skeleton-bar lg" style="width:40%;"></div><div class="skeleton skeleton-bar sm" style="width:85%;"></div></div>
@@ -198,63 +181,45 @@
             <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:60%;"></div><div class="skeleton skeleton-bar lg" style="width:50%;"></div><div class="skeleton skeleton-bar sm" style="width:65%;"></div></div>
             <div class="skeleton-card"><div class="skeleton skeleton-bar sm" style="width:55%;"></div><div class="skeleton skeleton-bar lg" style="width:38%;"></div><div class="skeleton skeleton-bar sm" style="width:72%;"></div></div>
           </div>
-        </div>
 
-        <!-- INBOX-156 (v1.16.6): order is now Score → Trend → Provider
-             Status (above) → DNS → Domain Safety → Needs Attention
-             (hidden when no alerts) → Recent Scans. Provider Status
-             moved up; "Active Alerts" was renamed Needs Attention and
-             only renders when alerts exist (the score hero already
-             signals all-clear). -->
-
-        <!-- Domain Safety -->
-        <div class="section-block">
+          <!-- Domain Safety -->
           <div class="section-header">
-            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>Domain safety</div>
+            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="section-title-icon"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Domain safety</div>
             <div class="section-meta">External-database checks</div>
           </div>
           <div class="safety-grid" id="dh-safety-grid"></div>
-        </div>
 
-        <!-- Needs Attention — INBOX-156: hidden by default. Only renders
-             when active alerts exist for the selected domain. The score
-             hero is the all-clear signal; no separate "all good" block. -->
-        <div class="section-block needs-attention-block" id="dh-needs-attention" style="display:none;">
-          <div class="na-hd">
-            <div class="na-hd-l">
-              <div class="na-hd-icon" id="dh-na-icon">!</div>
-              <div>
-                <div class="na-hd-title">Needs attention</div>
-                <div class="na-hd-sub" id="dh-na-sub"></div>
+          <!-- Needs Attention (hidden by default) -->
+          <div class="section-block needs-attention-block" id="dh-needs-attention" style="display:none;">
+            <div class="na-hd">
+              <div class="na-hd-l">
+                <div class="na-hd-icon" id="dh-na-icon">!</div>
+                <div>
+                  <div class="na-hd-title">Needs attention</div>
+                  <div class="na-hd-sub" id="dh-na-sub"></div>
+                </div>
               </div>
+              <a class="na-hd-r" href="/alerts">View all →</a>
             </div>
-            <a class="na-hd-r" href="/alerts">View all →</a>
+            <div id="dh-na-list"></div>
+            <div class="na-ft" id="dh-na-footer" style="display:none;"></div>
           </div>
-          <div id="dh-na-list"></div>
-          <div class="na-ft" id="dh-na-footer" style="display:none;"></div>
-        </div>
 
-        <!-- Recent Scans -->
-        <div class="section-block">
+          <!-- Recent Scans -->
           <div class="section-header">
-            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Recent scans</div>
-            <!-- INBOX-93: removed dead "View all →" link — pointed at
-                 /email-health which has no scan-history view. We can put
-                 it back when there's a real history page. -->
+            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="section-title-icon"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Recent scans</div>
             <div class="section-meta" id="dh-history-meta"></div>
           </div>
           <ul class="history-list" id="dh-history-list">
-            <li style="padding:14px 0;color:var(--text-subtle);font-size:13px;">No scan history yet.</li>
+            <li style="padding:14px 0;color:var(--fg-3);font-size:13px;list-style:none;">No scan history yet.</li>
           </ul>
-        </div>
 
-      </div><!-- /single-view -->
+        </div><!-- /single-view -->
 
-      <!-- ─────────── PORTFOLIO VIEW (toggle) ─────────── -->
-      <div class="portfolio-view" id="dh-portfolio-view">
-        <div class="section-block">
+        <!-- ─────── PORTFOLIO VIEW ─────── -->
+        <div class="portfolio-view" id="dh-portfolio-view">
           <div class="section-header">
-            <div class="section-title">📋 All Domains</div>
+            <div class="section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="section-title-icon"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg> All Domains</div>
             <div class="section-meta" id="dh-portfolio-meta"></div>
           </div>
           <div class="portfolio-table" id="dh-portfolio-table">
@@ -268,28 +233,49 @@
               <div style="text-align:center">Alerts</div>
             </div>
             <div id="dh-portfolio-rows">
-              <div style="padding:24px;text-align:center;color:var(--text-subtle);font-size:13px;">No domains monitored yet.</div>
+              <div style="padding:24px;text-align:center;color:var(--fg-3);font-size:13px;">No domains monitored yet.</div>
             </div>
           </div>
         </div>
-      </div>
 
+      </div><!-- /content -->
     </div><!-- /view-dashboard -->
 
-    <!-- =====================================================
-         VIEW: Scan in progress (INBOX-33)
-         ===================================================== -->
+    <!-- ═════════ VIEW: Scanning ═════════ -->
     <div id="view-scanning" class="dash-view">
-      <button class="back-to-dash" onclick="dashShowView('dashboard')">← Back to Dashboard</button>
-      <div class="scan-loading">
-        <div class="scan-loading-title" id="scanning-domain">example.com</div>
-        <div class="scan-loading-subtitle">Running deliverability checks...</div>
-        <div class="check-list" id="dash-check-list">
-          <div class="check-item" data-check="mx"><div class="check-dot"></div>MX Records</div>
-          <div class="check-item" data-check="spf"><div class="check-dot"></div>SPF Validation</div>
-          <div class="check-item" data-check="dkim"><div class="check-dot"></div>DKIM Configuration</div>
-          <div class="check-item" data-check="dmarc"><div class="check-dot"></div>DMARC Policy</div>
-          <div class="check-item" data-check="blacklists"><div class="check-dot"></div>Blacklist Scan (40+ lists)</div>
+      <div class="content">
+        <button class="back-to-dash" onclick="dashShowView('dashboard')">← Back to Dashboard</button>
+        <div class="scan-loading">
+          <div class="scan-loading-title" id="scanning-domain">example.com</div>
+          <div class="scan-loading-subtitle">Running deliverability checks...</div>
+          <div class="check-list" id="dash-check-list">
+            <div class="check-item" data-check="mx"><div class="check-dot"></div>MX Records</div>
+            <div class="check-item" data-check="spf"><div class="check-dot"></div>SPF Validation</div>
+            <div class="check-item" data-check="dkim"><div class="check-dot"></div>DKIM Configuration</div>
+            <div class="check-item" data-check="dmarc"><div class="check-dot"></div>DMARC Policy</div>
+            <div class="check-item" data-check="blacklists"><div class="check-dot"></div>Blacklist Scan (40+ lists)</div>
+            <div class="check-item" data-check="tls"><div class="check-dot"></div>TLS &amp; Encryption</div>
+            <div class="check-item" data-check="ip_reputation"><div class="check-dot"></div>IP Reputation Analysis</div>
+            <div class="check-item" data-check="score"><div class="check-dot"></div>Calculating Score</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════════ VIEW: Scan Results ═════════ -->
+    <div id="view-scan-results" class="dash-view">
+      <div class="content">
+        <button class="back-to-dash" onclick="dashShowView('dashboard')">← Back to Dashboard</button>
+        <div id="dash-results-container"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══════ MAIN DASHBOARD JS (1693 lines, unchanged) ═══════ -->
+<script>
+
           <div class="check-item" data-check="tls"><div class="check-dot"></div>TLS &amp; Encryption</div>
           <div class="check-item" data-check="ip_reputation"><div class="check-dot"></div>IP Reputation Analysis</div>
           <div class="check-item" data-check="score"><div class="check-dot"></div>Calculating Score</div>
@@ -1983,52 +1969,7 @@ async function dashSaveToMonitored(domain) {
     btn.disabled = false;
     btn.textContent = originalText;
     alert('Could not save: ' + err.message);
-  }
-}
 
-function dashShowRateLimitModal(message, plan) {
-  const existing = document.getElementById('dash-rate-limit-modal');
-  if (existing) existing.remove();
-
-  const isFree = plan === 'free';
-  const cta = isFree
-    ? '<div style="display:inline-block;padding:10px 22px;background:var(--accent);color:white;border-radius:8px;font-weight:600;font-size:14px;opacity:0.7;cursor:default;">Upgrade to Pro — Coming Soon</div><div style="margin-top:10px;font-size:12px;color:var(--text-muted);">Unlimited scans, monitoring, alerts & more</div>'
-    : '<a href="/settings" style="display:inline-block;padding:10px 22px;background:var(--accent);color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Manage Plan</a>';
-
-  const modal = document.createElement('div');
-  modal.id = 'dash-rate-limit-modal';
-  modal.innerHTML = `
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)this.remove()">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:420px;width:100%;text-align:center;">
-        <div style="font-size:36px;margin-bottom:10px;">⚡</div>
-        <h2 style="font-size:18px;font-weight:700;margin-bottom:10px;color:var(--text);">Daily Scan Limit Reached</h2>
-        <p style="font-size:13px;color:var(--text-muted);line-height:1.5;margin-bottom:20px;">${escapeHtml(message || 'You have reached your daily scan limit.')}</p>
-        ${cta}
-        <div style="margin-top:14px;">
-          <button onclick="document.getElementById('dash-rate-limit-modal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;padding:6px;">Dismiss</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-}
-
-// Populate the monitored-domains set so dashRenderResults can hide/show the
-// Save CTA correctly. We piggyback on the existing /api/user/domains fetch
-// that the dashboard already makes on load — wrap it so the set is filled
-// once the response lands.
-(function trackMonitoredDomains() {
-  const token = getToken();
-  if (!token) return;
-  fetch('/api/user/domains', { headers: { 'Authorization': 'Bearer ' + token } })
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      if (data && data.domains) {
-        window._monitoredDomains = new Set(data.domains.map(d => (d.domain || '').toLowerCase()));
-      }
-    })
-    .catch(() => { /* non-fatal — Save CTA will always show until next load */ });
-})();
 </script>
 </body>
 </html>
