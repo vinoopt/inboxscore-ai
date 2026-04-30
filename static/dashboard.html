@@ -1069,17 +1069,21 @@ function dhRenderTrend(domain) {
 
   let html = '';
   slots.forEach(slot => {
+    /* Phase 1B: add today-slot class to the wrapper + today class to the bar
+       so CSS can apply the emphasis pattern (history bars dimmed, today bar
+       full opacity + darker green + dot marker above). */
+    const todaySlot = slot.isToday ? ' today-slot' : '';
     if (slot.score === null) {
-      html += `<div class="trend-slot empty">
-        <div class="trend-bar-wrap"><div class="trend-bar empty" title="${slot.iso}: no scan"></div></div>
+      html += `<div class="trend-slot empty${todaySlot}">
+        <div class="trend-bar-wrap"><div class="trend-bar empty${slot.isToday ? ' today' : ''}" title="${slot.iso}: no scan"></div></div>
         <div class="trend-label"><span class="day">${slot.dayLabel}</span><span class="score">—</span></div>
       </div>`;
     } else {
       const klass = dhScoreClassFromScore(slot.score);
       const height = Math.max(12, slot.score);  // % height; min 12% so even 0 is visible
-      html += `<div class="trend-slot">
-        <div class="trend-bar-wrap"><div class="trend-bar ${klass}" style="height:${height}%;" title="${slot.iso}: ${slot.score}"></div></div>
-        <div class="trend-label"><span class="day">${slot.dayLabel}${slot.isToday ? ' (today)' : ''}</span><span class="score">${slot.score}</span></div>
+      html += `<div class="trend-slot${todaySlot}">
+        <div class="trend-bar-wrap"><div class="trend-bar ${klass}${slot.isToday ? ' today' : ''}" style="height:${height}%;" title="${slot.iso}: ${slot.score}"></div></div>
+        <div class="trend-label"><span class="day${slot.isToday ? ' today' : ''}">${slot.dayLabel}${slot.isToday ? ' (today)' : ''}</span><span class="score${slot.isToday ? ' today' : ''}">${slot.score}</span></div>
       </div>`;
     }
   });
