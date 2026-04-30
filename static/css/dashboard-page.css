@@ -386,6 +386,11 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-light { display: block; }
   background: var(--bg-1); border: 1px solid var(--border);
   border-radius: 12px; margin-bottom: 24px;
   align-items: center;
+  /* Cap so column 2 (1fr) doesn't grow beyond what the content visually
+     fills — at >1080px the verdict + stat-pills leave ~200-450px of empty
+     whitespace on the right that makes "Good" look orphaned next to the
+     score circle. Mockup feels right because it's reviewed near this width. */
+  max-width: 1080px;
 }
 .score-circle, .score-circle-wrap {
   position: relative; width: 160px; height: 160px;
