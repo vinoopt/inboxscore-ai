@@ -375,6 +375,9 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 #view-dashboard .provider-explainer { font-size: 12px; color: var(--text-muted); line-height: 1.5; padding: 6px 0; }
 
 /* Alerts */
+/* Old .alerts-empty / .alerts-list kept for backward compat in case
+   any other renderer references them, but the dashboard's primary
+   alerts surface is now the .needs-attention-block below. */
 #view-dashboard .alerts-empty { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--green-bg); border: 1px solid var(--green); border-radius: 10px; }
 #view-dashboard .alerts-empty-icon { color: var(--green); font-size: 18px; font-weight: 700; }
 #view-dashboard .alerts-empty-text strong { display: block; color: var(--green); font-size: 13px; font-weight: 600; margin-bottom: 2px; }
@@ -384,6 +387,36 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 #view-dashboard .alerts-list li:last-child { border-bottom: none; }
 #view-dashboard .alerts-list .ral-icon { font-size: 14px; flex-shrink: 0; }
 #view-dashboard .alerts-list .ral-time { font-size: 11px; color: var(--text-subtle); margin-top: 2px; }
+
+/* INBOX-156 (v1.16.6): Needs Attention block — only renders when
+   alerts exist. Severity-coded header (red = critical, amber =
+   warnings only). Per-row CTA links to the relevant action. */
+#view-dashboard .needs-attention-block { padding: 0; overflow: hidden; }
+#view-dashboard .na-hd { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 0.5px solid var(--border); }
+#view-dashboard .na-hd-l { display: flex; align-items: center; gap: 10px; }
+#view-dashboard .na-hd-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; background: var(--red-bg); color: var(--red); }
+#view-dashboard .na-hd-icon.warning { background: var(--yellow-bg); color: var(--yellow); }
+#view-dashboard .na-hd-title { font-size: 15px; font-weight: 600; }
+#view-dashboard .na-hd-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+#view-dashboard .na-hd-r { font-size: 12px; color: var(--accent); text-decoration: none; font-weight: 500; }
+#view-dashboard .na-hd-r:hover { text-decoration: underline; }
+#view-dashboard .na-row { display: flex; gap: 12px; padding: 14px 20px; border-bottom: 0.5px solid var(--border); align-items: flex-start; }
+#view-dashboard .na-row:last-child { border-bottom: 0; }
+#view-dashboard .na-row:hover { background: var(--surface-2); }
+#view-dashboard .na-sev-pill { font-size: 9px; font-weight: 700; padding: 3px 9px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0; margin-top: 2px; }
+#view-dashboard .na-sev-crit { background: var(--red-bg); color: var(--red); }
+#view-dashboard .na-sev-warn { background: var(--yellow-bg); color: var(--yellow); }
+#view-dashboard .na-sev-info { background: var(--accent-soft); color: var(--accent); }
+#view-dashboard .na-body { flex: 1; min-width: 0; }
+#view-dashboard .na-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; color: var(--text); }
+#view-dashboard .na-meta { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+#view-dashboard .na-meta-mono { font-family: 'SF Mono', Menlo, monospace; color: var(--text-secondary, var(--text-muted)); }
+#view-dashboard .na-time { font-size: 11px; color: var(--text-subtle); flex-shrink: 0; white-space: nowrap; margin-top: 2px; }
+#view-dashboard .na-cta { font-size: 11px; color: var(--accent); text-decoration: none; font-weight: 500; flex-shrink: 0; padding: 5px 10px; border: 0.5px solid var(--accent-soft); background: var(--surface); border-radius: 6px; margin-top: 2px; white-space: nowrap; }
+#view-dashboard .na-cta:hover { background: var(--accent-soft); }
+#view-dashboard .na-ft { padding: 11px 20px; background: var(--surface-2); font-size: 11px; color: var(--text-muted); text-align: center; }
+#view-dashboard .na-ft a { color: var(--accent); text-decoration: none; font-weight: 500; }
+#view-dashboard .na-ft a:hover { text-decoration: underline; }
 
 /* Domain Safety */
 #view-dashboard .safety-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
@@ -665,6 +698,23 @@ body.dh-refreshing-pill::after {
           <div class="trend-bars" id="dh-trend-bars"></div>
         </div>
 
+        <!-- Provider Status — INBOX-156 (v1.16.6): moved up to slot 3.
+             It's the Pro-tier value prop (Postmaster + SNDS data); was
+             buried 5 sections down. Above the fold = actually used. -->
+        <div class="section-block">
+          <div class="section-header">
+            <div class="section-title">📡 Provider Status</div>
+            <div class="section-meta">Inbox-placement intelligence from mailbox providers</div>
+          </div>
+          <div class="provider-grid" id="dh-provider-grid">
+            <!-- INBOX-90: skeleton provider cards (2 now — INBOX-143
+                 dropped Yahoo/AOL from this grid since Yahoo CFL is
+                 ESP-only and not user-connectable). -->
+            <div class="skeleton-card" style="min-height:140px;"><div class="skeleton skeleton-bar" style="width:65%;margin-bottom:12px;"></div><div class="skeleton skeleton-bar sm" style="width:90%;"></div><div class="skeleton skeleton-bar sm" style="width:75%;"></div><div class="skeleton skeleton-bar sm" style="width:80%;"></div></div>
+            <div class="skeleton-card" style="min-height:140px;"><div class="skeleton skeleton-bar" style="width:60%;margin-bottom:12px;"></div><div class="skeleton skeleton-bar sm" style="width:85%;"></div><div class="skeleton skeleton-bar sm" style="width:70%;"></div><div class="skeleton skeleton-bar sm" style="width:78%;"></div></div>
+          </div>
+        </div>
+
         <!-- DNS & Authentication Diagnostics (7 cards — INBOX-82 trimmed) -->
         <div class="section-block">
           <div class="section-header">
@@ -683,11 +733,14 @@ body.dh-refreshing-pill::after {
           </div>
         </div>
 
-        <!-- INBOX-93 reorder: Domain Safety → Active Alerts → Provider Status.
-             "Am I blacklisted?" is more urgent than provider intelligence,
-             so safety + alerts come before postmaster metrics. -->
+        <!-- INBOX-156 (v1.16.6): order is now Score → Trend → Provider
+             Status (above) → DNS → Domain Safety → Needs Attention
+             (hidden when no alerts) → Recent Scans. Provider Status
+             moved up; "Active Alerts" was renamed Needs Attention and
+             only renders when alerts exist (the score hero already
+             signals all-clear). -->
 
-        <!-- Domain Safety (was 5th, now 3rd) -->
+        <!-- Domain Safety -->
         <div class="section-block">
           <div class="section-header">
             <div class="section-title">🛡️ Domain Safety</div>
@@ -696,35 +749,22 @@ body.dh-refreshing-pill::after {
           <div class="safety-grid" id="dh-safety-grid"></div>
         </div>
 
-        <!-- Active Alerts (was 4th, now 4th) -->
-        <div class="section-block">
-          <div class="section-header">
-            <div class="section-title">🔔 Active Alerts</div>
-            <div class="section-meta" id="dh-alerts-meta">last 30 days</div>
-          </div>
-          <div id="dh-alerts-container">
-            <div class="alerts-empty">
-              <div class="alerts-empty-icon">✓</div>
-              <div class="alerts-empty-text">
-                <strong>No active alerts</strong>
-                <span>All checks passing for the selected domain</span>
+        <!-- Needs Attention — INBOX-156: hidden by default. Only renders
+             when active alerts exist for the selected domain. The score
+             hero is the all-clear signal; no separate "all good" block. -->
+        <div class="section-block needs-attention-block" id="dh-needs-attention" style="display:none;">
+          <div class="na-hd">
+            <div class="na-hd-l">
+              <div class="na-hd-icon" id="dh-na-icon">!</div>
+              <div>
+                <div class="na-hd-title">Needs attention</div>
+                <div class="na-hd-sub" id="dh-na-sub"></div>
               </div>
             </div>
+            <a class="na-hd-r" href="/alerts">View all →</a>
           </div>
-        </div>
-
-        <!-- Provider Status (was 3rd, now 5th) -->
-        <div class="section-block">
-          <div class="section-header">
-            <div class="section-title">📡 Provider Status</div>
-            <div class="section-meta">Inbox-placement intelligence from mailbox providers</div>
-          </div>
-          <div class="provider-grid" id="dh-provider-grid">
-            <!-- INBOX-90: 3 skeleton provider cards -->
-            <div class="skeleton-card" style="min-height:140px;"><div class="skeleton skeleton-bar" style="width:65%;margin-bottom:12px;"></div><div class="skeleton skeleton-bar sm" style="width:90%;"></div><div class="skeleton skeleton-bar sm" style="width:75%;"></div><div class="skeleton skeleton-bar sm" style="width:80%;"></div></div>
-            <div class="skeleton-card" style="min-height:140px;"><div class="skeleton skeleton-bar" style="width:60%;margin-bottom:12px;"></div><div class="skeleton skeleton-bar sm" style="width:85%;"></div><div class="skeleton skeleton-bar sm" style="width:70%;"></div><div class="skeleton skeleton-bar sm" style="width:78%;"></div></div>
-            <div class="skeleton-card" style="min-height:140px;"><div class="skeleton skeleton-bar" style="width:55%;margin-bottom:12px;"></div><div class="skeleton skeleton-bar sm" style="width:88%;"></div><div class="skeleton skeleton-bar sm" style="width:74%;"></div><div class="skeleton skeleton-bar sm" style="width:82%;"></div></div>
-          </div>
+          <div id="dh-na-list"></div>
+          <div class="na-ft" id="dh-na-footer" style="display:none;"></div>
         </div>
 
         <!-- Recent Scans -->
@@ -1242,36 +1282,107 @@ function dhRenderProviderGrid(domain) {
   `;
 }
 
-/* ─── Active Alerts ─────────────────────────────────────────────── */
+/* ─── Needs Attention — INBOX-156 (v1.16.6) ──────────────────────────
+   Replaced the old "Active Alerts" empty state. The block is hidden
+   when there are zero active alerts; the score hero already conveys
+   the all-clear, so a separate "✓ No active alerts" panel is just
+   visual noise. When alerts exist, render up to 3 with severity-
+   coloured pills + per-row CTA, plus a "Showing N of M" footer
+   linking to /alerts. */
 function dhRenderAlerts(domain) {
-  const container = document.getElementById('dh-alerts-container');
-  const meta = document.getElementById('dh-alerts-meta');
-  meta.textContent = (domain || 'all domains') + ' · last 30 days';
+  const block = document.getElementById('dh-needs-attention');
+  if (!block) return;  // dashboard not in DOM (defensive)
   const alerts = (window._dh.alertsByDomain[domain] || []).filter(a => !a.acknowledged_at);
+
   if (alerts.length === 0) {
-    container.innerHTML = `
-      <div class="alerts-empty">
-        <div class="alerts-empty-icon">✓</div>
-        <div class="alerts-empty-text">
-          <strong>No active alerts</strong>
-          <span>All checks passing for ${escapeHtml(domain || 'the selected domain')}</span>
-        </div>
-      </div>`;
+    block.style.display = 'none';
     return;
   }
-  let html = '<ul class="alerts-list">';
-  alerts.slice(0, 5).forEach(a => {
-    const icon = a.severity === 'critical' ? '🔴' : a.severity === 'warning' ? '⚠️' : '🔵';
-    html += `<li>
-      <span class="ral-icon">${icon}</span>
-      <div style="flex:1;min-width:0;">
-        <div>${escapeHtml(a.message || a.title || a.alert_type || 'Alert')}</div>
-        <div class="ral-time">${escapeHtml(timeAgo(a.created_at))}</div>
-      </div>
-    </li>`;
+
+  block.style.display = '';
+
+  // Sort: critical first, then warning, then everything else; stable
+  // within tier so the most recent of each severity floats up.
+  const sevRank = { critical: 0, warning: 1, info: 2 };
+  const sorted = alerts.slice().sort((a, b) => {
+    const ra = sevRank[a.severity] ?? 9;
+    const rb = sevRank[b.severity] ?? 9;
+    if (ra !== rb) return ra - rb;
+    return new Date(b.created_at) - new Date(a.created_at);
   });
-  html += '</ul>';
-  container.innerHTML = html;
+
+  const critCount = sorted.filter(a => a.severity === 'critical').length;
+  const warnCount = sorted.filter(a => a.severity === 'warning').length;
+
+  // Header — red icon if any critical, amber if warnings only
+  const icon = document.getElementById('dh-na-icon');
+  if (icon) icon.classList.toggle('warning', critCount === 0);
+
+  const sub = document.getElementById('dh-na-sub');
+  if (sub) {
+    const parts = [];
+    if (critCount > 0) parts.push(critCount + ' critical');
+    if (warnCount > 0) parts.push(warnCount + ' warning' + (warnCount === 1 ? '' : 's'));
+    if (parts.length === 0) parts.push(sorted.length + ' active');
+    sub.textContent = (domain || 'mailercloud.com') + ' · ' + parts.join(' · ');
+  }
+
+  // Per-row rendering — cap at 3 on the dashboard; full list on /alerts.
+  const TAKE = 3;
+  const top = sorted.slice(0, TAKE);
+  const list = document.getElementById('dh-na-list');
+  if (list) {
+    list.innerHTML = top.map(a => _dhRenderNaRow(a)).join('');
+  }
+
+  // Footer with "Showing X of Y" if there's overflow
+  const ft = document.getElementById('dh-na-footer');
+  if (ft) {
+    if (sorted.length > TAKE) {
+      ft.style.display = '';
+      ft.innerHTML = 'Showing ' + top.length + ' of ' + sorted.length +
+        ' — <a href="/alerts">view all alerts →</a>';
+    } else {
+      ft.style.display = 'none';
+    }
+  }
+}
+
+function _dhRenderNaRow(a) {
+  const sev = a.severity || 'info';
+  const sevLabel = sev.charAt(0).toUpperCase() + sev.slice(1);
+  const sevClass = sev === 'critical' ? 'na-sev-crit' : sev === 'warning' ? 'na-sev-warn' : 'na-sev-info';
+  const title = a.title || a.message || a.alert_type || 'Alert';
+  const target = a.target_value || a.domain || '';
+  const description = a.message && a.message !== title ? a.message : '';
+  const cta = _dhAlertCta(a);
+  return `
+    <div class="na-row">
+      <span class="na-sev-pill ${sevClass}">${escapeHtml(sevLabel)}</span>
+      <div class="na-body">
+        <div class="na-title">${escapeHtml(title)}</div>
+        <div class="na-meta">${target ? '<span class="na-meta-mono">' + escapeHtml(target) + '</span>' : ''}${target && description ? ' · ' : ''}${escapeHtml(description)}</div>
+      </div>
+      <span class="na-time">${escapeHtml(timeAgo(a.created_at))}</span>
+      ${cta}
+    </div>
+  `;
+}
+
+// Pick a context-appropriate per-alert action link. Falls back to
+// "View" pointing at /alerts so every row is clickable somewhere.
+function _dhAlertCta(a) {
+  const t = (a.alert_type || '').toLowerCase();
+  if (t.includes('blacklist')) {
+    return '<a href="/blacklist" class="na-cta">Delist ↗</a>';
+  }
+  if (t.includes('auth') || t.includes('spf') || t.includes('dkim') || t.includes('dmarc') || t.includes('spam')) {
+    return '<a href="/postmaster" class="na-cta">Investigate</a>';
+  }
+  if (t.includes('snds') || t.includes('microsoft')) {
+    return '<a href="/microsoft" class="na-cta">View details</a>';
+  }
+  return '<a href="/alerts" class="na-cta">View</a>';
 }
 
 /* ─── Domain Safety ─────────────────────────────────────────────── */

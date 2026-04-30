@@ -103,8 +103,15 @@ class TestDashboardSections:
     def test_recent_scans_list_present(self):
         assert 'id="dh-history-list"' in _view_dashboard_block()
 
-    def test_active_alerts_container_present(self):
-        assert 'id="dh-alerts-container"' in _view_dashboard_block()
+    def test_needs_attention_block_present(self):
+        # INBOX-156 (v1.16.6): renamed "Active Alerts" container to the
+        # Needs Attention block. The block is hidden by default and
+        # only renders when alerts exist (the score hero is the
+        # all-clear signal — no separate "no alerts" empty state).
+        block = _view_dashboard_block()
+        assert 'id="dh-needs-attention"' in block
+        assert 'id="dh-na-list"' in block
+        assert 'id="dh-na-icon"' in block
 
     def test_trend_card_present(self):
         assert 'id="dh-trend-card"' in _view_dashboard_block()
