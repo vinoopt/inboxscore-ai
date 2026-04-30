@@ -83,7 +83,14 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 .sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
 .sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 500; }
-.sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+/* Phase 1B: nav-icon now contains a Lucide SVG instead of an emoji.
+   Display: inline-flex centers the icon; flex-shrink: 0 keeps it from
+   collapsing if the link text wraps. Old emoji rules (font-size, text-align)
+   removed since they're no longer relevant. */
+.sidebar-nav li a .nav-icon { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-muted); }
+.sidebar-nav li a.active .nav-icon { color: var(--accent); }
+.sidebar-nav li a:hover .nav-icon { color: var(--text); }
+.sidebar-nav li a .nav-icon svg { display: block; }
 .alert-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; }
 .plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
 .plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
