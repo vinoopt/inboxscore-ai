@@ -193,20 +193,57 @@ def add_user_domain(user_id: str, domain: str) -> dict:
         return None
 
 
-def get_user_domains(user_id: str) -> list:
-    """Get all domains for a user"""
+def get_user_domains(user_id: str,
+                     page: int = None, page_size: int = None) -> list:
+    """Get domains for a user, ordered by created_at DESC.
+
+    INBOX-163 (F4, 2026-04-30): added optional ``page`` + ``page_size``
+    for pagination. When BOTH are set, returns
+    ``[(page-1)*size : page*size]``. When neither is set, returns ALL
+    domains — preserves the legacy "give me everything" behaviour every
+    existing caller (dashboard, domains page, sending-ips, email-health)
+    relies on. Backward-compatible.
+
+    At enterprise scale (~1000+ domains) the un-paginated path becomes
+    costly. Frontend can opt into pagination by passing ``?page=`` once
+    we add a "Load more" UI on the domains page (separate ticket).
+    """
     sb = get_supabase()
     if not sb:
         return []
 
     try:
-        result = sb.table("domains").select("*").eq(
+        query = sb.table("domains").select("*").eq(
             "user_id", user_id
-        ).order("created_at", desc=True).execute()
+        ).order("created_at", desc=True)
+
+        if page is not None and page_size is not None and page >= 1 and page_size > 0:
+            start = (page - 1) * page_size
+            end = start + page_size - 1
+            query = query.range(start, end)
+        # else: no LIMIT — legacy behaviour.
+
+        result = query.execute()
         return result.data if result.data else []
     except Exception as e:
         print(f"Error fetching domains: {e}")
         return []
+
+
+def get_user_domains_count(user_id: str) -> int:
+    """INBOX-163: total domain count for a user. Used by paginated
+    callers to render "Showing N of M" + know when to stop pagination."""
+    sb = get_supabase()
+    if not sb:
+        return 0
+    try:
+        result = sb.table("domains").select(
+            "id", count="exact"
+        ).eq("user_id", user_id).execute()
+        return result.count if result.count is not None else 0
+    except Exception as e:
+        print(f"Error counting domains: {e}")
+        return 0
 
 
 def remove_user_domain(user_id: str, domain_id: str) -> bool:
@@ -521,8 +558,21 @@ def create_alert(user_id: str, alert_type: str, severity: str, title: str,
 
 
 def get_user_alerts(user_id: str, limit: int = 50, severity: str = None,
-                    unread_only: bool = False) -> list:
-    """Get alerts for a user with optional filters"""
+                    unread_only: bool = False,
+                    page: int = None, page_size: int = None) -> list:
+    """Get alerts for a user with optional filters.
+
+    INBOX-162 (F3, 2026-04-30): added optional ``page`` + ``page_size``
+    for pagination. When BOTH are set, returns the slice
+    ``[(page-1)*size : page*size]`` of the user's alerts ordered newest-
+    first. When neither is set, falls back to the legacy ``limit=N``
+    behaviour (top-N global) — fully backward-compatible.
+
+    Callers that want the full count alongside the page should call
+    ``get_user_alerts_count`` separately. We do NOT bake count into
+    every list call (Supabase's ``count='exact'`` is a separate query
+    server-side).
+    """
     sb = get_supabase()
     if not sb:
         return []
@@ -534,12 +584,44 @@ def get_user_alerts(user_id: str, limit: int = 50, severity: str = None,
         if unread_only:
             query = query.eq("is_read", False)
 
-        query = query.order("created_at", desc=True).limit(limit)
+        query = query.order("created_at", desc=True)
+
+        if page is not None and page_size is not None and page >= 1 and page_size > 0:
+            # Paginated mode: zero-indexed inclusive Supabase ranges.
+            start = (page - 1) * page_size
+            end = start + page_size - 1
+            query = query.range(start, end)
+        else:
+            # Legacy mode — preserve original behaviour exactly.
+            query = query.limit(limit)
+
         result = query.execute()
         return result.data if result.data else []
     except Exception as e:
         print(f"Error fetching alerts: {e}")
         return []
+
+
+def get_user_alerts_count(user_id: str, severity: str = None,
+                          unread_only: bool = False) -> int:
+    """INBOX-162: total alert count matching the same filters as
+    ``get_user_alerts``. Used to populate the ``pagination.total``
+    field so the UI can render "Showing N of M" without fetching
+    everything client-side."""
+    sb = get_supabase()
+    if not sb:
+        return 0
+    try:
+        query = sb.table("alerts").select("id", count="exact").eq("user_id", user_id)
+        if severity:
+            query = query.eq("severity", severity)
+        if unread_only:
+            query = query.eq("is_read", False)
+        result = query.execute()
+        return result.count if result.count is not None else 0
+    except Exception as e:
+        print(f"Error counting alerts: {e}")
+        return 0
 
 
 def get_unread_alert_count(user_id: str) -> int:

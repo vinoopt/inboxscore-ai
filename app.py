@@ -34,6 +34,8 @@ from db import (
     export_user_data, delete_user_data,
     get_user_alerts, get_unread_alert_count, mark_alert_read,
     mark_all_alerts_read, delete_alert,
+    # INBOX-162/163 (F3+F4): count helpers used by paginated endpoints
+    get_user_alerts_count, get_user_domains_count,
     update_domain_monitoring, get_monitored_domains, get_monitoring_logs,
     save_postmaster_connection, get_postmaster_connection,
     delete_postmaster_connection, get_postmaster_metrics as db_get_postmaster_metrics,
@@ -75,7 +77,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.16.8")
+    _version = os.environ.get("APP_VERSION", "1.16.9")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -121,7 +123,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.16.8")
+app = FastAPI(title="InboxScore API", version="1.16.9")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -949,8 +951,28 @@ async def api_delete_account(req: Request):
 # ─── ALERTS API ENDPOINTS ─────────────────────────────────────────
 
 @app.get("/api/user/alerts")
-async def api_get_alerts(req: Request, severity: str = None, unread: bool = False, limit: int = 50):
-    """Get alerts for authenticated user"""
+async def api_get_alerts(req: Request, severity: str = None, unread: bool = False,
+                          limit: int = 50,
+                          page: int = None, page_size: int = None):
+    """Get alerts for authenticated user.
+
+    INBOX-162 (F3, 2026-04-30): added optional ``?page=`` + ``?page_size=``
+    pagination. Backward-compatible — legacy ``?limit=N`` still works
+    exactly as before (top-N global newest-first).
+
+    Paginated response shape:
+        {
+            "alerts": [...],
+            "pagination": {"page": 2, "page_size": 50, "total": 137, "has_more": true}
+        }
+
+    Legacy callers continue to receive ``{"alerts": [...]}`` only.
+    The new ``pagination`` field is additive; old frontends ignore it.
+
+    ``page_size`` is capped at 100 server-side to prevent runaway
+    response sizes if an attacker (or a misconfigured client) requests
+    a huge page.
+    """
     auth_header = req.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing authorization")
@@ -961,6 +983,32 @@ async def api_get_alerts(req: Request, severity: str = None, unread: bool = Fals
         raise HTTPException(status_code=401, detail="Invalid token")
 
     user_id = user_result["user"]["id"]
+
+    # Detect paginated mode: BOTH params must be set.
+    paginated = page is not None and page_size is not None
+    if paginated:
+        capped_page_size = max(1, min(page_size, 100))
+        capped_page = max(1, page)
+        alerts = get_user_alerts(
+            user_id,
+            severity=severity,
+            unread_only=unread,
+            page=capped_page,
+            page_size=capped_page_size,
+        )
+        total = get_user_alerts_count(user_id, severity=severity, unread_only=unread)
+        has_more = (capped_page * capped_page_size) < total
+        return {
+            "alerts": alerts,
+            "pagination": {
+                "page": capped_page,
+                "page_size": capped_page_size,
+                "total": total,
+                "has_more": has_more,
+            },
+        }
+
+    # Legacy mode — unchanged.
     alerts = get_user_alerts(user_id, limit=min(limit, 100), severity=severity, unread_only=unread)
     return {"alerts": alerts}
 
@@ -1042,8 +1090,23 @@ async def api_delete_alert(req: Request, alert_id: str):
 # ─── DOMAIN API ENDPOINTS ─────────────────────────────────────────
 
 @app.get("/api/user/domains")
-async def api_get_domains(req: Request):
-    """Get all domains for authenticated user"""
+async def api_get_domains(req: Request,
+                           page: int = None, page_size: int = None):
+    """Get domains for authenticated user.
+
+    INBOX-163 (F4, 2026-04-30): added optional ``?page=`` + ``?page_size=``
+    pagination. Backward-compatible — when neither param is set, returns
+    ALL domains (legacy behaviour every existing caller relies on:
+    dashboard, domains page, sending-ips, email-health).
+
+    Paginated response shape:
+        {
+            "domains": [...],
+            "pagination": {"page": 2, "page_size": 100, "total": 850, "has_more": true}
+        }
+
+    ``page_size`` is capped at 200 server-side to bound payload size.
+    """
     auth_header = req.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing authorization")
@@ -1054,6 +1117,25 @@ async def api_get_domains(req: Request):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     user_id = user_result["user"]["id"]
+
+    paginated = page is not None and page_size is not None
+    if paginated:
+        capped_page_size = max(1, min(page_size, 200))
+        capped_page = max(1, page)
+        domains = get_user_domains(user_id, page=capped_page, page_size=capped_page_size)
+        total = get_user_domains_count(user_id)
+        has_more = (capped_page * capped_page_size) < total
+        return {
+            "domains": domains,
+            "pagination": {
+                "page": capped_page,
+                "page_size": capped_page_size,
+                "total": total,
+                "has_more": has_more,
+            },
+        }
+
+    # Legacy mode — unchanged. Returns ALL domains.
     domains = get_user_domains(user_id)
     return {"domains": domains}
 
