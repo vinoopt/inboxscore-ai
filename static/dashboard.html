@@ -552,9 +552,9 @@ function dhRenderScoreHero(domain) {
     fg.setAttribute('stroke-dashoffset', offset.toFixed(2));
   }
 
-  /* INBOX-178 Batch 4: "All clear" pill visibility + label tied to score band.
-     Excellent / Good → green "All clear", Fair → amber "Needs attention",
-     Poor → red "Action required". Hidden if no score yet. */
+  /* INBOX-178 Batch 4 BUGFIX: dhScoreCircleClass returns '' for good scores
+     (relies on absence of modifier class), so use meta.band from
+     dhBandFromScore which explicitly returns good/moderate/danger/none. */
   const pill = document.getElementById('dh-score-pill');
   const pillText = document.getElementById('dh-score-pill-text');
   if (pill && pillText) {
@@ -562,9 +562,10 @@ function dhRenderScoreHero(domain) {
       pill.style.display = 'none';
     } else {
       pill.style.display = '';
-      const k = dhScoreCircleClass(score);
-      pill.className = 'score-band-pill ' + k;
-      pillText.textContent = k === 'good' ? 'All clear' : (k === 'moderate' ? 'Needs attention' : 'Action required');
+      pill.className = 'score-band-pill ' + meta.band;
+      pillText.textContent = meta.band === 'good' ? 'All clear' :
+                              meta.band === 'moderate' ? 'Needs attention' :
+                              meta.band === 'danger' ? 'Action required' : '—';
     }
   }
 
@@ -586,11 +587,14 @@ function dhRenderScoreHero(domain) {
       else if (st === 'fail') f++;
       else info++;
     });
+    /* INBOX-178 Batch 4: stat pills in v2 mockup format — coloured dot + count + label.
+       Always render all 4 pills even when count is 0 so the layout stays consistent. */
     stats.innerHTML = `
-      <div class="score-stat">✓ <strong>${p}</strong> passed</div>
-      <div class="score-stat" style="color:var(--orange)">⚠ <strong>${w}</strong> warning</div>
-      <div class="score-stat" style="color:var(--red)">✕ <strong>${f}</strong> failed</div>
-    ` + (info > 0 ? `<div class="score-stat">ⓘ <strong>${info}</strong> info</div>` : '');
+      <span class="stat-pill pass"><span class="ind"></span><span class="num">${p}</span> passed</span>
+      <span class="stat-pill warn"><span class="ind"></span><span class="num">${w}</span> warnings</span>
+      <span class="stat-pill fail"><span class="ind"></span><span class="num">${f}</span> failed</span>
+      <span class="stat-pill info"><span class="ind"></span><span class="num">${info}</span> info</span>
+    `;
   } else {
     stats.innerHTML = '';
   }

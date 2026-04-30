@@ -731,8 +731,8 @@ body.dh-refreshing-pill::after {
   margin-bottom: 24px;
 }
 #view-dashboard .page-header-left { min-width: 0; flex: 1; }
-#view-dashboard .page-header-left .page-title { margin-bottom: 6px; font-size: 28px; font-weight: 600; letter-spacing: -0.045em; line-height: 1.1; }
-#view-dashboard .page-header-left .page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 0; }
+#view-dashboard .page-header-left .page-title { margin-bottom: 6px; font-size: 32px; font-weight: 600; letter-spacing: -0.045em; line-height: 1.1; }
+#view-dashboard .page-header-left .page-subtitle { font-size: 15px; color: var(--text-muted); margin-bottom: 0; }
 #view-dashboard .page-header-actions {
   display: flex;
   align-items: center;
@@ -756,16 +756,23 @@ body.dh-refreshing-pill::after {
   display: block;         /* override flex-column from above */
 }
 #view-dashboard .score-circle-svg { display: block; }
-#view-dashboard .score-circle-bg { stroke: var(--surface-3); }
+/* BUGFIX 2026-04-30: dhScoreCircleClass(score) returns '' (empty string) for
+   good scores >=70 — relies on the ABSENCE of a modifier class. So the
+   default .score-circle-fg must be green; modifier classes override.
+   Score ring background also defaults to faint green for good scores. */
 #view-dashboard .score-circle-fg {
-  stroke: var(--text-subtle);
+  stroke: var(--green);
   transition: stroke-dashoffset 600ms ease, stroke 200ms ease;
 }
-#view-dashboard .score-circle.good .score-circle-fg { stroke: var(--green); }
+#view-dashboard .score-circle-bg { stroke: rgba(4, 120, 87, 0.18); }
+body[data-theme="dark"] #view-dashboard .score-circle-bg { stroke: rgba(74, 222, 128, 0.14); }
+/* Modifier classes for non-good scores */
 #view-dashboard .score-circle.moderate .score-circle-fg { stroke: var(--orange); }
+#view-dashboard .score-circle.moderate .score-circle-bg { stroke: rgba(194, 65, 12, 0.18); }
 #view-dashboard .score-circle.danger .score-circle-fg { stroke: var(--red); }
-#view-dashboard .score-circle.good .score-circle-bg { stroke: rgba(4, 120, 87, 0.18); }
-body[data-theme="dark"] #view-dashboard .score-circle.good .score-circle-bg { stroke: rgba(74, 222, 128, 0.14); }
+#view-dashboard .score-circle.danger .score-circle-bg { stroke: rgba(185, 28, 28, 0.18); }
+#view-dashboard .score-circle.none .score-circle-fg { stroke: var(--text-subtle); }
+#view-dashboard .score-circle.none .score-circle-bg { stroke: var(--surface-3); }
 #view-dashboard .score-circle-text {
   position: absolute;
   inset: 0;
@@ -825,3 +832,25 @@ body[data-theme="dark"] #view-dashboard .score-circle.good .score-circle-bg { st
   background: var(--green);
   flex-shrink: 0;
 }
+
+/* STAT PILLS — "10 passed / 0 warnings / 0 failed / 5 info" below score verdict.
+   Match v2 mockup: rounded pill with coloured dot + count + label. */
+#view-dashboard .score-stats { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+#view-dashboard .stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  padding: 4px 10px 4px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-weight: 500;
+}
+#view-dashboard .stat-pill .ind { width: 6px; height: 6px; border-radius: 50%; }
+#view-dashboard .stat-pill .num { color: var(--text); font-weight: 600; margin-right: 2px; }
+#view-dashboard .stat-pill.pass .ind { background: var(--green); }
+#view-dashboard .stat-pill.warn .ind { background: var(--orange); }
+#view-dashboard .stat-pill.fail .ind { background: var(--red); }
+#view-dashboard .stat-pill.info .ind { background: var(--text-subtle); }
