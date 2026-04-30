@@ -181,7 +181,7 @@ html, body {
   flex-direction: column;
   background: var(--bg);
   border-right: 1px solid var(--border);
-  padding: 18px 14px 16px;
+  padding: 16px 12px;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -196,10 +196,10 @@ html, body {
   color: var(--fg);
 }
 .sidebar .brand-mark {
-  width: 28px; height: 28px; border-radius: 6px;
+  width: 24px; height: 24px; border-radius: 6px;
   background: var(--fg); color: var(--bg);
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+  font-size: 11px; font-weight: 700; letter-spacing: -0.04em;
 }
 .sidebar .brand-name {
   font-size: 15px; font-weight: 600; letter-spacing: -0.025em; color: var(--fg);
@@ -280,12 +280,13 @@ html, body {
   transition: background 100ms ease, color 100ms ease;
 }
 .icon-btn:hover, .theme-toggle:hover { background: var(--bg-2); color: var(--fg); }
-/* Theme toggle icon swap: show moon in light mode (click to go dark),
-   show sun in dark mode (click to go light). */
+/* Theme toggle icon swap — mockup pattern: hide both by default, show
+   one per theme. Inline style="display:none;" must NOT be present on the
+   SVGs in HTML; otherwise these rules lose to inline-style specificity. */
 .theme-toggle .theme-icon-light,
-.theme-toggle .theme-icon-dark { display: block; }
-body[data-theme="light"] .theme-toggle .theme-icon-light { display: none; }
-body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
+.theme-toggle .theme-icon-dark { display: none; }
+body[data-theme="light"] .theme-toggle .theme-icon-dark { display: block; }
+body[data-theme="dark"]  .theme-toggle .theme-icon-light { display: block; }
 .logout-btn {
   background: var(--bg-1); border: 1px solid var(--border);
   color: var(--fg-2); padding: 5px 14px;
@@ -354,13 +355,14 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 
 .scan-cta { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 .btn, .scan-cta button {
-  display: inline-flex; align-items: center; gap: 8px;
-  height: 36px; padding: 0 16px;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 36px; padding: 0 14px;
   background: var(--bg-1); color: var(--fg);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   font-size: 13px; font-weight: 500;
   cursor: pointer; font-family: inherit;
+  letter-spacing: -0.005em;
   transition: background 100ms ease, border-color 100ms ease, transform 100ms ease;
 }
 .btn:hover, .scan-cta button:hover { background: var(--bg-2); border-color: var(--fg); }
@@ -519,6 +521,7 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
   opacity: 1; background: var(--success-text);
   box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.18);
 }
+.trend-bar.today:hover { background: var(--fg); }
 .trend-bar.today.moderate { background: var(--warn-text); }
 .trend-bar.today.danger { background: var(--danger); box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.25); }
 
@@ -549,7 +552,7 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 
 /* ═══════════════════ 9. PROVIDER STATUS (Google + Microsoft cards) ═══════════════════ */
 
-.provider-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
+.provider-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
 .provider-card {
   background: var(--bg-1); border: 1px solid var(--border);
   border-radius: 12px; padding: 20px;
@@ -558,13 +561,13 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 }
 .provider-card:hover { border-color: var(--border-strong); }
 .provider-header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px;
 }
 .provider-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .provider-icon {
-  width: 32px; height: 32px; border-radius: 8px;
-  background: var(--bg-2);
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--bg-2); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
@@ -597,28 +600,31 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 .provider-status-pill.connected::before { background: var(--success); }
 .provider-status-pill.disconnected::before { background: var(--fg-4); }
 
-/* Provider stats grid — supports both .provider-stats (mockup) and .provider-metrics (legacy JS) */
+/* Provider stats grid — supports both .provider-stats (mockup) and .provider-metrics (legacy JS).
+   Top divider line visually separates header row from stat tiles, matching mockup. */
 .provider-stats, .provider-metrics {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 12px; padding: 4px 0;
+  gap: 12px; margin-top: 16px; padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
-.provider-stats > div, .provider-metric { display: flex; flex-direction: column; gap: 4px; }
+.provider-stats > div, .provider-metric { display: flex; flex-direction: column; gap: 6px; }
 .provider-stat-label, .provider-metric-label {
-  font-size: 11px; color: var(--fg-3);
-  text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 11px; color: var(--fg-2);
+  text-transform: uppercase; letter-spacing: 0.05em;
   font-weight: 500;
 }
 .provider-stat-value, .provider-metric-value {
   font-size: 16px; font-weight: 600; color: var(--fg);
   letter-spacing: -0.02em;
-  font-family: 'Geist Mono', ui-monospace, monospace;
 }
-.provider-stat-value.good, .provider-metric-value.good { color: var(--success-text); font-family: inherit; }
+.provider-stat-value.good, .provider-metric-value.good { color: var(--success-text); }
 .provider-stat-value.warn, .provider-metric-value.warn { color: var(--warn-text); }
 .provider-stat-value.fail, .provider-metric-value.fail { color: var(--danger); }
 .provider-stat-value.muted, .provider-stat-value.none, .provider-metric-value.none {
-  color: var(--fg-4); font-weight: 500; font-family: inherit;
+  color: var(--fg-4); font-weight: 500;
 }
+/* Numeric values keep monospace for tabular alignment */
+.provider-stat-value.num, .provider-metric-value.num { font-family: 'Geist Mono', ui-monospace, monospace; }
 
 .provider-footer, .provider-cta {
   display: flex; align-items: center; justify-content: space-between;
@@ -646,11 +652,11 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 .diag-grid > .skeleton-card:nth-child(n+5) { grid-column: span 4; }
 
 .diag-card {
-  padding: 16px 18px;
+  padding: 18px;
   background: var(--bg-1); border: 1px solid var(--border);
-  border-radius: 10px;
-  display: flex; flex-direction: column; gap: 8px;
-  min-height: 120px;
+  border-radius: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+  min-height: 130px;
   transition: border-color 150ms ease;
 }
 .diag-card:hover { border-color: var(--border-strong); }
@@ -674,7 +680,14 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 .diag-card-value.none { color: var(--fg-3); font-family: inherit; font-weight: 400; }
 .diag-score .of, .diag-card-value .of { font-weight: 400; }
 
-.diag-desc, .diag-card-meta { font-size: 12px; color: var(--fg-2); line-height: 1.5; }
+.diag-desc, .diag-card-meta {
+  font-size: 12.5px; color: var(--fg-2); line-height: 1.5;
+  letter-spacing: -0.005em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
 
 /* Diag card status pill (legacy) */
 .diag-card-status {
@@ -689,28 +702,49 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 .diag-card-status.info { background: var(--bg-3); color: var(--fg-2); }
 
 
-/* ═══════════════════ 11. DOMAIN SAFETY (3-tile grid) ═══════════════════ */
+/* ═══════════════════ 11. DOMAIN SAFETY (connected stat strip) ═══════════════════
+   Mockup pattern: one outer card with internal vertical dividers between
+   the 3 tiles. Big 26px value text. Hover lifts cell background. */
 
-.safety-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
-.safety-card {
-  background: var(--bg-1); border: 1px solid var(--border);
-  border-radius: 10px; padding: 18px 20px;
-  text-align: center;
+.safety-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-1);
+  overflow: hidden;
 }
+.safety-card {
+  padding: 24px 20px;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  border-top: none; border-bottom: none; border-left: none;
+  border-radius: 0;
+  text-align: center;
+  transition: background 100ms ease;
+}
+.safety-card:last-child { border-right: none; }
+.safety-card:hover { background: var(--bg-2); }
 .safety-label, .safety-card-label {
-  font-size: 11px; color: var(--fg-3);
+  font-size: 11px; color: var(--fg-2);
   text-transform: uppercase; letter-spacing: 0.06em;
-  font-weight: 500; margin-bottom: 8px;
+  font-weight: 500; margin-bottom: 12px;
 }
 .safety-value, .safety-card-value {
-  font-size: 18px; font-weight: 600;
-  margin-bottom: 4px;
+  font-size: 26px; font-weight: 600;
+  letter-spacing: -0.035em; line-height: 1;
+  margin-bottom: 12px;
 }
 .safety-value.good, .safety-card-value.clean { color: var(--success-text); }
 .safety-value.warn { color: var(--warn-text); }
 .safety-value.fail, .safety-card-value.flagged { color: var(--danger); }
 .safety-value.unknown, .safety-card-value.unknown { color: var(--fg-3); }
-.safety-desc, .safety-card-meta { font-size: 12px; color: var(--fg-3); line-height: 1.5; }
+.safety-desc, .safety-card-meta {
+  font-size: 12.5px; color: var(--fg-2); line-height: 1.5;
+  letter-spacing: -0.005em;
+}
 
 
 /* ═══════════════════ 12. RECENT SCANS (history list) ═══════════════════ */
@@ -718,23 +752,25 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 .history-list, .scans-list {
   list-style: none;
   background: var(--bg-1); border: 1px solid var(--border);
-  border-radius: 12px; padding: 0 22px;
+  border-radius: 12px; overflow: hidden;
+  padding: 0;
   margin-bottom: 24px;
 }
 .history-row, .scan-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 0; border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  font-size: 13px; color: var(--fg-2); font-weight: 500;
+  transition: background 100ms ease;
+  cursor: pointer;
 }
 .history-row:last-child, .scan-row:last-child { border-bottom: none; }
-.history-score, .scan-label {
-  font-family: 'Geist Mono', ui-monospace, monospace;
-  font-weight: 500; color: var(--fg-1);
-}
+.history-row:hover, .scan-row:hover { background: var(--bg-2); }
+.history-score, .scan-label { font-weight: 500; color: var(--fg-2); }
+.scan-label .num { color: var(--fg); font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
 .history-score.good, .scan-label .num.good { color: var(--success-text); font-weight: 600; }
 .history-score.moderate, .scan-label .num.warn { color: var(--warn-text); font-weight: 600; }
 .history-score.danger, .scan-label .num.fail { color: var(--danger); font-weight: 600; }
-.history-date, .scan-time { color: var(--fg-3); font-size: 12px; }
+.history-date, .scan-time { color: var(--fg-3); font-size: 13px; font-variant-numeric: tabular-nums; }
 
 
 /* ═══════════════════ 13. NEEDS ATTENTION (alert panel) ═══════════════════ */
