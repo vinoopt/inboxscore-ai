@@ -888,15 +888,19 @@ function dhRenderSafety(domain) {
       candidates.sort((a, b) => (rank[(b.status || '').toLowerCase()] || 0) - (rank[(a.status || '').toLowerCase()] || 0));
       const bl = candidates[0];
       const status = (bl.status || '').toLowerCase();
+      // INBOX-178 fix: slice at 140 chars (was 60 — truncated "blacklists"
+      // mid-word to "b" in real-world detail strings). Safety-card wraps
+      // naturally so we just need a defensive cap, not aggressive truncation.
+      const trim = (s, n=140) => s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s;
       if (status === 'pass' || status === 'good') {
         blValue = 'Clean'; blClass = 'clean';
-        blMeta = bl.detail ? escapeHtml(bl.detail).slice(0, 60) : 'Not listed';
+        blMeta = bl.detail ? escapeHtml(trim(bl.detail)) : 'Not listed';
       } else if (status === 'warn' || status === 'warning') {
         blValue = 'Listed'; blClass = 'flagged';
-        blMeta = bl.detail ? escapeHtml(bl.detail).slice(0, 60) : 'Listed on minor lists';
+        blMeta = bl.detail ? escapeHtml(trim(bl.detail)) : 'Listed on minor lists';
       } else if (status === 'fail') {
         blValue = 'Listed'; blClass = 'flagged';
-        blMeta = bl.detail ? escapeHtml(bl.detail).slice(0, 60) : 'Listed on major DNSBLs';
+        blMeta = bl.detail ? escapeHtml(trim(bl.detail)) : 'Listed on major DNSBLs';
       }
     }
   }
@@ -914,18 +918,21 @@ function dhRenderSafety(domain) {
     const gsb = byName['google_safe_browsing'];
     if (gsb) {
       const st = (gsb.status || '').toLowerCase();
+      // INBOX-178 fix: slice at 140 with word-boundary cut (was 80 —
+      // could truncate mid-word like the blacklist tile did).
+      const trimGsb = (s, n=140) => s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s;
       if (st === 'pass' || st === 'good') {
         gsbValue = 'Safe'; gsbClass = 'clean';
         gsbMeta = 'No threats reported by Google';
       } else if (st === 'fail') {
         gsbValue = 'Flagged'; gsbClass = 'flagged';
-        gsbMeta = gsb.detail ? escapeHtml(gsb.detail).slice(0, 80) : 'Flagged by Google Safe Browsing';
+        gsbMeta = gsb.detail ? escapeHtml(trimGsb(gsb.detail)) : 'Flagged by Google Safe Browsing';
       } else {
         // 'info' — most commonly: API key not configured yet
         gsbValue = 'Coming soon'; gsbClass = 'unknown';
         gsbMeta = gsb.detail && gsb.detail.includes('Not configured')
           ? 'Awaiting GSB API key setup'
-          : (gsb.detail ? escapeHtml(gsb.detail).slice(0, 80) : 'Lookup unavailable');
+          : (gsb.detail ? escapeHtml(trimGsb(gsb.detail)) : 'Lookup unavailable');
       }
     }
 
