@@ -280,7 +280,12 @@ html, body {
   transition: background 100ms ease, color 100ms ease;
 }
 .icon-btn:hover, .theme-toggle:hover { background: var(--bg-2); color: var(--fg); }
-.theme-toggle svg { display: block; }
+/* Theme toggle icon swap: show moon in light mode (click to go dark),
+   show sun in dark mode (click to go light). */
+.theme-toggle .theme-icon-light,
+.theme-toggle .theme-icon-dark { display: block; }
+body[data-theme="light"] .theme-toggle .theme-icon-light { display: none; }
+body[data-theme="dark"]  .theme-toggle .theme-icon-dark  { display: none; }
 .logout-btn {
   background: var(--bg-1); border: 1px solid var(--border);
   color: var(--fg-2); padding: 5px 14px;
