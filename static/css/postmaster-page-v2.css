@@ -349,6 +349,93 @@ html[data-theme="dark"] .pm-detail-card {
   .pm-tab-body { padding: 24px 20px 28px; }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   STEP 3 — Compliance Status (designed req-rows per mockup)
+   8 outlined cards with icon + label + sub + pill. Source of truth:
+   design-mockups/postmaster-v2.html lines 278–303.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Tab section head — used by Compliance + every other tab. */
+.pm-ts-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+.pm-ts-title {
+  font-size: 20px; font-weight: 600;
+  letter-spacing: -0.02em; line-height: 1.2;
+  color: var(--text);
+}
+.pm-ts-sub {
+  font-size: 13px;
+  color: var(--pm-fg-3);
+  margin-top: 6px;
+  max-width: 720px;
+  line-height: 1.6;
+}
+.pm-ts-sub a {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 500;
+}
+.pm-ts-sub a:hover { text-decoration: underline; }
+
+/* Compliance row list — separate outlined cards with 8px gaps. */
+.pm-req-list { display: flex; flex-direction: column; gap: 8px; }
+.pm-req-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color 100ms ease, background 100ms ease;
+}
+.pm-req-row:hover {
+  border-color: var(--pm-border-strong);
+  background: var(--surface-2);
+}
+.pm-req-info { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.pm-req-icon {
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.pm-req-icon.pm-icon-pass  { background: var(--green-bg);   color: var(--green); }
+.pm-req-icon.pm-icon-fail  { background: var(--red-bg);     color: var(--red); }
+.pm-req-icon.pm-icon-empty { background: var(--surface-2);  color: var(--pm-fg-3); }
+.pm-req-icon svg { width: 15px; height: 15px; }
+.pm-req-text { min-width: 0; }
+.pm-req-label {
+  font-size: 14px; font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.005em; line-height: 1.3;
+}
+.pm-req-sub {
+  font-size: 12px;
+  color: var(--pm-fg-3);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+/* Status pill (mockup `.pill`) — Vercel-style badge with leading dot. */
+.pm-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px; font-weight: 500;
+  flex-shrink: 0;
+}
+.pm-pill .pm-ind { width: 6px; height: 6px; border-radius: 50%; }
+.pm-pill.pm-pill-success { background: var(--green-bg);  color: var(--green); }
+.pm-pill.pm-pill-success .pm-ind { background: var(--green); }
+.pm-pill.pm-pill-warn    { background: var(--yellow-bg); color: var(--yellow); }
+.pm-pill.pm-pill-warn    .pm-ind { background: var(--yellow); }
+.pm-pill.pm-pill-danger  { background: var(--red-bg);    color: var(--red); }
+.pm-pill.pm-pill-danger  .pm-ind { background: var(--red); }
+.pm-pill.pm-pill-empty   { background: var(--surface-2); color: var(--pm-fg-3); }
+.pm-pill.pm-pill-empty   .pm-ind { background: var(--pm-fg-4); }
+
 /* ─── Mobile responsive (≤768px) ─── */
 @media (max-width: 768px) {
   .pm-page-header { flex-direction: column; gap: 12px; }
