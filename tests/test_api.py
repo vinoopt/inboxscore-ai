@@ -175,32 +175,34 @@ class TestEmailHealthPage:
     def test_email_health_has_all_sections(self, client):
         """Each route must surface the section it represents.
 
-        INBOX-183 Phase A1: /postmaster split into postmaster.html which
-        contains ONLY the Google section. /microsoft + /blacklist still
-        serve email-health.html (with all 3 sections; ehNavInit picks the
-        active one via URL). After B1 + C1 they'll get their own files.
+        INBOX-183 Phase A1: /postmaster split into postmaster.html (Google only).
+        INBOX-185 Phase A1: /microsoft split into microsoft.html (Microsoft only).
+        /blacklist still serves email-health.html until Phase C1.
 
         INBOX-82 Phase 2 dropped Overview + Yahoo.
         INBOX-132 dropped IP Reputation."""
         # /postmaster — Google only (split file)
         pm = client.get("/postmaster").text
         assert 'id="eh-sec-google"' in pm
-        assert 'id="eh-sec-microsoft"' not in pm, (
-            "Microsoft section should NOT be in postmaster.html after the "
-            "INBOX-183 split. /microsoft serves email-health.html instead."
+        assert 'id="eh-sec-microsoft"' not in pm
+        assert 'id="eh-sec-blacklist"' not in pm
+
+        # /microsoft — Microsoft only (split file, INBOX-185)
+        ms = client.get("/microsoft").text
+        assert 'id="eh-sec-microsoft"' in ms
+        assert 'id="eh-sec-google"' not in ms, (
+            "Google section should NOT be in microsoft.html after the "
+            "INBOX-185 split."
         )
-        assert 'id="eh-sec-blacklist"' not in pm, (
-            "Blacklist section should NOT be in postmaster.html after the "
-            "INBOX-183 split."
+        assert 'id="eh-sec-blacklist"' not in ms, (
+            "Blacklist section should NOT be in microsoft.html after the "
+            "INBOX-185 split."
         )
 
-        # /microsoft + /blacklist — still served by email-health.html
-        # (which still has all 3 sections until Phases B1 + C1)
-        ms = client.get("/microsoft").text
-        assert 'id="eh-sec-google"' in ms
-        assert 'id="eh-sec-microsoft"' in ms
-        assert 'id="eh-sec-blacklist"' in ms
-        assert 'id="eh-sec-reputation"' not in ms
+        # /blacklist — still served by email-health.html (Phase C1 pending)
+        bl = client.get("/blacklist").text
+        assert 'id="eh-sec-blacklist"' in bl
+        assert 'id="eh-sec-reputation"' not in bl
 
     def test_email_health_overview_section_removed(self, client):
         """INBOX-82 Phase 2: the Overview tab is gone — the Dashboard now

@@ -2680,7 +2680,9 @@ async def serve_postmaster():
 
 @app.get("/microsoft")
 async def serve_microsoft():
-    return _html("email-health.html")
+    # INBOX-185 Phase A1: split from email-health.html. /blacklist still
+    # serves email-health.html until Phase C1 completes.
+    return _html("microsoft.html")
 
 
 @app.get("/blacklist")
