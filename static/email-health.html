@@ -8,6 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- INBOX-182 §1: Vercel-style page header. `.eh-*` prefix coexists
+     with the legacy inline <style> block below. -->
+<link rel="stylesheet" href="/static/css/email-health-page-v2.css?v=1">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -259,9 +262,18 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
     <!-- INBOX-110 follow-up: H1 + subtitle are populated dynamically by
          ehNavInit() based on the current URL (/postmaster, /microsoft,
          /blacklist, /reputation). Defaults shown here are placeholders
-         that get replaced before paint. -->
-    <h1 class="page-title" id="eh-page-title">Google Postmaster</h1>
-    <p class="page-subtitle" id="eh-page-subtitle">Compliance, spam, authentication, and delivery data from Google.</p>
+         that get replaced before paint.
+
+         INBOX-182 §1: V2 page header — 32px Geist title + 15px subtitle.
+         `.eh-page-header` flex row will host user-name + theme toggle +
+         Log Out on the right side in §3 (after topnav removal). IDs
+         preserved so ehNavInit() keeps wiring the title per route. -->
+    <div class="eh-page-header">
+      <div class="eh-page-header-left">
+        <h1 class="eh-page-title" id="eh-page-title">Google Postmaster</h1>
+        <p class="eh-page-subtitle" id="eh-page-subtitle">Compliance, spam, authentication, and delivery data from Google.</p>
+      </div>
+    </div>
 
     <!-- Toolbar — INBOX-112: dropped global period buttons. Period only
          affects chart-bearing tabs (Spam, Authentication), so the dropdown

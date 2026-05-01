@@ -1,0 +1,75 @@
+/* ─────────────────────────────────────────────────────────────────
+   email-health-page-v2.css — Email Health page Vercel chrome.
+   INBOX-182 Strangler Fig migration · 2026-05-01
+   Recipe: reference_inboxscore_v2_migration_recipes.md
+
+   This file scopes V2 chrome ONLY for /postmaster, /microsoft, and
+   /blacklist (all served by static/email-health.html). Page-prefixed
+   `.eh-*` classes coexist with the legacy inline <style> block. The
+   legacy block still loads — every element migrated here uses eh-*
+   selectors that the legacy CSS doesn't know about.
+
+   Section 1 scope (this commit):
+     - Page header (title + subtitle) — typography refresh
+
+   Section 3 scope (next commit, will append to this file):
+     - Sidebar shell + topnav removal
+     - Theme toggle + dark mode tokens
+
+   Out of scope (per-route content tickets):
+     - Postmaster content (.pm-*)
+     - SNDS content (.snd-*)
+     - Blacklist content (.bl-*)
+   ───────────────────────────────────────────────────────────────── */
+
+/* Vercel-leaning fg neutrals layered on top of the legacy :root.
+   We don't redefine --bg / --surface — the legacy page owns those. */
+:root {
+  --eh-fg-1: #171717;
+  --eh-fg-2: #404040;
+  --eh-fg-3: #666666;
+  --eh-fg-4: #888888;
+  --eh-border-strong: #d4d4d8;
+}
+
+/* ─── Page header (h1 + subtitle) ──────────────────────────────────
+   The h1 + subtitle live INSIDE <main class="main">. The legacy
+   `.page-title` rule sets 22px; the V2 spec wants 32px Geist 600.
+   Subtitle stays at 15px muted. Layout becomes a flex row so the
+   user-name + Log Out + theme toggle can be added on the right side
+   in Section 3 — for now just the title side renders. */
+.eh-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.eh-page-header-left {
+  min-width: 0;
+  flex: 1;
+}
+
+.eh-page-title {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+
+.eh-page-subtitle {
+  font-size: 15px;
+  color: var(--eh-fg-3);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+
+/* ─── Mobile responsive (≤768px) ─── */
+@media (max-width: 768px) {
+  .eh-page-header { flex-direction: column; gap: 12px; }
+  .eh-page-title { font-size: 26px; }
+}
