@@ -36,6 +36,31 @@ jobs:
         run: |
           ruff check --select=E9,F63,F7,F82,DTZ003 .
 
+      - name: Set up Node.js (for inline-JS parse-check)
+        # Master Playbook 10 / INBOX-178: pytest cannot detect parse errors
+        # inside <script> blocks of static HTML files. node --check does.
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Inline JS parse-check (HARD FAIL)
+        # Foundation gate from INBOX-178 retro: extract every inline
+        # <script> body from static/*.html and pipe through `node --check`.
+        # Would have caught two of the four critical bugs in INBOX-178
+        # (orphan HTML in script, truncated function).
+        run: |
+          python3 scripts/check_inline_js.py
+
+      - name: CSS class-collision check (informational)
+        # Master Playbook 10: detect exact-duplicate selectors with conflicting
+        # background/color values — the silent ordering bug from INBOX-178.
+        # Currently INFORMATIONAL while we clean up 2 legacy collisions in
+        # dashboard-page.css that the v2 migration will naturally resolve.
+        # Promote to hard-fail once those are gone.
+        continue-on-error: true
+        run: |
+          python3 scripts/check_class_collisions.py
+
       - name: Run tests (pytest)
         env:
           # Tests use stubs/mocks; no real secrets required for CI.
