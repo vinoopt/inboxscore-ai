@@ -1,0 +1,215 @@
+/* ─────────────────────────────────────────────────────────────────
+   domains-page-v2.css — Domains page Vercel-style chrome (Section 1).
+   INBOX-179 Strangler Fig migration · 2026-05-01
+   Mockup: design-mockups/domains-v2.html
+
+   This file scopes V2 chrome ONLY for the page header + action row of
+   /domains. It uses page-prefixed class names (`.dom-*`) so it cannot
+   collide with the legacy `.list-filters` / `.page-header` styles in
+   the inline <style> block. The legacy block still loads — but every
+   element migrated here uses dom-* selectors and inherits no legacy
+   chrome.
+
+   Section 1 scope (this file):
+     - Page header (title + subtitle)
+     - Action row (search + sort + count + Add Domain CTA)
+   Out of scope (Section 2+):
+     - Domain list rows (.domain-card)
+     - Sidebar plan card (INBOX-180)
+     - Contextual upgrade nudges (INBOX-181)
+
+   Design tokens reused from existing :root in domains.html — the live
+   page already declares --bg, --surface, --border, --text, --accent.
+   We add a couple of Vercel-flavour neutrals via CSS variables here.
+   ───────────────────────────────────────────────────────────────── */
+
+/* Vercel-leaning neutrals layered on top of the page's existing :root.
+   We don't re-declare --bg etc. — the live page owns those. We DO add
+   stronger fg tokens that better match Vercel's text hierarchy. */
+:root {
+  --dom-fg-1: #171717;
+  --dom-fg-2: #404040;
+  --dom-fg-3: #666666;
+  --dom-fg-4: #888888;
+  --dom-border-strong: #d4d4d8;
+}
+
+/* ─── Page header (title + subtitle) ─── */
+.dom-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.dom-page-header-left {
+  min-width: 0;
+  flex: 1;
+}
+
+.dom-page-title {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+
+.dom-page-subtitle {
+  font-size: 15px;
+  color: var(--dom-fg-3);
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  margin: 0;
+}
+
+/* ─── Action row (search + sort + count + Add Domain) ────────────────
+   Replaces the old `.list-filters` div. Search and sort sit on the left
+   with the count immediately after them; Add Domain CTA pinned to the
+   right. Wraps under the search on narrow screens.
+
+   Critical: the entire action row sits ON THE SAME LINE — Vinoop's
+   feedback was that splitting search+sort onto one row and the CTA
+   onto another felt fragmented. ─────────────────────────────────── */
+.dom-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.dom-action-row-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.dom-action-row-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Search input — Vercel pill. Uses the existing #domain-search ID
+   so applyDomainFilters() keeps reading it the same way. */
+.dom-search-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--dom-border-strong);
+  border-radius: 8px;
+  flex: 1;
+  max-width: 360px;
+  min-width: 240px;
+  transition: border-color 100ms ease;
+}
+.dom-search-input:focus-within {
+  border-color: var(--text);
+}
+.dom-search-input svg {
+  color: var(--dom-fg-3);
+  flex-shrink: 0;
+}
+.dom-search-input input {
+  border: none;
+  outline: none;
+  background: transparent;
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+  font-family: inherit;
+  letter-spacing: -0.005em;
+}
+.dom-search-input input::placeholder {
+  color: var(--dom-fg-4);
+}
+
+/* Sort select — real <select> styled to match Vercel pill button.
+   Keeps id="domain-sort" so the existing onchange handler binds. */
+.dom-sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  height: 36px;
+  padding: 0 32px 0 12px;
+  background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 10px center;
+  border: 1px solid var(--dom-border-strong);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: -0.005em;
+  transition: border-color 100ms ease;
+}
+.dom-sort-select:hover { border-color: var(--text); }
+.dom-sort-select:focus { outline: none; border-color: var(--text); }
+
+/* Result count — sits right after search/sort on the left side. */
+.dom-row-count {
+  font-size: 13px;
+  color: var(--dom-fg-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dom-row-count .filter-clear {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.dom-row-count .filter-clear:hover { text-decoration: underline; }
+
+/* Add Domain CTA — black Vercel primary button, pinned to right edge. */
+.dom-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  background: var(--text);
+  border: 1px solid var(--text);
+  border-radius: 8px;
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease, transform 50ms ease;
+  font-family: inherit;
+  letter-spacing: -0.005em;
+}
+.dom-add-btn:hover {
+  background: var(--dom-fg-1);
+  border-color: var(--dom-fg-1);
+}
+.dom-add-btn:active { transform: scale(0.98); }
+.dom-add-btn svg { color: var(--surface); }
+
+/* ─── Mobile responsive (≤768px) ─── */
+@media (max-width: 768px) {
+  .dom-page-header { flex-direction: column; gap: 12px; }
+  .dom-page-title { font-size: 26px; }
+  .dom-action-row { gap: 10px; }
+  .dom-action-row-left { width: 100%; }
+  .dom-action-row-right { width: 100%; }
+  .dom-add-btn { width: 100%; justify-content: center; }
+  .dom-search-input { max-width: none; }
+}

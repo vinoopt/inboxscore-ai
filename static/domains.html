@@ -8,6 +8,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- INBOX-179 Section 1: Vercel-style page header + action row.
+     Scoped via .dom-* prefix to coexist with legacy chrome below. -->
+<link rel="stylesheet" href="/static/css/domains-page-v2.css?v=1">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -172,29 +175,49 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
   </aside>
 
   <main class="main">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Domains</h1>
-        <p class="page-subtitle">Manage the domains you're monitoring.</p>
+    <!-- INBOX-179 Section 1: Vercel-style page header.
+         Title now 32px Geist, subtitle muted. Add Domain CTA moved
+         from here into the action row below — single horizontal
+         action surface, matches mockup. -->
+    <div class="dom-page-header">
+      <div class="dom-page-header-left">
+        <h1 class="dom-page-title">Domains</h1>
+        <p class="dom-page-subtitle">Manage the domains you're monitoring.</p>
       </div>
-      <button class="btn btn-primary" onclick="openAddModal()">+ Add Domain</button>
     </div>
 
-    <!-- INBOX-138: filter bar — search + sort + result count.
-         Hidden until at least one domain is loaded so first-run users
-         don't see clutter. applyDomainFilters() reads these and renders
-         a filtered subset of allDomains. -->
-    <div class="list-filters" id="domain-filters" style="display:none;">
-      <input type="text" id="domain-search" class="filter-search"
-             placeholder="Search domains…"
-             oninput="applyDomainFilters()" autocomplete="off">
-      <select id="domain-sort" class="filter-select" onchange="applyDomainFilters()">
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-        <option value="az">A → Z</option>
-        <option value="za">Z → A</option>
-      </select>
-      <span class="filter-count" id="domain-filter-count"></span>
+    <!-- INBOX-179 Section 1: Action row — search + sort + count + Add Domain.
+         Replaces legacy `.list-filters` (was hidden until loaded; now shown
+         immediately so the chrome doesn't pop in mid-load — better UX).
+         Hooks preserved verbatim:
+           id="domain-filters"          (kept on outer row in case JS still toggles it)
+           id="domain-search"           (oninput → applyDomainFilters)
+           id="domain-sort"             (onchange → applyDomainFilters)
+           id="domain-filter-count"     (count text inside .dom-row-count)
+           onclick="openAddModal()"     (Add Domain button)
+    -->
+    <div class="dom-action-row" id="domain-filters" style="display:none;">
+      <div class="dom-action-row-left">
+        <label class="dom-search-input">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="domain-search"
+                 placeholder="Search domains…"
+                 oninput="applyDomainFilters()" autocomplete="off">
+        </label>
+        <select id="domain-sort" class="dom-sort-select" onchange="applyDomainFilters()" aria-label="Sort domains">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="az">A → Z</option>
+          <option value="za">Z → A</option>
+        </select>
+        <span class="dom-row-count" id="domain-filter-count"></span>
+      </div>
+      <div class="dom-action-row-right">
+        <button class="dom-add-btn" onclick="openAddModal()" aria-label="Add Domain">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Domain
+        </button>
+      </div>
     </div>
 
     <div id="domains-container">
