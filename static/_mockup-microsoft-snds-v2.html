@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Microsoft SNDS — InboxScore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     Microsoft SNDS V2 — Vercel design DNA, .snd-* prefix.
+     Audited from live /microsoft on 2026-05-01. 5 tabs, no new
+     blocks invented. Reputation Heatmap is the headline tab.
+     ════════════════════════════════════════════════════════════════ */
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --surface-2: #f4f4f5;
+    --surface-3: #ebebed;
+    --fg: #000000;
+    --fg-1: #171717;
+    --fg-2: #404040;
+    --fg-3: #666666;
+    --fg-4: #888888;
+    --fg-5: #a1a1a1;
+    --border: #eaeaea;
+    --border-strong: #d4d4d8;
+    --accent: #0070f3;
+    --accent-soft: #e6f0ff;
+    --success: #00875a;
+    --success-text: #00603f;
+    --success-soft: #d1fae5;
+    --warn: #b87100;
+    --warn-text: #8a5500;
+    --warn-soft: #fef3c7;
+    --danger: #b91c1c;
+    --danger-soft: #fee2e2;
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-2: 0 8px 24px -8px rgba(0,0,0,0.10);
+  }
+  html[data-theme="dark"] {
+    --bg: #000000;
+    --surface: #0a0a0a;
+    --surface-2: #161616;
+    --surface-3: #1f1f1f;
+    --fg: #ffffff;
+    --fg-1: #ededed;
+    --fg-2: #a1a1a1;
+    --fg-3: #888888;
+    --fg-4: #666666;
+    --fg-5: #525252;
+    --border: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.16);
+    --accent: #3291ff;
+    --accent-soft: rgba(50,145,255,0.10);
+    --success: #26d978;
+    --success-text: #4ade80;
+    --success-soft: rgba(38,217,120,0.12);
+    --warn: #f5a623;
+    --warn-text: #f5b342;
+    --warn-soft: rgba(245,166,35,0.12);
+    --danger: #f87171;
+    --danger-soft: rgba(248,113,113,0.12);
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.5);
+    --shadow-2: 0 8px 24px -8px rgba(0,0,0,0.4);
+  }
+
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background 200ms ease, color 200ms ease;
+  }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+  .mono { font-family: 'Geist Mono', monospace; }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* ══════ SIDEBAR ══════ */
+  .sidebar { background: var(--bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 24px; }
+  .brand-mark { width: 26px; height: 26px; background: var(--fg); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; color: var(--bg); letter-spacing: -0.04em; }
+  .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.025em; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 7px; color: var(--fg-2); font-size: 13px; cursor: pointer; transition: background 100ms ease, color 100ms ease; font-weight: 500; margin-bottom: 1px; text-decoration: none; }
+  .nav-item:hover { background: var(--surface-2); color: var(--fg); }
+  .nav-item.active { background: var(--surface-2); color: var(--fg); }
+  .nav-item svg { color: currentColor; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-size: 11px; color: var(--fg-3); background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .nav-item.active .badge { background: var(--surface); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
+  .plan-card { padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  .plan-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .plan-meta { font-size: 12px; color: var(--fg-2); margin-bottom: 12px; }
+  .plan-bar { height: 4px; background: var(--surface-2); border-radius: 2px; margin-bottom: 10px; overflow: hidden; }
+  .plan-bar-fill { height: 100%; width: 70%; background: var(--fg); border-radius: 2px; }
+  .plan-link { font-size: 12px; color: var(--fg); font-weight: 500; cursor: pointer; }
+  .plan-link:hover { text-decoration: underline; }
+
+  /* ══════ MAIN ══════ */
+  .main { background: var(--bg); min-width: 0; }
+  .container { max-width: 1280px; padding: 40px 48px 96px; }
+
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 8px; }
+  .page-title { font-size: 36px; font-weight: 600; letter-spacing: -0.04em; line-height: 1.1; margin-bottom: 8px; }
+  .page-subtitle { font-size: 15px; color: var(--fg-3); max-width: 600px; }
+  .page-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .user-name { font-size: 13px; color: var(--fg-2); }
+  .icon-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-strong); background: transparent; color: var(--fg-2); border-radius: 8px; cursor: pointer; transition: all 100ms ease; }
+  .icon-btn:hover { color: var(--fg); border-color: var(--fg); }
+  .logout-btn { background: var(--surface); border: 1px solid var(--border-strong); color: var(--fg-2); padding: 7px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all 100ms ease; font-family: inherit; }
+  .logout-btn:hover { border-color: var(--fg); color: var(--fg); }
+  .icon-sun, .icon-moon { display: none; }
+  html[data-theme="dark"] .icon-sun { display: block; }
+  html:not([data-theme="dark"]) .icon-moon { display: block; }
+
+  .domain-pill { display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 999px; font-size: 13px; font-weight: 500; margin-top: 24px; cursor: pointer; transition: border-color 100ms ease; }
+  .domain-pill:hover { border-color: var(--fg); }
+  .domain-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+  .domain-pill svg { color: var(--fg-3); }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 100ms ease; font-family: inherit; border: 1px solid transparent; }
+  .btn svg { width: 14px; height: 14px; }
+  .btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .btn.primary:hover { background: var(--fg-1); border-color: var(--fg-1); }
+  .btn.ghost { background: transparent; color: var(--fg-2); border-color: var(--border-strong); }
+  .btn.ghost:hover { color: var(--fg); border-color: var(--fg); background: var(--surface-2); }
+
+  /* ══════ DETAIL CARD ══════ */
+  .detail-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-1); margin-top: 32px; }
+  .provider-head { display: flex; align-items: center; justify-content: space-between; padding: 24px 32px; border-bottom: 1px solid var(--border); gap: 16px; flex-wrap: wrap; }
+  .provider-head-left { display: flex; align-items: center; gap: 16px; min-width: 0; }
+  .provider-logo { width: 44px; height: 44px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .provider-name { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; color: var(--fg); }
+  .provider-meta { font-size: 13px; color: var(--fg-3); margin-top: 2px; }
+
+  /* Pill-style tabs — black active underline. */
+  .tabs-bar { display: flex; gap: 4px; padding: 14px 16px 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .tab { padding: 9px 14px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 500; color: var(--fg-3); cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 100ms ease, background 100ms ease; }
+  .tab:hover { color: var(--fg); background: var(--surface-2); }
+  .tab.active { color: var(--fg); border-bottom-color: var(--fg); background: transparent; }
+
+  .tab-body { padding: 36px 40px 40px; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .ts-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; gap: 16px; }
+  .ts-title { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+  .ts-sub { font-size: 13px; color: var(--fg-3); margin-top: 6px; max-width: 720px; line-height: 1.6; }
+  .ts-sub a { color: var(--fg); text-decoration: none; font-weight: 500; }
+  .ts-sub a:hover { text-decoration: underline; }
+  .period-select { appearance: none; -webkit-appearance: none; height: 34px; padding: 0 32px 0 14px; background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 11px center; border: 1px solid var(--border-strong); border-radius: 8px; font-size: 13px; color: var(--fg); font-weight: 500; cursor: pointer; font-family: inherit; flex-shrink: 0; }
+  .period-select:hover { border-color: var(--fg); }
+
+  /* ══════ STAT STRIP (IP Health) — 4 cells ══════ */
+  .stat-strip { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; margin-bottom: 28px; }
+  .stat-cell { padding: 24px 26px; border-right: 1px solid var(--border); }
+  .stat-cell:last-child { border-right: none; }
+  .stat-label { font-size: 11px; font-weight: 600; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+  .stat-value { font-size: 32px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.025em; color: var(--fg); }
+  .stat-value.success { color: var(--success-text); }
+  .stat-value.warn    { color: var(--warn-text); }
+  .stat-value.danger  { color: var(--danger); }
+  .stat-sub { font-size: 12px; color: var(--fg-3); margin-top: 10px; }
+
+  /* IP list (latest status) — connected outlined card. */
+  .ip-section-head { font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 12px; }
+  .ip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .ip-card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; transition: border-color 100ms ease; }
+  .ip-card:hover { border-color: var(--border-strong); }
+  .ip-card-row { display: flex; align-items: center; gap: 8px; }
+  .ip-card-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ip-card-dot.green  { background: var(--success); }
+  .ip-card-dot.yellow { background: var(--warn); }
+  .ip-card-dot.red    { background: var(--danger); }
+  .ip-card-addr { font-family: 'Geist Mono', monospace; font-size: 13px; color: var(--fg); font-weight: 500; }
+  .ip-card-meta { font-size: 11px; color: var(--fg-3); padding-left: 16px; }
+  .ip-card-meta strong { color: var(--fg-2); font-weight: 600; }
+
+  /* ══════ CHART CARD ══════ */
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px 20px; margin-bottom: 24px; }
+  .chart-svg svg { display: block; width: 100%; height: 280px; }
+  .chart-legend { display: flex; gap: 24px; justify-content: flex-start; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--fg-2); flex-wrap: wrap; }
+  .leg { display: inline-flex; align-items: center; gap: 8px; }
+  .leg .swatch { width: 14px; height: 3px; border-radius: 2px; }
+  .leg-meta { margin-left: auto; font-size: 11px; color: var(--fg-4); font-variant-numeric: tabular-nums; }
+
+  /* ══════ DATA CARD / TABLE ══════ */
+  .data-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .data-head { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .data-head-title { font-size: 14px; font-weight: 600; }
+  .data-head-meta { font-size: 12px; color: var(--fg-3); }
+  .data-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .data-table th { text-align: left; padding: 12px 24px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-3); font-weight: 600; border-bottom: 1px solid var(--border); }
+  .data-table th.right { text-align: right; }
+  .data-table td { padding: 14px 24px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--fg-1); }
+  .data-table td.right { text-align: right; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface-2); }
+  .data-table .ok { color: var(--success-text); font-weight: 500; }
+  .data-table .warn { color: var(--warn-text); font-weight: 500; }
+  .data-table .danger { color: var(--danger); font-weight: 500; }
+  .data-table .muted { color: var(--fg-4); }
+
+  /* ══════ TRAP HITS — clean banner ══════ */
+  .clean-banner { display: flex; align-items: flex-start; gap: 16px; padding: 28px 32px; background: linear-gradient(180deg, var(--success-soft) 0%, transparent 80%), var(--surface); border: 1px solid var(--success); border-radius: 14px; }
+  .clean-banner-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--success); color: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .clean-banner-icon svg { width: 22px; height: 22px; }
+  .clean-banner-text { flex: 1; }
+  .clean-banner-title { font-size: 18px; font-weight: 600; color: var(--success-text); letter-spacing: -0.02em; margin-bottom: 4px; }
+  .clean-banner-desc { font-size: 13px; color: var(--fg-2); line-height: 1.55; }
+
+  /* ══════ HEATMAP (Reputation) ══════ */
+  .summary-banner { display: flex; align-items: center; gap: 18px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; font-size: 13px; flex-wrap: wrap; }
+  .sm-pill { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .sm-pill.green { color: var(--success-text); }
+  .sm-pill.amber { color: var(--warn-text); }
+  .sm-pill.red   { color: var(--danger); }
+  .summary-banner .sep { color: var(--fg-4); }
+  .summary-banner .meta { margin-left: auto; color: var(--fg-3); }
+
+  .alert-banner { display: flex; align-items: flex-start; gap: 14px; padding: 14px 18px; background: linear-gradient(180deg, var(--warn-soft) 0%, transparent 90%), var(--surface); border: 1px solid var(--warn); border-radius: 10px; margin-bottom: 24px; font-size: 13px; }
+  .alert-banner-icon { color: var(--warn-text); flex-shrink: 0; margin-top: 1px; }
+  .alert-banner-text { flex: 1; color: var(--fg-2); line-height: 1.55; }
+  .alert-banner-text code { font-family: 'Geist Mono', monospace; font-size: 12px; padding: 1px 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
+  .alert-banner-text strong { color: var(--warn-text); font-weight: 600; }
+
+  .heatmap-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px; margin-bottom: 24px; overflow-x: auto; }
+  .heatmap { display: grid; grid-template-columns: 110px repeat(30, 1fr); gap: 3px; min-width: 800px; }
+  .hm-col-label { grid-column: span 1; font-size: 11px; color: var(--fg-4); font-variant-numeric: tabular-nums; padding-bottom: 8px; }
+  .hm-row-label { font-family: 'Geist Mono', monospace; font-size: 12px; color: var(--fg-2); display: flex; align-items: center; padding-right: 10px; }
+  .hm-cell { aspect-ratio: 1; border-radius: 3px; }
+  .hm-cell.green  { background: var(--success); }
+  .hm-cell.yellow { background: #f5a623; }
+  .hm-cell.red    { background: var(--danger); }
+  .hm-cell.empty  { background: var(--surface-2); border: 1px dashed var(--border-strong); }
+
+  .heatmap-legend { display: flex; gap: 18px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--fg-2); flex-wrap: wrap; }
+  .heatmap-legend .leg { gap: 6px; }
+  .heatmap-legend .leg-swatch { width: 14px; height: 14px; border-radius: 3px; }
+  .heatmap-legend .leg-swatch.green  { background: var(--success); }
+  .heatmap-legend .leg-swatch.yellow { background: #f5a623; }
+  .heatmap-legend .leg-swatch.red    { background: var(--danger); }
+  .heatmap-legend .leg-swatch.empty  { background: var(--surface-2); border: 1px dashed var(--border-strong); }
+
+  /* Advice list — what to do */
+  .advice-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px 26px; }
+  .advice-title { font-size: 14px; font-weight: 600; color: var(--fg); margin-bottom: 14px; }
+  .advice-list { display: flex; flex-direction: column; gap: 12px; }
+  .advice-row { display: flex; gap: 12px; align-items: flex-start; }
+  .advice-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; flex-shrink: 0; }
+  .advice-dot.yellow { background: #f5a623; }
+  .advice-dot.red    { background: var(--danger); }
+  .advice-dot.muted  { background: var(--fg-4); }
+  .advice-text { flex: 1; font-size: 13px; color: var(--fg-2); line-height: 1.55; }
+  .advice-text strong { color: var(--fg); font-weight: 600; }
+  .advice-text a { color: var(--fg); text-decoration: underline; font-weight: 500; }
+
+  /* Mobile */
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .container { padding: 24px 20px 80px; }
+    .page-title { font-size: 28px; }
+    .stat-strip { grid-template-columns: 1fr 1fr; }
+    .stat-cell { border-right: none; border-bottom: 1px solid var(--border); }
+    .stat-cell:nth-last-child(-n+2) { border-bottom: none; }
+    .ts-head { flex-direction: column; }
+    .tab-body { padding: 24px 20px 28px; }
+    .heatmap { grid-template-columns: 90px repeat(30, 1fr); min-width: 700px; }
+  }
+</style>
+</head>
+
+<body>
+<div class="layout">
+
+  <!-- ══════ SIDEBAR ══════ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">IS</div>
+      <div class="brand-name">InboxScore</div>
+    </div>
+    <nav>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg>
+        <span>Google Postmaster</span>
+      </a>
+      <a href="#" class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8.5"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><circle cx="18" cy="18" r="3"/><path d="m22 22-1.5-1.5"/></svg>
+        <span>Microsoft SNDS</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        <span>Blacklist Monitor</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        <span>Domains</span><span class="badge">5</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/></svg>
+        <span>Sending IPs</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <span>Alerts</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="plan-card">
+        <div class="plan-title">Pro plan</div>
+        <div class="plan-meta"><span class="num">7</span> of <span class="num">10</span> domains</div>
+        <div class="plan-bar"><div class="plan-bar-fill"></div></div>
+        <div class="plan-link">Manage plan →</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════ MAIN ══════ -->
+  <main class="main">
+    <div class="container">
+
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Microsoft SNDS</h1>
+          <p class="page-subtitle">IP-level reputation and complaint rates from Microsoft Outlook&rsquo;s Smart Network Data Services.</p>
+        </div>
+        <div class="page-actions">
+          <span class="user-name">Vinoop Thayatt</span>
+          <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button class="logout-btn">Log Out</button>
+        </div>
+      </div>
+
+      <div class="domain-pill">
+        <span class="dot"></span>
+        <span>mailercloud.com</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+
+      <!-- ══════ DETAIL CARD ══════ -->
+      <div class="detail-card">
+        <div class="provider-head">
+          <div class="provider-head-left">
+            <div class="provider-logo">
+              <svg viewBox="0 0 24 24" width="22" height="22"><rect x="2" y="2" width="9" height="9" fill="#F25022"/><rect x="13" y="2" width="9" height="9" fill="#7FBA00"/><rect x="2" y="13" width="9" height="9" fill="#00A4EF"/><rect x="13" y="13" width="9" height="9" fill="#FFB900"/></svg>
+            </div>
+            <div>
+              <div class="provider-name">Microsoft SNDS</div>
+              <div class="provider-meta">Last synced 3 hours ago</div>
+            </div>
+          </div>
+          <button class="btn primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Sync now
+          </button>
+        </div>
+
+        <div class="tabs-bar">
+          <div class="tab active" data-tab="ip-health" onclick="snTab('ip-health')">IP Health</div>
+          <div class="tab" data-tab="complaint" onclick="snTab('complaint')">Complaint Rate</div>
+          <div class="tab" data-tab="trap" onclick="snTab('trap')">Trap Hits</div>
+          <div class="tab" data-tab="heatmap" onclick="snTab('heatmap')">Reputation Heatmap</div>
+          <div class="tab" data-tab="volume" onclick="snTab('volume')">Volume &amp; Delivery</div>
+        </div>
+
+        <!-- ════ TAB: IP HEALTH ════ -->
+        <div class="tab-body tab-content active" data-tab="ip-health">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">IP reputation snapshot</div>
+              <div class="ts-sub">Microsoft groups your sending IPs into Green / Yellow / Red tiers based on complaint rate, traffic shape, and history. Yellow IPs are throttled; Red IPs are spam-filtered.</div>
+            </div>
+          </div>
+
+          <div class="stat-strip">
+            <div class="stat-cell">
+              <div class="stat-label">IPs (last day)</div>
+              <div class="stat-value num">5</div>
+              <div class="stat-sub">0 green · 5 yellow · 0 red</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-label">Avg complaint rate</div>
+              <div class="stat-value warn num">0.10%</div>
+              <div class="stat-sub">Across 5 IPs</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-label">Trap hits (30d)</div>
+              <div class="stat-value success num">0</div>
+              <div class="stat-sub">No trap hits — list is clean</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-label">Total volume (30d)</div>
+              <div class="stat-value num">1,284,398</div>
+              <div class="stat-sub">Avg 7,256 per IP-day</div>
+            </div>
+          </div>
+
+          <div class="ip-section-head">Sending IPs — latest status</div>
+          <div class="ip-grid">
+            <div class="ip-card">
+              <div class="ip-card-row"><span class="ip-card-dot yellow"></span><span class="ip-card-addr">103.147.104.13</span></div>
+              <div class="ip-card-meta"><strong>YELLOW</strong> · complaint 0.10%</div>
+            </div>
+            <div class="ip-card">
+              <div class="ip-card-row"><span class="ip-card-dot green"></span><span class="ip-card-addr">103.147.104.14</span></div>
+              <div class="ip-card-meta"><strong>GREEN</strong> · complaint 0.10%</div>
+            </div>
+            <div class="ip-card">
+              <div class="ip-card-row"><span class="ip-card-dot yellow"></span><span class="ip-card-addr">103.147.104.15</span></div>
+              <div class="ip-card-meta"><strong>YELLOW</strong> · complaint 0.10%</div>
+            </div>
+            <div class="ip-card">
+              <div class="ip-card-row"><span class="ip-card-dot yellow"></span><span class="ip-card-addr">103.147.104.16</span></div>
+              <div class="ip-card-meta"><strong>YELLOW</strong> · complaint 0.10%</div>
+            </div>
+            <div class="ip-card">
+              <div class="ip-card-row"><span class="ip-card-dot yellow"></span><span class="ip-card-addr">103.147.104.17</span></div>
+              <div class="ip-card-meta"><strong>YELLOW</strong> · complaint 0.10%</div>
+            </div>
+            <div class="ip-card">
+              <div class="ip-card-row"><span class="ip-card-dot yellow"></span><span class="ip-card-addr">103.147.104.18</span></div>
+              <div class="ip-card-meta"><strong>YELLOW</strong> · complaint 0.10%</div>
+            </div>
+            <div class="ip-card">
+              <div class="ip-card-row"><span class="ip-card-dot yellow"></span><span class="ip-card-addr">162.19.145.175</span></div>
+              <div class="ip-card-meta"><strong>YELLOW</strong> · complaint 0.10%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ TAB: COMPLAINT RATE ════ -->
+        <div class="tab-body tab-content" data-tab="complaint">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">User-reported complaint rate</div>
+              <div class="ts-sub">Microsoft flags senders above 0.10% (recommended) and 0.50% (policy). Stay below the recommended threshold for best inbox placement.</div>
+            </div>
+            <select class="period-select"><option>Last 30 days</option><option>Last 7 days</option><option>Last 90 days</option></select>
+          </div>
+          <div class="chart-card">
+            <div class="chart-svg">
+              <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cmplGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#0070f3" stop-opacity="0.18"/>
+                    <stop offset="100%" stop-color="#0070f3" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <line x1="44" y1="20"  x2="780" y2="20"  stroke="var(--border)" stroke-width="0.8"/>
+                <line x1="44" y1="60"  x2="780" y2="60"  stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="105" x2="780" y2="105" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="155" x2="780" y2="155" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="205" x2="780" y2="205" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="240" x2="780" y2="240" stroke="var(--border)" stroke-width="0.8"/>
+                <line x1="44" y1="60" x2="780" y2="60" stroke="#b91c1c" stroke-width="1.4" stroke-dasharray="5 4"/>
+                <text x="775" y="54" font-size="11" fill="#b91c1c" text-anchor="end" font-weight="600">0.50% Policy</text>
+                <line x1="44" y1="220" x2="780" y2="220" stroke="#b87100" stroke-width="1.4" stroke-dasharray="5 4"/>
+                <text x="775" y="214" font-size="11" fill="#b87100" text-anchor="end" font-weight="600">0.10% Recommended</text>
+                <text x="38" y="22"  font-size="11" fill="var(--fg-3)" text-anchor="end">0.60%</text>
+                <text x="38" y="62"  font-size="11" fill="var(--fg-3)" text-anchor="end">0.50%</text>
+                <text x="38" y="107" font-size="11" fill="var(--fg-3)" text-anchor="end">0.30%</text>
+                <text x="38" y="157" font-size="11" fill="var(--fg-3)" text-anchor="end">0.20%</text>
+                <text x="38" y="222" font-size="11" fill="var(--fg-3)" text-anchor="end">0.10%</text>
+                <text x="38" y="244" font-size="11" fill="var(--fg-3)" text-anchor="end">0.00%</text>
+                <path d="M44,222 L70,221 96,223 122,220 148,222 174,221 200,222 226,220 252,222 278,221 304,223 330,220 356,222 382,221 408,222 434,220 460,222 486,221 512,222 538,220 564,222 590,221 616,222 642,220 668,222 694,221 720,222 746,220 780,221 L780,240 L44,240 Z" fill="url(#cmplGrad)"/>
+                <polyline fill="none" stroke="#0070f3" stroke-width="2.2" stroke-linejoin="round"
+                          points="44,222 70,221 96,223 122,220 148,222 174,221 200,222 226,220 252,222 278,221 304,223 330,220 356,222 382,221 408,222 434,220 460,222 486,221 512,222 538,220 564,222 590,221 616,222 642,220 668,222 694,221 720,222 746,220 780,221"/>
+                <g fill="#0070f3" stroke="var(--surface)" stroke-width="2">
+                  <circle cx="44"  cy="222" r="3"/><circle cx="200" cy="222" r="3"/><circle cx="356" cy="222" r="3"/>
+                  <circle cx="512" cy="222" r="3"/><circle cx="668" cy="222" r="3"/><circle cx="780" cy="221" r="3"/>
+                </g>
+                <text x="44"  y="262" font-size="11" fill="var(--fg-3)">Apr 1</text>
+                <text x="218" y="262" font-size="11" fill="var(--fg-3)">Apr 7</text>
+                <text x="392" y="262" font-size="11" fill="var(--fg-3)">Apr 13</text>
+                <text x="566" y="262" font-size="11" fill="var(--fg-3)">Apr 19</text>
+                <text x="775" y="262" font-size="11" fill="var(--fg-3)" text-anchor="end">Apr 30</text>
+              </svg>
+            </div>
+            <div class="chart-legend">
+              <span class="leg"><span class="swatch" style="background:#0070f3"></span>Avg complaint rate</span>
+              <span class="leg" style="color:#b91c1c"><span class="swatch" style="background:#b91c1c"></span>0.50% Policy</span>
+              <span class="leg" style="color:#b87100"><span class="swatch" style="background:#b87100"></span>0.10% Recommended</span>
+              <span class="leg-meta">30 days · newest first</span>
+            </div>
+          </div>
+          <div class="data-card">
+            <div class="data-head"><div class="data-head-title">Daily breakdown</div><div class="data-head-meta">Last 30 days</div></div>
+            <table class="data-table">
+              <thead><tr><th>Date ▼</th><th class="right">IPs reporting</th><th class="right">Avg complaint rate</th><th class="right">Worst IP</th></tr></thead>
+              <tbody>
+                <tr><td>2026-04-30</td><td class="right num">5</td><td class="right warn num">0.100%</td><td class="right mono num">103.147.104.15 · 0.100%</td></tr>
+                <tr><td>2026-04-29</td><td class="right num">6</td><td class="right warn num">0.100%</td><td class="right mono num">103.147.104.15 · 0.100%</td></tr>
+                <tr><td>2026-04-28</td><td class="right num">5</td><td class="right warn num">0.100%</td><td class="right mono num">103.147.104.13 · 0.100%</td></tr>
+                <tr><td>2026-04-27</td><td class="right num">6</td><td class="right warn num">0.100%</td><td class="right mono num">103.147.104.13 · 0.100%</td></tr>
+                <tr><td>2026-04-26</td><td class="right num">5</td><td class="right warn num">0.100%</td><td class="right mono num">103.147.104.14 · 0.100%</td></tr>
+                <tr><td>2026-04-25</td><td class="right num">6</td><td class="right warn num">0.100%</td><td class="right mono num">103.147.104.16 · 0.100%</td></tr>
+                <tr><td>2026-04-24</td><td class="right num">5</td><td class="right warn num">0.100%</td><td class="right mono num">103.147.104.17 · 0.100%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ════ TAB: TRAP HITS ════ -->
+        <div class="tab-body tab-content" data-tab="trap">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">Spam trap hits</div>
+              <div class="ts-sub">Microsoft tracks honeypot addresses on their networks. Any hit indicates a list-quality problem — purchased data, expired addresses, or scraped emails.</div>
+            </div>
+          </div>
+          <div class="clean-banner">
+            <div class="clean-banner-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="clean-banner-text">
+              <div class="clean-banner-title">No trap hits in the last 30 days</div>
+              <div class="clean-banner-desc">Across all 7 IPs, Microsoft hasn&rsquo;t detected mail to any of their honeypot addresses. Your list hygiene is clean.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ TAB: REPUTATION HEATMAP ════ -->
+        <div class="tab-body tab-content" data-tab="heatmap">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">Reputation heatmap</div>
+              <div class="ts-sub">Microsoft&rsquo;s reputation tier per IP, per day. The single most actionable signal in SNDS — a Throttled or Spam-filtered tier means Outlook is sending your mail to junk regardless of every other metric.</div>
+            </div>
+          </div>
+
+          <div class="summary-banner">
+            <span class="sm-pill green">37% Inbox-ready</span>
+            <span class="sep">·</span>
+            <span class="sm-pill amber">63% Throttled</span>
+            <span class="sep">·</span>
+            <span class="sm-pill red">0% Spam-filtered</span>
+            <span class="meta">over 30 days across 7 IPs</span>
+          </div>
+
+          <div class="alert-banner">
+            <svg class="alert-banner-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="alert-banner-text"><code>103.147.104.17</code> spent <strong>23 days Throttled</strong> in the last 30 days (+5 other IPs also affected). Investigate complaint rate, warm-up cadence, or list hygiene.</div>
+          </div>
+
+          <div class="heatmap-card">
+            <div class="heatmap" id="heatmap"></div>
+            <div class="heatmap-legend">
+              <span class="leg"><span class="leg-swatch green"></span>Inbox-ready</span>
+              <span class="leg"><span class="leg-swatch yellow"></span>Throttled</span>
+              <span class="leg"><span class="leg-swatch red"></span>Spam-filtered</span>
+              <span class="leg"><span class="leg-swatch empty"></span>No volume</span>
+              <span class="leg-meta" style="margin-left:auto;">7 IPs × 30 days</span>
+            </div>
+          </div>
+
+          <div class="advice-card">
+            <div class="advice-title">What to do if you see persistent yellow or red</div>
+            <div class="advice-list">
+              <div class="advice-row">
+                <span class="advice-dot yellow"></span>
+                <div class="advice-text"><strong>Persistent Throttled (yellow):</strong> warm up the IP slower, audit complaint rate, clean inactive recipients from your lists.</div>
+              </div>
+              <div class="advice-row">
+                <span class="advice-dot red"></span>
+                <div class="advice-text"><strong>Persistent Spam-filtered (red):</strong> Microsoft is rejecting your mail. File an unblock / mitigation request at <a href="https://senders.microsoft.com" target="_blank" rel="noopener">senders.microsoft.com</a>.</div>
+              </div>
+              <div class="advice-row">
+                <span class="advice-dot muted"></span>
+                <div class="advice-text"><strong>No-volume rows:</strong> normal if the IP doesn&rsquo;t typically send to Outlook / Hotmail. Ignore unless you expected volume there.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ TAB: VOLUME & DELIVERY ════ -->
+        <div class="tab-body tab-content" data-tab="volume">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">Daily sending volume</div>
+              <div class="ts-sub">Total mail accepted by Microsoft across all your IPs. Use this to spot ramp-up, dips, or anomalies in send pattern.</div>
+            </div>
+            <select class="period-select"><option>Last 7 days</option><option>Last 30 days</option></select>
+          </div>
+          <div class="chart-card">
+            <div class="chart-svg">
+              <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#0070f3" stop-opacity="0.22"/>
+                    <stop offset="100%" stop-color="#0070f3" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <line x1="44" y1="20"  x2="780" y2="20"  stroke="var(--border)" stroke-width="0.8"/>
+                <line x1="44" y1="80"  x2="780" y2="80"  stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="140" x2="780" y2="140" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="200" x2="780" y2="200" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="240" x2="780" y2="240" stroke="var(--border)" stroke-width="0.8"/>
+                <text x="38" y="22"  font-size="11" fill="var(--fg-3)" text-anchor="end">50k</text>
+                <text x="38" y="82"  font-size="11" fill="var(--fg-3)" text-anchor="end">37k</text>
+                <text x="38" y="142" font-size="11" fill="var(--fg-3)" text-anchor="end">25k</text>
+                <text x="38" y="202" font-size="11" fill="var(--fg-3)" text-anchor="end">12k</text>
+                <text x="38" y="244" font-size="11" fill="var(--fg-3)" text-anchor="end">0</text>
+                <path d="M44,38 L168,42 296,68 420,72 540,140 660,108 780,80 L780,240 L44,240 Z" fill="url(#volGrad)"/>
+                <polyline fill="none" stroke="#0070f3" stroke-width="2.4" stroke-linejoin="round"
+                          points="44,38 168,42 296,68 420,72 540,140 660,108 780,80"/>
+                <g fill="#0070f3" stroke="var(--surface)" stroke-width="2">
+                  <circle cx="44"  cy="38"  r="4"/>
+                  <circle cx="168" cy="42"  r="4"/>
+                  <circle cx="296" cy="68"  r="4"/>
+                  <circle cx="420" cy="72"  r="4"/>
+                  <circle cx="540" cy="140" r="4"/>
+                  <circle cx="660" cy="108" r="4"/>
+                  <circle cx="780" cy="80"  r="4"/>
+                </g>
+                <text x="44"  y="262" font-size="11" fill="var(--fg-3)">Apr 24</text>
+                <text x="168" y="262" font-size="11" fill="var(--fg-3)">Apr 25</text>
+                <text x="296" y="262" font-size="11" fill="var(--fg-3)">Apr 26</text>
+                <text x="420" y="262" font-size="11" fill="var(--fg-3)">Apr 27</text>
+                <text x="540" y="262" font-size="11" fill="var(--fg-3)">Apr 28</text>
+                <text x="660" y="262" font-size="11" fill="var(--fg-3)">Apr 29</text>
+                <text x="775" y="262" font-size="11" fill="var(--fg-3)" text-anchor="end">Apr 30</text>
+              </svg>
+            </div>
+            <div class="chart-legend">
+              <span class="leg"><span class="swatch" style="background:#0070f3"></span>Daily volume (all IPs)</span>
+              <span class="leg-meta">Last 7 days · Apr 24 → Apr 30</span>
+            </div>
+          </div>
+
+          <div class="data-card">
+            <div class="data-head"><div class="data-head-title">Delivery funnel — last day, by IP</div><div class="data-head-meta">Sent → Delivered · Rejection rate</div></div>
+            <table class="data-table">
+              <thead><tr><th>IP</th><th class="right">Sent</th><th class="right">Delivered</th><th class="right">Rejection rate</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">103.147.104.13</td><td class="right num">19,475</td><td class="right num">19,448</td><td class="right warn num">0.14%</td></tr>
+                <tr><td class="mono">103.147.104.18</td><td class="right num">19,438</td><td class="right num">19,405</td><td class="right warn num">0.17%</td></tr>
+                <tr><td class="mono">103.147.104.16</td><td class="right num">1,812</td><td class="right num">1,812</td><td class="right ok num">0.00%</td></tr>
+                <tr><td class="mono">103.147.104.14</td><td class="right num">8,402</td><td class="right num">8,398</td><td class="right ok num">0.05%</td></tr>
+                <tr><td class="mono">103.147.104.15</td><td class="right num">12,107</td><td class="right num">12,094</td><td class="right ok num">0.11%</td></tr>
+                <tr><td class="mono">103.147.104.17</td><td class="right num">3,201</td><td class="right num">3,189</td><td class="right warn num">0.37%</td></tr>
+                <tr><td class="mono">162.19.145.175</td><td class="right num">645</td><td class="right num">645</td><td class="right ok num">0.00%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /detail-card -->
+
+    </div><!-- /container -->
+  </main>
+</div>
+
+<script>
+  function toggleTheme() {
+    const html = document.documentElement;
+    const next = (html.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    try { localStorage.setItem('inboxscore-snd-theme', next); } catch (e) {}
+  }
+  (function () {
+    try {
+      const saved = localStorage.getItem('inboxscore-snd-theme');
+      if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-theme', saved);
+    } catch (e) {}
+  })();
+  function snTab(name) {
+    document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.tab === name));
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.dataset.tab === name));
+  }
+
+  /* Generate the heatmap — 7 IPs × 30 days. Hand-crafted demo data
+     mirroring the live: mostly yellow with green pockets, IP .17 worst. */
+  (function buildHeatmap() {
+    const ips = [
+      { ip: '103.147.104.13', d: 'YGYYYGGYYGYYYGYYYYGYGGYYYYGYYG' },
+      { ip: '103.147.104.14', d: 'YYYYYY________________________' },
+      { ip: '103.147.104.15', d: 'GGYYYGYGYYYYGYGYYGGYYGYYYYYGYG' },
+      { ip: '103.147.104.16', d: 'YYYYYGYYYYYYYYYYYYYYYYYYYYYYYY' },
+      { ip: '103.147.104.17', d: 'YYYYYYYYYYYYYYYYYYYGYYYYYYYYYY' },
+      { ip: '103.147.104.18', d: 'YYGYYYYGYYGYYGYYGYYGYYYYGYYYYG' },
+      { ip: '162.19.145.175', d: 'YY___YYYY___Y____Y_GY___GY___Y' },
+    ];
+    const grid = document.getElementById('heatmap');
+    if (!grid) return;
+    // Header row: empty corner + 30 day labels
+    let header = '<div class="hm-row-label"></div>';
+    for (let i = 1; i <= 30; i++) {
+      header += '<div class="hm-col-label" style="text-align:center">'
+              + (i === 1 ? 'Apr 1' : i === 7 ? '7' : i === 13 ? '13' : i === 19 ? '19' : i === 25 ? '25' : i === 30 ? '30' : '')
+              + '</div>';
+    }
+    grid.innerHTML = header;
+    ips.forEach(row => {
+      grid.innerHTML += '<div class="hm-row-label">' + row.ip + '</div>';
+      for (const ch of row.d) {
+        const cls = ch === 'G' ? 'green' : ch === 'Y' ? 'yellow' : ch === 'R' ? 'red' : 'empty';
+        grid.innerHTML += '<div class="hm-cell ' + cls + '"></div>';
+      }
+    });
+  })();
+</script>
+</body>
+</html>
