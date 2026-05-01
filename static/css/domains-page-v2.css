@@ -203,6 +203,192 @@
 .dom-add-btn:active { transform: scale(0.98); }
 .dom-add-btn svg { color: var(--surface); }
 
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 2 — Domain list (connected strip + pills + scores)
+   INBOX-179 §2 · 2026-05-01
+
+   Pattern: one outer card with internal dividers — reads as a single
+   object instead of N independent cards (the legacy `.domain-card`
+   pattern). Each row is hover-liftable and click-through to /domains/X.
+   ────────────────────────────────────────────────────────────────── */
+
+.dom-domains-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+/* Row — flex layout: icon | info | status-cell | score | remove */
+.dom-domain-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  transition: background 100ms ease;
+  cursor: pointer;
+}
+.dom-domain-row:last-child { border-bottom: none; }
+.dom-domain-row:hover { background: var(--surface-2); }
+
+.dom-domain-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--dom-fg-3);
+}
+
+.dom-domain-info { flex: 1; min-width: 0; }
+.dom-domain-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dom-domain-meta {
+  font-size: 12px;
+  color: var(--dom-fg-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status-cell wrapper — fixed 110px so all pills line up at the same
+   left edge regardless of pill text length. Without this, "Healthy"
+   (72px) and "Scanning…" (100px) start at different x positions. */
+.dom-domain-status-cell {
+  width: 110px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* Status pill vocabulary:
+     default (no modifier) → green Healthy
+     .warn                 → amber Warnings
+     .danger               → red Critical
+     .pending              → zinc Scanning…  (animated dot)
+     .failed               → zinc Scan failed (steady dot, deferred)
+   Empty-state colour rule: null/pending → muted zinc, NEVER red. */
+.dom-domain-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--green-bg);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  flex-shrink: 0;
+}
+.dom-domain-status .dom-ind {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.dom-domain-status.warn { background: var(--yellow-bg); color: var(--yellow); }
+.dom-domain-status.warn .dom-ind { background: var(--yellow); }
+.dom-domain-status.danger { background: var(--red-bg); color: var(--red); }
+.dom-domain-status.danger .dom-ind { background: var(--red); }
+
+/* Pending / Failed — muted zinc, no semantic colour */
+.dom-domain-status.pending,
+.dom-domain-status.failed {
+  background: var(--surface-2);
+  color: var(--dom-fg-3);
+}
+.dom-domain-status.pending .dom-ind {
+  background: var(--dom-fg-4);
+  animation: dom-pulse-dot 1.4s ease-in-out infinite;
+}
+.dom-domain-status.failed .dom-ind { background: var(--dom-fg-4); }
+@keyframes dom-pulse-dot {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 1; }
+}
+
+/* Score — right-aligned, tabular numerals so 88 / 100 / — all align. */
+.dom-domain-score {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green);
+  font-family: 'Geist Mono', monospace;
+  flex-shrink: 0;
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dom-domain-score.warn { color: var(--yellow); }
+.dom-domain-score.danger { color: var(--red); }
+.dom-domain-score.muted { color: var(--dom-fg-4); font-weight: 500; }
+
+/* Remove button — appears only on row hover. Much less aggressive
+   than the legacy always-red Remove button on every row. */
+.dom-domain-action {
+  background: transparent;
+  border: none;
+  color: var(--dom-fg-3);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: inherit;
+  transition: color 100ms ease, background 100ms ease, opacity 100ms ease;
+  flex-shrink: 0;
+  opacity: 0;
+}
+.dom-domain-row:hover .dom-domain-action { opacity: 1; }
+.dom-domain-action:hover { color: var(--red); background: var(--red-bg); }
+
+/* Empty state — dashed border card when 0 domains. */
+.dom-empty-state {
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+}
+.dom-empty-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  letter-spacing: -0.015em;
+}
+.dom-empty-state-sub {
+  font-size: 13px;
+  color: var(--dom-fg-2);
+  margin-bottom: 18px;
+}
+
+/* Mobile responsive (≤640px): collapse status-cell, push remove to row corner */
+@media (max-width: 640px) {
+  .dom-domain-row {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .dom-domain-info { flex: 1 1 100%; }
+  .dom-domain-status-cell { width: auto; }
+  .dom-domain-action { opacity: 1; }  /* always visible on touch */
+}
+
 /* ─── Mobile responsive (≤768px) ─── */
 @media (max-width: 768px) {
   .dom-page-header { flex-direction: column; gap: 12px; }

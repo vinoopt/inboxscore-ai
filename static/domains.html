@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <!-- INBOX-179 Section 1: Vercel-style page header + action row.
      Scoped via .dom-* prefix to coexist with legacy chrome below. -->
-<link rel="stylesheet" href="/static/css/domains-page-v2.css?v=1">
+<link rel="stylesheet" href="/static/css/domains-page-v2.css?v=2">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -224,10 +224,9 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
       <div class="loading"><div class="loading-spinner"></div>Loading your domains...</div>
     </div>
 
-    <div class="usage-footer" id="usage-footer" style="display:none;">
-      <span id="usage-text">0 of 5 domains used on your Free plan.</span>
-      <a href="/settings">Upgrade for more →</a>
-    </div>
+    <!-- INBOX-179 §2: usage-footer removed. Plan + usage info will live
+         only in the sidebar plan card (INBOX-180). updateUsageFooter()
+         is null-safe — no JS errors from the missing element. -->
   </main>
 </div>
 
@@ -400,48 +399,85 @@ function clearDomainFilters() {
   document.getElementById('domain-search').focus();
 }
 
+// INBOX-179 §2: Map a domain's latest_score to the V2 status vocabulary.
+// Score thresholds match Master Playbook colour rules (DESIGN-SYSTEM §11).
+//   ≥ 70  → Healthy        (green pill, green score)
+//   50–69 → Warnings       (amber pill, amber score)
+//   < 50  → Critical       (red pill, red score)
+//   null  → Scanning…      (zinc pill, em-dash score) — first scan pending
+// "Scan failed" pill exists in the design vocabulary but the data model
+// doesn't track scan failures yet; deferred to a future ticket.
+function statusFromScore(score) {
+  if (score == null) return { cls: 'pending', text: 'Scanning…', scoreCls: 'muted', scoreVal: '—' };
+  if (score >= 70)   return { cls: '',        text: 'Healthy',   scoreCls: '',       scoreVal: String(score) };
+  if (score >= 50)   return { cls: 'warn',    text: 'Warnings',  scoreCls: 'warn',   scoreVal: String(score) };
+  return                     { cls: 'danger', text: 'Critical',  scoreCls: 'danger', scoreVal: String(score) };
+}
+
+// INBOX-179 §2: row click → domain detail. Remove button stops propagation
+// so clicking it doesn't also navigate. Mockup says the whole row should
+// be clickable — feels much less fiddly than "click only the name".
+function goToDomain(domain) {
+  if (!domain) return;
+  window.location.href = '/domains/' + encodeURIComponent(domain);
+}
+
 function renderDomains(domains) {
   const container = document.getElementById('domains-container');
   if (!domains || domains.length === 0) {
+    // V2 empty state — dashed border card with primary CTA.
     container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🌐</div>
-        <h3>No domains yet</h3>
-        <p>Add your first domain to start monitoring its email deliverability.</p>
-        <button class="btn btn-primary" onclick="openAddModal()" style="margin-top:16px;">+ Add Domain</button>
+      <div class="dom-empty-state">
+        <div class="dom-empty-state-title">No domains yet</div>
+        <p class="dom-empty-state-sub">Add your first domain to start monitoring its email deliverability.</p>
+        <button class="dom-add-btn" onclick="openAddModal()">+ Add Domain</button>
       </div>`;
     return;
   }
 
-  let html = '<div class="domain-list">';
+  // V2 connected-strip — one outer card, internal dividers between rows.
+  // Globe SVG icon (replaces emoji 🌐). Status pill in fixed-width cell
+  // for left-edge alignment. Tabular score on the right. Remove button
+  // hover-only (set opacity: 0 by default).
+  let html = '<div class="dom-domains-list">';
   domains.forEach(d => {
     const dateAdded = d.created_at ? 'Added ' + formatDate(d.created_at) : '';
+    const s = statusFromScore(d.latest_score);
+    const safeDomain = escapeHtml(d.domain);
+    const safeId = escapeHtml(d.id);
     html += `
-      <div class="card domain-card">
-        <div class="domain-info">
-          <div class="domain-icon">🌐</div>
-          <div>
-            <div class="domain-name">${escapeHtml(d.domain)}</div>
-            <div class="domain-date">${escapeHtml(dateAdded)}</div>
-          </div>
+      <div class="dom-domain-row" onclick="goToDomain('${safeDomain}')">
+        <div class="dom-domain-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
         </div>
-        <button class="btn btn-sm btn-remove" onclick="removeDomain('${escapeHtml(d.id)}', '${escapeHtml(d.domain)}')">Remove</button>
+        <div class="dom-domain-info">
+          <div class="dom-domain-name">${safeDomain}</div>
+          <div class="dom-domain-meta">${escapeHtml(dateAdded)}</div>
+        </div>
+        <div class="dom-domain-status-cell">
+          <span class="dom-domain-status ${s.cls}"><span class="dom-ind"></span>${s.text}</span>
+        </div>
+        <span class="dom-domain-score ${s.scoreCls}">${s.scoreVal}</span>
+        <button class="dom-domain-action" onclick="event.stopPropagation(); removeDomain('${safeId}', '${safeDomain}')" aria-label="Remove ${safeDomain}">Remove</button>
       </div>`;
   });
   html += '</div>';
   container.innerHTML = html;
 }
 
+// INBOX-179 §2: usage-footer markup is being removed; the sidebar plan
+// card (INBOX-180) takes over plan + usage display. This function still
+// runs but only updates #plan-badge if it exists (legacy sidebar still
+// has it until §3 / INBOX-180 ships). Null-safe on every element so we
+// never throw if something's missing.
 function updateUsageFooter(count) {
-  const footer = document.getElementById('usage-footer');
-  const text = document.getElementById('usage-text');
-  const planBadge = document.getElementById('plan-badge');
+  const footer = document.getElementById('usage-footer');     // may be removed
+  const text = document.getElementById('usage-text');         // may be removed
+  const planBadge = document.getElementById('plan-badge');    // legacy sidebar
 
-  // Determine plan limits
   let planName = 'Free';
   let maxDomains = 3;
 
-  // Try to get plan from profile
   fetch('/api/auth/me', { headers }).then(r => r.ok ? r.json() : null).then(data => {
     if (data && data.user) {
       const plan = (data.user.plan || 'free').toLowerCase();
@@ -450,13 +486,13 @@ function updateUsageFooter(count) {
       else if (plan === 'enterprise') { planName = 'Enterprise'; maxDomains = 100; }
       else { planName = 'Free'; maxDomains = 3; }
 
-      text.textContent = count + ' of ' + maxDomains + ' domains used on your ' + planName + ' plan.';
-      planBadge.textContent = planName + ' Plan';
-      footer.style.display = 'block';
+      if (text) text.textContent = count + ' of ' + maxDomains + ' domains used on your ' + planName + ' plan.';
+      if (planBadge) planBadge.textContent = planName + ' Plan';
+      if (footer) footer.style.display = 'block';
     }
   }).catch(() => {
-    text.textContent = count + ' of ' + maxDomains + ' domains used on your ' + planName + ' plan.';
-    footer.style.display = 'block';
+    if (text) text.textContent = count + ' of ' + maxDomains + ' domains used on your ' + planName + ' plan.';
+    if (footer) footer.style.display = 'block';
   });
 }
 
