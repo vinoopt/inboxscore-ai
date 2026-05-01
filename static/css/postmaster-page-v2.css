@@ -199,6 +199,156 @@ html[data-theme="dark"] {
 /* Smooth theme transitions on body */
 body { transition: background 200ms ease, color 200ms ease; }
 
+/* ════════════════════════════════════════════════════════════════════
+   STEP 2 — Detail card shell, provider header, tab bar, plan card
+   Matches design-mockups/postmaster-v2.html line-by-line. The legacy
+   inline <style> block contains `.pm-widget` / `.gpm-tabs` / etc — V2
+   markup uses the `.pm-*` prefix so it is fully isolated from legacy.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ─── DETAIL CARD (replaces .pm-widget shell) ──────────────────── */
+.pm-detail-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  margin-top: 24px;
+}
+html[data-theme="dark"] .pm-detail-card {
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Provider header — G logo + name + meta on left, primary Sync button right. */
+.pm-provider-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.pm-provider-head-left { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.pm-provider-logo {
+  width: 44px; height: 44px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.pm-provider-logo svg { display: block; }
+.pm-provider-head-text { min-width: 0; }
+.pm-provider-name {
+  font-size: 18px; font-weight: 600;
+  letter-spacing: -0.02em; line-height: 1.2;
+  color: var(--text);
+}
+.pm-provider-meta {
+  font-size: 13px;
+  color: var(--pm-fg-3);
+  margin-top: 2px;
+}
+
+/* Primary Sync now button — Vercel signature: black bg / white text. */
+.pm-btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  background: var(--text);
+  color: var(--surface);
+  border: 1px solid var(--text);
+  transition: background 100ms ease, border-color 100ms ease;
+}
+.pm-btn-primary:hover { background: var(--pm-fg-1); border-color: var(--pm-fg-1); }
+.pm-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.pm-btn-primary svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* ─── TABS BAR (replaces .gpm-tabs) ─────────────────────────────── */
+.pm-tabs-bar {
+  display: flex; gap: 4px;
+  padding: 14px 16px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.pm-tab {
+  padding: 9px 14px;
+  border-radius: 8px 8px 0 0;
+  font-size: 13px; font-weight: 500;
+  color: var(--pm-fg-3);
+  cursor: pointer;
+  white-space: nowrap;
+  border: none; background: transparent;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 100ms ease, background 100ms ease;
+  font-family: inherit;
+}
+.pm-tab:hover { color: var(--text); background: var(--surface-2); }
+.pm-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--text);
+  background: transparent;
+}
+
+/* Tab body — generous Vercel padding inside the detail card. */
+.pm-tab-body { padding: 36px 40px 40px; }
+
+/* ─── PLAN CARD (replaces .plan-badge in the sidebar footer) ─── */
+.pm-plan-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.pm-plan-title {
+  font-size: 13px; font-weight: 600;
+  color: var(--text);
+  margin: 0 0 4px;
+  text-transform: capitalize;
+}
+.pm-plan-meta {
+  font-size: 12px;
+  color: var(--pm-fg-2);
+  margin-bottom: 12px;
+}
+.pm-plan-bar {
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.pm-plan-bar-fill {
+  height: 100%;
+  background: var(--text);
+  border-radius: 2px;
+  transition: width 200ms ease;
+}
+.pm-plan-link {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+}
+.pm-plan-link:hover { text-decoration: underline; }
+
+/* Tabular numerals helper used in plan-card meta + chart axes. */
+.pm-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+/* Mobile — tabs scroll, padding tightens. */
+@media (max-width: 768px) {
+  .pm-provider-head { padding: 18px 20px; }
+  .pm-tabs-bar { padding: 12px 12px 0; }
+  .pm-tab-body { padding: 24px 20px 28px; }
+}
+
 /* ─── Mobile responsive (≤768px) ─── */
 @media (max-width: 768px) {
   .pm-page-header { flex-direction: column; gap: 12px; }

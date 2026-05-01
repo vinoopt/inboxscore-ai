@@ -295,7 +295,17 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
       </a>
     </nav>
     <div class="pm-sidebar-footer">
-      <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
+      <!-- INBOX-184 Step 2: rebuilt the plan badge as the V2 `.pm-plan-card`
+           with title + meta + usage bar + manage link, matching the locked
+           mockup. The bar fill width is set inline on plan load (see
+           DOMContentLoaded hydrator). Bigger redesign with upgrade nudges
+           is INBOX-258 (sidebar plan card net-new) — out of scope here. -->
+      <div class="pm-plan-card" id="plan-badge">
+        <div class="pm-plan-title" id="plan-name">Free plan</div>
+        <div class="pm-plan-meta" id="plan-usage-text"></div>
+        <div class="pm-plan-bar"><div class="pm-plan-bar-fill" id="plan-usage-fill" style="width:0%;"></div></div>
+        <a href="/settings" class="pm-plan-link">Manage plan →</a>
+      </div>
     </div>
   </aside>
 
@@ -422,43 +432,46 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 
         <!-- GPM State: With Data -->
         <div class="provider-state" id="gpm-state-data">
-        <div class="pm-widget" id="gpm-widget">
-          <div class="pm-header">
-            <div class="pm-title">
-              <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
-              Google Postmaster
+        <!-- INBOX-184 Step 2: replaced legacy `.pm-widget` shell with
+             `.pm-detail-card` per the locked mockup (postmaster-v2.html).
+             Provider header now uses the 44×44 G-logo tile + 18px name
+             pattern; primary "Sync now" button (Vercel-style black). -->
+        <div class="pm-detail-card" id="gpm-widget">
+          <div class="pm-provider-head">
+            <div class="pm-provider-head-left">
+              <div class="pm-provider-logo">
+                <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+              </div>
+              <div class="pm-provider-head-text">
+                <div class="pm-provider-name">Google Postmaster</div>
+                <!-- INBOX-184 Step 2: kept id="gpm-last-sync" so the live
+                     last-sync timestamp updater (gpmUpdateLastSync) keeps
+                     working. Inline width-color carry over from legacy. -->
+                <div class="pm-provider-meta" id="gpm-last-sync">Last synced —</div>
+              </div>
             </div>
-            <!-- INBOX-102: header shows Last-synced timestamp + Sync button.
-                 INBOX-140: removed the "Mar 30 – Apr 28" date range —
-                 redundant with per-tab "Last 7/14/30 days" dropdowns and
-                 meaningless on the Compliance Status tab (verdicts are
-                 current state, not a window). -->
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <span id="gpm-last-sync" style="font-size:11px;color:var(--text-muted);"></span>
-              <button id="gpm-sync-btn" onclick="gpmManualSync()" style="padding:4px 12px;font-size:11px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer;transition:all 0.2s;font-weight:500;" onmouseover="this.style.background='var(--accent)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">↻ Sync now</button>
-            </div>
+            <button class="pm-btn-primary" id="gpm-sync-btn" onclick="gpmManualSync()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Sync now
+            </button>
           </div>
 
-          <!-- Tab Navigation (mirrors Google Postmaster sidebar)
-               INBOX-102: tab labels normalised to Title Case so they read
-               consistently with each other. -->
-          <!-- INBOX-112: Feedback Loop renamed → Unsubscribe Compliance.
-               Google v2 dropped the FBL spam-by-identifier metric; the
-               replacement signal is the Compliance API's
-               oneClickUnsubscribeVerdict + honorUnsubscribeVerdict.
-               Delivery Errors → Delivery Error Rate (per-type breakdown
-               not exposed by v2). -->
-          <div class="gpm-tabs">
-            <button class="gpm-tab active" onclick="switchGpmTab('compliance')">Compliance Status</button>
-            <button class="gpm-tab" onclick="switchGpmTab('spam')">Spam</button>
-            <button class="gpm-tab" onclick="switchGpmTab('fbl')">Unsubscribe Compliance</button>
-            <button class="gpm-tab" onclick="switchGpmTab('auth')">Authentication</button>
-            <button class="gpm-tab" onclick="switchGpmTab('encryption')">Encryption</button>
-            <button class="gpm-tab" onclick="switchGpmTab('errors')">Delivery Error Rate</button>
+          <!-- Tab Navigation — INBOX-184 Step 2: V2 pill-tab classes
+               (`.pm-tabs-bar`, `.pm-tab`) replace legacy `.gpm-tabs`/
+               `.gpm-tab`. Active tab uses var(--text) (black) per mockup,
+               not the legacy purple `var(--accent)`. switchGpmTab()
+               targets `.pm-tab` now. -->
+          <div class="pm-tabs-bar">
+            <button class="pm-tab active" onclick="switchGpmTab('compliance')">Compliance Status</button>
+            <button class="pm-tab" onclick="switchGpmTab('spam')">Spam</button>
+            <button class="pm-tab" onclick="switchGpmTab('fbl')">Unsubscribe Compliance</button>
+            <button class="pm-tab" onclick="switchGpmTab('auth')">Authentication</button>
+            <button class="pm-tab" onclick="switchGpmTab('encryption')">Encryption</button>
+            <button class="pm-tab" onclick="switchGpmTab('errors')">Delivery Error Rate</button>
           </div>
 
           <!-- TAB 1: Compliance Status (default/first tab) -->
-          <div class="gpm-panel active" id="gpm-compliance">
+          <div class="gpm-panel pm-tab-body active" id="gpm-compliance">
             <div style="margin-top:16px;">
               <!-- INBOX-110 follow-up: removed the inline "Last updated"
                    line entirely. It duplicated info already shown in the
@@ -483,7 +496,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           </div>
 
           <!-- TAB 2: Spam -->
-          <div class="gpm-panel" id="gpm-spam">
+          <div class="gpm-panel pm-tab-body" id="gpm-spam">
             <div style="margin-top:16px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                 <div class="pm-trend-title" style="margin:0;">User-Reported Spam Rate</div>
@@ -523,7 +536,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           </div>
 
           <!-- TAB 3: Unsubscribe Compliance -->
-          <div class="gpm-panel" id="gpm-fbl">
+          <div class="gpm-panel pm-tab-body" id="gpm-fbl">
             <div style="margin-top:16px;">
               <div class="pm-trend-title">Unsubscribe Compliance</div>
               <div style="font-size:12px;color:var(--text-muted);margin-top:6px;margin-bottom:14px;">
@@ -536,7 +549,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           </div>
 
           <!-- TAB 3: Authentication — INBOX-112 -->
-          <div class="gpm-panel" id="gpm-auth">
+          <div class="gpm-panel pm-tab-body" id="gpm-auth">
             <div style="margin-top:16px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                 <div class="pm-trend-title" style="margin:0;">Authentication Rates (SPF, DKIM, DMARC)</div>
@@ -588,7 +601,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           </div>
 
           <!-- TAB 5: Encryption -->
-          <div class="gpm-panel" id="gpm-encryption">
+          <div class="gpm-panel pm-tab-body" id="gpm-encryption">
             <div style="margin-top:16px;">
               <div class="pm-trend-title">TLS Encryption Rate</div>
               <div class="pm-grid" style="grid-template-columns:repeat(2,1fr);margin-top:8px;">
@@ -617,7 +630,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           </div>
 
           <!-- TAB 6: Delivery Error Rate -->
-          <div class="gpm-panel" id="gpm-errors">
+          <div class="gpm-panel pm-tab-body" id="gpm-errors">
             <div style="margin-top:16px;">
               <div class="pm-trend-title">Delivery Error Rate</div>
               <div class="pm-grid" style="grid-template-columns:1fr;margin-top:8px;">
@@ -785,8 +798,27 @@ window.addEventListener('DOMContentLoaded', () => {
     .then(userData => {
       const name = userData.user.name || userData.user.email.split('@')[0];
       document.getElementById('user-name').textContent = name;
+      // INBOX-184 Step 2: V2 plan card — title now reads "Pro plan" / "Free plan"
+      // and shows usage meta + progress bar from /api/auth/me payload.
       const plan = userData.user.plan || 'free';
-      document.getElementById('plan-name').textContent = plan;
+      const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
+      document.getElementById('plan-name').textContent = planLabel;
+      // Usage meta + bar — best-effort. Free has hard limits; Pro/Enterprise
+      // shown without a bar (just label) when caps aren't enforced.
+      const used = userData.user.domains_used || userData.user.domain_count || null;
+      const cap = userData.user.domains_limit || (plan === 'free' ? 1 : (plan === 'pro' ? 10 : null));
+      const usageText = document.getElementById('plan-usage-text');
+      const usageFill = document.getElementById('plan-usage-fill');
+      if (used != null && cap) {
+        usageText.innerHTML = '<span class="pm-num">' + used + '</span> of <span class="pm-num">' + cap + '</span> domains';
+        usageFill.style.width = Math.min(100, Math.round((used / cap) * 100)) + '%';
+      } else if (cap) {
+        usageText.innerHTML = '<span class="pm-num">' + cap + '</span> domain' + (cap === 1 ? '' : 's') + ' included';
+        usageFill.style.width = '0%';
+      } else {
+        usageText.textContent = 'Unlimited domains';
+        usageFill.style.width = '100%';
+      }
     })
     .catch(() => {
       const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
@@ -996,13 +1028,16 @@ function applyGpmPeriod() {
   // a time series), so we skip its refetch on period switch.
 }
 
-/* === Google Postmaster: Tab Switching === */
+/* === Google Postmaster: Tab Switching ===
+   INBOX-184 Step 2: targets `.pm-tab` (V2) instead of `.gpm-tab` (legacy).
+   `.gpm-panel` is the panel content wrapper and stays — only the tab
+   button class changed. */
 function switchGpmTab(tab) {
   document.querySelectorAll('.gpm-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.gpm-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.pm-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('gpm-' + tab).classList.add('active');
   const tabs = ['compliance','spam','fbl','auth','encryption','errors'];
-  document.querySelectorAll('.gpm-tab').forEach((t, i) => {
+  document.querySelectorAll('.pm-tab').forEach((t, i) => {
     if (tabs[i] === tab) t.classList.add('active');
   });
   // Animate FBL bars when switching to fbl tab
