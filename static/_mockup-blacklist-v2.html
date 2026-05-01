@@ -9,10 +9,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   /* ════════════════════════════════════════════════════════════════
-     Blacklist Monitor V2 — Vercel design DNA, .bl-* prefix.
-     Audited from live /blacklist on 2026-05-01. No tabs — single
-     long-page layout: status banner + sending domain row + IP list
-     with search / filter / sort toolbar.
+     Blacklist Monitor V2 — Approach B (Vinoop, 2026-05-01)
+     ────────────────────────────────────────────────────────────────
+     Two semantic blocks:
+       • Sending Domain  → featured panel with 20-dot coverage strip
+       • Sending IPs     → data table with coverage-strip column
+     Plus status hero (top) and DNSBL coverage strip (bottom).
+     Page-prefix .bl-* so widgets can't collide with .pm-*/.snd-*.
      ════════════════════════════════════════════════════════════════ */
   :root {
     --bg: #fafafa;
@@ -79,7 +82,7 @@
 
   .layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
 
-  /* ══════ SIDEBAR (identical to other pages) ══════ */
+  /* ══════ SIDEBAR ══════ */
   .sidebar { background: var(--bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 12px; }
   .brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 24px; }
   .brand-mark { width: 26px; height: 26px; background: var(--fg); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; color: var(--bg); letter-spacing: -0.04em; }
@@ -90,7 +93,6 @@
   .nav-item svg { color: currentColor; flex-shrink: 0; }
   .nav-item .badge { margin-left: auto; font-size: 11px; color: var(--fg-3); background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-variant-numeric: tabular-nums; font-weight: 500; }
   .nav-item.active .badge { background: var(--surface); }
-  .nav-item .alert-dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
   .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
   .plan-card { padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
   .plan-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
@@ -138,79 +140,274 @@
 
   .body-pad { padding: 28px 32px 32px; }
 
-  /* ══════ STATUS BANNER ══════ */
-  .status-banner { display: flex; align-items: flex-start; gap: 16px; padding: 22px 26px; background: linear-gradient(180deg, var(--success-soft) 0%, transparent 80%), var(--surface); border: 1px solid var(--success); border-radius: 14px; }
-  .status-banner-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--success); color: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .status-banner-icon svg { width: 20px; height: 20px; }
-  .status-banner-text { flex: 1; }
-  .status-banner-title { font-size: 17px; font-weight: 600; color: var(--success-text); letter-spacing: -0.015em; margin-bottom: 3px; }
-  .status-banner-desc { font-size: 13px; color: var(--fg-2); line-height: 1.55; }
-
-  .status-banner.state-warn {
-    background: linear-gradient(180deg, var(--warn-soft) 0%, transparent 80%), var(--surface);
-    border-color: var(--warn);
+  /* ══════ STATUS HERO ══════ */
+  .bl-hero {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) 1.4fr;
+    gap: 0;
+    background: linear-gradient(180deg, var(--success-soft) 0%, transparent 90%), var(--surface);
+    border: 1px solid var(--success);
+    border-radius: 14px;
+    overflow: hidden;
   }
-  .status-banner.state-warn .status-banner-icon { background: var(--warn); }
-  .status-banner.state-warn .status-banner-title { color: var(--warn-text); }
-
-  .status-banner.state-danger {
-    background: linear-gradient(180deg, var(--danger-soft) 0%, transparent 80%), var(--surface);
-    border-color: var(--danger);
+  .bl-hero-numeral {
+    padding: 26px 30px;
+    border-right: 1px solid var(--success);
+    display: flex; flex-direction: column; justify-content: center; gap: 4px;
   }
-  .status-banner.state-danger .status-banner-icon { background: var(--danger); }
-  .status-banner.state-danger .status-banner-title { color: var(--danger); }
+  .bl-hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--success-text); text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .bl-hero-eyebrow .check {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--success); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .bl-hero-eyebrow .check svg { width: 10px; height: 10px; }
+  .bl-hero-num {
+    font-family: 'Geist Mono', monospace;
+    font-size: 60px; font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--success-text);
+    font-variant-numeric: tabular-nums;
+  }
+  .bl-hero-num .of {
+    color: var(--fg-4);
+    font-size: 26px;
+    font-weight: 500;
+    margin-left: 6px;
+  }
+  .bl-hero-num-meta {
+    font-size: 13px; color: var(--fg-2);
+    margin-top: 6px;
+  }
+  .bl-hero-num-meta strong { color: var(--fg); font-weight: 600; }
 
-  /* ══════ SECTION HEADERS ══════ */
-  .section-head { margin: 28px 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  .section-head-title { font-size: 13px; font-weight: 600; color: var(--fg); }
-  .section-head-meta { font-size: 12px; color: var(--fg-3); }
+  .bl-hero-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .bl-hero-cell {
+    padding: 20px 22px;
+    border-right: 1px solid var(--success);
+    display: flex; flex-direction: column; justify-content: center; gap: 6px;
+  }
+  .bl-hero-cell:last-child { border-right: none; }
+  .bl-hero-cell-label {
+    font-size: 11px; font-weight: 600;
+    color: var(--fg-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .bl-hero-cell-value {
+    font-size: 15px; font-weight: 600;
+    color: var(--fg);
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+  }
+  .bl-hero-cell-value.success { color: var(--success-text); }
+  .bl-hero-cell-sub {
+    font-size: 11px; color: var(--fg-3);
+  }
 
-  /* ══════ DOMAIN / IP ROW ══════ */
-  .bl-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px;
+  /* ══════ EDITORIAL SECTION LABELS ══════ */
+  .bl-section-label {
+    font-size: 11px; font-weight: 600;
+    color: var(--fg-3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 36px 0 14px;
+    display: flex; align-items: baseline; gap: 10px;
+    justify-content: space-between;
+  }
+  .bl-section-label-left { display: flex; align-items: baseline; gap: 10px; }
+  .bl-section-label .meta {
+    font-size: 12px; font-weight: 500;
+    color: var(--fg-3);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .bl-section-label .count {
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ══════ COVERAGE STRIP (20 dots, reused on domain panel + table rows) ══════ */
+  .bl-cov {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+  .bl-cov-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    flex-shrink: 0;
+    transition: transform 100ms ease;
+    cursor: help;
+  }
+  .bl-cov-dot:hover { transform: scale(1.6); }
+  .bl-cov-dot.listed { background: var(--danger); }
+  .bl-cov-dot.unchecked {
+    background: transparent;
+    border: 1px dashed var(--border-strong);
+  }
+
+  .bl-cov.lg .bl-cov-dot { width: 10px; height: 10px; }
+  .bl-cov-labels {
+    display: grid;
+    grid-template-columns: repeat(20, 1fr);
+    gap: 3px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--fg-4);
+    margin-top: 4px;
+    letter-spacing: -0.02em;
+  }
+  .bl-cov-labels span { text-align: center; line-height: 1.1; }
+
+  /* ══════ DOMAIN FEATURED PANEL ══════ */
+  .bl-domain-panel {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    transition: border-color 100ms ease, background 100ms ease;
+    border-radius: 14px;
+    padding: 24px 28px;
+    transition: border-color 120ms ease;
   }
-  .bl-row:hover { border-color: var(--border-strong); background: var(--surface-2); }
-  .bl-row + .bl-row { margin-top: 6px; }
-  .bl-row-addr {
+  .bl-domain-panel:hover { border-color: var(--border-strong); }
+  .bl-domain-top {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .bl-domain-id { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .bl-domain-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: var(--success-soft);
+    color: var(--success-text);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .bl-domain-icon svg { width: 18px; height: 18px; }
+  .bl-domain-name {
+    font-family: 'Geist Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--fg);
+    letter-spacing: -0.015em;
+  }
+  .bl-domain-sub {
+    font-size: 12px; color: var(--fg-3);
+    margin-top: 1px;
+  }
+  .bl-status-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+  .bl-status-badge.clean {
+    background: var(--success-soft);
+    color: var(--success-text);
+  }
+  .bl-status-badge.listed {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+  .bl-status-badge .ind {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: currentColor;
+  }
+
+  .bl-domain-cov-row {
+    display: flex; align-items: center; gap: 16px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--border);
+  }
+  .bl-cov-eyebrow {
+    font-size: 11px; font-weight: 600;
+    color: var(--fg-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+  }
+
+  /* ══════ DATA TABLE ══════ */
+  .bl-table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .bl-table { width: 100%; border-collapse: collapse; }
+  .bl-table thead th {
+    text-align: left;
+    font-size: 11px; font-weight: 600;
+    color: var(--fg-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 14px 18px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .bl-table thead th:first-child { padding-left: 22px; }
+  .bl-table thead th:last-child { padding-right: 22px; text-align: right; }
+  .bl-table tbody td {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--fg-2);
+    vertical-align: middle;
+  }
+  .bl-table tbody tr:last-child td { border-bottom: none; }
+  .bl-table tbody tr { transition: background 100ms ease; }
+  .bl-table tbody tr:hover { background: var(--surface-2); }
+  .bl-table td:first-child { padding-left: 22px; }
+  .bl-table td:last-child { padding-right: 22px; text-align: right; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+  .bl-table .ip-cell {
     font-family: 'Geist Mono', monospace;
     font-size: 13px;
-    color: var(--fg);
     font-weight: 500;
+    color: var(--fg);
+    white-space: nowrap;
   }
-  .bl-row-meta {
+  .bl-table .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px; font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .bl-table .pill.success { background: var(--success-soft); color: var(--success-text); }
+  .bl-table .pill.success .ind { background: var(--success); }
+  .bl-table .pill.danger { background: var(--danger-soft); color: var(--danger); }
+  .bl-table .pill.danger .ind { background: var(--danger); }
+  .bl-table .pill .ind { width: 6px; height: 6px; border-radius: 50%; }
+
+  .bl-table tr.is-listed { background: linear-gradient(180deg, var(--danger-soft) 0%, transparent 80%), var(--surface); }
+  .bl-table tr.is-listed:hover { background: linear-gradient(180deg, var(--danger-soft) 0%, transparent 80%), var(--surface-2); }
+  .bl-table .listing-chip {
+    display: inline-flex; align-items: center;
+    font-family: 'Geist Mono', monospace;
     font-size: 11px;
-    color: var(--fg-3);
-    margin-top: 2px;
-    display: flex; gap: 6px; align-items: center;
-  }
-  .bl-row-left { min-width: 0; }
-  .bl-row-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-
-  /* Status pill — Vercel-style with leading dot. */
-  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; flex-shrink: 0; }
-  .pill .ind { width: 6px; height: 6px; border-radius: 50%; }
-  .pill.success { background: var(--success-soft); color: var(--success-text); }
-  .pill.success .ind { background: var(--success); }
-  .pill.warn { background: var(--warn-soft); color: var(--warn-text); }
-  .pill.warn .ind { background: var(--warn); }
-  .pill.danger { background: var(--danger-soft); color: var(--danger); }
-  .pill.danger .ind { background: var(--danger); }
-
-  /* Listing chip — small monospace pill listing the DNSBL name when not clean. */
-  .listing-chip {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-family: 'Geist Mono', monospace; font-size: 11px;
     color: var(--danger);
-    background: var(--danger-soft);
-    padding: 2px 8px; border-radius: 4px;
+    background: rgba(185, 28, 28, 0.08);
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-left: 6px;
   }
 
-  /* ══════ TOOLBAR ══════ */
+  /* ══════ TOOLBAR (search / filter / sort) ══════ */
   .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
   .search-input {
     flex: 1; min-width: 240px;
@@ -238,19 +435,58 @@
   }
   .filter-select:hover, .sort-select:hover { border-color: var(--fg); }
 
-  /* ══════ FOOTER LIST OF MONITORED LISTS ══════ */
-  .lists-card {
-    margin-top: 28px;
-    padding: 22px 26px;
+  /* ══════ DNSBL COVERAGE STRIP (4-cell) ══════ */
+  .bl-dnsbl-strip {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    overflow: hidden;
   }
-  .lists-title { font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 12px; }
-  .lists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 16px; }
-  .lists-item { font-family: 'Geist Mono', monospace; font-size: 12px; color: var(--fg-3); display: flex; align-items: center; gap: 6px; }
-  .lists-item::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+  .bl-dnsbl-cell {
+    padding: 22px 24px;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .bl-dnsbl-cell:last-child { border-right: none; }
+  .bl-dnsbl-count {
+    font-family: 'Geist Mono', monospace;
+    font-size: 30px;
+    font-weight: 600;
+    color: var(--fg);
+    line-height: 1;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+  }
+  .bl-dnsbl-count .of {
+    color: var(--fg-4);
+    font-size: 16px;
+    font-weight: 500;
+    margin-left: 4px;
+  }
+  .bl-dnsbl-cat {
+    font-size: 13px; font-weight: 600;
+    color: var(--fg);
+    margin-top: 4px;
+  }
+  .bl-dnsbl-list {
+    font-size: 12px;
+    color: var(--fg-3);
+    line-height: 1.55;
+    font-family: 'Geist Mono', monospace;
+    margin-top: 2px;
+  }
 
+  /* ══════ MOBILE ══════ */
+  @media (max-width: 1024px) {
+    .bl-hero { grid-template-columns: 1fr; }
+    .bl-hero-numeral { border-right: none; border-bottom: 1px solid var(--success); }
+    .bl-dnsbl-strip { grid-template-columns: 1fr 1fr; }
+    .bl-dnsbl-cell { border-right: none; border-bottom: 1px solid var(--border); }
+    .bl-dnsbl-cell:nth-child(odd) { border-right: 1px solid var(--border); }
+    .bl-dnsbl-cell:nth-last-child(-n+2) { border-bottom: none; }
+  }
   @media (max-width: 880px) {
     .layout { grid-template-columns: 1fr; }
     .sidebar { display: none; }
@@ -259,6 +495,17 @@
     .body-pad { padding: 22px 20px 24px; }
     .toolbar { gap: 8px; }
     .search-input { min-width: 0; flex-basis: 100%; }
+    .bl-hero-strip { grid-template-columns: 1fr; }
+    .bl-hero-cell { border-right: none; border-bottom: 1px solid var(--success); }
+    .bl-hero-cell:last-child { border-bottom: none; }
+    .bl-dnsbl-strip { grid-template-columns: 1fr; }
+    .bl-dnsbl-cell { border-right: none !important; border-bottom: 1px solid var(--border); }
+    .bl-dnsbl-cell:last-child { border-bottom: none; }
+    .bl-hero-num { font-size: 44px; }
+    .bl-dnsbl-count { font-size: 24px; }
+    .bl-table thead th, .bl-table td { padding: 12px 14px; }
+    .bl-table .cov-cell { display: none; }
+    .bl-domain-cov-row { flex-direction: column; align-items: flex-start; gap: 10px; }
   }
 </style>
 </head>
@@ -361,38 +608,93 @@
 
         <div class="body-pad">
 
-          <!-- Status banner -->
-          <div class="status-banner">
-            <div class="status-banner-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <!-- ══════ STATUS HERO ══════ -->
+          <div class="bl-hero">
+            <div class="bl-hero-numeral">
+              <div class="bl-hero-eyebrow">
+                <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                All clear
+              </div>
+              <div class="bl-hero-num">0<span class="of">/ 160</span></div>
+              <div class="bl-hero-num-meta">listings across <strong>8</strong> entities × <strong>20</strong> blacklists</div>
             </div>
-            <div class="status-banner-text">
-              <div class="status-banner-title">All clear</div>
-              <div class="status-banner-desc">Your sending domain and all <span class="num">7</span> sending IPs are not listed on any of the <span class="num">20</span> blacklists we monitor. Last checked Apr 29 at 6:00 PM.</div>
+            <div class="bl-hero-strip">
+              <div class="bl-hero-cell">
+                <div class="bl-hero-cell-label">Status</div>
+                <div class="bl-hero-cell-value success">All clean</div>
+                <div class="bl-hero-cell-sub">No action required</div>
+              </div>
+              <div class="bl-hero-cell">
+                <div class="bl-hero-cell-label">Last checked</div>
+                <div class="bl-hero-cell-value">Apr 29, 6:00 PM</div>
+                <div class="bl-hero-cell-sub">2 hours ago</div>
+              </div>
+              <div class="bl-hero-cell">
+                <div class="bl-hero-cell-label">Next scan</div>
+                <div class="bl-hero-cell-value">In ~2 hours</div>
+                <div class="bl-hero-cell-sub">Auto-refresh every 4h</div>
+              </div>
             </div>
           </div>
 
-          <!-- Sending domain section -->
-          <div class="section-head">
-            <div class="section-head-title">Sending domain</div>
-            <div class="section-head-meta">1 of 1 clean</div>
-          </div>
-          <div class="bl-row">
-            <div class="bl-row-left">
-              <span class="bl-row-addr">mailercloud.com</span>
+          <!-- ══════ SENDING DOMAIN — featured panel ══════ -->
+          <div class="bl-section-label">
+            <div class="bl-section-label-left">
+              <span>Sending domain</span>
+              <span class="meta"><span class="count">1</span> of <span class="count">1</span> clean</span>
             </div>
-            <div class="bl-row-right">
-              <span class="pill success"><span class="ind"></span>Clean</span>
+          </div>
+          <div class="bl-domain-panel">
+            <div class="bl-domain-top">
+              <div class="bl-domain-id">
+                <div class="bl-domain-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                  <div class="bl-domain-name">mailercloud.com</div>
+                  <div class="bl-domain-sub">Last checked Apr 29 · 6:00 PM</div>
+                </div>
+              </div>
+              <span class="bl-status-badge clean">
+                <span class="ind"></span>
+                Clean
+              </span>
+            </div>
+            <div class="bl-domain-cov-row">
+              <span class="bl-cov-eyebrow">Coverage · <span class="num">20</span> lists</span>
+              <span class="bl-cov lg">
+                <span class="bl-cov-dot" title="Spamhaus ZEN — clean"></span>
+                <span class="bl-cov-dot" title="Spamhaus SBL — clean"></span>
+                <span class="bl-cov-dot" title="Spamhaus XBL — clean"></span>
+                <span class="bl-cov-dot" title="Spamhaus PBL — clean"></span>
+                <span class="bl-cov-dot" title="SORBS — clean"></span>
+                <span class="bl-cov-dot" title="SORBS DUHL — clean"></span>
+                <span class="bl-cov-dot" title="SORBS NEW — clean"></span>
+                <span class="bl-cov-dot" title="SORBS WEB — clean"></span>
+                <span class="bl-cov-dot" title="SpamCop — clean"></span>
+                <span class="bl-cov-dot" title="Barracuda — clean"></span>
+                <span class="bl-cov-dot" title="PSBL — clean"></span>
+                <span class="bl-cov-dot" title="UCEPROTECT-1 — clean"></span>
+                <span class="bl-cov-dot" title="UCEPROTECT-2 — clean"></span>
+                <span class="bl-cov-dot" title="UCEPROTECT-3 — clean"></span>
+                <span class="bl-cov-dot" title="Backscatterer — clean"></span>
+                <span class="bl-cov-dot" title="DNSBL.info — clean"></span>
+                <span class="bl-cov-dot" title="RATS-Dyna — clean"></span>
+                <span class="bl-cov-dot" title="RATS-NoPtr — clean"></span>
+                <span class="bl-cov-dot" title="RATS-Spam — clean"></span>
+                <span class="bl-cov-dot" title="Blocklist.de — clean"></span>
+              </span>
             </div>
           </div>
 
-          <!-- Sending IPs section -->
-          <div class="section-head" style="margin-top:24px;">
-            <div class="section-head-title">Sending IPs</div>
-            <div class="section-head-meta"><span class="num">7</span> IPs · all clean</div>
+          <!-- ══════ SENDING IPS — data table ══════ -->
+          <div class="bl-section-label">
+            <div class="bl-section-label-left">
+              <span>Sending IPs</span>
+              <span class="meta"><span class="count">7</span> of <span class="count">7</span> clean</span>
+            </div>
           </div>
 
-          <!-- Toolbar -->
           <div class="toolbar">
             <input class="search-input" type="search" placeholder="Search IPs…">
             <select class="filter-select">
@@ -407,104 +709,131 @@
             </select>
           </div>
 
-          <!-- IP list — all clean state -->
-          <div class="bl-row">
-            <div class="bl-row-left">
-              <span class="bl-row-addr">103.147.104.13</span>
-            </div>
-            <div class="bl-row-right">
-              <span class="pill success"><span class="ind"></span>Clean</span>
-            </div>
-          </div>
-          <div class="bl-row">
-            <div class="bl-row-left">
-              <span class="bl-row-addr">103.147.104.14</span>
-            </div>
-            <div class="bl-row-right">
-              <span class="pill success"><span class="ind"></span>Clean</span>
-            </div>
-          </div>
-          <div class="bl-row">
-            <div class="bl-row-left">
-              <span class="bl-row-addr">103.147.104.15</span>
-            </div>
-            <div class="bl-row-right">
-              <span class="pill success"><span class="ind"></span>Clean</span>
-            </div>
-          </div>
-          <div class="bl-row">
-            <div class="bl-row-left">
-              <span class="bl-row-addr">103.147.104.16</span>
-            </div>
-            <div class="bl-row-right">
-              <span class="pill success"><span class="ind"></span>Clean</span>
-            </div>
-          </div>
-          <div class="bl-row">
-            <div class="bl-row-left">
-              <span class="bl-row-addr">103.147.104.17</span>
-            </div>
-            <div class="bl-row-right">
-              <span class="pill success"><span class="ind"></span>Clean</span>
-            </div>
-          </div>
-          <div class="bl-row">
-            <div class="bl-row-left">
-              <span class="bl-row-addr">103.147.104.18</span>
-            </div>
-            <div class="bl-row-right">
-              <span class="pill success"><span class="ind"></span>Clean</span>
-            </div>
-          </div>
-          <div class="bl-row">
-            <div class="bl-row-left">
-              <span class="bl-row-addr">162.19.145.175</span>
-            </div>
-            <div class="bl-row-right">
-              <span class="pill success"><span class="ind"></span>Clean</span>
-            </div>
+          <div class="bl-table-card">
+            <table class="bl-table">
+              <thead>
+                <tr>
+                  <th style="width: 200px;">IP address</th>
+                  <th class="cov-cell">Coverage · 20 lists</th>
+                  <th>Status</th>
+                  <th>Last checked</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="ip-cell">103.147.104.13</td>
+                  <td class="cov-cell">
+                    <span class="bl-cov">
+                      <span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span>
+                    </span>
+                  </td>
+                  <td><span class="pill success"><span class="ind"></span>Clean</span></td>
+                  <td>Apr 29, 6:00 PM</td>
+                </tr>
+                <tr>
+                  <td class="ip-cell">103.147.104.14</td>
+                  <td class="cov-cell">
+                    <span class="bl-cov">
+                      <span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span>
+                    </span>
+                  </td>
+                  <td><span class="pill success"><span class="ind"></span>Clean</span></td>
+                  <td>Apr 29, 6:00 PM</td>
+                </tr>
+                <tr>
+                  <td class="ip-cell">103.147.104.15</td>
+                  <td class="cov-cell">
+                    <span class="bl-cov">
+                      <span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span>
+                    </span>
+                  </td>
+                  <td><span class="pill success"><span class="ind"></span>Clean</span></td>
+                  <td>Apr 29, 6:00 PM</td>
+                </tr>
+                <tr>
+                  <td class="ip-cell">103.147.104.16</td>
+                  <td class="cov-cell">
+                    <span class="bl-cov">
+                      <span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span>
+                    </span>
+                  </td>
+                  <td><span class="pill success"><span class="ind"></span>Clean</span></td>
+                  <td>Apr 29, 6:00 PM</td>
+                </tr>
+                <tr>
+                  <td class="ip-cell">103.147.104.17</td>
+                  <td class="cov-cell">
+                    <span class="bl-cov">
+                      <span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span>
+                    </span>
+                  </td>
+                  <td><span class="pill success"><span class="ind"></span>Clean</span></td>
+                  <td>Apr 29, 6:00 PM</td>
+                </tr>
+                <tr>
+                  <td class="ip-cell">103.147.104.18</td>
+                  <td class="cov-cell">
+                    <span class="bl-cov">
+                      <span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span>
+                    </span>
+                  </td>
+                  <td><span class="pill success"><span class="ind"></span>Clean</span></td>
+                  <td>Apr 29, 6:00 PM</td>
+                </tr>
+                <tr>
+                  <td class="ip-cell">162.19.145.175</td>
+                  <td class="cov-cell">
+                    <span class="bl-cov">
+                      <span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span>
+                    </span>
+                  </td>
+                  <td><span class="pill success"><span class="ind"></span>Clean</span></td>
+                  <td>Apr 29, 6:00 PM</td>
+                </tr>
+
+                <!-- ── Listed-state preview (commented out — JS will render this state when an IP IS listed) ──
+                <tr class="is-listed">
+                  <td class="ip-cell">198.51.100.42<span class="listing-chip">Spamhaus SBL</span><span class="listing-chip">SORBS</span></td>
+                  <td class="cov-cell">
+                    <span class="bl-cov">
+                      <span class="bl-cov-dot"></span><span class="bl-cov-dot listed"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot"></span><span class="bl-cov-dot listed"></span>...
+                    </span>
+                  </td>
+                  <td><span class="pill danger"><span class="ind"></span>2 listings</span></td>
+                  <td>Apr 29, 6:00 PM</td>
+                </tr>
+                -->
+              </tbody>
+            </table>
           </div>
 
-          <!-- ── Listed-state preview (commented out — will render via JS when an IP is on a list) ──
-          <div class="bl-row" style="border-color:var(--danger);background:linear-gradient(180deg, var(--danger-soft) 0%, transparent 80%), var(--surface);">
-            <div class="bl-row-left">
-              <span class="bl-row-addr">198.51.100.42</span>
-              <div class="bl-row-meta">
-                Listed on
-                <span class="listing-chip">Spamhaus SBL</span>
-                <span class="listing-chip">SORBS DUL</span>
-              </div>
-            </div>
-            <div class="bl-row-right">
-              <span class="pill danger"><span class="ind"></span>2 listings</span>
+          <!-- ══════ MONITORED LIST COVERAGE ══════ -->
+          <div class="bl-section-label">
+            <div class="bl-section-label-left">
+              <span>Monitored DNSBL coverage</span>
+              <span class="meta"><span class="count">20</span> lists across <span class="count">4</span> categories</span>
             </div>
           </div>
-          -->
-
-          <!-- ══════ MONITORED LISTS ══════ -->
-          <div class="lists-card">
-            <div class="lists-title">Monitored DNSBL lists · <span class="num">20</span></div>
-            <div class="lists-grid">
-              <span class="lists-item">Spamhaus ZEN</span>
-              <span class="lists-item">Spamhaus SBL</span>
-              <span class="lists-item">Spamhaus PBL</span>
-              <span class="lists-item">Spamhaus XBL</span>
-              <span class="lists-item">SORBS</span>
-              <span class="lists-item">SORBS DUHL</span>
-              <span class="lists-item">SORBS NEW</span>
-              <span class="lists-item">SORBS WEB</span>
-              <span class="lists-item">SpamCop</span>
-              <span class="lists-item">Barracuda</span>
-              <span class="lists-item">PSBL</span>
-              <span class="lists-item">UCEPROTECT-1</span>
-              <span class="lists-item">UCEPROTECT-2</span>
-              <span class="lists-item">UCEPROTECT-3</span>
-              <span class="lists-item">Backscatterer</span>
-              <span class="lists-item">DNSBL.info</span>
-              <span class="lists-item">RATS-Dyna</span>
-              <span class="lists-item">RATS-NoPtr</span>
-              <span class="lists-item">RATS-Spam</span>
-              <span class="lists-item">Blocklist.de</span>
+          <div class="bl-dnsbl-strip">
+            <div class="bl-dnsbl-cell">
+              <div class="bl-dnsbl-count">6<span class="of">/ 20</span></div>
+              <div class="bl-dnsbl-cat">Spam sources</div>
+              <div class="bl-dnsbl-list">Spamhaus SBL, SpamCop, Barracuda, PSBL, RATS-Spam, Blocklist.de</div>
+            </div>
+            <div class="bl-dnsbl-cell">
+              <div class="bl-dnsbl-count">3<span class="of">/ 20</span></div>
+              <div class="bl-dnsbl-cat">Exploits &amp; botnets</div>
+              <div class="bl-dnsbl-list">Spamhaus XBL, RATS-Dyna, RATS-NoPtr</div>
+            </div>
+            <div class="bl-dnsbl-cell">
+              <div class="bl-dnsbl-count">6<span class="of">/ 20</span></div>
+              <div class="bl-dnsbl-cat">Policy &amp; reputation</div>
+              <div class="bl-dnsbl-list">Spamhaus PBL, SORBS DUHL, UCEPROTECT-1/2/3, Backscatterer</div>
+            </div>
+            <div class="bl-dnsbl-cell">
+              <div class="bl-dnsbl-count">5<span class="of">/ 20</span></div>
+              <div class="bl-dnsbl-cat">Composite &amp; general</div>
+              <div class="bl-dnsbl-list">Spamhaus ZEN, SORBS, SORBS NEW, SORBS WEB, DNSBL.info</div>
             </div>
           </div>
 
