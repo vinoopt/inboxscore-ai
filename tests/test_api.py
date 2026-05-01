@@ -173,16 +173,34 @@ class TestEmailHealthPage:
         assert "IP Reputation" in content
 
     def test_email_health_has_all_sections(self, client):
-        """Page should have the 3 surviving content section IDs.
+        """Each route must surface the section it represents.
+
+        INBOX-183 Phase A1: /postmaster split into postmaster.html which
+        contains ONLY the Google section. /microsoft + /blacklist still
+        serve email-health.html (with all 3 sections; ehNavInit picks the
+        active one via URL). After B1 + C1 they'll get their own files.
+
         INBOX-82 Phase 2 dropped Overview + Yahoo.
-        INBOX-132 dropped IP Reputation (was a duplicate of SNDS +
-        Blacklist data already shown on dedicated pages)."""
-        response = client.get("/postmaster")
-        content = response.text
-        assert 'id="eh-sec-google"' in content
-        assert 'id="eh-sec-microsoft"' in content
-        assert 'id="eh-sec-blacklist"' in content
-        assert 'id="eh-sec-reputation"' not in content
+        INBOX-132 dropped IP Reputation."""
+        # /postmaster — Google only (split file)
+        pm = client.get("/postmaster").text
+        assert 'id="eh-sec-google"' in pm
+        assert 'id="eh-sec-microsoft"' not in pm, (
+            "Microsoft section should NOT be in postmaster.html after the "
+            "INBOX-183 split. /microsoft serves email-health.html instead."
+        )
+        assert 'id="eh-sec-blacklist"' not in pm, (
+            "Blacklist section should NOT be in postmaster.html after the "
+            "INBOX-183 split."
+        )
+
+        # /microsoft + /blacklist — still served by email-health.html
+        # (which still has all 3 sections until Phases B1 + C1)
+        ms = client.get("/microsoft").text
+        assert 'id="eh-sec-google"' in ms
+        assert 'id="eh-sec-microsoft"' in ms
+        assert 'id="eh-sec-blacklist"' in ms
+        assert 'id="eh-sec-reputation"' not in ms
 
     def test_email_health_overview_section_removed(self, client):
         """INBOX-82 Phase 2: the Overview tab is gone — the Dashboard now
@@ -254,22 +272,24 @@ class TestEmailHealthPage:
         assert "Delivery Error" in content  # substring match still holds
 
     def test_email_health_has_provider_states(self, client):
-        """Surviving provider sections (Google + Microsoft) keep their
-        multi-state UI (data / disconnected / nodata / free).
+        """Surviving provider sections keep their multi-state UI.
 
+        INBOX-183 Phase A1: GPM states live in postmaster.html. MS states
+        still live in email-health.html (served by /microsoft).
         INBOX-82 Phase 2: Yahoo provider states removed with the Yahoo
-        section."""
-        response = client.get("/postmaster")
-        content = response.text
-        assert 'id="gpm-state-data"' in content
-        assert 'id="gpm-state-disconnected"' in content
-        assert 'id="gpm-state-nodata"' in content
-        assert 'id="gpm-state-free"' in content
-        assert 'id="ms-state-data"' in content
-        assert 'id="ms-state-disconnected"' in content
-        # Yahoo states must NOT be present (INBOX-82 Phase 2)
-        assert 'id="yahoo-state-data"' not in content
-        assert 'id="yahoo-state-disconnected"' not in content
+        section — must not reappear in either file."""
+        # GPM states on /postmaster (split file)
+        pm = client.get("/postmaster").text
+        assert 'id="gpm-state-data"' in pm
+        assert 'id="gpm-state-disconnected"' in pm
+        assert 'id="gpm-state-nodata"' in pm
+        assert 'id="gpm-state-free"' in pm
+        assert 'id="yahoo-state-data"' not in pm
+        # MS states on /microsoft (email-health.html for now)
+        ms = client.get("/microsoft").text
+        assert 'id="ms-state-data"' in ms
+        assert 'id="ms-state-disconnected"' in ms
+        assert 'id="yahoo-state-disconnected"' not in ms
 
     def test_email_health_has_sidebar_link(self, client):
         """Email Health page sidebar should have active link"""
