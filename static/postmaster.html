@@ -8,9 +8,25 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- INBOX-182 §1: Vercel-style page header. `.eh-*` prefix coexists
-     with the legacy inline <style> block below. -->
-<link rel="stylesheet" href="/static/css/email-health-page-v2.css?v=1">
+<!-- INBOX-184 Commit A: Postmaster page Vercel chrome (sidebar + topnav
+     removal + theme toggle + dark mode). `.pm-*` prefix coexists with
+     the legacy inline <style> block below. Replaces the broader
+     email-health-page-v2.css now that postmaster.html is its own file
+     post-INBOX-183 split. -->
+<link rel="stylesheet" href="/static/css/postmaster-page-v2.css?v=1">
+<!-- Hydrate dark theme BEFORE body parses to avoid FOUC. Sets
+     data-theme on documentElement (which exists immediately) so
+     CSS picks up the dark tokens before paint. -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light') {
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  } catch (e) {}
+})();
+</script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -68,7 +84,9 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .badge-orange { background: var(--orange-bg); color: var(--orange); }
 
 /* Sidebar backdrop */
-.sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
+/* INBOX-184: top was 53px (topnav offset). Topnav is removed in V2 so the
+   backdrop spans the full viewport. */
+.sidebar-backdrop { display: none; position: fixed; inset: 0; top: 0; background: rgba(0,0,0,0.5); z-index: 19; }
 .sidebar-backdrop.show { display: block; }
 
 /* Responsive */
@@ -228,34 +246,57 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 </head>
 <body>
 
-<nav class="topnav">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
-    <a href="/dashboard" class="logo">
-      <div class="logo-icon" style="font-size:11px;font-weight:700;color:white;">IS</div>
-      InboxScore
-    </a>
-  </div>
-  <div class="nav-right">
-    <span class="user-name" id="user-name"></span>
-    <button class="logout-btn" onclick="logout()">Log Out</button>
-  </div>
-</nav>
+<!-- INBOX-184 Commit A: topnav removed. Brand → sidebar top, user name +
+     theme toggle + Log Out + mobile toggle → page-header right. -->
 
 <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
 <div class="layout">
-  <aside class="sidebar">
-    <ul class="sidebar-nav">
-      <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
-      <li><a href="/postmaster"><span class="nav-icon">📬</span> Google Postmaster</a></li>
-      <li><a href="/microsoft"><span class="nav-icon">📨</span> Microsoft SNDS</a></li>
-      <li><a href="/blacklist"><span class="nav-icon">🛡️</span> Blacklist Monitor</a></li>
-      <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
-      <li><a href="/sending-ips"><span class="nav-icon">🖥️</span> Sending IPs</a></li>
-      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
-      <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
-    </ul>
-    <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
+  <!-- INBOX-184: V2 sidebar with `.pm-*` prefix. SVG icons replace
+       emoji. Brand at top, plan-badge stays at bottom (until plan-card
+       net-new build, equivalent to INBOX-180 for Domains). -->
+  <aside class="pm-sidebar" id="pm-sidebar">
+    <div class="pm-sidebar-brand">
+      <div class="pm-sidebar-mark">IS</div>
+      <div class="pm-sidebar-name">InboxScore</div>
+    </div>
+    <nav>
+      <a href="/dashboard" class="pm-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="/postmaster" class="pm-nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg>
+        <span>Google Postmaster</span>
+      </a>
+      <a href="/microsoft" class="pm-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8.5"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><circle cx="18" cy="18" r="3"/><path d="m22 22-1.5-1.5"/></svg>
+        <span>Microsoft SNDS</span>
+      </a>
+      <a href="/blacklist" class="pm-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        <span>Blacklist Monitor</span>
+      </a>
+      <a href="/domains" class="pm-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        <span>Domains</span>
+      </a>
+      <a href="/sending-ips" class="pm-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/></svg>
+        <span>Sending IPs</span>
+      </a>
+      <a href="/alerts" class="pm-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <span>Alerts</span>
+        <span class="pm-nav-badge" id="sidebar-badge" style="display:none;">0</span>
+      </a>
+      <a href="/settings" class="pm-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+    <div class="pm-sidebar-footer">
+      <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
+    </div>
   </aside>
 
   <main class="main">
@@ -264,14 +305,21 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
          /blacklist, /reputation). Defaults shown here are placeholders
          that get replaced before paint.
 
-         INBOX-182 §1: V2 page header — 32px Geist title + 15px subtitle.
-         `.eh-page-header` flex row will host user-name + theme toggle +
-         Log Out on the right side in §3 (after topnav removal). IDs
-         preserved so ehNavInit() keeps wiring the title per route. -->
-    <div class="eh-page-header">
-      <div class="eh-page-header-left">
-        <h1 class="eh-page-title" id="eh-page-title">Google Postmaster</h1>
-        <p class="eh-page-subtitle" id="eh-page-subtitle">Compliance, spam, authentication, and delivery data from Google.</p>
+         INBOX-184: page header now uses `.pm-page-*` classes. user-name +
+         theme toggle + Log Out + mobile toggle moved here from topnav. -->
+    <div class="pm-page-header">
+      <div class="pm-page-header-left">
+        <h1 class="pm-page-title" id="eh-page-title">Google Postmaster</h1>
+        <p class="pm-page-subtitle" id="eh-page-subtitle">Compliance, spam, authentication, and delivery data from Google.</p>
+      </div>
+      <div class="pm-page-header-actions">
+        <button class="pm-mobile-toggle" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
+        <span class="pm-user-name" id="user-name"></span>
+        <button class="pm-theme-toggle" onclick="pmToggleTheme()" aria-label="Toggle theme" title="Toggle dark mode">
+          <svg class="icon icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button class="pm-logout-btn" onclick="logout()">Log Out</button>
       </div>
     </div>
 
@@ -692,8 +740,20 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 <script>
 /* === Base JS (auth, sidebar toggle, logout) === */
 function toggleSidebar() {
-  document.querySelector('.sidebar').classList.toggle('open');
+  // INBOX-184: V2 sidebar uses `.pm-sidebar` (was `.sidebar` pre-migration).
+  document.querySelector('.pm-sidebar').classList.toggle('open');
   document.getElementById('sidebar-backdrop').classList.toggle('show');
+}
+
+// INBOX-184: dark-mode toggle. Sets data-theme on the documentElement
+// (matches the early-hydrate script in <head> that runs before any
+// rendering to prevent FOUC). Persists to localStorage.
+function pmToggleTheme() {
+  const root = document.documentElement;
+  const current = root.getAttribute('data-theme') || 'light';
+  const next = current === 'light' ? 'dark' : 'light';
+  root.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
 }
 
 function getToken() {
@@ -772,8 +832,9 @@ window.addEventListener('DOMContentLoaded', () => {
   loadSndsStatus();
 
   // Close sidebar on mobile when clicking main
+  // INBOX-184: V2 uses `.pm-sidebar` after the chrome migration.
   document.querySelector('.main').addEventListener('click', () => {
-    document.querySelector('.sidebar').classList.remove('open');
+    document.querySelector('.pm-sidebar').classList.remove('open');
   });
 });
 

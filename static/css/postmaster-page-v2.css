@@ -1,0 +1,216 @@
+/* ─────────────────────────────────────────────────────────────────
+   postmaster-page-v2.css — Postmaster page Vercel chrome.
+   INBOX-184 Direct-on-live migration · 2026-05-01
+   Recipe: reference_inboxscore_v2_migration_recipes.md
+
+   Page-prefixed `.pm-*` selectors so V2 chrome cannot collide with
+   the legacy inline <style> block. Migrated section-by-section:
+
+   Commit A (this file): page header + sidebar + topnav removal +
+                          theme toggle + dark mode token overrides.
+   Commit B (next):      chart polish (locked from postmaster-charts-v2 mockup).
+   Commit C (next):      Compliance Status designed rows.
+   Commit D (next):      Stat cards (Unsubscribe / Encryption / Delivery).
+   ───────────────────────────────────────────────────────────────── */
+
+/* Vercel-leaning fg neutrals on top of the legacy :root */
+:root {
+  --pm-fg-1: #171717;
+  --pm-fg-2: #404040;
+  --pm-fg-3: #666666;
+  --pm-fg-4: #888888;
+  --pm-border-strong: #d4d4d8;
+}
+
+/* Override legacy .main max-height (was calc(100vh - 53px) for topnav).
+   Without this override content cuts off 53px early after topnav removal. */
+.main {
+  max-height: 100vh;
+}
+
+/* ─── PAGE HEADER (title + subtitle + actions on right) ──────────── */
+.pm-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.pm-page-header-left { min-width: 0; flex: 1; }
+.pm-page-title {
+  font-size: 32px; font-weight: 600;
+  letter-spacing: -0.045em; line-height: 1.1;
+  color: var(--text); margin: 0 0 6px;
+}
+.pm-page-subtitle {
+  font-size: 15px; color: var(--pm-fg-3);
+  font-weight: 400; letter-spacing: -0.005em; margin: 0;
+}
+.pm-page-header-actions {
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.pm-user-name { font-size: 13px; color: var(--pm-fg-2); }
+
+.pm-logout-btn {
+  background: var(--surface);
+  border: 1px solid var(--pm-border-strong);
+  color: var(--pm-fg-2);
+  padding: 5px 14px; border-radius: 6px;
+  font-size: 12px; cursor: pointer;
+  font-family: inherit;
+  transition: border-color 100ms ease, color 100ms ease, background 100ms ease;
+}
+.pm-logout-btn:hover {
+  border-color: var(--text); color: var(--text);
+  background: var(--surface-2);
+}
+
+.pm-mobile-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--pm-border-strong);
+  color: var(--pm-fg-2);
+  width: 32px; height: 32px;
+  border-radius: 6px; cursor: pointer;
+  font-size: 16px; line-height: 1;
+  font-family: inherit;
+  align-items: center; justify-content: center;
+}
+.pm-mobile-toggle:hover { color: var(--text); border-color: var(--text); }
+
+/* ─── THEME TOGGLE BUTTON (sun/moon swap on data-theme) ──────────── */
+.pm-theme-toggle {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--pm-border-strong);
+  color: var(--pm-fg-2);
+  border-radius: 6px; cursor: pointer;
+  font-family: inherit;
+  transition: color 100ms ease, border-color 100ms ease, background 100ms ease;
+}
+.pm-theme-toggle:hover {
+  color: var(--text); border-color: var(--text);
+  background: var(--surface-2);
+}
+/* Default (light): show moon, hide sun. Dark: invert. */
+.pm-theme-toggle .icon-moon { display: block; }
+.pm-theme-toggle .icon-sun  { display: none; }
+html[data-theme="dark"] .pm-theme-toggle .icon-moon { display: none; }
+html[data-theme="dark"] .pm-theme-toggle .icon-sun  { display: block; }
+
+/* ─── SIDEBAR (V2 — replaces legacy .sidebar) ────────────────────── */
+.pm-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+}
+.pm-sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 10px 22px;
+}
+.pm-sidebar-mark {
+  width: 24px; height: 24px;
+  background: var(--text); color: var(--surface);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 11px; letter-spacing: -0.04em;
+}
+.pm-sidebar-name {
+  font-weight: 600; font-size: 15px;
+  color: var(--text); letter-spacing: -0.025em;
+}
+
+.pm-nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; border-radius: 6px;
+  color: var(--pm-fg-2); font-size: 13px;
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+  font-weight: 500; letter-spacing: -0.011em;
+  margin-bottom: 1px;
+  text-decoration: none;
+  border-left: none;
+}
+.pm-nav-item:hover { background: var(--surface-2); color: var(--text); }
+.pm-nav-item.active { background: var(--surface-2); color: var(--text); }
+.pm-nav-item svg {
+  color: currentColor; flex-shrink: 0;
+  width: 16px; height: 16px;
+}
+
+.pm-nav-item .pm-nav-badge {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--pm-fg-3);
+  background: var(--surface-2);
+  padding: 1px 6px; border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.pm-nav-item.active .pm-nav-badge { background: var(--surface); }
+
+.pm-sidebar-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* ─── DARK MODE — token overrides ─────────────────────────────────
+   Use html[data-theme="dark"] (specificity 0,0,1,1) to beat the
+   legacy `:root` (specificity 0,0,1,0). Recipe rule from INBOX-179.
+   ─────────────────────────────────────────────────────────────── */
+html[data-theme="dark"] {
+  --bg: #000000;
+  --surface: #0f0f0f;
+  --surface-2: #1a1a1a;
+  --surface-3: #262626;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #ffffff;
+  --text-muted: #a1a1a1;
+  --text-subtle: #888888;
+
+  /* Status soft backgrounds — low-alpha for dark surface legibility */
+  --green: #4ade80;
+  --green-bg: rgba(38, 217, 120, 0.12);
+  --yellow: #f5b342;
+  --yellow-bg: rgba(245, 166, 35, 0.12);
+  --red: #f87171;
+  --red-bg: rgba(229, 72, 77, 0.12);
+
+  --accent: #3291ff;
+  --accent-hover: #59a7ff;
+  --accent-soft: rgba(50, 145, 255, 0.10);
+  --accent-glow: rgba(50, 145, 255, 0.18);
+
+  --pm-fg-1: #ededed;
+  --pm-fg-2: #a1a1a1;
+  --pm-fg-3: #888888;
+  --pm-fg-4: #666666;
+  --pm-border-strong: rgba(255, 255, 255, 0.16);
+}
+
+/* Smooth theme transitions on body */
+body { transition: background 200ms ease, color 200ms ease; }
+
+/* ─── Mobile responsive (≤768px) ─── */
+@media (max-width: 768px) {
+  .pm-page-header { flex-direction: column; gap: 12px; }
+  .pm-page-title { font-size: 26px; }
+
+  .pm-mobile-toggle { display: inline-flex; }
+  .pm-sidebar {
+    position: fixed;
+    left: -260px; top: 0; bottom: 0;
+    z-index: 20;
+    transition: left 0.3s;
+    width: 260px;
+  }
+  .pm-sidebar.open { left: 0; }
+}
