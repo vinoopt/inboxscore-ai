@@ -435,7 +435,11 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                  current state, not a window). -->
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <span id="gpm-last-sync" style="font-size:11px;color:var(--text-muted);"></span>
-              <button id="gpm-sync-btn" onclick="gpmManualSync()" style="padding:4px 12px;font-size:11px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:6px;cursor:pointer;transition:all 0.2s;font-weight:500;" onmouseover="this.style.background='var(--accent)';this.style.color='#fff'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">↻ Sync now</button>
+              <!-- INBOX-184 A.5 chrome cleanup: visual styling moved to
+                   postmaster-page-v2.css (#gpm-sync-btn). Inline `style=`
+                   and onmouseover/onmouseout removed because they were
+                   setting var(--accent) at runtime, fighting the V2 CSS. -->
+              <button id="gpm-sync-btn" onclick="gpmManualSync()" style="padding:4px 12px;font-size:11px;border-radius:6px;cursor:pointer;font-weight:500;font-family:inherit;">↻ Sync now</button>
             </div>
           </div>
 
@@ -470,15 +474,14 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                    empty) for backward compatibility with populateGpmCompliance,
                    which writes to it; CSS hides it. -->
               <div id="gpm-comp-updated" style="display:none;"></div>
-              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
-                <thead><tr style="border-bottom:1px solid var(--border);">
-                  <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Requirement</th>
-                  <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Status</th>
-                </tr></thead>
-                <tbody id="gpm-comp-table-body">
-                  <tr><td colspan="2" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
-                </tbody>
-              </table>
+              <!-- INBOX-184 Commit C: 2-col table → designed flex rows.
+                   _renderGpmComplianceTable() now emits .pm-comp-row blocks
+                   into #gpm-comp-table-body (kept its id for ehNav code).
+                   The id stays on a <div> instead of <tbody> — render code
+                   uses .innerHTML so the tag swap is transparent. -->
+              <div class="pm-comp-list" id="gpm-comp-table-body">
+                <div class="pm-comp-row"><div class="pm-comp-icon pm-icon-empty"></div><div class="pm-comp-body"><div class="pm-comp-label" style="color:var(--text-muted);">Loading…</div></div></div>
+              </div>
             </div>
           </div>
 
@@ -501,9 +504,13 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                    aspect-ratio distortion. Chart.js handles all three
                    correctly with built-in crosshair tooltips and proper
                    responsive sizing. Threshold lines are drawn via the
-                   chartjs-plugin-annotation plugin (loaded in <head>). -->
-              <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;height:240px;position:relative;">
-                <canvas id="gpm-spam-chart"></canvas>
+                   chartjs-plugin-annotation plugin (loaded in <head>).
+                   INBOX-184 Commit B: wrapped in .pm-chart-card (Vercel
+                   designed surface) — replaces the flat surface-2 box. -->
+              <div class="pm-chart-card">
+                <div class="pm-chart-canvas-wrap">
+                  <canvas id="gpm-spam-chart"></canvas>
+                </div>
               </div>
             </div>
 
@@ -568,9 +575,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
                    percentages near 100% — dips are instantly visible. -->
               <!-- 2026-04-27: hand-rolled SVG → Chart.js. See Spam tab
                    above for full reasoning. Chart.js draws its own legend
-                   so the manual legend row was removed. -->
-              <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;height:280px;position:relative;">
-                <canvas id="gpm-auth-chart"></canvas>
+                   so the manual legend row was removed.
+                   INBOX-184 Commit B: wrapped in .pm-chart-card. -->
+              <div class="pm-chart-card">
+                <div class="pm-chart-canvas-wrap" id="gpm-auth-chart-wrap">
+                  <canvas id="gpm-auth-chart"></canvas>
+                </div>
               </div>
 
               <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:16px;">
@@ -1101,6 +1111,10 @@ function animateGpmSpam() {
   // stay visible on healthy senders.
   const yMax = Math.max(0.4, Math.ceil(maxObserved * 11) / 10);
 
+  // INBOX-184 Commit B: V2 chart colors + gradient fill — see locked
+  // mockup at design-mockups/postmaster-charts-v2.html.
+  // Spam line: Vercel blue #0070f3 with subtle gradient (20% → 0%).
+  // Threshold colors: policy red #b91c1c, recommended amber #b87100.
   const config = {
     type: 'line',
     data: {
@@ -1108,15 +1122,26 @@ function animateGpmSpam() {
       datasets: [{
         label: 'Spam Rate',
         data: data,
-        borderColor: '#4285F4',
-        backgroundColor: 'rgba(66,133,244,0.08)',
-        borderWidth: 2,
-        tension: 0.15,
+        borderColor: '#0070f3',
+        backgroundColor: function(ctx) {
+          const chart = ctx.chart;
+          const { ctx: c, chartArea } = chart;
+          if (!chartArea) return 'rgba(0,112,243,0.10)';
+          const grad = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          grad.addColorStop(0, 'rgba(0,112,243,0.20)');
+          grad.addColorStop(1, 'rgba(0,112,243,0.00)');
+          return grad;
+        },
+        fill: true,
+        borderWidth: 2.4,
+        tension: 0.2,
         pointRadius: 3,
         pointHoverRadius: 6,
         pointBackgroundColor: data.map(v =>
-          v == null ? '#999' : v < 0.1 ? '#10b981' : v < 0.3 ? '#f59e0b' : '#ef4444'
+          v == null ? '#999' : v < 0.1 ? '#10b981' : v < 0.3 ? '#b87100' : '#b91c1c'
         ),
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 1.5,
         spanGaps: true,
       }]
     },
@@ -1128,15 +1153,15 @@ function animateGpmSpam() {
       annotations: {
         recommended: {
           type: 'line', yMin: 0.1, yMax: 0.1,
-          borderColor: '#f59e0b', borderWidth: 1, borderDash: [4, 3],
+          borderColor: '#b87100', borderWidth: 1.5, borderDash: [6, 4],
           label: { content: '0.1% Recommended', display: true, position: 'end',
-                   backgroundColor: 'transparent', color: '#f59e0b', font: { size: 10 } }
+                   backgroundColor: 'transparent', color: '#b87100', font: { size: 10, weight: '600' } }
         },
         policy: {
           type: 'line', yMin: 0.3, yMax: 0.3,
-          borderColor: '#ef4444', borderWidth: 1, borderDash: [4, 3],
+          borderColor: '#b91c1c', borderWidth: 1.5, borderDash: [6, 4],
           label: { content: '0.3% Policy', display: true, position: 'end',
-                   backgroundColor: 'transparent', color: '#ef4444', font: { size: 10 } }
+                   backgroundColor: 'transparent', color: '#b91c1c', font: { size: 10, weight: '600' } }
         }
       }
     })
@@ -1199,20 +1224,36 @@ function animateGpmAuth() {
   const labels = metrics.map(m => ehFormatDateShortMD(m.date));
   const seriesValues = (key) => metrics.map(m => m[key] != null ? m[key] * 100 : null);
 
+  // INBOX-184 Commit B: V2 colors per locked mockup —
+  // DMARC #0070f3 (blue), DKIM #b91c1c (red), SPF #b87100 (amber).
+  // Subtle gradient under DMARC line only (it's the headline series).
   const config = {
     type: 'line',
     data: {
       labels: labels,
       datasets: [
         { label: 'DMARC', data: seriesValues('auth_success_dmarc'),
-          borderColor: '#4285F4', backgroundColor: 'rgba(66,133,244,0.04)',
-          borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
+          borderColor: '#0070f3',
+          backgroundColor: function(ctx) {
+            const chart = ctx.chart;
+            const { ctx: c, chartArea } = chart;
+            if (!chartArea) return 'rgba(0,112,243,0.06)';
+            const grad = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            grad.addColorStop(0, 'rgba(0,112,243,0.10)');
+            grad.addColorStop(1, 'rgba(0,112,243,0.00)');
+            return grad;
+          },
+          fill: true,
+          borderWidth: 2.2, tension: 0.2, pointRadius: 2.5, pointHoverRadius: 5,
+          pointBorderColor: '#ffffff', pointBorderWidth: 1, spanGaps: true },
         { label: 'DKIM', data: seriesValues('auth_success_dkim'),
-          borderColor: '#EA4335', backgroundColor: 'rgba(234,67,53,0.04)',
-          borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
+          borderColor: '#b91c1c', backgroundColor: 'rgba(185,28,28,0.04)',
+          borderWidth: 2.2, tension: 0.2, pointRadius: 2.5, pointHoverRadius: 5,
+          pointBorderColor: '#ffffff', pointBorderWidth: 1, spanGaps: true },
         { label: 'SPF', data: seriesValues('auth_success_spf'),
-          borderColor: '#FBBC05', backgroundColor: 'rgba(251,188,5,0.04)',
-          borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
+          borderColor: '#b87100', backgroundColor: 'rgba(184,113,0,0.04)',
+          borderWidth: 2.2, tension: 0.2, pointRadius: 2.5, pointHoverRadius: 5,
+          pointBorderColor: '#ffffff', pointBorderWidth: 1, spanGaps: true },
       ]
     },
     options: ehChartBaseOptions({
@@ -1588,38 +1629,44 @@ function _renderGpmComplianceTable(metrics, apiCompliance) {
   });
   labels.push('Honor unsubscribe');
 
-  // ── Render the compliance table ──
-  // INBOX-100 follow-up #3: tbody is already declared at the top of this
-  // function (added with the G2 empty-state fix). Re-declaring it here
-  // produced "Identifier 'tbody' has already been declared" — a hard
-  // SyntaxError that prevented the entire script from parsing, leaving
-  // the page on its default init spinner forever. We just reuse the
-  // existing reference instead.
-  if (tbody) tbody.innerHTML = '';
+  // ── Render the compliance rows (INBOX-184 Commit C) ──
+  // V2 design: container is a `.pm-comp-list` flex container (see
+  // postmaster-page-v2.css), each row is a designed `.pm-comp-row`
+  // with: status icon + label + (optional) reason sub-line + status pill.
+  // Replaces the legacy <table>/<tr><td> 2-col layout. Container still
+  // has id="gpm-comp-table-body" for backward-compat.
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  // Lucide-style 16px icons for each status.
+  const ICON_PASS  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+  const ICON_FAIL  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  const ICON_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16"/></svg>';
 
   checks.forEach((check, i) => {
-    const tr = document.createElement('tr');
-    if (i < checks.length - 1) tr.style.borderBottom = '1px solid var(--border)';
-
+    let iconCls, pillCls, pillText, iconSvg, reasonHtml = '';
     if (check.pass === null) {
-      // INBOX-100 (G5): when pass is null we used to just render "\u2014 No data",
-      // hiding the failMsg explanation. For rows like DMARC_POLICY that
-      // legitimately can't be computed without the v2 API, surface the
-      // failMsg as a sub-line so users understand why.
-      const reasonLine = check.failMsg
-        ? '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">' + escapeHtml(check.failMsg) + '</div>'
-        : '';
-      tr.innerHTML = '<td style="padding:12px;">' + escapeHtml(labels[i]) + '</td>'
-        + '<td style="padding:12px;"><span style="color:var(--text-muted);">\u2014 No data</span>' + reasonLine + '</td>';
+      iconCls = 'pm-icon-empty'; pillCls = 'pm-pill-empty'; pillText = 'No data'; iconSvg = ICON_EMPTY;
+      if (check.failMsg) {
+        reasonHtml = '<div class="pm-comp-reason">' + escapeHtml(check.failMsg) + '</div>';
+      }
     } else if (check.pass) {
-      tr.innerHTML = '<td style="padding:12px;">' + escapeHtml(labels[i]) + '</td>'
-        + '<td style="padding:12px;"><span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);">\u2713 Compliant</span></td>';
+      iconCls = 'pm-icon-pass'; pillCls = 'pm-pill-pass'; pillText = 'Compliant'; iconSvg = ICON_PASS;
     } else {
-      tr.innerHTML = '<td style="padding:12px;">' + escapeHtml(labels[i]) + '</td>'
-        + '<td style="padding:12px;"><div style="color:var(--red);font-weight:600;">\u2717 Needs work</div>'
-        + '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">' + escapeHtml(check.failMsg) + '</div></td>';
+      iconCls = 'pm-icon-fail'; pillCls = 'pm-pill-fail'; pillText = 'Needs work'; iconSvg = ICON_FAIL;
+      reasonHtml = '<div class="pm-comp-reason">' + escapeHtml(check.failMsg) + '</div>';
     }
-    tbody.appendChild(tr);
+
+    const row = document.createElement('div');
+    row.className = 'pm-comp-row';
+    row.innerHTML =
+        '<div class="pm-comp-icon ' + iconCls + '">' + iconSvg + '</div>'
+      + '<div class="pm-comp-body">'
+      +   '<div class="pm-comp-label">' + escapeHtml(labels[i]) + '</div>'
+      +   reasonHtml
+      + '</div>'
+      + '<span class="pm-comp-pill ' + pillCls + '">' + pillText + '</span>';
+    tbody.appendChild(row);
   });
 }
 
