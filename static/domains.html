@@ -10,7 +10,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <!-- INBOX-179 Section 1: Vercel-style page header + action row.
      Scoped via .dom-* prefix to coexist with legacy chrome below. -->
-<link rel="stylesheet" href="/static/css/domains-page-v2.css?v=3">
+<link rel="stylesheet" href="/static/css/domains-page-v2.css?v=4">
+<!-- INBOX-179 §3 polish: hydrate dark theme BEFORE any rendering to
+     avoid FOUC. Sets data-theme on documentElement (which exists
+     immediately) — both [data-theme="dark"] CSS and the toggle script
+     read from there. Tiny inline script, runs in head. -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light') {
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  } catch (e) {}
+})();
+</script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -215,6 +229,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
       <div class="dom-page-header-actions">
         <button class="dom-mobile-toggle" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
         <span class="dom-user-name" id="user-name"></span>
+        <button class="dom-theme-toggle" onclick="domToggleTheme()" aria-label="Toggle theme" title="Toggle dark mode">
+          <svg class="icon icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
         <button class="dom-logout-btn" onclick="logout()">Log Out</button>
       </div>
     </div>
@@ -298,6 +316,17 @@ function toggleSidebar() {
   const b = document.getElementById('sidebar-backdrop');
   if (s) s.classList.toggle('open');
   if (b) b.classList.toggle('show');
+}
+
+// INBOX-179 §3 polish: dark-mode toggle. Sets data-theme on the
+// documentElement (matches the early-hydrate script in <head> that
+// runs before any rendering to prevent FOUC). Persists to localStorage.
+function domToggleTheme() {
+  const root = document.documentElement;
+  const current = root.getAttribute('data-theme') || 'light';
+  const next = current === 'light' ? 'dark' : 'light';
+  root.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
 }
 
 let headers = {};

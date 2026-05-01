@@ -555,6 +555,80 @@
 }
 .dom-mobile-toggle:hover { color: var(--text); border-color: var(--text); }
 
+/* Theme toggle button — sun/moon icon, swaps on data-theme attribute. */
+.dom-theme-toggle {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--dom-fg-2);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 100ms ease, border-color 100ms ease, background 100ms ease;
+}
+.dom-theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--text);
+  background: var(--surface-2);
+}
+.dom-theme-toggle .icon { display: none; }
+[data-theme="dark"] .dom-theme-toggle .icon-sun { display: block; }
+:not([data-theme="dark"]) .dom-theme-toggle .icon-moon { display: block; }
+
+/* ──────────────────────────────────────────────────────────────────
+   DARK MODE — token overrides for /domains page.
+   INBOX-179 §3 polish · 2026-05-01
+
+   Override the legacy :root tokens at body level when data-theme="dark".
+   The legacy inline <style> block defines :root tokens for light mode;
+   our body override has higher cascade priority so every element that
+   reads `var(--surface)`, `var(--text)`, etc. flips automatically.
+
+   Dark tokens chosen to match the dashboard-v2 mockup palette
+   (Vercel-leaning blacks + true-grey neutrals). Status soft-bgs use
+   low-alpha accent-on-black for legibility on dark surface.
+   ────────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg: #000000;
+  --surface: #0f0f0f;
+  --surface-2: #1a1a1a;
+  --surface-3: #262626;
+  --border: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #ffffff;
+  --text-muted: #a1a1a1;
+  --text-subtle: #888888;
+
+  /* Status soft backgrounds — low-alpha for dark surface legibility */
+  --green: #4ade80;
+  --green-bg: rgba(38, 217, 120, 0.12);
+  --yellow: #f5b342;
+  --yellow-bg: rgba(245, 166, 35, 0.12);
+  --orange: #f5a623;
+  --orange-bg: rgba(245, 166, 35, 0.10);
+  --red: #f87171;
+  --red-bg: rgba(229, 72, 77, 0.12);
+
+  --accent: #3291ff;
+  --accent-hover: #59a7ff;
+  --accent-soft: rgba(50, 145, 255, 0.10);
+  --accent-glow: rgba(50, 145, 255, 0.18);
+
+  /* Override the page-prefixed neutrals declared at top of this file */
+  --dom-fg-1: #ededed;
+  --dom-fg-2: #a1a1a1;
+  --dom-fg-3: #888888;
+  --dom-fg-4: #666666;
+  --dom-border-strong: rgba(255, 255, 255, 0.16);
+}
+
+/* Smooth theme transitions on body so flipping doesn't jolt */
+body { transition: background 200ms ease, color 200ms ease; }
+
 /* ─── Mobile responsive (≤768px) ─── */
 @media (max-width: 768px) {
   .dom-page-header { flex-direction: column; gap: 12px; }
