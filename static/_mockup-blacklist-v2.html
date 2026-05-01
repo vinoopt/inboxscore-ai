@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blacklist Monitor — InboxScore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     Blacklist Monitor V2 — Vercel design DNA, .bl-* prefix.
+     Audited from live /blacklist on 2026-05-01. No tabs — single
+     long-page layout: status banner + sending domain row + IP list
+     with search / filter / sort toolbar.
+     ════════════════════════════════════════════════════════════════ */
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --surface-2: #f4f4f5;
+    --surface-3: #ebebed;
+    --fg: #000000;
+    --fg-1: #171717;
+    --fg-2: #404040;
+    --fg-3: #666666;
+    --fg-4: #888888;
+    --fg-5: #a1a1a1;
+    --border: #eaeaea;
+    --border-strong: #d4d4d8;
+    --accent: #0070f3;
+    --success: #00875a;
+    --success-text: #00603f;
+    --success-soft: #d1fae5;
+    --warn: #b87100;
+    --warn-text: #8a5500;
+    --warn-soft: #fef3c7;
+    --danger: #b91c1c;
+    --danger-soft: #fee2e2;
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  html[data-theme="dark"] {
+    --bg: #000000;
+    --surface: #0a0a0a;
+    --surface-2: #161616;
+    --surface-3: #1f1f1f;
+    --fg: #ffffff;
+    --fg-1: #ededed;
+    --fg-2: #a1a1a1;
+    --fg-3: #888888;
+    --fg-4: #666666;
+    --fg-5: #525252;
+    --border: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.16);
+    --accent: #3291ff;
+    --success: #26d978;
+    --success-text: #4ade80;
+    --success-soft: rgba(38,217,120,0.12);
+    --warn: #f5a623;
+    --warn-text: #f5b342;
+    --warn-soft: rgba(245,166,35,0.12);
+    --danger: #f87171;
+    --danger-soft: rgba(248,113,113,0.12);
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.5);
+  }
+
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    transition: background 200ms ease, color 200ms ease;
+  }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+  .mono { font-family: 'Geist Mono', monospace; }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* ══════ SIDEBAR (identical to other pages) ══════ */
+  .sidebar { background: var(--bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 24px; }
+  .brand-mark { width: 26px; height: 26px; background: var(--fg); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; color: var(--bg); letter-spacing: -0.04em; }
+  .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.025em; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 7px; color: var(--fg-2); font-size: 13px; cursor: pointer; transition: background 100ms ease, color 100ms ease; font-weight: 500; margin-bottom: 1px; text-decoration: none; }
+  .nav-item:hover { background: var(--surface-2); color: var(--fg); }
+  .nav-item.active { background: var(--surface-2); color: var(--fg); }
+  .nav-item svg { color: currentColor; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-size: 11px; color: var(--fg-3); background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .nav-item.active .badge { background: var(--surface); }
+  .nav-item .alert-dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
+  .plan-card { padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  .plan-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .plan-meta { font-size: 12px; color: var(--fg-2); margin-bottom: 12px; }
+  .plan-bar { height: 4px; background: var(--surface-2); border-radius: 2px; margin-bottom: 10px; overflow: hidden; }
+  .plan-bar-fill { height: 100%; width: 70%; background: var(--fg); border-radius: 2px; }
+  .plan-link { font-size: 12px; color: var(--fg); font-weight: 500; cursor: pointer; }
+  .plan-link:hover { text-decoration: underline; }
+
+  /* ══════ MAIN ══════ */
+  .main { background: var(--bg); min-width: 0; }
+  .container { max-width: 1280px; padding: 40px 48px 96px; }
+
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 8px; }
+  .page-title { font-size: 36px; font-weight: 600; letter-spacing: -0.04em; line-height: 1.1; margin-bottom: 8px; }
+  .page-subtitle { font-size: 15px; color: var(--fg-3); max-width: 600px; }
+  .page-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .user-name { font-size: 13px; color: var(--fg-2); }
+  .icon-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-strong); background: transparent; color: var(--fg-2); border-radius: 8px; cursor: pointer; transition: all 100ms ease; }
+  .icon-btn:hover { color: var(--fg); border-color: var(--fg); }
+  .logout-btn { background: var(--surface); border: 1px solid var(--border-strong); color: var(--fg-2); padding: 7px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all 100ms ease; font-family: inherit; }
+  .logout-btn:hover { border-color: var(--fg); color: var(--fg); }
+  .icon-sun, .icon-moon { display: none; }
+  html[data-theme="dark"] .icon-sun { display: block; }
+  html:not([data-theme="dark"]) .icon-moon { display: block; }
+
+  .domain-pill { display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 999px; font-size: 13px; font-weight: 500; margin-top: 24px; cursor: pointer; transition: border-color 100ms ease; }
+  .domain-pill:hover { border-color: var(--fg); }
+  .domain-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+  .domain-pill svg { color: var(--fg-3); }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 100ms ease; font-family: inherit; border: 1px solid transparent; }
+  .btn svg { width: 14px; height: 14px; }
+  .btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .btn.primary:hover { background: var(--fg-1); border-color: var(--fg-1); }
+
+  /* ══════ DETAIL CARD ══════ */
+  .detail-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-1); margin-top: 32px; }
+  .provider-head { display: flex; align-items: center; justify-content: space-between; padding: 24px 32px; border-bottom: 1px solid var(--border); gap: 16px; flex-wrap: wrap; }
+  .provider-head-left { display: flex; align-items: center; gap: 16px; min-width: 0; }
+  .provider-logo { width: 44px; height: 44px; border-radius: 10px; background: var(--surface-2); color: var(--fg-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .provider-logo svg { width: 22px; height: 22px; }
+  .provider-name { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; color: var(--fg); }
+  .provider-meta { font-size: 13px; color: var(--fg-3); margin-top: 2px; }
+
+  .body-pad { padding: 28px 32px 32px; }
+
+  /* ══════ STATUS BANNER ══════ */
+  .status-banner { display: flex; align-items: flex-start; gap: 16px; padding: 22px 26px; background: linear-gradient(180deg, var(--success-soft) 0%, transparent 80%), var(--surface); border: 1px solid var(--success); border-radius: 14px; }
+  .status-banner-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--success); color: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .status-banner-icon svg { width: 20px; height: 20px; }
+  .status-banner-text { flex: 1; }
+  .status-banner-title { font-size: 17px; font-weight: 600; color: var(--success-text); letter-spacing: -0.015em; margin-bottom: 3px; }
+  .status-banner-desc { font-size: 13px; color: var(--fg-2); line-height: 1.55; }
+
+  .status-banner.state-warn {
+    background: linear-gradient(180deg, var(--warn-soft) 0%, transparent 80%), var(--surface);
+    border-color: var(--warn);
+  }
+  .status-banner.state-warn .status-banner-icon { background: var(--warn); }
+  .status-banner.state-warn .status-banner-title { color: var(--warn-text); }
+
+  .status-banner.state-danger {
+    background: linear-gradient(180deg, var(--danger-soft) 0%, transparent 80%), var(--surface);
+    border-color: var(--danger);
+  }
+  .status-banner.state-danger .status-banner-icon { background: var(--danger); }
+  .status-banner.state-danger .status-banner-title { color: var(--danger); }
+
+  /* ══════ SECTION HEADERS ══════ */
+  .section-head { margin: 28px 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .section-head-title { font-size: 13px; font-weight: 600; color: var(--fg); }
+  .section-head-meta { font-size: 12px; color: var(--fg-3); }
+
+  /* ══════ DOMAIN / IP ROW ══════ */
+  .bl-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: border-color 100ms ease, background 100ms ease;
+  }
+  .bl-row:hover { border-color: var(--border-strong); background: var(--surface-2); }
+  .bl-row + .bl-row { margin-top: 6px; }
+  .bl-row-addr {
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px;
+    color: var(--fg);
+    font-weight: 500;
+  }
+  .bl-row-meta {
+    font-size: 11px;
+    color: var(--fg-3);
+    margin-top: 2px;
+    display: flex; gap: 6px; align-items: center;
+  }
+  .bl-row-left { min-width: 0; }
+  .bl-row-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+  /* Status pill — Vercel-style with leading dot. */
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; flex-shrink: 0; }
+  .pill .ind { width: 6px; height: 6px; border-radius: 50%; }
+  .pill.success { background: var(--success-soft); color: var(--success-text); }
+  .pill.success .ind { background: var(--success); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn-text); }
+  .pill.warn .ind { background: var(--warn); }
+  .pill.danger { background: var(--danger-soft); color: var(--danger); }
+  .pill.danger .ind { background: var(--danger); }
+
+  /* Listing chip — small monospace pill listing the DNSBL name when not clean. */
+  .listing-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: 'Geist Mono', monospace; font-size: 11px;
+    color: var(--danger);
+    background: var(--danger-soft);
+    padding: 2px 8px; border-radius: 4px;
+  }
+
+  /* ══════ TOOLBAR ══════ */
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .search-input {
+    flex: 1; min-width: 240px;
+    height: 36px;
+    padding: 0 14px 0 38px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") no-repeat 12px center;
+    font-size: 13px; color: var(--fg);
+    font-family: inherit;
+    transition: border-color 100ms ease;
+  }
+  .search-input:hover { border-color: var(--fg); }
+  .search-input:focus { outline: none; border-color: var(--fg); }
+  .filter-select, .sort-select {
+    appearance: none; -webkit-appearance: none;
+    height: 36px;
+    padding: 0 32px 0 14px;
+    background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 11px center;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    font-size: 13px; color: var(--fg); font-weight: 500;
+    cursor: pointer; font-family: inherit;
+    flex-shrink: 0;
+  }
+  .filter-select:hover, .sort-select:hover { border-color: var(--fg); }
+
+  /* ══════ FOOTER LIST OF MONITORED LISTS ══════ */
+  .lists-card {
+    margin-top: 28px;
+    padding: 22px 26px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .lists-title { font-size: 13px; font-weight: 600; color: var(--fg); margin-bottom: 12px; }
+  .lists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 16px; }
+  .lists-item { font-family: 'Geist Mono', monospace; font-size: 12px; color: var(--fg-3); display: flex; align-items: center; gap: 6px; }
+  .lists-item::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .container { padding: 24px 20px 80px; }
+    .page-title { font-size: 28px; }
+    .body-pad { padding: 22px 20px 24px; }
+    .toolbar { gap: 8px; }
+    .search-input { min-width: 0; flex-basis: 100%; }
+  }
+</style>
+</head>
+
+<body>
+<div class="layout">
+
+  <!-- ══════ SIDEBAR ══════ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">IS</div>
+      <div class="brand-name">InboxScore</div>
+    </div>
+    <nav>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg>
+        <span>Google Postmaster</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8.5"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><circle cx="18" cy="18" r="3"/><path d="m22 22-1.5-1.5"/></svg>
+        <span>Microsoft SNDS</span>
+      </a>
+      <a href="#" class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        <span>Blacklist Monitor</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        <span>Domains</span><span class="badge">5</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/></svg>
+        <span>Sending IPs</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <span>Alerts</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="plan-card">
+        <div class="plan-title">Pro plan</div>
+        <div class="plan-meta"><span class="num">7</span> of <span class="num">10</span> domains</div>
+        <div class="plan-bar"><div class="plan-bar-fill"></div></div>
+        <div class="plan-link">Manage plan →</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════ MAIN ══════ -->
+  <main class="main">
+    <div class="container">
+
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Blacklist Monitor</h1>
+          <p class="page-subtitle">Real-time blacklist status for your sending domain and IPs across <span class="num">20</span> major DNSBL lists.</p>
+        </div>
+        <div class="page-actions">
+          <span class="user-name">Vinoop Thayatt</span>
+          <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button class="logout-btn">Log Out</button>
+        </div>
+      </div>
+
+      <div class="domain-pill">
+        <span class="dot"></span>
+        <span>mailercloud.com</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+
+      <!-- ══════ DETAIL CARD ══════ -->
+      <div class="detail-card">
+        <div class="provider-head">
+          <div class="provider-head-left">
+            <div class="provider-logo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+            </div>
+            <div>
+              <div class="provider-name">Blacklist Monitor</div>
+              <div class="provider-meta">Last checked Apr 29 · 6:00 PM · across <span class="num">20</span> DNSBL lists</div>
+            </div>
+          </div>
+          <button class="btn primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Scan now
+          </button>
+        </div>
+
+        <div class="body-pad">
+
+          <!-- Status banner -->
+          <div class="status-banner">
+            <div class="status-banner-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="status-banner-text">
+              <div class="status-banner-title">All clear</div>
+              <div class="status-banner-desc">Your sending domain and all <span class="num">7</span> sending IPs are not listed on any of the <span class="num">20</span> blacklists we monitor. Last checked Apr 29 at 6:00 PM.</div>
+            </div>
+          </div>
+
+          <!-- Sending domain section -->
+          <div class="section-head">
+            <div class="section-head-title">Sending domain</div>
+            <div class="section-head-meta">1 of 1 clean</div>
+          </div>
+          <div class="bl-row">
+            <div class="bl-row-left">
+              <span class="bl-row-addr">mailercloud.com</span>
+            </div>
+            <div class="bl-row-right">
+              <span class="pill success"><span class="ind"></span>Clean</span>
+            </div>
+          </div>
+
+          <!-- Sending IPs section -->
+          <div class="section-head" style="margin-top:24px;">
+            <div class="section-head-title">Sending IPs</div>
+            <div class="section-head-meta"><span class="num">7</span> IPs · all clean</div>
+          </div>
+
+          <!-- Toolbar -->
+          <div class="toolbar">
+            <input class="search-input" type="search" placeholder="Search IPs…">
+            <select class="filter-select">
+              <option>All</option>
+              <option>Clean</option>
+              <option>Listed</option>
+            </select>
+            <select class="sort-select">
+              <option>Severity ↓</option>
+              <option>IP ↑</option>
+              <option>IP ↓</option>
+            </select>
+          </div>
+
+          <!-- IP list — all clean state -->
+          <div class="bl-row">
+            <div class="bl-row-left">
+              <span class="bl-row-addr">103.147.104.13</span>
+            </div>
+            <div class="bl-row-right">
+              <span class="pill success"><span class="ind"></span>Clean</span>
+            </div>
+          </div>
+          <div class="bl-row">
+            <div class="bl-row-left">
+              <span class="bl-row-addr">103.147.104.14</span>
+            </div>
+            <div class="bl-row-right">
+              <span class="pill success"><span class="ind"></span>Clean</span>
+            </div>
+          </div>
+          <div class="bl-row">
+            <div class="bl-row-left">
+              <span class="bl-row-addr">103.147.104.15</span>
+            </div>
+            <div class="bl-row-right">
+              <span class="pill success"><span class="ind"></span>Clean</span>
+            </div>
+          </div>
+          <div class="bl-row">
+            <div class="bl-row-left">
+              <span class="bl-row-addr">103.147.104.16</span>
+            </div>
+            <div class="bl-row-right">
+              <span class="pill success"><span class="ind"></span>Clean</span>
+            </div>
+          </div>
+          <div class="bl-row">
+            <div class="bl-row-left">
+              <span class="bl-row-addr">103.147.104.17</span>
+            </div>
+            <div class="bl-row-right">
+              <span class="pill success"><span class="ind"></span>Clean</span>
+            </div>
+          </div>
+          <div class="bl-row">
+            <div class="bl-row-left">
+              <span class="bl-row-addr">103.147.104.18</span>
+            </div>
+            <div class="bl-row-right">
+              <span class="pill success"><span class="ind"></span>Clean</span>
+            </div>
+          </div>
+          <div class="bl-row">
+            <div class="bl-row-left">
+              <span class="bl-row-addr">162.19.145.175</span>
+            </div>
+            <div class="bl-row-right">
+              <span class="pill success"><span class="ind"></span>Clean</span>
+            </div>
+          </div>
+
+          <!-- ── Listed-state preview (commented out — will render via JS when an IP is on a list) ──
+          <div class="bl-row" style="border-color:var(--danger);background:linear-gradient(180deg, var(--danger-soft) 0%, transparent 80%), var(--surface);">
+            <div class="bl-row-left">
+              <span class="bl-row-addr">198.51.100.42</span>
+              <div class="bl-row-meta">
+                Listed on
+                <span class="listing-chip">Spamhaus SBL</span>
+                <span class="listing-chip">SORBS DUL</span>
+              </div>
+            </div>
+            <div class="bl-row-right">
+              <span class="pill danger"><span class="ind"></span>2 listings</span>
+            </div>
+          </div>
+          -->
+
+          <!-- ══════ MONITORED LISTS ══════ -->
+          <div class="lists-card">
+            <div class="lists-title">Monitored DNSBL lists · <span class="num">20</span></div>
+            <div class="lists-grid">
+              <span class="lists-item">Spamhaus ZEN</span>
+              <span class="lists-item">Spamhaus SBL</span>
+              <span class="lists-item">Spamhaus PBL</span>
+              <span class="lists-item">Spamhaus XBL</span>
+              <span class="lists-item">SORBS</span>
+              <span class="lists-item">SORBS DUHL</span>
+              <span class="lists-item">SORBS NEW</span>
+              <span class="lists-item">SORBS WEB</span>
+              <span class="lists-item">SpamCop</span>
+              <span class="lists-item">Barracuda</span>
+              <span class="lists-item">PSBL</span>
+              <span class="lists-item">UCEPROTECT-1</span>
+              <span class="lists-item">UCEPROTECT-2</span>
+              <span class="lists-item">UCEPROTECT-3</span>
+              <span class="lists-item">Backscatterer</span>
+              <span class="lists-item">DNSBL.info</span>
+              <span class="lists-item">RATS-Dyna</span>
+              <span class="lists-item">RATS-NoPtr</span>
+              <span class="lists-item">RATS-Spam</span>
+              <span class="lists-item">Blocklist.de</span>
+            </div>
+          </div>
+
+        </div><!-- /body-pad -->
+
+      </div><!-- /detail-card -->
+
+    </div><!-- /container -->
+  </main>
+</div>
+
+<script>
+  function toggleTheme() {
+    const html = document.documentElement;
+    const next = (html.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    try { localStorage.setItem('inboxscore-bl-theme', next); } catch (e) {}
+  }
+  (function () {
+    try {
+      const saved = localStorage.getItem('inboxscore-bl-theme');
+      if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-theme', saved);
+    } catch (e) {}
+  })();
+</script>
+</body>
+</html>
