@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blacklist Monitor — InboxScore</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- INBOX-185 V2 chrome migration. Reuses postmaster-page-v2.css for the
+     shared chrome (sidebar, detail card, tabs, plan card, data card,
+     stat strip, pills) and blacklist-page-v2.css for Blacklist Monitor
+     page-specific widgets (.bl-* classes). -->
+<link rel="stylesheet" href="/static/css/email-health-page-v2.css?v=1">
+<link rel="stylesheet" href="/static/css/postmaster-page-v2.css?v=2">
+<link rel="stylesheet" href="/static/css/blacklist-page-v2.css?v=1">
+<!-- Hydrate theme BEFORE body parses to kill FOUC. -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light')
+      document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f5; --surface-3: #e4e4e7;
+  --border: #e4e4e7; --border-strong: #d4d4d8;
+  --text: #18181b; --text-muted: #52525b; --text-subtle: #71717a;
+  --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #ede9fe; --accent-glow: rgba(124,58,237,0.18);
+  --green: #047857; --green-bg: #d1fae5;
+  --yellow: #b45309; --yellow-bg: #fef3c7;
+  --orange: #c2410c; --orange-bg: #ffedd5;
+  --red: #b91c1c; --red-bg: #fee2e2;
+}
+body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+.info-hint { position:relative; cursor:help; border-bottom:1px dotted var(--text-muted); }
+.info-hint::after { content:attr(data-hint); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:var(--text); color:var(--surface); border:1px solid var(--text); border-radius:6px; padding:6px 10px; font-size:11px; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .15s; z-index:99; }
+.info-hint:hover::after { opacity:1; }
+@keyframes snds-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Top Nav */
+.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); z-index: 10; }
+.logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); letter-spacing: -0.01em; }
+.logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 4px 8px rgba(139,92,246,0.25); }
+.nav-right { display: flex; align-items: center; gap: 16px; }
+.user-name { font-size: 13px; color: var(--text-muted); }
+.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+
+/* Layout */
+.layout { display: flex; flex: 1; }
+
+/* Sidebar */
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
+.sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
+.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+.sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
+.alert-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; display: none; }.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
+
+/* Main */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; }
+
+/* Common Components */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
+.badge-green { background: var(--green-bg); color: var(--green); }
+.badge-red { background: var(--red-bg); color: var(--red); }
+.badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+.badge-accent { background: var(--accent-soft); color: var(--accent); }
+.badge-orange { background: var(--orange-bg); color: var(--orange); }
+
+/* Sidebar backdrop */
+.sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
+.sidebar-backdrop.show { display: block; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar.open { left: 0; }
+  .mobile-toggle { display: block; }
+  .main { padding: 24px 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ══════ SIDEBAR ══════ -->
+  <aside class="sidebar">
+    <div style="padding: 16px 20px; border-bottom: 1px solid var(--border);">
+      <a href="#" class="logo">
+        <span class="logo-icon">IS</span>
+        <span>InboxScore</span>
+      </a>
+    </div>
+    <ul class="sidebar-nav">
+      <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
+      <li><a href="/postmaster"><span class="nav-icon">✉️</span> Google Postmaster</a></li>
+      <li><a href="/microsoft"><span class="nav-icon">📨</span> Microsoft SNDS</a></li>
+      <li><a href="/blacklist" class="active"><span class="nav-icon">🛡️</span> Blacklist Monitor</a></li>
+      <li><a href="/domains"><span class="nav-icon">🌐</span> Domains <span class="alert-badge">5</span></a></li>
+      <li><a href="/sending-ips"><span class="nav-icon">🖧</span> Sending IPs</a></li>
+      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts</a></li>
+      <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
+    </ul>
+    <div style="margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border);">
+      <div class="plan-badge">
+        <span style="flex: 1;">
+          <div class="plan-name">Pro plan</div>
+          <div style="font-size: 11px; color: var(--text-muted);">7 of 10 domains</div>
+        </span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════ MAIN ══════ -->
+  <main class="main">
+    <div style="max-width: 1280px; margin: 0 auto;">
+
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+        <div>
+          <h1 class="page-title">Blacklist Monitor</h1>
+          <p class="page-subtitle">Real-time blacklist status for your sending domain and IPs across <span style="font-family: 'Geist Mono', monospace;">20</span> major DNSBL lists.</p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <span class="user-name" id="user-name">Loading...</span>
+          <button class="logout-btn" onclick="logout()">Log Out</button>
+        </div>
+      </div>
+
+      <div class="detail-card">
+        <div class="provider-head">
+          <div class="provider-head-left">
+            <div style="width: 44px; height: 44px; border-radius: 10px; background: var(--surface-2); color: var(--text-muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px;"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+            </div>
+            <div>
+              <div style="font-size: 18px; font-weight: 600; color: var(--text);">Blacklist Monitor</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Last checked <span id="bl-last-checked"></span></div>
+            </div>
+          </div>
+          <button class="badge-accent" onclick="runBlacklistCheck(true)" id="bl-check-btn" style="background: var(--text); color: var(--surface); border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+            ↻ Scan now
+          </button>
+        </div>
+
+        <div class="body-pad">
+
+          <!-- ══════ STATUS HERO ══════ -->
+          <div class="bl-hero" id="bl-hero">
+            <div class="bl-hero-numeral">
+              <div class="bl-hero-eyebrow">
+                <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                <span id="bl-hero-eyebrow-text">All clear</span>
+              </div>
+              <div class="bl-hero-num"><span id="bl-hero-num">0</span><span class="of">/ <span id="bl-hero-num-of">160</span></span></div>
+              <div class="bl-hero-num-meta">listings across <strong id="bl-hero-num-entities">8</strong> entities × <strong id="bl-hero-num-lists">20</strong> blacklists</div>
+            </div>
+            <div class="bl-hero-strip">
+              <div class="bl-hero-cell">
+                <div class="bl-hero-cell-label">Status</div>
+                <div class="bl-hero-cell-value success" id="bl-hero-status">All clean</div>
+                <div class="bl-hero-cell-sub" id="bl-hero-status-sub">No action required</div>
+              </div>
+              <div class="bl-hero-cell">
+                <div class="bl-hero-cell-label">Last checked</div>
+                <div class="bl-hero-cell-value" id="bl-hero-checked">—</div>
+                <div class="bl-hero-cell-sub" id="bl-hero-checked-rel">—</div>
+              </div>
+              <div class="bl-hero-cell">
+                <div class="bl-hero-cell-label">Next scan</div>
+                <div class="bl-hero-cell-value" id="bl-hero-next">—</div>
+                <div class="bl-hero-cell-sub" id="bl-hero-next-sub">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ══════ LOADING / ERROR / NO IPS OVERLAYS ══════ -->
+          <div id="bl-loading" style="display: none; padding: 40px 20px; text-align: center;">
+            <div style="font-size: 14px; color: var(--text-muted);">Scanning <span id="bl-loading-domain"></span>...</div>
+          </div>
+          <div id="bl-error" style="display: none; padding: 20px; background: var(--red-bg); border: 1px solid var(--red); border-radius: 8px; color: var(--red); margin-bottom: 20px;">
+            <span id="bl-error-msg"></span>
+          </div>
+          <div id="bl-no-ips" style="display: none; padding: 30px 20px; text-align: center; background: var(--surface-2); border-radius: 8px; color: var(--text-muted);">
+            <div style="font-size: 14px;">No sending IPs found for this domain yet.</div>
+          </div>
+
+          <!-- ══════ RESULTS CONTAINER ══════ -->
+          <div id="bl-results" style="display: block;">
+
+            <!-- ══════ SENDING DOMAIN — featured panel ══════ -->
+            <div class="bl-section-label">
+              <div class="bl-section-label-left">
+                <span>Sending domain</span>
+                <span class="meta"><span class="count" id="bl-section-domain-meta">1</span> of <span class="count">1</span> clean</span>
+              </div>
+            </div>
+            <div class="bl-domain-panel">
+              <div class="bl-domain-top">
+                <div class="bl-domain-id">
+                  <div class="bl-domain-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div>
+                    <div class="bl-domain-name" id="bl-domain-name">—</div>
+                    <div class="bl-domain-sub" id="bl-domain-sub">—</div>
+                  </div>
+                </div>
+                <span class="bl-status-badge clean" id="bl-domain-badge">
+                  <span class="ind"></span>
+                  <span id="bl-domain-badge-text">Clean</span>
+                </span>
+              </div>
+              <div class="bl-domain-cov-row">
+                <span class="bl-cov-eyebrow">Coverage · <span class="num">20</span> lists</span>
+                <span class="bl-cov lg" id="bl-domain-cov"></span>
+              </div>
+            </div>
+
+            <!-- ══════ SENDING IPS — data table ══════ -->
+            <div class="bl-section-label">
+              <div class="bl-section-label-left">
+                <span>Sending IPs</span>
+                <span class="meta" id="bl-section-ips-meta"><span class="count">7</span> of <span class="count">7</span> clean</span>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <input class="search-input" type="search" placeholder="Search IPs…" id="bl-ip-search" oninput="applyBlIpFilters()">
+              <select class="filter-select" id="bl-ip-status" onchange="applyBlIpFilters()">
+                <option value="all">All</option>
+                <option value="clean">Clean</option>
+                <option value="listed">Listed</option>
+              </select>
+              <select class="sort-select" id="bl-ip-sort" onchange="applyBlIpFilters()">
+                <option value="severity">Severity ↓</option>
+                <option value="ipasc">IP ↑</option>
+                <option value="ipdesc">IP ↓</option>
+              </select>
+            </div>
+
+            <div class="bl-table-card">
+              <table class="bl-table">
+                <thead>
+                  <tr>
+                    <th style="width: 200px;">IP address</th>
+                    <th class="cov-cell">Coverage · 20 lists</th>
+                    <th>Status</th>
+                    <th>Last checked</th>
+                  </tr>
+                </thead>
+                <tbody id="bl-ip-tbody">
+                  <tr>
+                    <td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted);">No IPs yet</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- ══════ MONITORED LIST COVERAGE ══════ -->
+            <div class="bl-section-label">
+              <div class="bl-section-label-left">
+                <span>Monitored DNSBL coverage</span>
+                <span class="meta"><span class="count">20</span> lists across <span class="count">4</span> categories</span>
+              </div>
+            </div>
+            <div class="bl-dnsbl-strip">
+              <div class="bl-dnsbl-cell">
+                <div class="bl-dnsbl-count">6<span class="of">/ 20</span></div>
+                <div class="bl-dnsbl-cat">Spam sources</div>
+                <div class="bl-dnsbl-list">Spamhaus SBL, SpamCop, Barracuda, PSBL, RATS-Spam, Blocklist.de</div>
+              </div>
+              <div class="bl-dnsbl-cell">
+                <div class="bl-dnsbl-count">3<span class="of">/ 20</span></div>
+                <div class="bl-dnsbl-cat">Exploits &amp; botnets</div>
+                <div class="bl-dnsbl-list">Spamhaus XBL, RATS-Dyna, RATS-NoPtr</div>
+              </div>
+              <div class="bl-dnsbl-cell">
+                <div class="bl-dnsbl-count">6<span class="of">/ 20</span></div>
+                <div class="bl-dnsbl-cat">Policy &amp; reputation</div>
+                <div class="bl-dnsbl-list">Spamhaus PBL, SORBS DUHL, UCEPROTECT-1/2/3, Backscatterer</div>
+              </div>
+              <div class="bl-dnsbl-cell">
+                <div class="bl-dnsbl-count">5<span class="of">/ 20</span></div>
+                <div class="bl-dnsbl-cat">Composite &amp; general</div>
+                <div class="bl-dnsbl-list">Spamhaus ZEN, SORBS, SORBS NEW, SORBS WEB, DNSBL.info</div>
+              </div>
+            </div>
+
+          </div><!-- /bl-results -->
+
+        </div><!-- /body-pad -->
+
+      </div><!-- /detail-card -->
+
+    </div><!-- /container -->
+  </main>
+
+</div><!-- /layout -->
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════════════════════
+// BLACKLIST MONITOR — V2 PAGE
+// Migrated from email-health.html, adapted for new V2 mockup DOM structure
+// ════════════════════════════════════════════════════════════════════════════════════════════
+
+// Auth helpers
+function getToken() {
+  try { return localStorage.getItem('inboxscore-auth-token'); } catch (e) { return null; }
+}
+function logout() {
+  try { localStorage.removeItem('inboxscore-auth-token'); } catch (e) {}
+  window.location.href = '/login';
+}
+function getUserName() {
+  try { return localStorage.getItem('inboxscore-user-name') || 'User'; } catch (e) { return 'User'; }
+}
+function getBlacklistDomain() {
+  const sel = document.querySelector('select[name="domain"]');
+  const txt = sel?.options[sel.selectedIndex]?.text || 'mailercloud.com';
+  return txt.trim();
+}
+
+// Session-level blacklist cache (5 min TTL)
+const _blCache = {};
+const BL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Called on domain change: show cached blacklist for new domain or load from DB
+async function refreshBlacklistForDomain(domain) {
+  // 1) Check in-memory cache first (fast, avoids API call)
+  const cached = _blCache[domain];
+  if (cached && (Date.now() - cached.ts < BL_CACHE_TTL)) {
+    renderBlacklistResults(cached.data);
+    return;
+  }
+
+  // 2) Try loading last saved results from the database
+  const token = getToken();
+  if (token) {
+    try {
+      const resp = await fetch('/api/blacklist/results/' + encodeURIComponent(domain), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        // Cache it in memory too
+        _blCache[domain] = { data, ts: Date.now() };
+        renderBlacklistResults(data);
+        return;
+      }
+    } catch (e) { /* no saved results — fall through */ }
+  }
+
+  // 3) No cached or saved results — collapse all states; user can hit Scan now.
+  const resEl   = document.getElementById('bl-results');
+  const loadEl  = document.getElementById('bl-loading');
+  const errEl   = document.getElementById('bl-error');
+  const noIpsEl = document.getElementById('bl-no-ips');
+  const btnEl   = document.getElementById('bl-check-btn');
+  if (resEl)   resEl.style.display = 'none';
+  if (loadEl)  loadEl.style.display = 'none';
+  if (errEl)   errEl.style.display = 'none';
+  if (noIpsEl) noIpsEl.style.display = 'none';
+  const lc = document.getElementById('bl-last-checked');
+  if (lc) lc.textContent = '';
+  if (btnEl) { btnEl.disabled = false; btnEl.textContent = '↻ Scan now'; }
+}
+
+async function runBlacklistCheck(forceRefresh) {
+  const domain = getBlacklistDomain();
+  const token = getToken();
+  if (!token) { alert('Please log in to run a blacklist check.'); return; }
+
+  // Return cached result if available and not expired
+  const cached = _blCache[domain];
+  if (!forceRefresh && cached && (Date.now() - cached.ts < BL_CACHE_TTL)) {
+    renderBlacklistResults(cached.data);
+    return;
+  }
+
+  const loadEl  = document.getElementById('bl-loading');
+  const resEl   = document.getElementById('bl-results');
+  const errEl   = document.getElementById('bl-error');
+  const noIpsEl = document.getElementById('bl-no-ips');
+  const btnEl   = document.getElementById('bl-check-btn');
+
+  // Show loading; collapse other states.
+  if (loadEl)  loadEl.style.display = 'block';
+  if (resEl)   resEl.style.display = 'none';
+  if (errEl)   errEl.style.display = 'none';
+  if (noIpsEl) noIpsEl.style.display = 'none';
+  if (btnEl)  { btnEl.disabled = true; btnEl.textContent = 'Scanning…'; }
+
+  try {
+    const res = await fetch(`/api/blacklist/check/${encodeURIComponent(domain)}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+
+    // DNSBL is synchronous — no in_progress polling needed (unlike HetrixTools).
+    // Cache successful result.
+    _blCache[domain] = { data, ts: Date.now() };
+    renderBlacklistResults(data);
+  } catch (e) {
+    if (loadEl) loadEl.style.display = 'none';
+    if (errEl) {
+      errEl.style.display = 'block';
+      document.getElementById('bl-error-msg').textContent = 'Error: ' + e.message;
+    }
+  } finally {
+    if (btnEl) { btnEl.disabled = false; btnEl.textContent = '↻ Scan now'; }
+  }
+}
+
+// Cache full IP list across renders so the filter bar can re-filter
+let _blAllIps = [];
+let _blAllIpsDomain = '';
+
+function renderBlacklistResults(data) {
+  const loadEl  = document.getElementById('bl-loading');
+  const resEl   = document.getElementById('bl-results');
+  const errEl   = document.getElementById('bl-error');
+  const noIpsEl = document.getElementById('bl-no-ips');
+  if (loadEl)  loadEl.style.display = 'none';
+  if (errEl)   errEl.style.display = 'none';
+  if (noIpsEl) noIpsEl.style.display = 'none';
+  if (resEl)   resEl.style.display = 'block';
+
+  // --- Real "checked at" timestamp ---
+  const lastCheckedEl = document.getElementById('bl-last-checked');
+  if (lastCheckedEl) {
+    if (data.checked_at) {
+      const d = new Date(data.checked_at);
+      lastCheckedEl.textContent = 'Last checked ' + d.toLocaleString('en-US', {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+      });
+    } else {
+      lastCheckedEl.textContent = '';
+    }
+  }
+
+  // --- Hero section update ---
+  const total    = data.total_listings || 0;
+  const highCnt  = data.high_severity_count || 0;
+  const status   = data.overall_status || 'clean';
+
+  const heroEyebrow = document.getElementById('bl-hero-eyebrow-text');
+  const heroNum = document.getElementById('bl-hero-num');
+  const heroNumOf = document.getElementById('bl-hero-num-of');
+  const heroStatus = document.getElementById('bl-hero-status');
+  const heroStatusSub = document.getElementById('bl-hero-status-sub');
+
+  if (status === 'clean') {
+    if (heroEyebrow) heroEyebrow.textContent = 'All clear';
+    if (heroNum) heroNum.textContent = '0';
+    if (heroStatus) { heroStatus.textContent = 'All clean'; heroStatus.className = 'bl-hero-cell-value success'; }
+    if (heroStatusSub) heroStatusSub.textContent = 'No action required';
+  } else if (status === 'warning') {
+    if (heroEyebrow) heroEyebrow.textContent = 'Minor listings';
+    if (heroNum) heroNum.textContent = total;
+    if (heroStatus) { heroStatus.textContent = 'Monitor closely'; heroStatus.className = 'bl-hero-cell-value'; }
+    if (heroStatusSub) heroStatusSub.textContent = 'Low/medium severity only';
+  } else if (status === 'critical') {
+    if (heroEyebrow) heroEyebrow.textContent = 'Action required';
+    if (heroNum) heroNum.textContent = total;
+    if (heroStatus) { heroStatus.textContent = 'High severity'; heroStatus.className = 'bl-hero-cell-value'; }
+    if (heroStatusSub) heroStatusSub.textContent = 'Start delisting immediately';
+  }
+
+  // --- Sending domain row ---
+  const domRow = document.getElementById('bl-domain-name');
+  if (domRow) domRow.textContent = data.domain || '—';
+
+  const domSub = document.getElementById('bl-domain-sub');
+  if (domSub && data.checked_at) {
+    const d = new Date(data.checked_at);
+    domSub.textContent = 'Last checked ' + d.toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+    });
+  }
+
+  // --- Domain status badge ---
+  const dr = data.domain_result || {};
+  const dListings = dr.blacklisted_on || [];
+  const dCount = dListings.length;
+  const domBadge = document.getElementById('bl-domain-badge');
+  const domBadgeText = document.getElementById('bl-domain-badge-text');
+  if (domBadge) {
+    if (dCount === 0) {
+      domBadge.className = 'bl-status-badge clean';
+      if (domBadgeText) domBadgeText.textContent = 'Clean';
+    } else {
+      domBadge.className = 'bl-status-badge listed';
+      if (domBadgeText) domBadgeText.textContent = dCount + ' listed';
+    }
+  }
+
+  // --- Domain coverage dots ---
+  const domCov = document.getElementById('bl-domain-cov');
+  if (domCov) {
+    const covHtml = _blRenderCovStrip(dr.checked_count || 0, dListings);
+    domCov.innerHTML = covHtml;
+  }
+
+  // --- Sending IPs section ---
+  const ipResults = data.ip_results || [];
+  _blAllIps = ipResults;
+  _blAllIpsDomain = data.domain || '';
+
+  if (ipResults.length === 0) {
+    const ipSection = document.getElementById('bl-ip-tbody');
+    if (ipSection) {
+      ipSection.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted);">No sending IPs found</td></tr>';
+    }
+  } else {
+    applyBlIpFilters();
+  }
+}
+
+function _blRenderCovStrip(checkedCount, blacklistedOn) {
+  let html = '';
+  const listedRbls = new Set(blacklistedOn.map(l => l.rbl));
+  for (let i = 0; i < 20; i++) {
+    const isListed = listedRbls.has(blacklistedOn[i]?.rbl);
+    html += '<span class="bl-cov-dot' + (isListed ? ' listed' : '') + '"></span>';
+  }
+  return html;
+}
+
+function _blRenderListingRow(l) {
+  const sevColor = l.severity === 'high'   ? 'var(--danger)'    :
+                   l.severity === 'medium' ? 'var(--warn)' :
+                                             'var(--fg-4)';
+  const sevLabel = (l.severity || 'low').charAt(0).toUpperCase() + (l.severity || 'low').slice(1);
+  const displayName = l.name || l.rbl || '—';
+  return `
+    <tr style="background: var(--surface-2);">
+      <td colspan="4" style="padding: 6px 12px; font-size: 12px;">
+        <span style="color: ${sevColor}; font-weight: 600;">${escapeHtml(displayName)}</span>
+        <span style="color: var(--fg-4); font-size: 11px; margin-left: 8px;">${escapeHtml(sevLabel)}</span>
+      </td>
+    </tr>
+  `;
+}
+
+function escapeHtml(text) {
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// List-filter pipeline (client-side)
+function applyBlIpFilters() {
+  const searchEl = document.getElementById('bl-ip-search');
+  const statusEl = document.getElementById('bl-ip-status');
+  const sortEl   = document.getElementById('bl-ip-sort');
+  const tbodyEl  = document.getElementById('bl-ip-tbody');
+  if (!tbodyEl) return;
+
+  const q      = (searchEl ? searchEl.value : '').trim().toLowerCase();
+  const status = statusEl ? statusEl.value : 'all';
+  const sort   = sortEl   ? sortEl.value   : 'severity';
+
+  // Persist user's filter choices for next visit.
+  try {
+    localStorage.setItem('bl.ip.sort', sort);
+    localStorage.setItem('bl.ip.status', status);
+  } catch (e) {}
+
+  // Status filter
+  let rows = _blAllIps.slice();
+  if (status === 'listed') {
+    rows = rows.filter(r => (r.blacklisted_count || 0) > 0);
+  } else if (status === 'clean') {
+    rows = rows.filter(r => (r.blacklisted_count || 0) === 0);
+  }
+
+  // Search
+  if (q) rows = rows.filter(r => (r.ip || '').toLowerCase().includes(q));
+
+  // Sort
+  const ipKey = (s) => (s || '').split('.').map(p => p.padStart(3, '0')).join('.');
+  if (sort === 'ipasc') {
+    rows.sort((a, b) => ipKey(a.ip).localeCompare(ipKey(b.ip)));
+  } else if (sort === 'ipdesc') {
+    rows.sort((a, b) => ipKey(b.ip).localeCompare(ipKey(a.ip)));
+  } else {
+    // Default: severity ↓
+    rows.sort((a, b) => {
+      const aHigh = (a.blacklisted_on || []).filter(l => l.severity === 'high').length;
+      const bHigh = (b.blacklisted_on || []).filter(l => l.severity === 'high').length;
+      if (aHigh !== bHigh) return bHigh - aHigh;
+      const aCnt = a.blacklisted_count || 0;
+      const bCnt = b.blacklisted_count || 0;
+      if (aCnt !== bCnt) return bCnt - aCnt;
+      return ipKey(a.ip).localeCompare(ipKey(b.ip));
+    });
+  }
+
+  // Render
+  if (rows.length === 0) {
+    tbodyEl.innerHTML = `
+      <tr>
+        <td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">
+          No IPs match the current filter.
+        </td>
+      </tr>`;
+    return;
+  }
+
+  tbodyEl.innerHTML = rows.map(r => _blRenderIpRow(r)).join('');
+}
+
+function _blRenderIpRow(r) {
+  const ip = r.ip || '—';
+  const listings = r.blacklisted_on || [];
+  const count = r.blacklisted_count || 0;
+  const highCnt = listings.filter(l => l.severity === 'high').length;
+
+  let badge, badgeClass;
+  if (count === 0) {
+    badge = 'Clean';
+    badgeClass = 'success';
+  } else if (highCnt > 0) {
+    badge = count + ' listed';
+    badgeClass = 'danger';
+  } else {
+    badge = count + ' listed';
+    badgeClass = 'danger';
+  }
+
+  // Detail rows shown inline when this IP has listings.
+  let detail = '';
+  if (count > 0) {
+    detail = listings.map(l => _blRenderListingRow(l)).join('');
+  }
+
+  return `
+    <tr class="bl-ip-row">
+      <td class="ip-cell">${escapeHtml(ip)}</td>
+      <td class="cov-cell">
+        <span class="bl-cov">
+          ${_blRenderCovStrip(r.checked_count || 0, listings)}
+        </span>
+      </td>
+      <td><span class="pill ${badgeClass}"><span class="ind"></span>${escapeHtml(badge)}</span></td>
+      <td>—</td>
+    </tr>
+    ${detail}
+  `;
+}
+
+// Boot
+document.addEventListener('DOMContentLoaded', async function() {
+  const token = getToken();
+  const userName = getUserName();
+  const userEl = document.getElementById('user-name');
+  if (userEl) userEl.textContent = userName;
+
+  if (!token) {
+    window.location.href = '/login';
+    return;
+  }
+
+  // Load initial domain results
+  const initialDomain = getBlacklistDomain();
+  await refreshBlacklistForDomain(initialDomain);
+});
+</script>
+
+</body>
+</html>

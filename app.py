@@ -2687,7 +2687,9 @@ async def serve_microsoft():
 
 @app.get("/blacklist")
 async def serve_blacklist():
-    return _html("email-health.html")
+    # INBOX-185 Phase C1: Strangler Fig migration complete. Serves new
+    # blacklist.html (static/blacklist.html) with V2 design system.
+    return _html("blacklist.html")
 
 
 # INBOX-132: /reputation route removed — the IP Reputation page was a

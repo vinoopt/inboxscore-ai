@@ -199,10 +199,11 @@ class TestEmailHealthPage:
             "INBOX-185 split."
         )
 
-        # /blacklist — still served by email-health.html (Phase C1 pending)
+        # /blacklist — served by blacklist.html (INBOX-185 Phase C1 complete)
         bl = client.get("/blacklist").text
-        assert 'id="eh-sec-blacklist"' in bl
-        assert 'id="eh-sec-reputation"' not in bl
+        assert 'id="bl-hero"' in bl  # V2 design widget IDs
+        assert 'id="bl-results"' in bl
+        assert 'id="eh-sec-blacklist"' not in bl  # Old email-health IDs removed
 
     def test_email_health_overview_section_removed(self, client):
         """INBOX-82 Phase 2: the Overview tab is gone — the Dashboard now
