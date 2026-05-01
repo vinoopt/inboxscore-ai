@@ -543,119 +543,146 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
           </div>
 
           <!-- TAB 3: Unsubscribe Compliance -->
+          <!-- INBOX-184 Step 6: 2-card gradient layout per mockup
+               (lines 693–714). populateGpmUnsubscribe() emits .pm-compl-card. -->
           <div class="gpm-panel pm-tab-body" id="gpm-fbl">
-            <div style="margin-top:16px;">
-              <div class="pm-trend-title">Unsubscribe Compliance</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:6px;margin-bottom:14px;">
-                Per Gmail's 2024 sender requirements, bulk senders must implement one-click unsubscribe (RFC 8058) and honor unsubscribe requests within 2 days.
+            <div class="pm-ts-head">
+              <div>
+                <div class="pm-ts-title">Unsubscribe compliance</div>
+                <div class="pm-ts-sub">Per Gmail&rsquo;s 2024 sender requirements, bulk senders must implement one-click unsubscribe (RFC 8058) and honor unsubscribe requests within 2 days.</div>
               </div>
-              <div id="gpm-fbl-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">
-                <!-- Cards rendered by populateGpmUnsubscribe() -->
-              </div>
+            </div>
+            <div class="pm-compl-grid" id="gpm-fbl-cards">
+              <!-- Cards rendered by populateGpmUnsubscribe() -->
+            </div>
             </div>
           </div>
 
-          <!-- TAB 3: Authentication — INBOX-112 -->
+          <!-- TAB 3: Authentication -->
+          <!-- INBOX-184 Step 5: same recipe as Spam — section head +
+               .pm-chart-card (3-line canvas) + legend + .pm-data-card. -->
           <div class="gpm-panel pm-tab-body" id="gpm-auth">
-            <div style="margin-top:16px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <div class="pm-trend-title" style="margin:0;">Authentication Rates (SPF, DKIM, DMARC)</div>
-                <select class="eh-period-select" data-period-target="auth" onchange="ehChangePeriod(this)" style="padding:4px 8px;font-size:11px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-muted);">
-                  <option value="7">Last 7 days</option>
-                  <option value="14">Last 14 days</option>
-                  <option value="30" selected>Last 30 days</option>
-                </select>
-              </div>
-              <!-- INBOX-133: honest labelling. Google's web UI shows
-                   alignment-aware rates (Return-Path ↔ From: match for SPF,
-                   d= ↔ From: match for DKIM) — but the v2 API only exposes
-                   basic pass rates. We display what the API actually
-                   returns; expect lower numbers in Google's UI. DMARC is
-                   identical between API and UI because alignment is built
-                   into DMARC by definition. True alignment % is on our
-                   roadmap via DMARC RUA ingestion (INBOX-134). -->
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;line-height:1.5;">
-                Basic SPF and DKIM pass rates from Google's API. Google's web UI shows alignment-aware rates (a stricter measure) — those aren't exposed via API.
-                <a href="#" onclick="event.preventDefault();document.getElementById('eh-auth-explainer').style.display='block';" style="color:var(--accent);text-decoration:none;">Learn more</a>
-                <div id="eh-auth-explainer" style="display:none;margin-top:8px;padding:10px 12px;background:var(--surface-2);border-radius:6px;border-left:3px solid var(--accent);">
-                  <strong style="color:var(--text);">SPF / DKIM pass vs alignment</strong><br>
-                  <span style="color:var(--text-muted);">Basic SPF pass = sending IP authorised by the Return-Path domain. SPF alignment (what Google's UI shows) = pass <em>and</em> Return-Path matches the visible From: domain. Mail relayed through ESPs often passes basic SPF but fails alignment. DMARC inherently requires alignment, so its API value matches the UI.</span>
+            <div class="pm-ts-head">
+              <div>
+                <div class="pm-ts-title">Authentication rates</div>
+                <div class="pm-ts-sub">
+                  Basic SPF and DKIM pass rates from Google&rsquo;s API. Google&rsquo;s web UI shows alignment-aware rates (a stricter measure) &mdash; those aren&rsquo;t exposed via API.
+                  <a href="#" onclick="event.preventDefault();var e=document.getElementById('eh-auth-explainer');e.style.display=e.style.display==='block'?'none':'block';">Learn more</a>
+                </div>
+                <!-- INBOX-133: honest labelling explainer. Hidden by default. -->
+                <div id="eh-auth-explainer" style="display:none;margin-top:10px;padding:12px 14px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);max-width:720px;">
+                  <strong style="color:var(--text);font-size:13px;">SPF / DKIM pass vs alignment</strong><br>
+                  <span style="color:var(--pm-fg-3);font-size:12px;line-height:1.6;">Basic SPF pass = sending IP authorised by the Return-Path domain. SPF alignment (what Google&rsquo;s UI shows) = pass <em>and</em> Return-Path matches the visible From: domain. Mail relayed through ESPs often passes basic SPF but fails alignment. DMARC inherently requires alignment, so its API value matches the UI.</span>
                 </div>
               </div>
-              <!-- INBOX-112: replaced grouped-bar chart with multi-line SVG.
-                   Bar chart at 30 days × 3 series = 90 bars was visually
-                   overwhelming. Lines are the standard for time-series
-                   percentages near 100% — dips are instantly visible. -->
-              <!-- 2026-04-27: hand-rolled SVG → Chart.js. See Spam tab
-                   above for full reasoning. Chart.js draws its own legend
-                   so the manual legend row was removed. -->
-              <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-top:8px;height:280px;position:relative;">
+              <select class="pm-period-select" data-period-target="auth" onchange="ehChangePeriod(this)">
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30" selected>Last 30 days</option>
+              </select>
+            </div>
+            <div class="pm-chart-card">
+              <div class="pm-chart-svg-wrap">
                 <canvas id="gpm-auth-chart"></canvas>
               </div>
-
-              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:16px;">
-                <thead><tr style="border-bottom:1px solid var(--border);">
-                  <th onclick="ehToggleSort('gpm-auth', animateGpmAuth)" title="Click to toggle sort" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;cursor:pointer;user-select:none;">Date <span id="gpm-auth-sort-icon">▼</span></th>
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DKIM Rate</th>
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">SPF Rate</th>
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">DMARC Rate</th>
+              <div class="pm-chart-legend">
+                <span class="pm-leg"><span class="pm-leg-swatch" style="background:#0070f3"></span>DMARC</span>
+                <span class="pm-leg"><span class="pm-leg-swatch" style="background:#b91c1c"></span>DKIM</span>
+                <span class="pm-leg"><span class="pm-leg-swatch" style="background:#b87100"></span>SPF</span>
+                <span class="pm-leg-meta" id="gpm-auth-legend-meta">Last 30 days · newest first</span>
+              </div>
+            </div>
+            <div class="pm-data-card">
+              <div class="pm-data-head">
+                <div class="pm-data-head-title">Daily breakdown</div>
+                <div class="pm-data-head-meta" id="gpm-auth-data-meta">Last 30 days</div>
+              </div>
+              <table class="pm-data-table">
+                <thead><tr>
+                  <th class="pm-th-sortable" onclick="ehToggleSort('gpm-auth', animateGpmAuth)" title="Click to toggle sort">Date <span id="gpm-auth-sort-icon">▼</span></th>
+                  <th class="pm-th-right">DKIM rate</th>
+                  <th class="pm-th-right">SPF rate</th>
+                  <th class="pm-th-right">DMARC rate</th>
                 </tr></thead>
                 <tbody id="gpm-auth-table-body">
-                  <tr><td colspan="4" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
+                  <tr><td colspan="4" class="pm-muted" style="text-align:center;">Loading…</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
 
           <!-- TAB 5: Encryption -->
+          <!-- INBOX-184 Step 7: stat strip (44px values) + designed data
+               card per mockup lines 778–814. -->
           <div class="gpm-panel pm-tab-body" id="gpm-encryption">
-            <div style="margin-top:16px;">
-              <div class="pm-trend-title">TLS Encryption Rate</div>
-              <div class="pm-grid" style="grid-template-columns:repeat(2,1fr);margin-top:8px;">
-                <div class="pm-metric">
-                  <div class="pm-label">Inbound TLS</div>
-                  <div class="pm-value" id="gpm-enc-tls-val">—</div>
-                  <div class="pm-sub" id="gpm-enc-tls-sub">Loading...</div>
-                </div>
-                <div class="pm-metric">
-                  <div class="pm-label">Outbound TLS</div>
-                  <div class="pm-value" id="gpm-enc-tls-outbound-val">—</div>
-                  <div class="pm-sub" id="gpm-enc-tls-outbound-sub">Loading…</div>
-                </div>
+            <div class="pm-ts-head">
+              <div>
+                <div class="pm-ts-title">TLS encryption rate</div>
+                <div class="pm-ts-sub">Inbound = Gmail-to-this-domain traffic. Outbound = this-domain-to-Gmail traffic.</div>
               </div>
-              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
-                <thead><tr style="border-bottom:1px solid var(--border);">
-                  <th onclick="ehToggleSort('gpm-tls', populateGpmEncryption)" title="Click to toggle sort" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;cursor:pointer;user-select:none;">Date <span id="gpm-tls-sort-icon">▼</span></th>
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Inbound TLS</th>
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Outbound TLS</th>
+            </div>
+            <div class="pm-stat-strip">
+              <div class="pm-stat-cell">
+                <div class="pm-stat-label">Inbound TLS</div>
+                <div class="pm-stat-value pm-num" id="gpm-enc-tls-val">—</div>
+                <div class="pm-stat-sub" id="gpm-enc-tls-sub">Loading…</div>
+              </div>
+              <div class="pm-stat-cell">
+                <div class="pm-stat-label">Outbound TLS</div>
+                <div class="pm-stat-value pm-num" id="gpm-enc-tls-outbound-val">—</div>
+                <div class="pm-stat-sub" id="gpm-enc-tls-outbound-sub">Loading…</div>
+              </div>
+            </div>
+            <div class="pm-data-card">
+              <div class="pm-data-head">
+                <div class="pm-data-head-title">Daily breakdown</div>
+                <div class="pm-data-head-meta">28 days · newest first</div>
+              </div>
+              <table class="pm-data-table">
+                <thead><tr>
+                  <th class="pm-th-sortable" onclick="ehToggleSort('gpm-tls', populateGpmEncryption)" title="Click to toggle sort">Date <span id="gpm-tls-sort-icon">▼</span></th>
+                  <th class="pm-th-right">Inbound TLS</th>
+                  <th class="pm-th-right">Outbound TLS</th>
                 </tr></thead>
                 <tbody id="gpm-enc-tls-table-body">
-                  <tr><td colspan="3" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
+                  <tr><td colspan="3" class="pm-muted" style="text-align:center;">Loading…</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
 
           <!-- TAB 6: Delivery Error Rate -->
+          <!-- INBOX-184 Step 7: big-stat-card centered hero stat per mockup
+               lines 816–830. Empty-state stays muted/zinc, never red. -->
           <div class="gpm-panel pm-tab-body" id="gpm-errors">
-            <div style="margin-top:16px;">
-              <div class="pm-trend-title">Delivery Error Rate</div>
-              <div class="pm-grid" style="grid-template-columns:1fr;margin-top:8px;">
-                <div class="pm-metric">
-                  <div class="pm-label">Error Rate</div>
-                  <div class="pm-value" id="gpm-enc-err-val">—</div>
-                  <div class="pm-sub" id="gpm-enc-err-sub">Loading...</div>
-                </div>
+            <div class="pm-ts-head">
+              <div>
+                <div class="pm-ts-title">Delivery error rate</div>
+                <div class="pm-ts-sub">Rate of recipient-side rejections + temporary failures (4xx + 5xx). High error rates can throttle Gmail acceptance.</div>
               </div>
-              <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;">
-                <thead><tr style="border-bottom:1px solid var(--border);">
-                  <th onclick="ehToggleSort('gpm-err', populateGpmEncryption)" title="Click to toggle sort" style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;cursor:pointer;user-select:none;">Date <span id="gpm-err-sort-icon">▼</span></th>
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Error Type</th>
-                  <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Reason</th>
-                  <th style="text-align:right;padding:8px 12px;font-size:11px;text-transform:uppercase;color:var(--text-muted);font-weight:600;">Percentage</th>
+            </div>
+            <div class="pm-big-stat-card" id="gpm-big-stat-card">
+              <div class="pm-big-stat-icon" id="gpm-big-stat-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div class="pm-big-stat-label">Error rate · last 30 days</div>
+              <div class="pm-big-stat-value pm-num" id="gpm-enc-err-val">—</div>
+              <div class="pm-big-stat-sub" id="gpm-enc-err-sub">Loading…</div>
+            </div>
+            <div class="pm-data-card">
+              <div class="pm-data-head">
+                <div class="pm-data-head-title">Daily breakdown</div>
+                <div class="pm-data-head-meta">By type · 28 days</div>
+              </div>
+              <table class="pm-data-table">
+                <thead><tr>
+                  <th class="pm-th-sortable" onclick="ehToggleSort('gpm-err', populateGpmEncryption)" title="Click to toggle sort">Date <span id="gpm-err-sort-icon">▼</span></th>
+                  <th>Error type</th>
+                  <th>Reason</th>
+                  <th class="pm-th-right">Percentage</th>
                 </tr></thead>
                 <tbody id="gpm-enc-err-table-body">
-                  <tr><td colspan="4" style="padding:12px;color:var(--text-muted);text-align:center;">Loading...</td></tr>
+                  <tr><td colspan="4" class="pm-muted" style="text-align:center;">Loading…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1265,20 +1292,36 @@ function animateGpmAuth() {
   const labels = metrics.map(m => ehFormatDateShortMD(m.date));
   const seriesValues = (key) => metrics.map(m => m[key] != null ? m[key] * 100 : null);
 
+  // INBOX-184 Step 5: V2 colors per locked mockup —
+  // DMARC #0070f3 (blue), DKIM #b91c1c (red), SPF #b87100 (amber).
+  // Subtle gradient under DMARC (headline series).
   const config = {
     type: 'line',
     data: {
       labels: labels,
       datasets: [
         { label: 'DMARC', data: seriesValues('auth_success_dmarc'),
-          borderColor: '#4285F4', backgroundColor: 'rgba(66,133,244,0.04)',
-          borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
+          borderColor: '#0070f3',
+          backgroundColor: function(ctx) {
+            const chart = ctx.chart;
+            const { ctx: c, chartArea } = chart;
+            if (!chartArea) return 'rgba(0,112,243,0.06)';
+            const grad = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            grad.addColorStop(0, 'rgba(0,112,243,0.10)');
+            grad.addColorStop(1, 'rgba(0,112,243,0.00)');
+            return grad;
+          },
+          fill: true,
+          borderWidth: 2.2, tension: 0.2, pointRadius: 2.5, pointHoverRadius: 5,
+          pointBorderColor: '#ffffff', pointBorderWidth: 1, spanGaps: true },
         { label: 'DKIM', data: seriesValues('auth_success_dkim'),
-          borderColor: '#EA4335', backgroundColor: 'rgba(234,67,53,0.04)',
-          borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
+          borderColor: '#b91c1c', backgroundColor: 'rgba(185,28,28,0.04)',
+          borderWidth: 2.2, tension: 0.2, pointRadius: 2.5, pointHoverRadius: 5,
+          pointBorderColor: '#ffffff', pointBorderWidth: 1, spanGaps: true },
         { label: 'SPF', data: seriesValues('auth_success_spf'),
-          borderColor: '#FBBC05', backgroundColor: 'rgba(251,188,5,0.04)',
-          borderWidth: 2, tension: 0.15, pointRadius: 2.5, pointHoverRadius: 5, spanGaps: true },
+          borderColor: '#b87100', backgroundColor: 'rgba(184,113,0,0.04)',
+          borderWidth: 2.2, tension: 0.2, pointRadius: 2.5, pointHoverRadius: 5,
+          pointBorderColor: '#ffffff', pointBorderWidth: 1, spanGaps: true },
       ]
     },
     options: ehChartBaseOptions({
@@ -1294,33 +1337,33 @@ function animateGpmAuth() {
   _gpmAuthChart = new Chart(canvas, config);
 
   // --- Auth table ---
-  // INBOX-133: newest-first per DESIGN-SYSTEM convention.
+  // INBOX-184 Step 5: pm-data-table styling — class-based ok/warn/danger.
+  // Newest-first per DESIGN-SYSTEM (INBOX-133). Threshold rules from
+  // INBOX-143: >=99.5% pm-ok, 95–99.49% pm-warn, <95% pm-danger.
   const tbody = document.getElementById('gpm-auth-table-body');
   tbody.innerHTML = '';
-  // INBOX-143 (v1.16.2): tightened thresholds to match the alert
-  // Rules tab — warn at <99%, critical at <95%. Previously >=95%
-  // showed solid green which made 96% visually identical to 100%
-  // and contradicted the alert rule that would fire on 96%.
-  //   >= 99.5%  green   (effectively perfect, with rounding tolerance)
-  //   95-99.49% yellow  (warn — below industry-good threshold)
-  //   <  95%    red     (critical — Gmail-block territory)
-  function authColor(pct) {
-    if (pct == null) return 'var(--text-muted)';
-    if (pct >= 99.5) return 'var(--green)';
-    if (pct >= 95)   return 'var(--yellow)';
-    return 'var(--red)';
+  const periodSel = document.querySelector('select[data-period-target="auth"]');
+  const periodLabel = periodSel ? periodSel.options[periodSel.selectedIndex].text : 'Last 30 days';
+  const legMeta = document.getElementById('gpm-auth-legend-meta');
+  const dataMeta = document.getElementById('gpm-auth-data-meta');
+  if (legMeta) legMeta.textContent = periodLabel + ' · newest first';
+  if (dataMeta) dataMeta.textContent = periodLabel;
+  function authCls(pct) {
+    if (pct == null) return 'pm-muted';
+    if (pct >= 99.5) return 'pm-ok';
+    if (pct >= 95)   return 'pm-warn';
+    return 'pm-danger';
   }
   const authRows = ehSortByDate(metrics, 'date', 'gpm-auth');
-  authRows.forEach((m, i) => {
+  authRows.forEach((m) => {
     const dkim  = m.auth_success_dkim  != null ? (m.auth_success_dkim  * 100) : null;
     const spf   = m.auth_success_spf   != null ? (m.auth_success_spf   * 100) : null;
     const dmarc = m.auth_success_dmarc != null ? (m.auth_success_dmarc * 100) : null;
     const tr = document.createElement('tr');
-    if (i < authRows.length - 1) tr.style.borderBottom = '1px solid var(--border)';
-    tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(m.date || '—') + '</td>'
-      + '<td style="padding:8px 12px;color:' + authColor(dkim) + ';">' + (dkim != null ? dkim.toFixed(2) + '%' : 'N/A') + '</td>'
-      + '<td style="padding:8px 12px;color:' + authColor(spf) + ';">' + (spf != null ? spf.toFixed(2) + '%' : 'N/A') + '</td>'
-      + '<td style="padding:8px 12px;color:' + authColor(dmarc) + ';">' + (dmarc != null ? dmarc.toFixed(2) + '%' : 'N/A') + '</td>';
+    tr.innerHTML = '<td>' + escapeHtml(m.date || '—') + '</td>'
+      + '<td class="pm-td-right ' + authCls(dkim) + '">'  + (dkim  != null ? dkim.toFixed(2)  + '%' : 'N/A') + '</td>'
+      + '<td class="pm-td-right ' + authCls(spf) + '">'   + (spf   != null ? spf.toFixed(2)   + '%' : 'N/A') + '</td>'
+      + '<td class="pm-td-right ' + authCls(dmarc) + '">' + (dmarc != null ? dmarc.toFixed(2) + '%' : 'N/A') + '</td>';
     tbody.appendChild(tr);
   });
 }
@@ -1330,21 +1373,33 @@ function populateGpmEncryption() {
   const metrics = gpmMetricsCache || [];
   if (metrics.length === 0) return;
 
+  // INBOX-184 Step 7: V2 stat strip — class-based colors (pm-success/
+  // pm-warn/pm-danger/pm-muted) on the .pm-stat-value element.
+  function setStatVal(el, sub, val, isFull, fullText, fallbackText) {
+    el.classList.remove('pm-success', 'pm-warn', 'pm-danger', 'pm-muted');
+    if (val == null) {
+      el.textContent = '—';
+      el.classList.add('pm-muted');
+      sub.textContent = fallbackText || 'No data';
+      return;
+    }
+    el.textContent = val.toFixed(1) + '%';
+    if (val >= 95)      el.classList.add('pm-success');
+    else if (val >= 80) el.classList.add('pm-warn');
+    else                el.classList.add('pm-danger');
+    sub.textContent = isFull ? fullText : 'Avg over ' + metrics.length + ' days';
+  }
+
   // --- TLS summary card ---
   const tlsVal = document.getElementById('gpm-enc-tls-val');
   const tlsSub = document.getElementById('gpm-enc-tls-sub');
-  // Compute average TLS across all days
   const tlsRates = metrics.filter(m => m.encrypted_traffic_tls != null).map(m => m.encrypted_traffic_tls * 100);
   if (tlsRates.length > 0) {
     const avg = tlsRates.reduce((a, b) => a + b, 0) / tlsRates.length;
-    tlsVal.textContent = avg.toFixed(1) + '%';
-    tlsVal.style.color = avg >= 95 ? 'var(--green)' : avg >= 80 ? 'var(--yellow)' : 'var(--red)';
     const allFull = tlsRates.every(r => r >= 99.9);
-    tlsSub.textContent = allFull ? 'All days at 100%' : 'Avg over ' + metrics.length + ' days';
+    setStatVal(tlsVal, tlsSub, avg, allFull, 'All days at 100% — no plaintext detected.', null);
   } else {
-    tlsVal.textContent = '—';
-    tlsVal.style.color = 'var(--text-muted)';
-    tlsSub.textContent = 'No TLS data';
+    setStatVal(tlsVal, tlsSub, null, false, null, 'No TLS data in this period.');
   }
 
   // --- INBOX-112: Outbound TLS summary card ---
@@ -1361,64 +1416,72 @@ function populateGpmEncryption() {
   const tlsOutSub = document.getElementById('gpm-enc-tls-outbound-sub');
   const outRates = metrics.filter(m => getOutbound(m) != null).map(m => getOutbound(m) * 100);
   if (tlsOutVal && tlsOutSub) {
+    tlsOutVal.classList.remove('pm-success', 'pm-warn', 'pm-danger', 'pm-muted');
     if (outRates.length > 0) {
       const oavg = outRates.reduce((a, b) => a + b, 0) / outRates.length;
       const allZero = outRates.every(r => r === 0);
       tlsOutVal.textContent = oavg.toFixed(1) + '%';
-      // INBOX-112 followup-2: empty state ≠ failure. Per DESIGN-SYSTEM.md
-      // (status-info = zinc/muted). 0% outbound = no Gmail-to-domain
-      // traffic in this period (Gmail wasn't sending us mail). That's a
-      // neutral fact, not an alert — colour muted, not red.
       if (allZero) {
-        tlsOutVal.style.color = 'var(--text-muted)';
-        tlsOutSub.textContent = 'No Gmail-to-domain traffic in this period';
+        // INBOX-112 followup-2: empty state ≠ failure. 0% outbound = no
+        // Gmail-to-domain traffic. Render muted, not red.
+        tlsOutVal.classList.add('pm-muted');
+        tlsOutSub.textContent = 'No Gmail-to-domain traffic in this period.';
       } else {
-        tlsOutVal.style.color = oavg >= 95 ? 'var(--green)' : oavg >= 80 ? 'var(--yellow)' : 'var(--red)';
-        tlsOutSub.textContent = outRates.every(r => r >= 99.9) ? 'All days at 100%' : 'Avg over ' + outRates.length + ' days';
+        if (oavg >= 95)      tlsOutVal.classList.add('pm-success');
+        else if (oavg >= 80) tlsOutVal.classList.add('pm-warn');
+        else                 tlsOutVal.classList.add('pm-danger');
+        tlsOutSub.textContent = outRates.every(r => r >= 99.9) ? 'All days at 100%.' : 'Avg over ' + outRates.length + ' days.';
       }
     } else {
       tlsOutVal.textContent = '—';
-      tlsOutVal.style.color = 'var(--text-muted)';
-      tlsOutSub.textContent = 'Pending — appears after next sync';
+      tlsOutVal.classList.add('pm-muted');
+      tlsOutSub.textContent = 'Pending — appears after next sync.';
     }
   }
 
   // --- TLS table (with outbound column populated) ---
-  // INBOX-133: newest-first per DESIGN-SYSTEM convention.
+  // INBOX-184 Step 7: pm-data-table styling. Newest-first per INBOX-133.
+  function tlsCls(pct) {
+    if (pct == null) return 'pm-muted';
+    if (pct >= 95) return 'pm-ok';
+    if (pct >= 80) return 'pm-warn';
+    return 'pm-danger';
+  }
   const tlsBody = document.getElementById('gpm-enc-tls-table-body');
   tlsBody.innerHTML = '';
   const tlsRows = ehSortByDate(metrics, 'date', 'gpm-tls');
-  tlsRows.forEach((m, i) => {
+  tlsRows.forEach((m) => {
     const pct = m.encrypted_traffic_tls != null ? (m.encrypted_traffic_tls * 100) : null;
-    const color = pct != null ? (pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--yellow)' : 'var(--red)') : 'var(--text-muted)';
     const outVal = getOutbound(m);
     const outPct = outVal != null ? outVal * 100 : null;
     // INBOX-112 followup-2: 0% outbound = no Gmail-to-domain traffic
-    // that day, not a failure. Render as muted "—" so the table doesn't
-    // scream red on receive-light domains.
-    let outColor, outText;
-    if (outPct == null) {
-      outColor = 'var(--text-muted)';
-      outText = '—';
-    } else if (outPct === 0) {
-      outColor = 'var(--text-muted)';
+    // that day, not a failure. Render as muted "—" instead of red 0%.
+    let outCls, outText;
+    if (outPct == null || outPct === 0) {
+      outCls = 'pm-muted';
       outText = '—';
     } else {
-      outColor = outPct >= 95 ? 'var(--green)' : outPct >= 80 ? 'var(--yellow)' : 'var(--red)';
+      outCls = tlsCls(outPct);
       outText = outPct.toFixed(2) + '%';
     }
     const tr = document.createElement('tr');
-    if (i < tlsRows.length - 1) tr.style.borderBottom = '1px solid var(--border)';
-    tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(m.date || '—') + '</td>'
-      + '<td style="padding:8px 12px;color:' + color + ';">' + (pct != null ? pct.toFixed(2) + '%' : 'N/A') + '</td>'
-      + '<td style="padding:8px 12px;color:' + outColor + ';">' + outText + '</td>';
+    tr.innerHTML = '<td>' + escapeHtml(m.date || '—') + '</td>'
+      + '<td class="pm-td-right ' + tlsCls(pct) + '">' + (pct != null ? pct.toFixed(2) + '%' : 'N/A') + '</td>'
+      + '<td class="pm-td-right ' + outCls + '">' + outText + '</td>';
     tlsBody.appendChild(tr);
   });
 
-  // --- Delivery Errors summary ---
+  // --- Delivery Errors big-stat card + table ---
+  // INBOX-184 Step 7: V2 big-stat-card with state class on parent
+  // (.pm-state-success / .pm-state-warn / .pm-state-danger).
   const errVal = document.getElementById('gpm-enc-err-val');
   const errSub = document.getElementById('gpm-enc-err-sub');
-  // Collect all error entries across all days
+  const errCard = document.getElementById('gpm-big-stat-card');
+  const errIcon = document.getElementById('gpm-big-stat-icon');
+  const ICON_BIG_OK   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+  const ICON_BIG_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>';
+
+  // Collect all error entries across all days.
   const allErrors = [];
   metrics.forEach(m => {
     if (m.delivery_errors && typeof m.delivery_errors === 'object') {
@@ -1428,33 +1491,34 @@ function populateGpmEncryption() {
     }
   });
 
+  if (errCard) errCard.classList.remove('pm-state-success', 'pm-state-warn', 'pm-state-danger');
   if (allErrors.length === 0) {
     errVal.textContent = '0%';
-    errVal.style.color = 'var(--green)';
-    errSub.textContent = 'No rejections or temp failures';
+    errSub.textContent = 'No rejections or temporary failures detected. Gmail accepted every message you sent.';
+    if (errCard) errCard.classList.add('pm-state-success');
+    if (errIcon) errIcon.innerHTML = ICON_BIG_OK;
   } else {
     const maxErr = Math.max(...allErrors.map(e => e.pct));
     errVal.textContent = allErrors.length + ' issue' + (allErrors.length > 1 ? 's' : '');
-    errVal.style.color = maxErr > 5 ? 'var(--red)' : 'var(--yellow)';
-    errSub.textContent = 'Peak: ' + maxErr.toFixed(1) + '%';
+    errSub.textContent = 'Peak: ' + maxErr.toFixed(1) + '%. Investigate the rows below.';
+    if (errCard) errCard.classList.add(maxErr > 5 ? 'pm-state-danger' : 'pm-state-warn');
+    if (errIcon) errIcon.innerHTML = ICON_BIG_WARN;
   }
 
-  // --- Delivery Errors table ---
-  // INBOX-133: newest-first per DESIGN-SYSTEM convention.
+  // --- Delivery Errors table (pm-data-table) ---
   const errBody = document.getElementById('gpm-enc-err-table-body');
   errBody.innerHTML = '';
   if (allErrors.length === 0) {
-    errBody.innerHTML = '<tr><td colspan="4" style="padding:20px 12px;text-align:center;color:var(--text-muted);">No delivery errors in this period ✓</td></tr>';
+    errBody.innerHTML = '<tr><td colspan="4" class="pm-muted" style="text-align:center;padding:20px;">No delivery errors in this period ✓</td></tr>';
   } else {
     const errRows = ehSortByDate(allErrors, 'date', 'gpm-err');
-    errRows.forEach((e, i) => {
+    errRows.forEach((e) => {
+      const cls = e.pct > 5 ? 'pm-danger' : e.pct > 1 ? 'pm-warn' : 'pm-muted';
       const tr = document.createElement('tr');
-      if (i < errRows.length - 1) tr.style.borderBottom = '1px solid var(--border)';
-      const color = e.pct > 5 ? 'var(--red)' : e.pct > 1 ? 'var(--yellow)' : 'var(--text-muted)';
-      tr.innerHTML = '<td style="padding:8px 12px;">' + escapeHtml(e.date || '—') + '</td>'
-        + '<td style="padding:8px 12px;">' + escapeHtml(e.type) + '</td>'
-        + '<td style="padding:8px 12px;color:var(--text-muted);">—</td>'
-        + '<td style="padding:8px 12px;text-align:right;color:' + color + ';">' + e.pct.toFixed(2) + '%</td>';
+      tr.innerHTML = '<td>' + escapeHtml(e.date || '—') + '</td>'
+        + '<td>' + escapeHtml(e.type) + '</td>'
+        + '<td class="pm-muted">—</td>'
+        + '<td class="pm-td-right ' + cls + '">' + e.pct.toFixed(2) + '%</td>';
       errBody.appendChild(tr);
     });
   }
@@ -1739,22 +1803,36 @@ function populateGpmUnsubscribe(oneClick, oneClickReason, honor, honorReason) {
     'NOT_HONORING_TOO_FEW_CAMPAIGNS': 'Too few campaigns to evaluate (insufficient data).',
     'NOT_HONORING_TOO_MANY_CAMPAIGNS': 'Multiple campaigns not honoring within 2 days.'
   };
+  // INBOX-184 Step 6: V2 .pm-compl-card per mockup — gradient bg + 44px
+  // icon tile + status (24px) + title (15px) + description.
+  const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+  const ICON_X     = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  const ICON_INFO  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16"/></svg>';
   function renderCard(title, verdict, reason, reasonMap) {
-    const isCompliant = verdict === 'COMPLIANT';
-    const isNoData = !verdict;
-    const color = isCompliant ? 'var(--green)' : isNoData ? 'var(--text-muted)' : 'var(--red)';
-    const bg = isCompliant ? 'var(--green-bg)' : isNoData ? 'var(--surface-2)' : 'var(--red-bg)';
-    const label = isCompliant ? '✓ Compliant' : isNoData ? '— Awaiting Google verdict' : '✗ Needs work';
-    const subText = isCompliant
-      ? 'Google reports this domain meets the requirement.'
-      : isNoData
-        ? 'Google has not yet reported a verdict for this domain — typically appears after meaningful send volume.'
-        : (reasonMap[reason] || 'See Google Postmaster Tools for details.');
-    return `<div style="padding:18px;border-radius:12px;background:${bg};border:1px solid var(--border);">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text);">${escapeHtml(title)}</div>
-      <div style="font-size:18px;font-weight:700;color:${color};margin-bottom:10px;">${label}</div>
-      <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">${escapeHtml(subText)}</div>
-    </div>`;
+    let cardCls, statusText, iconSvg, descText;
+    if (verdict === 'COMPLIANT') {
+      cardCls = 'pm-compl-card pm-compl-success';
+      statusText = 'Compliant';
+      iconSvg = ICON_CHECK;
+      descText = 'Google reports this domain meets the requirement.';
+    } else if (!verdict) {
+      cardCls = 'pm-compl-card pm-compl-empty';
+      statusText = 'Awaiting Google verdict';
+      iconSvg = ICON_INFO;
+      descText = 'Google has not yet reported a verdict for this domain — typically appears after meaningful send volume.';
+    } else {
+      cardCls = 'pm-compl-card pm-compl-danger';
+      statusText = 'Needs work';
+      iconSvg = ICON_X;
+      descText = reasonMap[reason] || 'See Google Postmaster Tools for details.';
+    }
+    return ''
+      + '<div class="' + cardCls + '">'
+      +   '<div class="pm-compl-card-icon">' + iconSvg + '</div>'
+      +   '<div class="pm-compl-card-status">' + statusText + '</div>'
+      +   '<div class="pm-compl-card-title">' + escapeHtml(title) + '</div>'
+      +   '<div class="pm-compl-card-desc">' + escapeHtml(descText) + '</div>'
+      + '</div>';
   }
   cards.innerHTML =
     renderCard('One-click unsubscribe', oneClick, oneClickReason, oneClickReasons) +

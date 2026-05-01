@@ -552,6 +552,198 @@ html[data-theme="dark"] .pm-detail-card {
   .pm-data-table th, .pm-data-table td { padding: 10px 16px; }
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   STEP 6 — Unsubscribe Compliance gradient cards
+   Source: design-mockups/postmaster-v2.html lines 350–364, 701–714.
+   ════════════════════════════════════════════════════════════════════ */
+
+.pm-compl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.pm-compl-card {
+  border-radius: 14px;
+  padding: 28px 30px;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+/* Compliant — soft green gradient + green border for accent. */
+.pm-compl-card.pm-compl-success {
+  background: linear-gradient(180deg, var(--green-bg) 0%, transparent 80%), var(--surface);
+  border-color: var(--green);
+}
+.pm-compl-card.pm-compl-success .pm-compl-card-icon {
+  background: var(--green);
+  color: #ffffff;
+}
+.pm-compl-card.pm-compl-success .pm-compl-card-status { color: var(--green); }
+
+/* Needs-work — red tint. */
+.pm-compl-card.pm-compl-danger {
+  background: linear-gradient(180deg, var(--red-bg) 0%, transparent 80%), var(--surface);
+  border-color: var(--red);
+}
+.pm-compl-card.pm-compl-danger .pm-compl-card-icon {
+  background: var(--red);
+  color: #ffffff;
+}
+.pm-compl-card.pm-compl-danger .pm-compl-card-status { color: var(--red); }
+
+/* Empty / awaiting — muted neutral, no gradient (per Vinoop's rule
+   "0 / null / no traffic → muted/zinc, not red"). */
+.pm-compl-card.pm-compl-empty .pm-compl-card-icon {
+  background: var(--surface-2);
+  color: var(--pm-fg-2);
+}
+.pm-compl-card.pm-compl-empty .pm-compl-card-status { color: var(--pm-fg-2); }
+
+.pm-compl-card-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+}
+.pm-compl-card-icon svg { width: 22px; height: 22px; }
+.pm-compl-card-status {
+  font-size: 24px; font-weight: 600;
+  letter-spacing: -0.02em; line-height: 1.1;
+  margin-bottom: 6px;
+}
+.pm-compl-card-title {
+  font-size: 15px; font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  line-height: 1.3;
+}
+.pm-compl-card-desc {
+  font-size: 13px;
+  color: var(--pm-fg-2);
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .pm-compl-grid { grid-template-columns: 1fr; }
+  .pm-compl-card { padding: 22px 20px; }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   STEP 7 — Encryption stat strip + Delivery big stat card
+   Source: mockup lines 366–401, 785–796, 824–828.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Stat strip — 2 cells with 44px tabular value + sub. */
+.pm-stat-strip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.pm-stat-cell {
+  padding: 32px 36px;
+  border-right: 1px solid var(--border);
+  text-align: left;
+}
+.pm-stat-cell:last-child { border-right: none; }
+.pm-stat-label {
+  font-size: 11px; font-weight: 600;
+  color: var(--pm-fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+}
+.pm-stat-value {
+  font-size: 44px; font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+.pm-stat-value.pm-success { color: var(--green); }
+.pm-stat-value.pm-warn    { color: var(--yellow); }
+.pm-stat-value.pm-danger  { color: var(--red); }
+.pm-stat-value.pm-muted   { color: var(--pm-fg-4); }
+.pm-stat-sub {
+  font-size: 13px;
+  color: var(--pm-fg-3);
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+/* Big stat card — centered hero stat with gradient bg + icon. */
+.pm-big-stat-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 48px 32px 40px;
+  text-align: center;
+  margin-bottom: 16px;
+  background: var(--surface);
+}
+.pm-big-stat-card.pm-state-success {
+  background: linear-gradient(180deg, var(--green-bg) 0%, transparent 60%), var(--surface);
+}
+.pm-big-stat-card.pm-state-warn {
+  background: linear-gradient(180deg, var(--yellow-bg) 0%, transparent 60%), var(--surface);
+}
+.pm-big-stat-card.pm-state-danger {
+  background: linear-gradient(180deg, var(--red-bg) 0%, transparent 60%), var(--surface);
+}
+.pm-big-stat-icon {
+  width: 64px; height: 64px;
+  border-radius: 16px;
+  background: var(--pm-fg-2);
+  color: #ffffff;
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-bottom: 22px;
+}
+.pm-big-stat-card.pm-state-success .pm-big-stat-icon { background: var(--green); }
+.pm-big-stat-card.pm-state-warn    .pm-big-stat-icon { background: var(--yellow); }
+.pm-big-stat-card.pm-state-danger  .pm-big-stat-icon { background: var(--red); }
+.pm-big-stat-icon svg { width: 32px; height: 32px; }
+.pm-big-stat-label {
+  font-size: 11px; font-weight: 600;
+  color: var(--pm-fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+.pm-big-stat-value {
+  font-size: 64px; font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.pm-big-stat-card.pm-state-success .pm-big-stat-value { color: var(--green); }
+.pm-big-stat-card.pm-state-warn    .pm-big-stat-value { color: var(--yellow); }
+.pm-big-stat-card.pm-state-danger  .pm-big-stat-value { color: var(--red); }
+.pm-big-stat-sub {
+  font-size: 14px;
+  color: var(--pm-fg-2);
+  margin-top: 16px;
+  max-width: 480px;
+  margin-left: auto; margin-right: auto;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .pm-stat-strip { grid-template-columns: 1fr; }
+  .pm-stat-cell {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 22px 24px;
+  }
+  .pm-stat-cell:last-child { border-bottom: none; }
+  .pm-stat-value { font-size: 36px; }
+  .pm-big-stat-card { padding: 32px 20px 28px; }
+  .pm-big-stat-value { font-size: 48px; }
+}
+
 /* ─── Mobile responsive (≤768px) ─── */
 @media (max-width: 768px) {
   .pm-page-header { flex-direction: column; gap: 12px; }
