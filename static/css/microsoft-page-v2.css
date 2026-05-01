@@ -1,0 +1,279 @@
+/* ─────────────────────────────────────────────────────────────────
+   microsoft-page-v2.css — Microsoft SNDS-only widgets.
+   INBOX-185 · 2026-05-01
+
+   Chrome (sidebar / page header / detail card / tabs / data card /
+   stat strip / pills) lives in postmaster-page-v2.css and is reused
+   verbatim. This file adds only what's unique to SNDS:
+
+     • IP grid (Sending IPs latest status)
+     • Stat-strip 4-cell variant for IP Health
+     • Clean banner (Trap Hits)
+     • Summary banner + Alert banner (Reputation Heatmap header)
+     • Heatmap grid (7 IPs × 30 days)
+     • Advice card (what-to-do guidance)
+
+   Page-prefix `.snd-*` for these widgets so they can't collide with
+   `.pm-*` chrome or the legacy inline <style>.
+   ───────────────────────────────────────────────────────────────── */
+
+/* ─── IP Health: 4-cell stat strip ──────────────────────────────── */
+.snd-stat-strip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.snd-stat-cell {
+  padding: 22px 24px;
+  border-right: 1px solid var(--border);
+}
+.snd-stat-cell:last-child { border-right: none; }
+.snd-stat-label {
+  font-size: 11px; font-weight: 600;
+  color: var(--pm-fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+.snd-stat-value {
+  font-size: 30px; font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+.snd-stat-value.pm-success { color: var(--green); }
+.snd-stat-value.pm-warn    { color: var(--yellow); }
+.snd-stat-value.pm-danger  { color: var(--red); }
+.snd-stat-value.pm-muted   { color: var(--pm-fg-4); }
+.snd-stat-sub {
+  font-size: 12px;
+  color: var(--pm-fg-3);
+  margin-top: 10px;
+}
+
+/* ─── IP Health: Sending IPs grid ───────────────────────────────── */
+.snd-ip-section-head {
+  font-size: 13px; font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.snd-ip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.snd-ip-card {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color 100ms ease;
+}
+.snd-ip-card:hover { border-color: var(--pm-border-strong); }
+.snd-ip-row { display: flex; align-items: center; gap: 8px; }
+.snd-ip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.snd-ip-dot.green  { background: var(--green); }
+.snd-ip-dot.yellow { background: var(--yellow); }
+.snd-ip-dot.red    { background: var(--red); }
+.snd-ip-addr {
+  font-family: 'Geist Mono', monospace;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+}
+.snd-ip-meta {
+  font-size: 11px;
+  color: var(--pm-fg-3);
+  padding-left: 16px;
+}
+.snd-ip-meta strong { color: var(--pm-fg-2); font-weight: 600; }
+
+/* ─── Trap Hits: clean banner ───────────────────────────────────── */
+.snd-clean-banner {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 28px 32px;
+  background: linear-gradient(180deg, var(--green-bg) 0%, transparent 80%), var(--surface);
+  border: 1px solid var(--green);
+  border-radius: 14px;
+}
+.snd-clean-banner-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: var(--green);
+  color: #ffffff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.snd-clean-banner-icon svg { width: 22px; height: 22px; }
+.snd-clean-banner-text { flex: 1; }
+.snd-clean-banner-title {
+  font-size: 18px; font-weight: 600;
+  color: var(--green);
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.snd-clean-banner-desc {
+  font-size: 13px;
+  color: var(--pm-fg-2);
+  line-height: 1.55;
+}
+
+/* Danger variant for the same banner shape (when hits > 0). */
+.snd-clean-banner.snd-state-danger {
+  background: linear-gradient(180deg, var(--red-bg) 0%, transparent 80%), var(--surface);
+  border-color: var(--red);
+}
+.snd-clean-banner.snd-state-danger .snd-clean-banner-icon { background: var(--red); }
+.snd-clean-banner.snd-state-danger .snd-clean-banner-title { color: var(--red); }
+
+/* ─── Reputation Heatmap: summary + alert banners ───────────────── */
+.snd-summary-banner {
+  display: flex; align-items: center; gap: 18px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.snd-sm-pill {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.snd-sm-pill.green { color: var(--green); }
+.snd-sm-pill.amber { color: var(--yellow); }
+.snd-sm-pill.red   { color: var(--red); }
+.snd-summary-banner .snd-sep { color: var(--pm-fg-4); }
+.snd-summary-banner .snd-meta { margin-left: auto; color: var(--pm-fg-3); }
+
+.snd-alert-banner {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 14px 18px;
+  background: linear-gradient(180deg, var(--yellow-bg) 0%, transparent 90%), var(--surface);
+  border: 1px solid var(--yellow);
+  border-radius: 10px;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+.snd-alert-banner-icon { color: var(--yellow); flex-shrink: 0; margin-top: 1px; }
+.snd-alert-banner-text { flex: 1; color: var(--pm-fg-2); line-height: 1.55; }
+.snd-alert-banner-text code {
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px;
+  padding: 1px 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.snd-alert-banner-text strong { color: var(--yellow); font-weight: 600; }
+
+/* ─── Reputation Heatmap: grid ─────────────────────────────────── */
+.snd-heatmap-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+.snd-heatmap {
+  display: grid;
+  grid-template-columns: 110px repeat(30, 1fr);
+  gap: 3px;
+  min-width: 800px;
+}
+.snd-hm-col-label {
+  font-size: 11px;
+  color: var(--pm-fg-4);
+  font-variant-numeric: tabular-nums;
+  padding-bottom: 8px;
+  text-align: center;
+}
+.snd-hm-row-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px;
+  color: var(--pm-fg-2);
+  display: flex; align-items: center;
+  padding-right: 10px;
+}
+.snd-hm-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+.snd-hm-cell.green  { background: var(--green); }
+.snd-hm-cell.yellow { background: #f5a623; }
+.snd-hm-cell.red    { background: var(--red); }
+.snd-hm-cell.empty  { background: var(--surface-2); border: 1px dashed var(--pm-border-strong); }
+
+.snd-heatmap-legend {
+  display: flex; gap: 18px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--pm-fg-2);
+  flex-wrap: wrap;
+}
+.snd-heatmap-legend .snd-leg { display: inline-flex; align-items: center; gap: 6px; }
+.snd-heatmap-legend .snd-leg-swatch { width: 14px; height: 14px; border-radius: 3px; }
+.snd-heatmap-legend .snd-leg-swatch.green  { background: var(--green); }
+.snd-heatmap-legend .snd-leg-swatch.yellow { background: #f5a623; }
+.snd-heatmap-legend .snd-leg-swatch.red    { background: var(--red); }
+.snd-heatmap-legend .snd-leg-swatch.empty  { background: var(--surface-2); border: 1px dashed var(--pm-border-strong); }
+.snd-heatmap-legend .snd-leg-meta { margin-left: auto; color: var(--pm-fg-4); }
+
+/* ─── Advice card (what-to-do guidance) ─────────────────────────── */
+.snd-advice-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 26px;
+}
+.snd-advice-title {
+  font-size: 14px; font-weight: 600;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+.snd-advice-list { display: flex; flex-direction: column; gap: 12px; }
+.snd-advice-row { display: flex; gap: 12px; align-items: flex-start; }
+.snd-advice-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+.snd-advice-dot.yellow { background: #f5a623; }
+.snd-advice-dot.red    { background: var(--red); }
+.snd-advice-dot.muted  { background: var(--pm-fg-4); }
+.snd-advice-text {
+  flex: 1;
+  font-size: 13px;
+  color: var(--pm-fg-2);
+  line-height: 1.55;
+}
+.snd-advice-text strong { color: var(--text); font-weight: 600; }
+.snd-advice-text a {
+  color: var(--text);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+/* Tabular numerals helper. */
+.snd-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+/* Mobile */
+@media (max-width: 768px) {
+  .snd-stat-strip { grid-template-columns: 1fr 1fr; }
+  .snd-stat-cell { border-right: none; border-bottom: 1px solid var(--border); }
+  .snd-stat-cell:nth-last-child(-n+2) { border-bottom: none; }
+  .snd-heatmap { grid-template-columns: 90px repeat(30, 1fr); min-width: 700px; }
+  .snd-clean-banner { padding: 22px 20px; }
+}
