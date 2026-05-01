@@ -436,6 +436,122 @@ html[data-theme="dark"] .pm-detail-card {
 .pm-pill.pm-pill-empty   { background: var(--surface-2); color: var(--pm-fg-3); }
 .pm-pill.pm-pill-empty   .pm-ind { background: var(--pm-fg-4); }
 
+/* ════════════════════════════════════════════════════════════════════
+   STEP 4 — Chart card + Period select + Data card (mockup-match)
+   Source: design-mockups/postmaster-v2.html lines 305–348.
+   Used by Spam tab here, then reused by Authentication + Encryption.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Period select — Vercel-style outline pill on right of section head. */
+.pm-period-select {
+  appearance: none; -webkit-appearance: none;
+  height: 34px;
+  padding: 0 32px 0 14px;
+  background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 11px center;
+  border: 1px solid var(--pm-border-strong);
+  border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: border-color 100ms ease;
+}
+.pm-period-select:hover { border-color: var(--text); }
+
+/* Chart card — rounded surface, generous padding, hairline border. */
+.pm-chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px 20px;
+  margin-bottom: 24px;
+}
+.pm-chart-svg-wrap { position: relative; width: 100%; }
+.pm-chart-svg-wrap canvas,
+.pm-chart-svg-wrap svg { display: block; width: 100%; height: 280px; }
+
+/* Legend below chart, separated by a top hairline. */
+.pm-chart-legend {
+  display: flex; gap: 24px;
+  justify-content: flex-start;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--pm-fg-2);
+  flex-wrap: wrap;
+}
+.pm-leg { display: inline-flex; align-items: center; gap: 8px; }
+.pm-leg .pm-leg-swatch {
+  width: 14px; height: 3px;
+  border-radius: 2px;
+  background: var(--text);
+}
+.pm-leg-meta {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--pm-fg-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Data card — outlined rounded surface wrapping a table. */
+.pm-data-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.pm-data-head {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.pm-data-head-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.pm-data-head-meta  { font-size: 12px; color: var(--pm-fg-3); }
+
+.pm-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.pm-data-table th {
+  text-align: left;
+  padding: 12px 24px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pm-fg-3);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+  user-select: none;
+}
+.pm-data-table th.pm-th-sortable { cursor: pointer; }
+.pm-data-table th.pm-th-sortable:hover { color: var(--text); }
+.pm-data-table th.pm-th-right { text-align: right; }
+.pm-data-table td {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--pm-fg-1);
+}
+.pm-data-table td.pm-td-right { text-align: right; }
+.pm-data-table tr:last-child td { border-bottom: none; }
+.pm-data-table tbody tr:hover td { background: var(--surface-2); }
+.pm-data-table .pm-ok     { color: var(--green);  font-weight: 500; }
+.pm-data-table .pm-warn   { color: var(--yellow); font-weight: 500; }
+.pm-data-table .pm-danger { color: var(--red);    font-weight: 500; }
+.pm-data-table .pm-muted  { color: var(--pm-fg-4); }
+
+/* Mobile — chart card padding tightens. */
+@media (max-width: 768px) {
+  .pm-chart-card { padding: 18px 16px 14px; }
+  .pm-chart-svg-wrap canvas,
+  .pm-chart-svg-wrap svg { height: 220px; }
+  .pm-data-head { padding: 14px 16px; }
+  .pm-data-table th, .pm-data-table td { padding: 10px 16px; }
+}
+
 /* ─── Mobile responsive (≤768px) ─── */
 @media (max-width: 768px) {
   .pm-page-header { flex-direction: column; gap: 12px; }
