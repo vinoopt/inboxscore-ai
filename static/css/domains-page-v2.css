@@ -389,6 +389,172 @@
   .dom-domain-action { opacity: 1; }  /* always visible on touch */
 }
 
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 3 — Sidebar shell + page header actions
+   INBOX-179 §3 · 2026-05-01
+
+   Removes the legacy topnav. Brand moves into the sidebar top. User
+   name + Log Out + mobile toggle move into the page-header right.
+   Sidebar nav uses SVG icons (was emoji) and a grey active state
+   (was purple-soft + purple border-left).
+
+   Sidebar markup uses `.dom-sidebar` (no legacy `.sidebar` class) so
+   the inline `.sidebar { background: ... }` rules in the <style> block
+   no longer apply. JS toggleSidebar() updated to use the new class.
+
+   Plan-badge bottom-left is kept for now — replaced by the sidebar
+   plan card in INBOX-180 (with backend wiring + Free/Pro variants).
+   ────────────────────────────────────────────────────────────────── */
+
+/* Override legacy .main height: was calc(100vh - 53px) accounting for
+   the now-removed 53px topnav. Without this override, content cuts off
+   53px early. Source-order win — this file loads after inline <style>. */
+.main {
+  max-height: 100vh;
+}
+
+/* Sidebar shell — 240px wide (was 220px), 16px top/12px side padding,
+   border-right separates from main, white background. */
+.dom-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+}
+
+/* Brand block at sidebar top — black square mark + name */
+.dom-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 22px;
+}
+.dom-sidebar-mark {
+  width: 24px;
+  height: 24px;
+  background: var(--text);
+  color: var(--surface);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: -0.04em;
+}
+.dom-sidebar-name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+  letter-spacing: -0.025em;
+}
+
+/* Nav list */
+.dom-sidebar-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Nav items — pill rows, grey hover, grey active. Note: the legacy
+   `.sidebar-nav li a` rules use a different selector path so this
+   doesn't collide. */
+.dom-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: var(--dom-fg-2);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+  font-weight: 500;
+  letter-spacing: -0.011em;
+  margin-bottom: 1px;
+  text-decoration: none;
+  border-left: none;       /* kill legacy purple border-left */
+}
+.dom-nav-item:hover { background: var(--surface-2); color: var(--text); }
+.dom-nav-item.active { background: var(--surface-2); color: var(--text); }
+.dom-nav-item svg {
+  color: currentColor;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+/* Numeric badge inside nav item (e.g. Domains "5", Alerts unread count) */
+.dom-nav-item .dom-nav-badge {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--dom-fg-3);
+  background: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.dom-nav-item.active .dom-nav-badge {
+  background: var(--surface);
+}
+
+/* Sidebar footer — pinned to bottom. Plan badge lives here for now;
+   INBOX-180 will replace with the full plan card. */
+.dom-sidebar-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* Page header actions — right side of the page header. Holds the
+   user name, Log Out button, and on mobile the sidebar toggle. */
+.dom-page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.dom-user-name {
+  font-size: 13px;
+  color: var(--dom-fg-2);
+}
+.dom-logout-btn {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--dom-fg-2);
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 100ms ease, color 100ms ease, background 100ms ease;
+}
+.dom-logout-btn:hover {
+  border-color: var(--text);
+  color: var(--text);
+  background: var(--surface-2);
+}
+.dom-mobile-toggle {
+  display: none;             /* hidden on desktop */
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--dom-fg-2);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  font-family: inherit;
+  align-items: center;
+  justify-content: center;
+}
+.dom-mobile-toggle:hover { color: var(--text); border-color: var(--text); }
+
 /* ─── Mobile responsive (≤768px) ─── */
 @media (max-width: 768px) {
   .dom-page-header { flex-direction: column; gap: 12px; }
@@ -398,4 +564,17 @@
   .dom-action-row-right { width: 100%; }
   .dom-add-btn { width: 100%; justify-content: center; }
   .dom-search-input { max-width: none; }
+
+  /* Show mobile toggle, drawer behaviour for sidebar */
+  .dom-mobile-toggle { display: inline-flex; }
+  .dom-sidebar {
+    position: fixed;
+    left: -260px;
+    top: 0;
+    bottom: 0;
+    z-index: 20;
+    transition: left 0.3s;
+    width: 260px;
+  }
+  .dom-sidebar.open { left: 0; }
 }
