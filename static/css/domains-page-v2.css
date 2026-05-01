@@ -575,24 +575,31 @@
   border-color: var(--text);
   background: var(--surface-2);
 }
-.dom-theme-toggle .icon { display: none; }
-[data-theme="dark"] .dom-theme-toggle .icon-sun { display: block; }
-:not([data-theme="dark"]) .dom-theme-toggle .icon-moon { display: block; }
+/* Default (light): show moon, hide sun.
+   Dark: hide moon, show sun.
+   Avoid `:not([data-theme="dark"])` — it matches every ancestor that
+   isn't the html element, so moon stays visible even in dark mode. */
+.dom-theme-toggle .icon-moon { display: block; }
+.dom-theme-toggle .icon-sun  { display: none; }
+html[data-theme="dark"] .dom-theme-toggle .icon-moon { display: none; }
+html[data-theme="dark"] .dom-theme-toggle .icon-sun  { display: block; }
 
 /* ──────────────────────────────────────────────────────────────────
    DARK MODE — token overrides for /domains page.
    INBOX-179 §3 polish · 2026-05-01
 
-   Override the legacy :root tokens at body level when data-theme="dark".
-   The legacy inline <style> block defines :root tokens for light mode;
-   our body override has higher cascade priority so every element that
-   reads `var(--surface)`, `var(--text)`, etc. flips automatically.
+   Override the legacy :root tokens when data-theme="dark" is set on
+   the <html> element (the early-hydrate script in <head> sets it
+   there before body parses, killing FOUC).
 
-   Dark tokens chosen to match the dashboard-v2 mockup palette
-   (Vercel-leaning blacks + true-grey neutrals). Status soft-bgs use
-   low-alpha accent-on-black for legibility on dark surface.
+   Specificity gotcha: legacy inline <style> has `:root { ... }` which
+   loads AFTER our V2 <link>. Plain `:root` and `[data-theme="dark"]`
+   both have specificity (0,0,1,0) — equal — so the legacy wins by
+   source order. We use `html[data-theme="dark"]` (specificity 0,0,1,1)
+   to guarantee our overrides beat the legacy `:root` regardless of
+   load order.
    ────────────────────────────────────────────────────────────────── */
-[data-theme="dark"] {
+html[data-theme="dark"] {
   --bg: #000000;
   --surface: #0f0f0f;
   --surface-2: #1a1a1a;
