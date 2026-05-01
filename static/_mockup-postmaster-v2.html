@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google Postmaster — InboxScore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     POSTMASTER V2 — built fresh on Vercel design DNA
+     Hero score-ring · big tabular numerals · confident whitespace
+     pill-tabs · designed rows · status pills with dots · sparklines
+     ════════════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --surface-2: #f4f4f5;
+    --surface-3: #ebebed;
+    --fg: #000000;
+    --fg-1: #171717;
+    --fg-2: #404040;
+    --fg-3: #666666;
+    --fg-4: #888888;
+    --fg-5: #a1a1a1;
+    --border: #eaeaea;
+    --border-strong: #d4d4d8;
+    --accent: #0070f3;
+    --accent-2: #0050a3;
+    --accent-soft: #e6f0ff;
+    --success: #00875a;
+    --success-text: #00603f;
+    --success-soft: #d1fae5;
+    --warn: #b87100;
+    --warn-text: #8a5500;
+    --warn-soft: #fef3c7;
+    --danger: #b91c1c;
+    --danger-soft: #fee2e2;
+    --ring: rgba(0,0,0,0.06);
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-2: 0 8px 24px -8px rgba(0,0,0,0.10);
+  }
+  html[data-theme="dark"] {
+    --bg: #000000;
+    --surface: #0a0a0a;
+    --surface-2: #161616;
+    --surface-3: #1f1f1f;
+    --fg: #ffffff;
+    --fg-1: #ededed;
+    --fg-2: #a1a1a1;
+    --fg-3: #888888;
+    --fg-4: #666666;
+    --fg-5: #525252;
+    --border: rgba(255,255,255,0.10);
+    --border-strong: rgba(255,255,255,0.16);
+    --accent: #3291ff;
+    --accent-2: #59a7ff;
+    --accent-soft: rgba(50,145,255,0.10);
+    --success: #26d978;
+    --success-text: #4ade80;
+    --success-soft: rgba(38,217,120,0.12);
+    --warn: #f5a623;
+    --warn-text: #f5b342;
+    --warn-soft: rgba(245,166,35,0.12);
+    --danger: #f87171;
+    --danger-soft: rgba(248,113,113,0.12);
+    --ring: rgba(255,255,255,0.06);
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.5);
+    --shadow-2: 0 8px 24px -8px rgba(0,0,0,0.4);
+  }
+
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background 200ms ease, color 200ms ease;
+  }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* ═══════════════════════════════════ SIDEBAR ═══════════════════════════════════ */
+  .sidebar { background: var(--bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 24px; }
+  .brand-mark { width: 26px; height: 26px; background: var(--fg); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; color: var(--bg); letter-spacing: -0.04em; }
+  .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.025em; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 7px; color: var(--fg-2); font-size: 13px; cursor: pointer; transition: background 100ms ease, color 100ms ease; font-weight: 500; margin-bottom: 1px; text-decoration: none; }
+  .nav-item:hover { background: var(--surface-2); color: var(--fg); }
+  .nav-item.active { background: var(--surface-2); color: var(--fg); }
+  .nav-item svg { color: currentColor; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-size: 11px; color: var(--fg-3); background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .nav-item.active .badge { background: var(--surface); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
+  .plan-card { padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  .plan-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .plan-meta { font-size: 12px; color: var(--fg-2); margin-bottom: 12px; }
+  .plan-bar { height: 4px; background: var(--surface-2); border-radius: 2px; margin-bottom: 10px; overflow: hidden; }
+  .plan-bar-fill { height: 100%; width: 70%; background: var(--fg); border-radius: 2px; }
+  .plan-link { font-size: 12px; color: var(--accent); font-weight: 500; cursor: pointer; }
+  .plan-link:hover { text-decoration: underline; }
+
+  /* ═══════════════════════════════════ MAIN ═══════════════════════════════════ */
+  .main { background: var(--bg); min-width: 0; }
+  .container { max-width: 1280px; padding: 40px 48px 96px; }
+
+  /* Page header */
+  .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 8px; }
+  .page-title { font-size: 36px; font-weight: 600; letter-spacing: -0.04em; line-height: 1.1; margin-bottom: 8px; }
+  .page-subtitle { font-size: 15px; color: var(--fg-3); max-width: 600px; }
+  .page-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .user-name { font-size: 13px; color: var(--fg-2); }
+  .icon-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-strong); background: transparent; color: var(--fg-2); border-radius: 8px; cursor: pointer; transition: all 100ms ease; }
+  .icon-btn:hover { color: var(--fg); border-color: var(--fg); }
+  .logout-btn { background: var(--surface); border: 1px solid var(--border-strong); color: var(--fg-2); padding: 7px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all 100ms ease; font-family: inherit; }
+  .logout-btn:hover { border-color: var(--fg); color: var(--fg); }
+  .icon-sun, .icon-moon { display: none; }
+  html[data-theme="dark"] .icon-sun { display: block; }
+  html:not([data-theme="dark"]) .icon-moon { display: block; }
+
+  /* Domain pill */
+  .domain-pill { display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 999px; font-size: 13px; font-weight: 500; margin-top: 24px; cursor: pointer; transition: border-color 100ms ease; }
+  .domain-pill:hover { border-color: var(--fg); }
+  .domain-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+  .domain-pill svg { color: var(--fg-3); }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 100ms ease; font-family: inherit; border: 1px solid transparent; }
+  .btn svg { width: 14px; height: 14px; }
+  .btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .btn.primary:hover { background: var(--fg-1); border-color: var(--fg-1); }
+  .btn.ghost { background: transparent; color: var(--fg-2); border-color: var(--border-strong); }
+  .btn.ghost:hover { color: var(--fg); border-color: var(--fg); background: var(--surface-2); }
+
+  /* Section heading — editorial */
+  .section-heading { display: flex; align-items: center; justify-content: space-between; margin: 40px 0 16px; }
+  .section-heading-text { font-size: 11px; font-weight: 600; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 8px; }
+  .section-heading-text svg { color: var(--fg-3); }
+  .section-heading-meta { font-size: 12px; color: var(--fg-3); }
+
+  /* ═══════════════════════════════════ HERO ═══════════════════════════════════ */
+  .hero {
+    margin-top: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px 40px;
+    box-shadow: var(--shadow-1);
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 36px;
+    align-items: center;
+  }
+  /* Score ring like Dashboard */
+  .score-ring { width: 124px; height: 124px; position: relative; flex-shrink: 0; }
+  .score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .score-ring-bg { stroke: var(--surface-2); }
+  .score-ring-fg { stroke: var(--success); transition: stroke-dashoffset 600ms ease; }
+  .score-ring-content {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+  }
+  .score-ring-num { font-size: 36px; font-weight: 600; color: var(--fg); line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .score-ring-label { font-size: 11px; color: var(--fg-3); margin-top: 4px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .hero-text { min-width: 0; }
+  .hero-status-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .hero-status { font-size: 30px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.1; }
+  .hero-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: var(--success-soft); color: var(--success-text); font-size: 12px; font-weight: 500; border-radius: 999px; }
+  .hero-pill .ind { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+  .hero-summary { font-size: 14px; color: var(--fg-2); line-height: 1.55; max-width: 560px; }
+  .hero-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-4); margin-top: 14px; }
+  .hero-meta-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--fg-4); }
+  .hero-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+
+  /* Hero stat tiles — 4-column connected strip */
+  .hero-stats { margin-top: 32px; padding-top: 32px; border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+  .hero-stat { min-width: 0; }
+  .hero-stat-label { font-size: 11px; font-weight: 600; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .hero-stat-row { display: flex; align-items: baseline; gap: 8px; }
+  .hero-stat-value { font-size: 32px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.025em; }
+  .hero-stat-value.success { color: var(--success-text); }
+  .hero-stat-value.muted { color: var(--fg-4); }
+  .hero-stat-trend { font-size: 12px; color: var(--success-text); font-weight: 500; }
+  .hero-stat-sub { font-size: 12px; color: var(--fg-3); margin-top: 6px; }
+  /* Sparkline beneath the value */
+  .hero-stat-spark { display: block; width: 100%; height: 24px; margin-top: 10px; }
+
+  /* ═══════════════════════════════════ DETAIL CARD (TABS) ═══════════════════════════════════ */
+  .detail-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow-1);
+  }
+
+  /* Provider header — at the top of the detail card.
+     Mirrors the live: G logo + name + last-sync on left, Sync now on right.
+     Vercel polish: 56px logo tile, 18px name, generous padding. */
+  .provider-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .provider-head-left { display: flex; align-items: center; gap: 16px; min-width: 0; }
+  .provider-logo {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .provider-logo svg { display: block; }
+  .provider-head-text { min-width: 0; }
+  .provider-name { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; color: var(--fg); }
+  .provider-meta { font-size: 13px; color: var(--fg-3); margin-top: 2px; }
+
+  /* Pill-style tabs — Vercel signature */
+  .tabs-bar {
+    display: flex;
+    gap: 4px;
+    padding: 14px 16px 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 9px 14px;
+    border-radius: 8px 8px 0 0;
+    font-size: 13px; font-weight: 500;
+    color: var(--fg-3);
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 100ms ease, background 100ms ease;
+  }
+  .tab:hover { color: var(--fg); background: var(--surface-2); }
+  .tab.active {
+    color: var(--fg);
+    border-bottom-color: var(--fg);
+    background: transparent;
+  }
+
+  .tab-body { padding: 36px 40px 40px; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Tab section head */
+  .ts-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; gap: 16px; }
+  .ts-title { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+  .ts-sub { font-size: 13px; color: var(--fg-3); margin-top: 6px; max-width: 720px; line-height: 1.6; }
+  .ts-sub a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .ts-sub a:hover { text-decoration: underline; }
+  .period-select {
+    appearance: none; -webkit-appearance: none;
+    height: 34px; padding: 0 32px 0 14px;
+    background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 11px center;
+    border: 1px solid var(--border-strong); border-radius: 8px;
+    font-size: 13px; color: var(--fg); font-weight: 500;
+    cursor: pointer; font-family: inherit;
+    flex-shrink: 0;
+  }
+  .period-select:hover { border-color: var(--fg); }
+
+  /* ─── COMPLIANCE ROWS ─── */
+  .req-list { display: flex; flex-direction: column; gap: 8px; }
+  .req-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: border-color 100ms ease, background 100ms ease;
+  }
+  .req-row:hover { border-color: var(--border-strong); background: var(--surface-2); }
+  .req-info { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .req-icon { width: 32px; height: 32px; border-radius: 9px; background: var(--success-soft); color: var(--success-text); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .req-icon svg { width: 15px; height: 15px; }
+  .req-text { min-width: 0; }
+  .req-label { font-size: 14px; font-weight: 500; color: var(--fg); letter-spacing: -0.005em; line-height: 1.3; }
+  .req-sub { font-size: 12px; color: var(--fg-3); margin-top: 3px; }
+
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; flex-shrink: 0; }
+  .pill .ind { width: 6px; height: 6px; border-radius: 50%; }
+  .pill.success { background: var(--success-soft); color: var(--success-text); }
+  .pill.success .ind { background: var(--success); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn-text); }
+  .pill.warn .ind { background: var(--warn); }
+  .pill.danger { background: var(--danger-soft); color: var(--danger); }
+  .pill.danger .ind { background: var(--danger); }
+
+  /* ─── CHART CARD ─── */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px 20px;
+    margin-bottom: 24px;
+  }
+  .chart-svg svg { display: block; width: 100%; height: 280px; }
+  .chart-legend { display: flex; gap: 24px; justify-content: flex-start; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--fg-2); }
+  .chart-legend .leg { display: inline-flex; align-items: center; gap: 8px; }
+  .chart-legend .leg .swatch { width: 14px; height: 3px; border-radius: 2px; }
+
+  /* ─── DATA TABLE ─── */
+  .data-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .data-head { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .data-head-title { font-size: 14px; font-weight: 600; }
+  .data-head-meta { font-size: 12px; color: var(--fg-3); }
+  .data-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .data-table th {
+    text-align: left; padding: 12px 24px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--fg-3); font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table th.right { text-align: right; }
+  .data-table td {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--fg-1);
+  }
+  .data-table td.right { text-align: right; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface-2); }
+  .data-table .ok { color: var(--success-text); font-weight: 500; }
+  .data-table .warn { color: var(--warn-text); font-weight: 500; }
+  .data-table .danger { color: var(--danger); font-weight: 500; }
+  .data-table .muted { color: var(--fg-4); }
+
+  /* ─── COMPLIANT CARDS (Unsubscribe) ─── */
+  .compl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .compl-card {
+    background: linear-gradient(180deg, var(--success-soft) 0%, transparent 80%), var(--surface);
+    border: 1px solid var(--success);
+    border-radius: 14px;
+    padding: 28px 30px;
+    position: relative;
+    overflow: hidden;
+  }
+  .compl-card-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--success); color: white; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+  .compl-card-icon svg { width: 22px; height: 22px; }
+  .compl-card-status { font-size: 24px; font-weight: 600; color: var(--success-text); letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 6px; }
+  .compl-card-title { font-size: 15px; font-weight: 600; color: var(--fg); margin-bottom: 12px; line-height: 1.3; }
+  .compl-card-desc { font-size: 13px; color: var(--fg-2); line-height: 1.6; }
+
+  /* ─── STAT STRIP (Encryption) ─── */
+  .stat-strip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .stat-cell {
+    padding: 32px 36px;
+    border-right: 1px solid var(--border);
+    text-align: left;
+  }
+  .stat-cell:last-child { border-right: none; }
+  .stat-label { font-size: 11px; font-weight: 600; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 14px; }
+  .stat-value { font-size: 44px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.025em; }
+  .stat-value.success { color: var(--success-text); }
+  .stat-value.muted { color: var(--fg-4); }
+  .stat-sub { font-size: 13px; color: var(--fg-3); margin-top: 12px; }
+
+  /* ─── BIG STAT (Delivery Error) ─── */
+  .big-stat-card {
+    background: linear-gradient(180deg, var(--success-soft) 0%, transparent 60%), var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px 32px 40px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .big-stat-icon { width: 64px; height: 64px; border-radius: 16px; background: var(--success); color: white; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 22px; }
+  .big-stat-icon svg { width: 32px; height: 32px; }
+  .big-stat-label { font-size: 11px; font-weight: 600; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+  .big-stat-value { font-size: 64px; font-weight: 600; line-height: 1; color: var(--success-text); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .big-stat-sub { font-size: 14px; color: var(--fg-2); margin-top: 16px; max-width: 400px; margin-left: auto; margin-right: auto; }
+
+  /* Mobile */
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .container { padding: 24px 20px 80px; }
+    .page-title { font-size: 28px; }
+    .hero { padding: 24px; }
+    .hero-grid { grid-template-columns: 1fr; gap: 24px; text-align: center; }
+    .hero-text { text-align: center; }
+    .hero-summary { margin: 0 auto; }
+    .hero-actions { align-items: center; }
+    .hero-stats { grid-template-columns: 1fr 1fr; gap: 24px; }
+    .compl-grid { grid-template-columns: 1fr; }
+    .stat-strip { grid-template-columns: 1fr; }
+    .stat-cell { border-right: none; border-bottom: 1px solid var(--border); }
+    .stat-cell:last-child { border-bottom: none; }
+    .tab-body { padding: 24px 20px 28px; }
+  }
+</style>
+</head>
+
+<body>
+<div class="layout">
+
+  <!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">IS</div>
+      <div class="brand-name">InboxScore</div>
+    </div>
+    <nav>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg>
+        <span>Google Postmaster</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8.5"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><circle cx="18" cy="18" r="3"/><path d="m22 22-1.5-1.5"/></svg>
+        <span>Microsoft SNDS</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        <span>Blacklist Monitor</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        <span>Domains</span><span class="badge">5</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/></svg>
+        <span>Sending IPs</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <span>Alerts</span>
+      </a>
+      <a href="#" class="nav-item">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="plan-card">
+        <div class="plan-title">Pro plan</div>
+        <div class="plan-meta"><span class="num">7</span> of <span class="num">10</span> domains</div>
+        <div class="plan-bar"><div class="plan-bar-fill"></div></div>
+        <div class="plan-link">Manage plan →</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════ MAIN ═══════════════════ -->
+  <main class="main">
+    <div class="container">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Google Postmaster</h1>
+          <p class="page-subtitle">Compliance, spam, authentication, and delivery data from Google's Postmaster API.</p>
+        </div>
+        <div class="page-actions">
+          <span class="user-name">Vinoop Thayatt</span>
+          <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button class="logout-btn">Log Out</button>
+        </div>
+      </div>
+
+      <!-- Domain selector pill -->
+      <div class="domain-pill">
+        <span class="dot"></span>
+        <span>mailercloud.com</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+
+      <!-- ════════════════════ PROVIDER CARD ════════════════════
+           Mirrors the live Postmaster card 1:1 — same composition,
+           Vercel polish on every element. No new sections added. -->
+      <div class="detail-card" style="margin-top:32px;">
+        <!-- Provider header — G logo + name + last sync + Sync now (matches live) -->
+        <div class="provider-head">
+          <div class="provider-head-left">
+            <div class="provider-logo">
+              <svg viewBox="0 0 24 24" width="24" height="24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            </div>
+            <div class="provider-head-text">
+              <div class="provider-name">Google Postmaster</div>
+              <div class="provider-meta">Last synced 20 hours ago</div>
+            </div>
+          </div>
+          <button class="btn primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Sync now
+          </button>
+        </div>
+
+        <div class="tabs-bar">
+          <div class="tab active" data-tab="compliance" onclick="pmTab('compliance')">Compliance Status</div>
+          <div class="tab" data-tab="spam" onclick="pmTab('spam')">Spam</div>
+          <div class="tab" data-tab="unsubscribe" onclick="pmTab('unsubscribe')">Unsubscribe Compliance</div>
+          <div class="tab" data-tab="auth" onclick="pmTab('auth')">Authentication</div>
+          <div class="tab" data-tab="encryption" onclick="pmTab('encryption')">Encryption</div>
+          <div class="tab" data-tab="delivery" onclick="pmTab('delivery')">Delivery Error Rate</div>
+        </div>
+
+        <!-- ════ TAB: COMPLIANCE STATUS ════ -->
+        <div class="tab-body tab-content active" data-tab="compliance">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">Sender requirements</div>
+              <div class="ts-sub">Gmail's 2024 sender requirements — every bulk sender must meet these. All 8 are currently compliant for this domain.</div>
+            </div>
+          </div>
+          <div class="req-list">
+            <div class="req-row">
+              <div class="req-info">
+                <div class="req-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="req-text">
+                  <div class="req-label">SPF Alignment &amp; DKIM authentication</div>
+                  <div class="req-sub">Both passing on outbound mail to Gmail.</div>
+                </div>
+              </div>
+              <span class="pill success"><span class="ind"></span>Compliant</span>
+            </div>
+            <div class="req-row">
+              <div class="req-info">
+                <div class="req-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="req-text">
+                  <div class="req-label">From: header alignment</div>
+                  <div class="req-sub">From: domain matches authenticated domain.</div>
+                </div>
+              </div>
+              <span class="pill success"><span class="ind"></span>Compliant</span>
+            </div>
+            <div class="req-row">
+              <div class="req-info">
+                <div class="req-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="req-text">
+                  <div class="req-label">DMARC authentication</div>
+                  <div class="req-sub">Published policy at p=none or stricter.</div>
+                </div>
+              </div>
+              <span class="pill success"><span class="ind"></span>Compliant</span>
+            </div>
+            <div class="req-row">
+              <div class="req-info">
+                <div class="req-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="req-text">
+                  <div class="req-label">Encryption</div>
+                  <div class="req-sub">TLS for all SMTP transactions to Gmail.</div>
+                </div>
+              </div>
+              <span class="pill success"><span class="ind"></span>Compliant</span>
+            </div>
+            <div class="req-row">
+              <div class="req-info">
+                <div class="req-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="req-text">
+                  <div class="req-label">User-reported spam rate</div>
+                  <div class="req-sub">Stays below Gmail's 0.30% policy threshold.</div>
+                </div>
+              </div>
+              <span class="pill success"><span class="ind"></span>Compliant</span>
+            </div>
+            <div class="req-row">
+              <div class="req-info">
+                <div class="req-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="req-text">
+                  <div class="req-label">DNS records</div>
+                  <div class="req-sub">SPF, DKIM, DMARC, PTR records valid.</div>
+                </div>
+              </div>
+              <span class="pill success"><span class="ind"></span>Compliant</span>
+            </div>
+            <div class="req-row">
+              <div class="req-info">
+                <div class="req-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="req-text">
+                  <div class="req-label">One-click unsubscribe</div>
+                  <div class="req-sub">RFC 8058 List-Unsubscribe-Post header present.</div>
+                </div>
+              </div>
+              <span class="pill success"><span class="ind"></span>Compliant</span>
+            </div>
+            <div class="req-row">
+              <div class="req-info">
+                <div class="req-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="req-text">
+                  <div class="req-label">Honor unsubscribe</div>
+                  <div class="req-sub">Requests processed within 2 days.</div>
+                </div>
+              </div>
+              <span class="pill success"><span class="ind"></span>Compliant</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ TAB: SPAM ════ -->
+        <div class="tab-body tab-content" data-tab="spam">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">User-reported spam rate</div>
+              <div class="ts-sub">Daily spam rate from Gmail. Stay below 0.10% recommended; above 0.30% Gmail will throttle delivery.</div>
+            </div>
+            <select class="period-select"><option>Last 30 days</option><option>Last 7 days</option><option>Last 90 days</option></select>
+          </div>
+          <div class="chart-card">
+            <div class="chart-svg">
+              <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="spamGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#0070f3" stop-opacity="0.18"/>
+                    <stop offset="100%" stop-color="#0070f3" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <line x1="44" y1="20"  x2="780" y2="20"  stroke="var(--border)" stroke-width="0.8"/>
+                <line x1="44" y1="80"  x2="780" y2="80"  stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="140" x2="780" y2="140" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="200" x2="780" y2="200" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="240" x2="780" y2="240" stroke="var(--border)" stroke-width="0.8"/>
+                <line x1="44" y1="80" x2="780" y2="80" stroke="#b91c1c" stroke-width="1.4" stroke-dasharray="5 4"/>
+                <text x="775" y="74" font-size="11" fill="#b91c1c" text-anchor="end" font-weight="600">0.30% Policy</text>
+                <line x1="44" y1="210" x2="780" y2="210" stroke="#b87100" stroke-width="1.4" stroke-dasharray="5 4"/>
+                <text x="775" y="204" font-size="11" fill="#b87100" text-anchor="end" font-weight="600">0.10% Recommended</text>
+                <text x="38" y="22"  font-size="11" fill="var(--fg-3)" text-anchor="end">0.40%</text>
+                <text x="38" y="82"  font-size="11" fill="var(--fg-3)" text-anchor="end">0.30%</text>
+                <text x="38" y="142" font-size="11" fill="var(--fg-3)" text-anchor="end">0.20%</text>
+                <text x="38" y="212" font-size="11" fill="var(--fg-3)" text-anchor="end">0.10%</text>
+                <text x="38" y="242" font-size="11" fill="var(--fg-3)" text-anchor="end">0.00%</text>
+                <path d="M44,238 L70,239 96,237 122,240 148,238 174,236 200,239 226,238 252,240 278,237 304,239 330,238 356,240 382,239 408,237 434,238 460,240 486,239 512,238 538,237 564,239 590,240 616,239 642,238 668,240 694,239 720,238 746,239 780,238 L780,240 L44,240 Z" fill="url(#spamGrad)"/>
+                <polyline fill="none" stroke="#0070f3" stroke-width="2.2" stroke-linejoin="round"
+                          points="44,238 70,239 96,237 122,240 148,238 174,236 200,239 226,238 252,240 278,237 304,239 330,238 356,240 382,239 408,237 434,238 460,240 486,239 512,238 538,237 564,239 590,240 616,239 642,238 668,240 694,239 720,238 746,239 780,238"/>
+                <text x="44"  y="262" font-size="11" fill="var(--fg-3)">Apr 1</text>
+                <text x="220" y="262" font-size="11" fill="var(--fg-3)">Apr 8</text>
+                <text x="400" y="262" font-size="11" fill="var(--fg-3)">Apr 15</text>
+                <text x="580" y="262" font-size="11" fill="var(--fg-3)">Apr 22</text>
+                <text x="775" y="262" font-size="11" fill="var(--fg-3)" text-anchor="end">Apr 28</text>
+              </svg>
+            </div>
+            <div class="chart-legend">
+              <span class="leg"><span class="swatch" style="background:#0070f3"></span>Spam rate</span>
+              <span class="leg"><span class="swatch" style="background:#b91c1c"></span>0.30% Policy</span>
+              <span class="leg"><span class="swatch" style="background:#b87100"></span>0.10% Recommended</span>
+            </div>
+          </div>
+          <div class="data-card">
+            <div class="data-head"><div class="data-head-title">Daily breakdown</div><div class="data-head-meta">28 days · newest first</div></div>
+            <table class="data-table">
+              <thead><tr><th>Date ▼</th><th class="right">Spam rate</th><th class="right">Status</th></tr></thead>
+              <tbody>
+                <tr><td>2026-04-28</td><td class="right num">0.00%</td><td class="right"><span class="pill success"><span class="ind"></span>Under threshold</span></td></tr>
+                <tr><td>2026-04-27</td><td class="right num">0.00%</td><td class="right"><span class="pill success"><span class="ind"></span>Under threshold</span></td></tr>
+                <tr><td>2026-04-26</td><td class="right num">0.00%</td><td class="right"><span class="pill success"><span class="ind"></span>Under threshold</span></td></tr>
+                <tr><td>2026-04-25</td><td class="right num">0.00%</td><td class="right"><span class="pill success"><span class="ind"></span>Under threshold</span></td></tr>
+                <tr><td>2026-04-24</td><td class="right num">0.00%</td><td class="right"><span class="pill success"><span class="ind"></span>Under threshold</span></td></tr>
+                <tr><td>2026-04-23</td><td class="right num">0.00%</td><td class="right"><span class="pill success"><span class="ind"></span>Under threshold</span></td></tr>
+                <tr><td>2026-04-22</td><td class="right num">0.00%</td><td class="right"><span class="pill success"><span class="ind"></span>Under threshold</span></td></tr>
+                <tr><td>2026-04-21</td><td class="right num">0.00%</td><td class="right"><span class="pill success"><span class="ind"></span>Under threshold</span></td></tr>
+                <tr><td>2026-04-20</td><td class="right num">0.00%</td><td class="right"><span class="pill success"><span class="ind"></span>Under threshold</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ════ TAB: UNSUBSCRIBE ════ -->
+        <div class="tab-body tab-content" data-tab="unsubscribe">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">Unsubscribe compliance</div>
+              <div class="ts-sub">Per Gmail's 2024 sender requirements, bulk senders must implement one-click unsubscribe (RFC 8058) and honor unsubscribe requests within 2 days.</div>
+            </div>
+          </div>
+          <div class="compl-grid">
+            <div class="compl-card">
+              <div class="compl-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="compl-card-status">Compliant</div>
+              <div class="compl-card-title">One-click unsubscribe</div>
+              <div class="compl-card-desc">Google reports this domain meets the requirement. List-Unsubscribe-Post header detected on outbound mail.</div>
+            </div>
+            <div class="compl-card">
+              <div class="compl-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="compl-card-status">Compliant</div>
+              <div class="compl-card-title">Honor unsubscribe (within 2 days)</div>
+              <div class="compl-card-desc">Google reports unsubscribe requests are processed within the required 2-day window.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════ TAB: AUTHENTICATION ════ -->
+        <div class="tab-body tab-content" data-tab="auth">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">Authentication rates</div>
+              <div class="ts-sub">Basic SPF and DKIM pass rates from Google's API. Google's web UI shows alignment-aware rates (a stricter measure) — those aren't exposed via API. <a href="#">Learn more</a></div>
+            </div>
+            <select class="period-select"><option>Last 30 days</option><option>Last 7 days</option><option>Last 90 days</option></select>
+          </div>
+          <div class="chart-card">
+            <div class="chart-svg">
+              <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+                <line x1="44" y1="20"  x2="780" y2="20"  stroke="var(--border)" stroke-width="0.8"/>
+                <line x1="44" y1="80"  x2="780" y2="80"  stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="140" x2="780" y2="140" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="200" x2="780" y2="200" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/>
+                <line x1="44" y1="240" x2="780" y2="240" stroke="var(--border)" stroke-width="0.8"/>
+                <text x="38" y="22"  font-size="11" fill="var(--fg-3)" text-anchor="end">100%</text>
+                <text x="38" y="82"  font-size="11" fill="var(--fg-3)" text-anchor="end">95%</text>
+                <text x="38" y="142" font-size="11" fill="var(--fg-3)" text-anchor="end">90%</text>
+                <text x="38" y="202" font-size="11" fill="var(--fg-3)" text-anchor="end">85%</text>
+                <text x="38" y="242" font-size="11" fill="var(--fg-3)" text-anchor="end">80%</text>
+                <polyline fill="none" stroke="#0070f3" stroke-width="2.2" stroke-linejoin="round"
+                          points="44,20 96,20 148,20 200,24 252,20 304,20 356,48 408,32 460,24 512,20 564,32 616,20 668,24 720,20 780,20"/>
+                <polyline fill="none" stroke="#b91c1c" stroke-width="2.2" stroke-linejoin="round"
+                          points="44,20 96,24 148,24 200,32 252,36 304,48 356,140 408,96 460,72 512,48 564,60 616,36 668,48 720,32 780,24"/>
+                <polyline fill="none" stroke="#b87100" stroke-width="2.2" stroke-linejoin="round"
+                          points="44,20 96,20 148,20 200,20 252,20 304,20 356,20 408,20 460,20 512,20 564,20 616,20 668,20 720,20 780,20"/>
+                <text x="44"  y="262" font-size="11" fill="var(--fg-3)">Apr 1</text>
+                <text x="220" y="262" font-size="11" fill="var(--fg-3)">Apr 5</text>
+                <text x="400" y="262" font-size="11" fill="var(--fg-3)">Apr 13</text>
+                <text x="580" y="262" font-size="11" fill="var(--fg-3)">Apr 21</text>
+                <text x="775" y="262" font-size="11" fill="var(--fg-3)" text-anchor="end">Apr 28</text>
+              </svg>
+            </div>
+            <div class="chart-legend">
+              <span class="leg"><span class="swatch" style="background:#0070f3"></span>DMARC</span>
+              <span class="leg"><span class="swatch" style="background:#b91c1c"></span>DKIM</span>
+              <span class="leg"><span class="swatch" style="background:#b87100"></span>SPF</span>
+            </div>
+          </div>
+          <div class="data-card">
+            <div class="data-head"><div class="data-head-title">Daily breakdown</div><div class="data-head-meta">28 days · newest first</div></div>
+            <table class="data-table">
+              <thead><tr><th>Date ▼</th><th class="right">DKIM rate</th><th class="right">SPF rate</th><th class="right">DMARC rate</th></tr></thead>
+              <tbody>
+                <tr><td>2026-04-28</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td></tr>
+                <tr><td>2026-04-27</td><td class="right warn num">99.25%</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td></tr>
+                <tr><td>2026-04-26</td><td class="right ok num">100.00%</td><td class="right warn num">98.97%</td><td class="right warn num">99.05%</td></tr>
+                <tr><td>2026-04-25</td><td class="right danger num">96.34%</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td></tr>
+                <tr><td>2026-04-24</td><td class="right warn num">98.45%</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td></tr>
+                <tr><td>2026-04-23</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td></tr>
+                <tr><td>2026-04-22</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td></tr>
+                <tr><td>2026-04-21</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td></tr>
+                <tr><td>2026-04-20</td><td class="right warn num">98.13%</td><td class="right ok num">100.00%</td><td class="right ok num">100.00%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ════ TAB: ENCRYPTION ════ -->
+        <div class="tab-body tab-content" data-tab="encryption">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">TLS encryption rate</div>
+              <div class="ts-sub">Inbound = Gmail-to-this-domain traffic. Outbound = this-domain-to-Gmail traffic.</div>
+            </div>
+          </div>
+          <div class="stat-strip">
+            <div class="stat-cell">
+              <div class="stat-label">Inbound TLS</div>
+              <div class="stat-value success num">100.0%</div>
+              <div class="stat-sub">All days at 100% — no plaintext detected.</div>
+            </div>
+            <div class="stat-cell">
+              <div class="stat-label">Outbound TLS</div>
+              <div class="stat-value muted num">0.0%</div>
+              <div class="stat-sub">No Gmail-to-domain traffic in this period.</div>
+            </div>
+          </div>
+          <div class="data-card">
+            <div class="data-head"><div class="data-head-title">Daily breakdown</div><div class="data-head-meta">28 days · newest first</div></div>
+            <table class="data-table">
+              <thead><tr><th>Date ▼</th><th class="right">Inbound TLS</th><th class="right">Outbound TLS</th></tr></thead>
+              <tbody>
+                <tr><td>2026-04-28</td><td class="right ok num">100.00%</td><td class="right muted">—</td></tr>
+                <tr><td>2026-04-27</td><td class="right ok num">100.00%</td><td class="right muted">—</td></tr>
+                <tr><td>2026-04-26</td><td class="right ok num">100.00%</td><td class="right muted">—</td></tr>
+                <tr><td>2026-04-25</td><td class="right ok num">100.00%</td><td class="right muted">—</td></tr>
+                <tr><td>2026-04-24</td><td class="right ok num">100.00%</td><td class="right muted">—</td></tr>
+                <tr><td>2026-04-23</td><td class="right ok num">100.00%</td><td class="right muted">—</td></tr>
+                <tr><td>2026-04-22</td><td class="right ok num">100.00%</td><td class="right muted">—</td></tr>
+                <tr><td>2026-04-21</td><td class="right ok num">100.00%</td><td class="right muted">—</td></tr>
+                <tr><td>2026-04-20</td><td class="right ok num">100.00%</td><td class="right muted">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ════ TAB: DELIVERY ════ -->
+        <div class="tab-body tab-content" data-tab="delivery">
+          <div class="ts-head">
+            <div>
+              <div class="ts-title">Delivery error rate</div>
+              <div class="ts-sub">Rate of recipient-side rejections + temporary failures (4xx + 5xx). High error rates can throttle Gmail acceptance.</div>
+            </div>
+          </div>
+          <div class="big-stat-card">
+            <div class="big-stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            <div class="big-stat-label">Error rate · last 30 days</div>
+            <div class="big-stat-value num">0%</div>
+            <div class="big-stat-sub">No rejections or temporary failures detected. Gmail accepted every message you sent.</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  function toggleTheme() {
+    const html = document.documentElement;
+    const next = (html.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    try { localStorage.setItem('inboxscore-vercel-theme', next); } catch (e) {}
+  }
+  (function () {
+    try {
+      const saved = localStorage.getItem('inboxscore-vercel-theme');
+      if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-theme', saved);
+    } catch (e) {}
+  })();
+  function pmTab(name) {
+    document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.tab === name));
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.dataset.tab === name));
+  }
+</script>
+</body>
+</html>
