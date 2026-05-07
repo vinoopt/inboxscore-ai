@@ -141,6 +141,14 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
         </div>
       </div>
 
+      <!-- Domain selector pill (between page header + detail card,
+           matches the mockup approved on 2026-05-01). -->
+      <div class="domain-pill" id="bl-domain-pill" style="display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 999px; font-size: 13px; font-weight: 500; margin-bottom: 24px; cursor: pointer;">
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0;"></span>
+        <span id="bl-domain-pill-name">mailercloud.com</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color: var(--text-muted);"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+
       <div class="detail-card">
         <div class="provider-head">
           <div class="provider-head-left">
@@ -149,7 +157,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
             </div>
             <div>
               <div style="font-size: 18px; font-weight: 600; color: var(--text);">Blacklist Monitor</div>
-              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Last checked <span id="bl-last-checked"></span></div>
+              <!-- JS writes the full "Last checked Apr 29, 6:00 PM" string into the
+                   span. No static "Last checked " prefix here — that caused the
+                   "Last checked Last checked …" duplicate. -->
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;"><span id="bl-last-checked"></span></div>
             </div>
           </div>
           <button class="badge-accent" onclick="runBlacklistCheck(true)" id="bl-check-btn" style="background: var(--text); color: var(--surface); border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500;">
@@ -440,6 +451,9 @@ async function runBlacklistCheck(forceRefresh) {
 // Cache full IP list across renders so the filter bar can re-filter
 let _blAllIps = [];
 let _blAllIpsDomain = '';
+// Top-level `checked_at` from the API response so per-row renders can show
+// the same "Apr 29, 6:00 PM" stamp in the table's Last Checked column.
+let _blCheckedAt = null;
 
 function renderBlacklistResults(data) {
   const loadEl  = document.getElementById('bl-loading');
@@ -492,6 +506,43 @@ function renderBlacklistResults(data) {
     if (heroStatusSub) heroStatusSub.textContent = 'Start delisting immediately';
   }
 
+  // --- Hero strip: Last Checked + Next Scan cells ---
+  // (Were stuck on "—" before because the JS to populate them was missing.)
+  const heroChecked    = document.getElementById('bl-hero-checked');
+  const heroCheckedRel = document.getElementById('bl-hero-checked-rel');
+  const heroNext       = document.getElementById('bl-hero-next');
+  const heroNextSub    = document.getElementById('bl-hero-next-sub');
+  if (data.checked_at) {
+    const checkedDate = new Date(data.checked_at);
+    const fmt = checkedDate.toLocaleString('en-US', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+    });
+    if (heroChecked) heroChecked.textContent = fmt;
+    // Relative time (e.g., "2 hours ago", "3 days ago")
+    if (heroCheckedRel) {
+      const diffMs = Date.now() - checkedDate.getTime();
+      const diffMin = Math.round(diffMs / 60000);
+      let rel;
+      if (diffMin < 1)         rel = 'Just now';
+      else if (diffMin < 60)   rel = diffMin + ' minute' + (diffMin === 1 ? '' : 's') + ' ago';
+      else if (diffMin < 1440) { const h = Math.round(diffMin / 60); rel = h + ' hour'  + (h === 1 ? '' : 's') + ' ago'; }
+      else                     { const d = Math.round(diffMin / 1440); rel = d + ' day'   + (d === 1 ? '' : 's') + ' ago'; }
+      heroCheckedRel.textContent = rel;
+    }
+    // Next scan = checked + 4h (auto-refresh window) — see Architecture doc.
+    if (heroNext) {
+      const nextDate = new Date(checkedDate.getTime() + 4 * 60 * 60 * 1000);
+      const diffNextMs = nextDate.getTime() - Date.now();
+      const diffNextMin = Math.round(diffNextMs / 60000);
+      let nextLabel;
+      if (diffNextMin <= 0)        nextLabel = 'Due now';
+      else if (diffNextMin < 60)   nextLabel = 'In ~' + diffNextMin + ' min';
+      else                         nextLabel = 'In ~' + Math.round(diffNextMin / 60) + 'h';
+      heroNext.textContent = nextLabel;
+    }
+    if (heroNextSub) heroNextSub.textContent = 'Auto-refresh every 4h';
+  }
+
   // --- Sending domain row ---
   const domRow = document.getElementById('bl-domain-name');
   if (domRow) domRow.textContent = data.domain || '—';
@@ -531,6 +582,7 @@ function renderBlacklistResults(data) {
   const ipResults = data.ip_results || [];
   _blAllIps = ipResults;
   _blAllIpsDomain = data.domain || '';
+  _blCheckedAt = data.checked_at || null;
 
   if (ipResults.length === 0) {
     const ipSection = document.getElementById('bl-ip-tbody');
@@ -668,7 +720,7 @@ function _blRenderIpRow(r) {
         </span>
       </td>
       <td><span class="pill ${badgeClass}"><span class="ind"></span>${escapeHtml(badge)}</span></td>
-      <td>—</td>
+      <td>${_blCheckedAt ? escapeHtml(new Date(_blCheckedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : '—'}</td>
     </tr>
     ${detail}
   `;

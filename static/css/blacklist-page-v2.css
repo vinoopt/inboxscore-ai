@@ -16,6 +16,26 @@
    Page-prefix `.bl-*` so widgets can't collide with `.pm-*`/`.snd-*`.
    ──────────────────────────────────────────────────────────────── */
 
+/* ──── Color token aliases ──────────────────────────────────────
+   The mockup was built with `--success` / `--danger` / `--warn`
+   semantic tokens, but the production app palette (defined inline
+   in microsoft.html / postmaster.html and reused via postmaster-
+   page-v2.css) uses `--green` / `--red` / `--yellow`. Without these
+   aliases every reference resolves to nothing and dots / badges /
+   gradients render as transparent rgba(0,0,0,0). Aliases keep the
+   semantic names readable in this file while binding to whatever
+   the host page's palette actually defines. */
+:root {
+  --success: var(--green);
+  --success-text: var(--green);
+  --success-soft: var(--green-bg);
+  --danger: var(--red);
+  --danger-soft: var(--red-bg);
+  --warn: var(--yellow);
+  --warn-text: var(--yellow);
+  --warn-soft: var(--yellow-bg);
+}
+
 /* ══════ STATUS HERO ══════ */
 .bl-hero {
   display: grid;
