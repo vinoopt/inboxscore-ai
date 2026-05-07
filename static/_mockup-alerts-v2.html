@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alerts — InboxScore (Mockup V2)</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light')
+      document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f5; --surface-3: #e4e4e7;
+  --border: #e4e4e7; --border-strong: #d4d4d8;
+  --text: #18181b; --text-muted: #52525b; --text-subtle: #71717a;
+  --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #ede9fe; --accent-glow: rgba(124,58,237,0.18);
+  --green: #047857; --green-bg: #d1fae5;
+  --yellow: #b45309; --yellow-bg: #fef3c7;
+  --orange: #c2410c; --orange-bg: #ffedd5;
+  --red: #b91c1c; --red-bg: #fee2e2;
+}
+html[data-theme="dark"] {
+  --bg: #0a0a0a; --surface: #161616; --surface-2: #262626; --surface-3: #383838;
+  --border: #333333; --border-strong: #404040;
+  --text: #fafafa; --text-muted: #a3a3a3; --text-subtle: #808080;
+  --accent: #a78bfa; --accent-hover: #c4b5fd; --accent-soft: #3f2d6e; --accent-glow: rgba(167, 139, 250, 0.18);
+  --green: #10b981; --green-bg: #064e3b;
+  --yellow: #f59e0b; --yellow-bg: #78350f;
+  --orange: #f97316; --orange-bg: #7c2d12;
+  --red: #f87171; --red-bg: #7f1d1d;
+}
+body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; transition: background 200ms ease, color 200ms ease; }
+
+.layout { display: flex; flex: 1; }
+
+/* ════════════════════ SIDEBAR (canonical) ════════════════════ */
+.sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  color: var(--text-muted); text-decoration: none;
+  font-size: 13px; font-weight: 500;
+  border-radius: 7px;
+  transition: background 100ms ease, color 100ms ease;
+  margin-bottom: 1px;
+}
+.sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
+.sidebar-nav li a.active { color: var(--text); background: var(--surface-2); font-weight: 500; border-left: none; }
+.sidebar-nav li a svg { color: currentColor; flex-shrink: 0; }
+.alert-badge {
+  margin-left: auto; font-size: 11px; color: var(--text);
+  background: var(--red-bg); padding: 1px 6px; border-radius: 4px;
+  font-weight: 600; min-width: 18px; text-align: center;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none; color: var(--text);
+  transition: all 100ms ease;
+}
+.brand:hover { color: var(--accent); }
+.brand-mark {
+  width: 26px; height: 26px;
+  background: var(--text); color: var(--surface);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: -0.04em; flex-shrink: 0;
+}
+.brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.025em; }
+.sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); }
+.plan-pill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; font-size: 12px; color: var(--text-muted);
+}
+.plan-pill-tier { font-weight: 500; color: var(--text); text-transform: capitalize; }
+
+/* ════════════════════ MAIN ════════════════════ */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: 100vh; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+.page-header-left { min-width: 0; }
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; max-width: 720px; }
+.page-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.user-name { font-size: 13px; color: var(--text-muted); }
+.theme-toggle-btn {
+  width: 34px; height: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-strong); background: transparent;
+  color: var(--text-muted); border-radius: 8px; cursor: pointer;
+  transition: all 100ms ease;
+}
+.theme-toggle-btn:hover { color: var(--text); border-color: var(--text); }
+.theme-toggle-btn .icon-sun, .theme-toggle-btn .icon-moon { display: none; }
+html[data-theme="dark"] .theme-toggle-btn .icon-sun { display: block; }
+html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
+.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
+
+/* ════════════════════ TABS (Feed / Rules / Channels) ════════════════════ */
+.al-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.al-tab {
+  padding: 10px 18px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 100ms ease;
+  font-family: inherit;
+}
+.al-tab:hover { color: var(--text); }
+.al-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--text);
+  font-weight: 600;
+}
+.al-tab-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.al-tab.active .al-tab-count { background: var(--text); color: var(--surface); }
+.al-tab-panel { display: none; }
+.al-tab-panel.active { display: block; }
+
+/* ════════════════════ FEED — filter chips ════════════════════ */
+.al-filter-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.al-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+  transition: all 100ms ease;
+  font-family: inherit;
+}
+.al-chip:hover { border-color: var(--text); color: var(--text); }
+.al-chip.active {
+  background: var(--text); color: var(--surface); border-color: var(--text);
+}
+.al-chip-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+}
+.al-chip.severity-critical:not(.active) .al-chip-dot { background: var(--red); }
+.al-chip.severity-warning:not(.active) .al-chip-dot { background: var(--yellow); }
+.al-chip-divider {
+  width: 1px; height: 16px; background: var(--border-strong);
+  margin: 0 4px;
+}
+.al-chip-label {
+  font-size: 11px; color: var(--text-subtle); margin-right: 4px;
+  text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
+}
+.al-mark-all {
+  margin-left: auto;
+  background: none; border: none;
+  font-size: 12px; color: var(--accent); font-weight: 500;
+  cursor: pointer; font-family: inherit;
+}
+.al-mark-all:hover { text-decoration: underline; }
+
+/* ════════════════════ ALERT LIST ════════════════════ */
+.al-list { display: flex; flex-direction: column; gap: 8px; }
+.al-item {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+.al-item:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.al-item.unread { border-left: 3px solid var(--accent); padding-left: 14px; }
+.al-item.resolved { opacity: 0.62; }
+.al-item.resolved .al-title { text-decoration: line-through; text-decoration-color: var(--text-subtle); }
+
+.al-sev-icon {
+  flex-shrink: 0; width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  margin-top: 1px;
+}
+.al-sev-icon.critical { background: var(--red-bg); color: var(--red); }
+.al-sev-icon.warning  { background: var(--yellow-bg); color: var(--yellow); }
+.al-sev-icon.info     { background: var(--surface-2); color: var(--text-muted); }
+.al-sev-icon svg { width: 14px; height: 14px; }
+
+.al-body { flex: 1; min-width: 0; }
+.al-title-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+}
+.al-title { font-size: 14px; font-weight: 500; color: var(--text); }
+.al-time { font-size: 12px; color: var(--text-subtle); white-space: nowrap; flex-shrink: 0; }
+.al-desc {
+  font-size: 13px; color: var(--text-muted);
+  margin-top: 4px; line-height: 1.5;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.al-domain {
+  font-size: 11px; color: var(--text-subtle);
+  margin-top: 6px;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: 'Geist Mono', monospace;
+}
+.al-domain svg { width: 11px; height: 11px; color: var(--text-subtle); }
+.al-resolved-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  background: var(--green-bg); color: var(--green);
+  font-size: 10px; font-weight: 500;
+  border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.al-row-actions {
+  display: flex; gap: 4px; flex-shrink: 0; align-self: center;
+}
+.al-icon-btn {
+  width: 28px; height: 28px; padding: 0;
+  border: 1px solid transparent;
+  background: transparent; color: var(--text-subtle);
+  border-radius: 6px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 100ms ease; font-family: inherit;
+}
+.al-icon-btn:hover { color: var(--text); background: var(--surface-3); border-color: var(--border-strong); }
+.al-icon-btn.delete:hover { color: var(--red); border-color: var(--red); }
+.al-icon-btn svg { width: 14px; height: 14px; }
+
+/* ════════════════════ EMPTY / PAGER ════════════════════ */
+.al-empty-state {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 48px; text-align: center;
+}
+.al-empty-icon { font-size: 32px; color: var(--text-subtle); margin-bottom: 12px; display: flex; justify-content: center; }
+.al-empty-state h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
+.al-empty-state p { color: var(--text-muted); font-size: 14px; max-width: 480px; margin: 0 auto; }
+
+.al-pager {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 20px;
+  padding: 12px 0;
+}
+.al-pager-info { font-size: 12px; color: var(--text-muted); }
+.al-pager-btns { display: flex; gap: 6px; }
+.al-pager-btn {
+  padding: 6px 12px; border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text);
+  font-size: 12px; cursor: pointer; font-family: inherit;
+  transition: all 100ms ease;
+}
+.al-pager-btn:hover:not(:disabled) { border-color: var(--text); }
+.al-pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ════════════════════ RULES + CHANNELS — config cards ════════════════════ */
+.al-cfg-section { margin-bottom: 24px; }
+.al-cfg-h {
+  font-size: 11px; color: var(--text-subtle);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.al-cfg-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.al-cfg-row {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.al-cfg-row:last-child { border-bottom: none; }
+.al-cfg-row-left { flex: 1; min-width: 0; }
+.al-cfg-label {
+  font-size: 14px; font-weight: 500; color: var(--text);
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+}
+.al-cfg-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.al-pro-pill {
+  font-size: 10px; font-weight: 500;
+  padding: 2px 7px;
+  background: var(--accent-soft); color: var(--accent);
+  border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* V2 zinc toggle */
+.al-toggle {
+  position: relative;
+  width: 36px; height: 20px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 150ms ease;
+  flex-shrink: 0;
+  border: 1px solid var(--border-strong);
+}
+.al-toggle::after {
+  content: '';
+  position: absolute;
+  top: 1px; left: 1px;
+  width: 16px; height: 16px;
+  background: var(--text);
+  border-radius: 50%;
+  transition: transform 150ms ease;
+}
+.al-toggle.on { background: var(--text); border-color: var(--text); }
+.al-toggle.on::after { transform: translateX(16px); background: var(--surface); }
+
+.al-setup-btn {
+  padding: 6px 14px; border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  font-family: inherit; flex-shrink: 0;
+  transition: all 100ms ease;
+}
+.al-setup-btn:hover:not(:disabled) { border-color: var(--text); }
+.al-setup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.al-cfg-save-row {
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  margin-top: 16px;
+}
+.al-cfg-saved-msg {
+  font-size: 12px; color: var(--green); display: none;
+}
+.al-cfg-saved-msg.show { display: inline; }
+.al-cfg-save-btn {
+  padding: 8px 16px; border-radius: 8px;
+  background: var(--text); color: var(--surface); border: 1px solid var(--text);
+  font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
+  transition: all 100ms ease;
+}
+.al-cfg-save-btn:hover { opacity: 0.9; }
+
+/* ════════════════════ MODAL — alert detail ════════════════════ */
+.al-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 50;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.al-modal-overlay.show { display: flex; }
+.al-modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 28px;
+  width: 520px; max-width: 100%; max-height: 85vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+}
+.al-modal-header {
+  display: flex; align-items: flex-start; gap: 12px;
+  margin-bottom: 16px;
+}
+.al-modal-sev-icon {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; flex-shrink: 0;
+}
+.al-modal-sev-icon.critical { background: var(--red-bg); color: var(--red); }
+.al-modal-sev-icon.warning  { background: var(--yellow-bg); color: var(--yellow); }
+.al-modal-sev-icon svg { width: 18px; height: 18px; }
+.al-modal h3 {
+  font-size: 18px; font-weight: 700;
+  letter-spacing: -0.02em; margin-bottom: 6px;
+  flex: 1; min-width: 0;
+}
+.al-modal-sev-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.al-modal-sev-pill.critical { background: var(--red-bg); color: var(--red); }
+.al-modal-sev-pill.warning { background: var(--yellow-bg); color: var(--yellow); }
+.al-modal-message {
+  font-size: 14px; color: var(--text-muted); line-height: 1.6;
+  margin-bottom: 16px;
+}
+.al-modal-meta {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.al-modal-meta-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+}
+.al-modal-meta-row:not(:last-child) { border-bottom: 1px solid var(--border); }
+.al-modal-meta-label { color: var(--text-muted); }
+.al-modal-meta-value {
+  color: var(--text); font-weight: 500;
+  font-family: 'Geist Mono', monospace;
+}
+.al-modal-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 4px;
+}
+.al-btn {
+  padding: 8px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text);
+  transition: all 100ms ease; font-family: inherit;
+}
+.al-btn:hover { border-color: var(--text); }
+.al-btn-danger { color: var(--red); border-color: var(--red); }
+.al-btn-danger:hover { background: var(--red-bg); }
+.al-btn-primary {
+  background: var(--text); color: var(--surface); border-color: var(--text);
+}
+.al-btn-primary:hover { opacity: 0.9; }
+
+/* Mobile */
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: -260px; top: 0; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar.open { left: 0; }
+  .mobile-toggle { display: block; }
+  .main { padding: 24px 16px; }
+  .page-header { flex-direction: column; gap: 12px; }
+  .al-filter-row { flex-direction: row; }
+  .al-tabs { overflow-x: auto; }
+  .al-mark-all { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ══════ SIDEBAR (canonical) ══════ -->
+  <aside class="sidebar">
+    <a href="/dashboard" class="brand">
+      <div class="brand-mark">IS</div>
+      <div class="brand-name">InboxScore</div>
+    </a>
+    <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
+    <ul class="sidebar-nav">
+      <li><a href="/dashboard"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Dashboard</a></li>
+      <li><a href="/postmaster"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></span> Google Postmaster</a></li>
+      <li><a href="/microsoft"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7.5"/><path d="M22 7 12 13 2 7"/><path d="M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="m22 22-1.5-1.5"/></svg></span> Microsoft SNDS</a></li>
+      <li><a href="/blacklist"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span> Blacklist Monitor</a></li>
+      <li><a href="/domains"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span> Domains</a></li>
+      <li><a href="/sending-ips"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg></span> Sending IPs</a></li>
+      <li><a href="/alerts" class="active"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span> Alerts <span class="alert-badge">3</span></a></li>
+      <li><a href="/settings"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/><circle cx="12" cy="12" r="3"/></svg></span> Settings</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <div class="plan-pill">
+        <span class="plan-pill-tier">Pro plan</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════ MAIN ══════ -->
+  <main class="main">
+    <div style="max-width: 1280px; margin: 0 auto;">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Alerts</h1>
+          <p class="page-subtitle">See what fired, configure rules, and choose where alerts go.</p>
+        </div>
+        <div class="page-header-actions">
+          <span class="user-name">Vinoop Thayatt</span>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button class="logout-btn">Log Out</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="al-tabs" role="tablist">
+        <button class="al-tab active" data-tab="feed" onclick="setTab('feed')" role="tab">Feed <span class="al-tab-count">12</span></button>
+        <button class="al-tab" data-tab="rules" onclick="setTab('rules')" role="tab">Rules</button>
+        <button class="al-tab" data-tab="channels" onclick="setTab('channels')" role="tab">Channels</button>
+      </div>
+
+      <!-- ═══════════ FEED TAB ═══════════ -->
+      <div class="al-tab-panel active" id="tab-feed" role="tabpanel">
+
+        <!-- Filter chips -->
+        <div class="al-filter-row">
+          <button class="al-chip active" onclick="setFilter(this, 'all')">All</button>
+          <button class="al-chip severity-critical" onclick="setFilter(this, 'critical')"><span class="al-chip-dot"></span>Critical</button>
+          <button class="al-chip severity-warning" onclick="setFilter(this, 'warning')"><span class="al-chip-dot"></span>Warning</button>
+          <span class="al-chip-divider"></span>
+          <span class="al-chip-label">Domain</span>
+          <button class="al-chip" onclick="setFilter(this, 'mailercloud.com')">mailercloud.com</button>
+          <button class="al-chip" onclick="setFilter(this, 'voicenotes.com')">voicenotes.com</button>
+          <button class="al-chip" onclick="setFilter(this, 'redrail.redbus.com')">redrail.redbus.com</button>
+          <button class="al-chip" onclick="setFilter(this, 'newsletter.shoppersstop.com')">newsletter.shoppersstop.com</button>
+          <button class="al-mark-all" onclick="alert('Mark all read clicked')">Mark all read</button>
+        </div>
+
+        <!-- Alert list -->
+        <ul class="al-list">
+
+          <!-- Critical, unread -->
+          <li class="al-item unread" onclick="openAlert(1)">
+            <div class="al-sev-icon critical">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="al-body">
+              <div class="al-title-row">
+                <span class="al-title">Spam rate spiked above 0.3%</span>
+                <span class="al-time">2h ago</span>
+              </div>
+              <div class="al-desc">Gmail spam rate hit 0.42% on the past 24h — above Gmail's own block threshold.</div>
+              <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>mailercloud.com · Google Postmaster</span>
+            </div>
+            <div class="al-row-actions">
+              <button class="al-icon-btn" onclick="event.stopPropagation();alert('Mark as read')" title="Mark as read"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+          </li>
+
+          <!-- Warning, unread -->
+          <li class="al-item unread" onclick="openAlert(2)">
+            <div class="al-sev-icon warning">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="al-body">
+              <div class="al-title-row">
+                <span class="al-title">DKIM pass-rate dropped below 99%</span>
+                <span class="al-time">5h ago</span>
+              </div>
+              <div class="al-desc">DKIM authentication is succeeding on 97.3% of messages — investigate signing config.</div>
+              <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>voicenotes.com · Email Health</span>
+            </div>
+            <div class="al-row-actions">
+              <button class="al-icon-btn" onclick="event.stopPropagation();alert('Mark as read')" title="Mark as read"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+          </li>
+
+          <!-- Warning, unread -->
+          <li class="al-item unread" onclick="openAlert(3)">
+            <div class="al-sev-icon warning">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="al-body">
+              <div class="al-title-row">
+                <span class="al-title">DMARC alignment dropped to 96%</span>
+                <span class="al-time">3d ago</span>
+              </div>
+              <div class="al-desc">DMARC alignment fell below 99%. Some legitimate mail may be flagged at receivers.</div>
+              <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>newsletter.shoppersstop.com · Email Health</span>
+            </div>
+            <div class="al-row-actions">
+              <button class="al-icon-btn" onclick="event.stopPropagation();alert('Mark as read')" title="Mark as read"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+          </li>
+
+          <!-- Critical, read, RESOLVED — muted + line-through -->
+          <li class="al-item resolved" onclick="openAlert(4)">
+            <div class="al-sev-icon critical">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="al-body">
+              <div class="al-title-row">
+                <span class="al-title">Listed on Spamhaus ZEN</span>
+                <span class="al-time">1d ago</span>
+              </div>
+              <div class="al-desc">162.19.145.175 was listed on Spamhaus ZEN — now delisted. <span class="al-resolved-badge">Resolved</span></div>
+              <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>162.19.145.175 · Blacklist Monitor</span>
+            </div>
+            <div class="al-row-actions">
+              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+          </li>
+
+          <!-- Info, read, RESOLVED -->
+          <li class="al-item resolved" onclick="openAlert(5)">
+            <div class="al-sev-icon info">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="al-body">
+              <div class="al-title-row">
+                <span class="al-title">DNS A record changed</span>
+                <span class="al-time">2d ago</span>
+              </div>
+              <div class="al-desc">A record value updated from 162.19.145.10 to 162.19.145.20. <span class="al-resolved-badge">Resolved</span></div>
+              <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>redrail.redbus.com · DNS Monitor</span>
+            </div>
+            <div class="al-row-actions">
+              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+          </li>
+
+          <!-- Critical, read (NOT resolved — investigated but issue persists) -->
+          <li class="al-item" onclick="openAlert(6)">
+            <div class="al-sev-icon critical">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="al-body">
+              <div class="al-title-row">
+                <span class="al-title">IP flagged on Barracuda Reputation</span>
+                <span class="al-time">5d ago</span>
+              </div>
+              <div class="al-desc">103.147.105.99 was added to the Barracuda Reputation Block List. Submit a delisting request to clear it.</div>
+              <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>103.147.105.99 · Blacklist Monitor</span>
+            </div>
+            <div class="al-row-actions">
+              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+          </li>
+
+        </ul>
+
+        <!-- Pager -->
+        <div class="al-pager">
+          <span class="al-pager-info">Showing 1–6 of 12</span>
+          <div class="al-pager-btns">
+            <button class="al-pager-btn" disabled>‹ Prev</button>
+            <button class="al-pager-btn">Next ›</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ═══════════ RULES TAB ═══════════ -->
+      <div class="al-tab-panel" id="tab-rules" role="tabpanel">
+        <div class="al-cfg-section">
+          <div class="al-cfg-h">Trigger when…</div>
+          <div class="al-cfg-card">
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">Spam rate threshold</div>
+                <div class="al-cfg-desc">Warn above 0.1%, escalate to critical above 0.3% (Gmail's own block threshold).</div>
+              </div>
+              <div class="al-toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">Authentication drops</div>
+                <div class="al-cfg-desc">Warn when SPF, DKIM, or DMARC pass-rate drops below 99%; critical below 95%.</div>
+              </div>
+              <div class="al-toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">Blacklist detection</div>
+                <div class="al-cfg-desc">Fire when any sending IP or sending domain is listed on a DNSBL.</div>
+              </div>
+              <div class="al-toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+        </div>
+        <div class="al-cfg-save-row">
+          <span class="al-cfg-saved-msg">Saved</span>
+          <button class="al-cfg-save-btn" onclick="alert('Save Rules')">Save changes</button>
+        </div>
+      </div>
+
+      <!-- ═══════════ CHANNELS TAB ═══════════ -->
+      <div class="al-tab-panel" id="tab-channels" role="tabpanel">
+        <div class="al-cfg-section">
+          <div class="al-cfg-h">Channels</div>
+          <div class="al-cfg-card">
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">Email</div>
+                <div class="al-cfg-desc">Send alerts to <strong>vinoop@mailercloud.com</strong>.</div>
+              </div>
+              <div class="al-toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">
+                  Slack webhook
+                  <span class="al-pro-pill">Pro · Coming soon</span>
+                </div>
+                <div class="al-cfg-desc">Post alerts to a Slack channel via incoming webhook. Per-domain routing on the way.</div>
+              </div>
+              <button class="al-setup-btn" disabled>Set up</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="al-cfg-section">
+          <div class="al-cfg-h">Digests</div>
+          <div class="al-cfg-card">
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">Weekly digest</div>
+                <div class="al-cfg-desc">Email summary every Monday at 9:00 AM with the week's alerts.</div>
+              </div>
+              <div class="al-toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="al-cfg-save-row">
+          <span class="al-cfg-saved-msg">Saved</span>
+          <button class="al-cfg-save-btn" onclick="alert('Save Channels')">Save changes</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ════════════════════ ALERT DETAIL MODAL ════════════════════ -->
+<div class="al-modal-overlay" id="alert-modal" onclick="if(event.target===this) closeAlert()">
+  <div class="al-modal" role="dialog" aria-labelledby="al-modal-title">
+    <div class="al-modal-header">
+      <div class="al-modal-sev-icon critical">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div style="flex:1; min-width:0;">
+        <h3 id="al-modal-title">Spam rate spiked above 0.3%</h3>
+        <span class="al-modal-sev-pill critical">Critical</span>
+      </div>
+    </div>
+    <div class="al-modal-message">
+      Gmail spam rate hit 0.42% on the past 24h — above Gmail's own block threshold of 0.3%. This usually indicates engagement issues or a list-quality problem. Audit the most recent campaign and review your suppression list.
+    </div>
+    <div class="al-modal-meta">
+      <div class="al-modal-meta-row">
+        <span class="al-modal-meta-label">Domain</span>
+        <span class="al-modal-meta-value">mailercloud.com</span>
+      </div>
+      <div class="al-modal-meta-row">
+        <span class="al-modal-meta-label">Source</span>
+        <span class="al-modal-meta-value">Google Postmaster</span>
+      </div>
+      <div class="al-modal-meta-row">
+        <span class="al-modal-meta-label">Triggered</span>
+        <span class="al-modal-meta-value">May 7, 2026 · 13:42 UTC</span>
+      </div>
+      <div class="al-modal-meta-row">
+        <span class="al-modal-meta-label">Status</span>
+        <span class="al-modal-meta-value">Unread</span>
+      </div>
+    </div>
+    <div class="al-modal-actions">
+      <button class="al-btn al-btn-danger" onclick="alert('Delete')">Delete</button>
+      <button class="al-btn" onclick="closeAlert()">Close</button>
+      <button class="al-btn al-btn-primary" onclick="alert('Investigate')">Investigate →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'light';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
+}
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+}
+function setTab(tab) {
+  document.querySelectorAll('.al-tab').forEach(function (t) {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  document.querySelectorAll('.al-tab-panel').forEach(function (p) {
+    p.classList.toggle('active', p.id === 'tab-' + tab);
+  });
+}
+function setFilter(el, value) {
+  document.querySelectorAll('.al-chip').forEach(function (c) { c.classList.remove('active'); });
+  el.classList.add('active');
+  /* Filter logic placeholder — real wiring lives in /alerts page */
+}
+function openAlert(id) {
+  document.getElementById('alert-modal').classList.add('show');
+}
+function closeAlert() {
+  document.getElementById('alert-modal').classList.remove('show');
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeAlert();
+});
+</script>
+
+</body>
+</html>
