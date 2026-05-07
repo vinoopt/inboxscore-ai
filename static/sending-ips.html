@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- FOUC hydration script — runs BEFORE body parses to prevent theme flash. -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light')
+      document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -20,250 +30,494 @@
   --orange: #c2410c; --orange-bg: #ffedd5;
   --red: #b91c1c; --red-bg: #fee2e2;
 }
-body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-
-/* Top Nav */
-.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); z-index: 10; }
-.logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); letter-spacing: -0.01em; }
-.logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 4px 8px rgba(139,92,246,0.25); }
-.nav-right { display: flex; align-items: center; gap: 16px; }
-.user-name { font-size: 13px; color: var(--text-muted); }
-.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
-.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
-.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+html[data-theme="dark"] {
+  --bg: #0a0a0a; --surface: #161616; --surface-2: #262626; --surface-3: #383838;
+  --border: #333333; --border-strong: #404040;
+  --text: #fafafa; --text-muted: #a3a3a3; --text-subtle: #808080;
+  --accent: #a78bfa; --accent-hover: #c4b5fd; --accent-soft: #3f2d6e; --accent-glow: rgba(167, 139, 250, 0.18);
+  --green: #10b981; --green-bg: #064e3b;
+  --yellow: #f59e0b; --yellow-bg: #78350f;
+  --orange: #f97316; --orange-bg: #7c2d12;
+  --red: #f87171; --red-bg: #7f1d1d;
+}
+body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; transition: background 200ms ease, color 200ms ease; }
 
 /* Layout */
 .layout { display: flex; flex: 1; }
 
-/* Sidebar */
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+/* ════════════════════════ SIDEBAR (canonical, copied from dashboard.html) ════════════════════════ */
+.sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; flex-shrink: 0; display: flex; flex-direction: column; }
 .sidebar-nav { list-style: none; }
-.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
+.sidebar-nav li a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  color: var(--text-muted); text-decoration: none;
+  font-size: 13px; font-weight: 500;
+  border-radius: 7px;
+  transition: background 100ms ease, color 100ms ease;
+  margin-bottom: 1px;
+}
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
-.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); }
+.sidebar-nav li a.active {
+  color: var(--text); background: var(--surface-2); font-weight: 500;
+  border-left: none;
+}
+.sidebar-nav li a svg { color: currentColor; flex-shrink: 0; }
 .sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-.sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
-.sidebar-bottom { margin-top: auto; padding: 16px 24px; border-top: 1px solid var(--border); }
-.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
-.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
+.alert-badge {
+  margin-left: auto; font-size: 11px; color: var(--text-muted);
+  background: var(--surface-2); padding: 1px 6px; border-radius: 4px;
+  font-weight: 500; min-width: 18px; text-align: center;
+}
 
-/* Main */
-.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
+/* Brand */
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none; color: var(--text);
+  transition: all 100ms ease;
+}
+.brand:hover { color: var(--accent); }
+.brand-mark {
+  width: 26px; height: 26px;
+  background: var(--text); color: var(--surface);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: -0.04em; flex-shrink: 0;
+}
+.brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.025em; }
 
-/* Page Header */
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
-.page-title { font-size: 24px; font-weight: 700; }
-.page-subtitle { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+/* Sidebar footer with plan pill */
+.sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); }
+.plan-pill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; font-size: 12px; color: var(--text-muted);
+}
+.plan-pill-tier { font-weight: 500; color: var(--text); text-transform: capitalize; }
 
-/* Buttons */
-.btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border); background: transparent; color: var(--text-muted); }
-.btn:hover { border-color: var(--text-muted); color: var(--text); }
-.btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
-.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-sm { padding: 6px 14px; font-size: 12px; }
+/* ════════════════════════ MAIN ════════════════════════ */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: 100vh; }
 
-/* Card */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; }
+/* Page header */
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+.page-header-left { min-width: 0; }
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; max-width: 720px; }
+.page-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.user-name { font-size: 13px; color: var(--text-muted); }
+/* Theme toggle in page header (sun/moon icon). Mirrors blacklist.html. */
+.theme-toggle-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+.theme-toggle-btn:hover { color: var(--text); border-color: var(--text); }
+.theme-toggle-btn .icon-sun, .theme-toggle-btn .icon-moon { display: none; }
+html[data-theme="dark"] .theme-toggle-btn .icon-sun { display: block; }
+html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
+.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
 
-/* List filter bar — INBOX-138. See DESIGN-SYSTEM §11.8.
-   Same pattern as the Domains page; the only addition here is a
-   second dropdown for Mapped/Unmapped status (real category since
-   ip.domains.length is meaningful — orphan IPs are worth surfacing). */
-.list-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-.list-filters .filter-search { flex: 1 1 220px; min-width: 200px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
-.list-filters .filter-search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-.list-filters .filter-select { padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; cursor: pointer; outline: none; }
-.list-filters .filter-select:hover { border-color: var(--text-muted); }
-.list-filters .filter-count { margin-left: auto; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.list-filters .filter-clear { font-size: 12px; color: var(--accent); text-decoration: none; cursor: pointer; background: none; border: none; padding: 0; }
-.list-filters .filter-clear:hover { text-decoration: underline; }
+/* ════════════════════════ ACTION ROW (search + filter + sort + count + Add IPs) ════════════════════════ */
+.sip-action-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.sip-action-row-left {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  flex: 1 1 auto; min-width: 0;
+}
+.sip-action-row-right { display: flex; gap: 8px; flex-shrink: 0; }
+.sip-search-input {
+  flex: 1 1 220px; min-width: 200px;
+  height: 36px; padding: 0 14px;
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 8px; color: var(--text); font-size: 13px;
+  font-family: inherit; outline: none;
+  transition: border-color 100ms ease;
+}
+.sip-search-input:hover { border-color: var(--text); }
+.sip-search-input:focus { border-color: var(--text); }
+.sip-filter-select, .sip-sort-select {
+  appearance: none; -webkit-appearance: none;
+  height: 36px; padding: 0 32px 0 14px;
+  background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 11px center;
+  border: 1px solid var(--border-strong); border-radius: 8px;
+  font-size: 13px; color: var(--text); font-weight: 500;
+  cursor: pointer; font-family: inherit; flex-shrink: 0;
+}
+.sip-filter-select:hover, .sip-sort-select:hover { border-color: var(--text); }
+.sip-row-count {
+  font-size: 13px; color: var(--text-muted);
+  white-space: nowrap; font-weight: 500;
+}
+.sip-filter-clear {
+  background: none; border: none; padding: 0;
+  font-size: 12px; color: var(--accent); cursor: pointer;
+}
+.sip-filter-clear:hover { text-decoration: underline; }
 
-/* IP List */
-.ip-list { display: flex; flex-direction: column; gap: 10px; }
-.ip-card { padding: 16px 20px; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; }
-.ip-info { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
-.ip-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
-.ip-address { font-size: 14px; font-weight: 600; font-family: 'SF Mono', Monaco, 'Fira Code', monospace; }
-.ip-date { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-.ip-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* Add IPs button */
+.sip-add-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  background: var(--text); color: var(--surface);
+  border: 1px solid var(--text);
+  transition: all 100ms ease; font-family: inherit;
+}
+.sip-add-btn:hover { opacity: 0.9; }
+.sip-add-btn svg { width: 14px; height: 14px; }
 
-/* Domain Pills */
-.domain-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.domain-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
-.no-domains-hint { font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 4px; }
+/* ════════════════════════ IP LIST ════════════════════════ */
+.sip-ip-list { display: flex; flex-direction: column; gap: 8px; }
+.sip-ip-row {
+  padding: 14px 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex; align-items: center; gap: 14px;
+  transition: all 100ms ease;
+}
+.sip-ip-row:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.sip-ip-icon { width: 24px; height: 24px; flex-shrink: 0; color: var(--text-muted); }
+.sip-ip-info { flex: 1; min-width: 0; }
+.sip-ip-address {
+  font-size: 15px; font-weight: 500;
+  font-family: 'Geist Mono', monospace; color: var(--text);
+}
+.sip-ip-date { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.sip-domain-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.sip-domain-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 500;
+  background: var(--surface-2); color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.sip-domain-pill svg { width: 11px; height: 11px; color: var(--text-subtle); }
+.sip-domain-more {
+  display: inline-flex; align-items: center;
+  padding: 4px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 600;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border-strong);
+  cursor: pointer; font-family: inherit;
+  transition: all 100ms ease;
+}
+.sip-domain-more:hover { border-color: var(--text); background: var(--surface-3); }
+.sip-domain-pill.hidden { display: none; }
+.sip-domain-pills.expanded .sip-domain-pill.hidden { display: inline-flex; }
+.sip-domain-pills.expanded .sip-domain-more { display: none; }
+.sip-unmapped-text {
+  font-size: 12px; color: var(--text-muted);
+  margin-top: 4px; font-style: italic;
+}
 
-.btn-remove { color: var(--red); border-color: rgba(239,68,68,0.3); }
-.btn-remove:hover { background: rgba(239,68,68,0.08); border-color: var(--red); color: var(--red); }
+/* Status pill */
+.sip-status-cell { width: 140px; flex-shrink: 0; }
+.sip-status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+}
+.sip-status-pill.mapped { background: var(--green-bg); color: var(--green); }
+.sip-status-pill.unmapped { background: var(--surface-2); color: var(--text-muted); }
+.sip-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-/* Empty State */
-.empty-state { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 48px; text-align: center; }
-.empty-icon { font-size: 40px; margin-bottom: 12px; }
-.empty-state h3 { font-size: 16px; margin-bottom: 6px; }
-.empty-state p { color: var(--text-muted); font-size: 14px; }
+/* Action buttons */
+.sip-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.sip-action-btn {
+  padding: 5px 12px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text-muted);
+  transition: all 100ms ease; font-family: inherit;
+}
+.sip-action-btn:hover { color: var(--text); border-color: var(--text); }
+.sip-remove-btn {
+  padding: 0; border: none; background: none;
+  color: var(--text-muted); font-size: 12px; cursor: pointer;
+  transition: color 100ms ease; font-family: inherit;
+}
+.sip-remove-btn:hover { color: var(--red); }
 
-/* Loading */
-.loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* ════════════════════════ EMPTY / LOADING / ERROR STATES ════════════════════════ */
+.sip-empty-state {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 48px; text-align: center;
+}
+.sip-empty-icon {
+  font-size: 32px; color: var(--text-subtle); margin-bottom: 12px;
+  display: flex; justify-content: center; align-items: center;
+}
+.sip-empty-state h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
+.sip-empty-state p { color: var(--text-muted); font-size: 14px; }
+.sip-loading {
+  text-align: center; padding: 40px;
+  color: var(--text-muted); font-size: 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.sip-loading-spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: sip-spin 0.8s linear infinite;
+}
+@keyframes sip-spin { to { transform: rotate(360deg); } }
 
 /* Toast */
-.toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 100; animation: slideIn 0.3s ease; }
-.toast.success { background: var(--green-bg); border: 1px solid var(--green); color: var(--green); }
-.toast.error { background: var(--red-bg); border: 1px solid var(--red); color: var(--red); }
-@keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.sip-toast {
+  position: fixed; bottom: 24px; right: 24px;
+  padding: 12px 20px; border-radius: 10px;
+  font-size: 14px; z-index: 100;
+  animation: sip-slide-in 0.3s ease;
+}
+.sip-toast.success { background: var(--green-bg); border: 1px solid var(--green); color: var(--green); }
+.sip-toast.error { background: var(--red-bg); border: 1px solid var(--red); color: var(--red); }
+@keyframes sip-slide-in { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* Modal */
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; align-items: center; justify-content: center; }
-.modal-overlay.show { display: flex; }
-.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; width: 480px; max-width: 90vw; }
-.modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-.modal .modal-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
-.modal .form-group { margin-bottom: 16px; }
-.modal .form-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
-.modal .form-group input, .modal .form-group textarea { width: 100%; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; outline: none; font-family: inherit; }
-.modal .form-group input:focus, .modal .form-group textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-.modal .form-group textarea { min-height: 80px; resize: vertical; font-family: 'SF Mono', Monaco, 'Fira Code', monospace; font-size: 13px; }
-.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+/* ════════════════════════ MODAL — V2 (matches mockup) ════════════════════════ */
+.sip-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 50;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.sip-modal-overlay.show { display: flex; }
+.sip-modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 28px;
+  width: 480px; max-width: 100%; max-height: 85vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+}
+.sip-modal h3 { font-size: 18px; font-weight: 700; margin: 0 0 4px 0; letter-spacing: -0.02em; }
+.sip-modal-desc {
+  font-size: 13px; color: var(--text-muted);
+  margin-bottom: 20px; line-height: 1.5;
+}
+.sip-modal-desc strong {
+  color: var(--text); font-family: 'Geist Mono', monospace; font-weight: 500;
+}
+.sip-form-group { margin-bottom: 16px; }
+.sip-form-group label {
+  display: block; font-size: 13px; color: var(--text-muted);
+  margin-bottom: 6px; font-weight: 500;
+}
+.sip-form-group textarea, .sip-form-group input {
+  width: 100%; padding: 10px 14px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px;
+  outline: none; font-family: inherit;
+  transition: all 100ms ease;
+}
+.sip-form-group textarea {
+  min-height: 110px; resize: vertical;
+  font-family: 'Geist Mono', monospace; font-size: 13px; line-height: 1.5;
+}
+.sip-form-group textarea:focus, .sip-form-group input:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.sip-form-hint { font-size: 12px; color: var(--text-subtle); margin-top: 6px; }
+.sip-domain-check-list {
+  max-height: 280px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface-2);
+}
+.sip-domain-check-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 100ms ease;
+}
+.sip-domain-check-item:last-child { border-bottom: none; }
+.sip-domain-check-item:hover { background: var(--surface-3); }
+.sip-domain-check-item input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: var(--accent);
+  cursor: pointer; flex-shrink: 0;
+}
+.sip-domain-check-item span {
+  font-size: 13px; color: var(--text);
+  font-family: 'Geist Mono', monospace;
+}
+.sip-domain-check-empty {
+  padding: 24px 16px; text-align: center;
+  font-size: 13px; color: var(--text-muted);
+  background: var(--surface-2); border-radius: 8px;
+  border: 1px dashed var(--border-strong);
+}
+.sip-domain-check-empty a { color: var(--accent); text-decoration: none; font-weight: 500; }
+.sip-domain-check-empty a:hover { text-decoration: underline; }
+.sip-modal-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 20px;
+}
+.sip-btn {
+  padding: 8px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text);
+  transition: all 100ms ease; font-family: inherit;
+}
+.sip-btn:hover { border-color: var(--text); }
+.sip-btn-primary {
+  background: var(--text); color: var(--surface); border-color: var(--text);
+}
+.sip-btn-primary:hover { opacity: 0.9; }
+.sip-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* Domain Checkbox List */
-.domain-check-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
-.domain-check-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-.domain-check-item:hover { background: var(--surface-2); }
-.domain-check-item input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
-.domain-check-empty { text-align: center; padding: 16px; color: var(--text-muted); font-size: 13px; }
-
-/* INBOX-139: SNDS card + modal CSS removed — duplicated in
-   Settings → Connected Services which is the canonical home. */
-
-.sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
-.sidebar-backdrop.show { display: block; }
+/* Mobile toggle */
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar { position: fixed; left: -260px; top: 0; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
   .sidebar.open { left: 0; }
   .mobile-toggle { display: block; }
   .main { padding: 24px 16px; }
   .page-header { flex-direction: column; gap: 12px; }
-  .page-header .btn-primary { align-self: flex-start; }
-  .ip-card { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .ip-actions { align-self: flex-end; }
+  .sip-action-row { flex-direction: column; align-items: stretch; }
+  .sip-action-row-left { flex-direction: column; width: 100%; }
+  .sip-action-row-right { width: 100%; justify-content: flex-start; }
+  .sip-ip-row { flex-direction: column; align-items: flex-start; }
+  .sip-status-cell { width: 100%; }
+  .sip-row-actions { width: 100%; }
 }
-
 </style>
 </head>
 <body>
 
-<nav class="topnav">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
-    <a href="/dashboard" class="logo">
-      <div class="logo-icon" style="font-size:11px;font-weight:700;color:white;">IS</div>
-      InboxScore
-    </a>
-  </div>
-  <div class="nav-right">
-    <span class="user-name" id="user-name"></span>
-    <button class="logout-btn" onclick="logout()">Log Out</button>
-  </div>
-</nav>
-
-<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
-
 <div class="layout">
+
+  <!-- ══════ SIDEBAR (canonical, copied from dashboard.html) ══════ -->
   <aside class="sidebar">
+    <a href="/dashboard" class="brand">
+      <div class="brand-mark">IS</div>
+      <div class="brand-name">InboxScore</div>
+    </a>
+    <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
     <ul class="sidebar-nav">
-      <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
-      <li><a href="/postmaster"><span class="nav-icon">📬</span> Google Postmaster</a></li>
-      <li><a href="/microsoft"><span class="nav-icon">📨</span> Microsoft SNDS</a></li>
-      <li><a href="/blacklist"><span class="nav-icon">🛡️</span> Blacklist Monitor</a></li>
-      <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
-      <li><a href="/sending-ips" class="active"><span class="nav-icon">🖥️</span> Sending IPs</a></li>
-      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
-      <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
+      <li><a href="/dashboard"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Dashboard</a></li>
+      <li><a href="/postmaster"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></span> Google Postmaster</a></li>
+      <li><a href="/microsoft"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7.5"/><path d="M22 7 12 13 2 7"/><path d="M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="m22 22-1.5-1.5"/></svg></span> Microsoft SNDS</a></li>
+      <li><a href="/blacklist"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span> Blacklist Monitor</a></li>
+      <li><a href="/domains"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span> Domains</a></li>
+      <li><a href="/sending-ips" class="active"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg></span> Sending IPs</a></li>
+      <li><a href="/alerts"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
+      <li><a href="/settings"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/><circle cx="12" cy="12" r="3"/></svg></span> Settings</a></li>
     </ul>
-    <div class="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
+    <div class="sidebar-footer">
+      <div class="plan-pill" id="plan-badge">
+        <span class="plan-pill-tier"><span id="plan-name">Free</span> plan</span>
+      </div>
+    </div>
   </aside>
 
+  <!-- ══════ MAIN ══════ -->
   <main class="main">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">Sending IPs</h1>
-        <p class="page-subtitle">Add and manage the IP addresses you use to send email. These IPs are used across SNDS and Blacklist Monitor.</p>
+    <div style="max-width: 1280px; margin: 0 auto;">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Sending IPs</h1>
+          <p class="page-subtitle">Add and manage the IP addresses you use to send email. These IPs are used across SNDS and Blacklist Monitor.</p>
+        </div>
+        <div class="page-header-actions">
+          <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
+          <span class="user-name" id="user-name"></span>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button class="logout-btn" onclick="logout()">Log Out</button>
+        </div>
       </div>
-      <button class="btn btn-primary" onclick="openAddIpModal()">+ Add IPs</button>
-    </div>
 
-    <!-- INBOX-138: filter bar — search across IP+mapped-domains, plus
-         status (All / Mapped / Unmapped) and sort. Hidden until at
-         least one IP is loaded so first-run users don't see clutter. -->
-    <div class="list-filters" id="ip-filters" style="display:none;">
-      <input type="text" id="ip-search" class="filter-search"
-             placeholder="Search IPs or mapped domains…"
-             oninput="applyIpFilters()" autocomplete="off">
-      <select id="ip-status" class="filter-select" onchange="applyIpFilters()">
-        <option value="all">All</option>
-        <option value="mapped">Mapped</option>
-        <option value="unmapped">Unmapped</option>
-      </select>
-      <select id="ip-sort" class="filter-select" onchange="applyIpFilters()">
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-        <option value="ipasc">IP ↑</option>
-        <option value="ipdesc">IP ↓</option>
-      </select>
-      <span class="filter-count" id="ip-filter-count"></span>
-    </div>
+      <!-- Action row — INBOX-138 filter pipeline. Shown only after at least one IP loads. -->
+      <div class="sip-action-row" id="ip-filters" style="display:none;">
+        <div class="sip-action-row-left">
+          <input type="text" id="ip-search" class="sip-search-input"
+                 placeholder="Search IPs or mapped domains…"
+                 oninput="applyIpFilters()" autocomplete="off">
+          <select id="ip-status" class="sip-filter-select" onchange="applyIpFilters()">
+            <option value="all">All status</option>
+            <option value="mapped">Mapped</option>
+            <option value="unmapped">Unmapped</option>
+          </select>
+          <select id="ip-sort" class="sip-sort-select" onchange="applyIpFilters()">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="ipasc">IP ↑</option>
+            <option value="ipdesc">IP ↓</option>
+          </select>
+          <span class="sip-row-count" id="ip-filter-count"></span>
+        </div>
+        <div class="sip-action-row-right">
+          <button class="sip-add-btn" onclick="openAddIpModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add IPs
+          </button>
+        </div>
+      </div>
 
-    <div id="ips-container">
-      <div class="loading"><div class="loading-spinner"></div>Loading your IPs...</div>
-    </div>
+      <!-- IP list / empty state / loading state container -->
+      <div id="ips-container">
+        <div class="sip-loading"><div class="sip-loading-spinner"></div>Loading your IPs...</div>
+      </div>
 
-    <!-- INBOX-139: SNDS connection card removed — was a duplicate of
-         Settings → Connected Services. Manage Microsoft SNDS from
-         /settings (Connected Services tab). -->
+    </div>
   </main>
 </div>
 
-<!-- Add IPs Modal -->
-<div class="modal-overlay" id="add-ip-modal" onclick="if(event.target===this) closeAddIpModal()">
-  <div class="modal">
-    <h3>Add Sending IPs</h3>
-    <p class="modal-desc">Enter one or more IP addresses. You can paste multiple IPs separated by commas, spaces, or new lines.</p>
-    <div class="form-group">
-      <label>IP Addresses</label>
+<!-- ════════════════════════ ADD IPs MODAL ════════════════════════ -->
+<div class="sip-modal-overlay" id="add-ip-modal" onclick="if(event.target===this) closeAddIpModal()">
+  <div class="sip-modal" role="dialog" aria-labelledby="add-ip-title">
+    <h3 id="add-ip-title">Add Sending IPs</h3>
+    <p class="sip-modal-desc">Enter one or more IP addresses you use to send email. You can paste multiple IPs separated by commas, spaces, or new lines.</p>
+    <div class="sip-form-group">
+      <label for="ip-input">IP Addresses</label>
       <textarea id="ip-input" placeholder="e.g. 198.51.100.1, 198.51.100.2&#10;or one per line:&#10;198.51.100.1&#10;198.51.100.2"></textarea>
+      <div class="sip-form-hint">Both IPv4 and IPv6 are supported. Duplicates are skipped automatically.</div>
     </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeAddIpModal()">Cancel</button>
-      <button class="btn btn-primary" id="add-ip-btn" onclick="addIps()">Add IPs</button>
-    </div>
-  </div>
-</div>
-
-<!-- Map Domains Modal -->
-<div class="modal-overlay" id="map-domains-modal" onclick="if(event.target===this) closeMapDomainsModal()">
-  <div class="modal">
-    <h3>Map Domains</h3>
-    <p class="modal-desc">Select which domains this IP sends email for: <strong id="map-ip-label"></strong></p>
-    <div id="domain-check-container">
-      <div class="loading" style="padding:20px;"><div class="loading-spinner"></div>Loading domains...</div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeMapDomainsModal()">Cancel</button>
-      <button class="btn btn-primary" id="save-domains-btn" onclick="saveIpDomains()">Save</button>
+    <div class="sip-modal-actions">
+      <button class="sip-btn" onclick="closeAddIpModal()">Cancel</button>
+      <button class="sip-btn sip-btn-primary" id="add-ip-btn" onclick="addIps()">Add IPs</button>
     </div>
   </div>
 </div>
 
-<!-- INBOX-139: SNDS Connect Modal removed — duplicated in Settings →
-     Connected Services which is the canonical place to manage the
-     SNDS connection. -->
-
+<!-- ════════════════════════ MAP DOMAINS MODAL ════════════════════════ -->
+<div class="sip-modal-overlay" id="map-domains-modal" onclick="if(event.target===this) closeMapDomainsModal()">
+  <div class="sip-modal" role="dialog" aria-labelledby="map-domains-title">
+    <h3 id="map-domains-title">Map Domains</h3>
+    <p class="sip-modal-desc">Select which domains this IP sends email for: <strong id="map-ip-label">—</strong></p>
+    <div class="sip-form-group">
+      <label>Your domains</label>
+      <div class="sip-domain-check-list" id="domain-check-container">
+        <div class="sip-loading" style="padding:20px;"><div class="sip-loading-spinner"></div>Loading domains...</div>
+      </div>
+      <div class="sip-form-hint">Don't see a domain? <a href="/domains">Add it on the Domains page →</a></div>
+    </div>
+    <div class="sip-modal-actions">
+      <button class="sip-btn" onclick="closeMapDomainsModal()">Cancel</button>
+      <button class="sip-btn sip-btn-primary" id="save-domains-btn" onclick="saveIpDomains()">Save</button>
+    </div>
+  </div>
+</div>
 
 <script>
 
+/* ════════════════════════ HELPERS ════════════════════════ */
 function escapeHtml(str) {
   if (str == null) return '';
   return String(str)
@@ -274,15 +528,32 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-function toggleSidebar() {
-  document.querySelector('.sidebar').classList.toggle('open');
-  document.getElementById('sidebar-backdrop').classList.toggle('show');
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-let headers = {};
-let allIps = [];
-let allDomains = [];
-let currentMapIp = null;
+function showToast(msg, type) {
+  type = type || 'success';
+  var existing = document.querySelector('.sip-toast');
+  if (existing) existing.remove();
+  var t = document.createElement('div');
+  t.className = 'sip-toast ' + type;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function () { t.remove(); }, 3500);
+}
+
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'light';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
+}
+
+function toggleSidebar() {
+  var sidebar = document.querySelector('.sidebar');
+  if (sidebar) sidebar.classList.toggle('open');
+}
 
 function getToken() {
   return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
@@ -298,61 +569,91 @@ function logout() {
   window.location.href = '/login';
 }
 
-function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
+/* ════════════════════════ STATE ════════════════════════ */
+var headers = {};
+var allIps = [];
+var allDomains = [];
+var currentMapIp = null;
 
-function showToast(message, type = 'success') {
-  const toast = document.createElement('div');
-  toast.className = 'toast ' + type;
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
-}
-
-// ─── ADD IP MODAL ────────────────────────────────────────
-
+/* ════════════════════════ ADD IPs MODAL ════════════════════════ */
 function openAddIpModal() {
   document.getElementById('ip-input').value = '';
   document.getElementById('add-ip-modal').classList.add('show');
-  setTimeout(() => document.getElementById('ip-input').focus(), 100);
+  setTimeout(function () { document.getElementById('ip-input').focus(); }, 80);
 }
 
 function closeAddIpModal() {
   document.getElementById('add-ip-modal').classList.remove('show');
 }
 
-// ─── MAP DOMAINS MODAL ──────────────────────────────────
+async function addIps() {
+  var input = document.getElementById('ip-input');
+  var btn = document.getElementById('add-ip-btn');
+  var raw = input.value.trim();
+  if (!raw) return;
 
+  // Parse IPs: split on commas, spaces, semicolons, newlines
+  var ipList = raw.split(/[\s,;\n]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  if (ipList.length === 0) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Adding...';
+
+  try {
+    var res = await fetch('/api/user/ips', {
+      method: 'POST',
+      headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ ips: ipList })
+    });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to add IPs');
+
+    var addedCount = (data.added || []).length;
+    var invalidList = data.invalid || [];
+    var msg = addedCount + ' IP' + (addedCount !== 1 ? 's' : '') + ' added';
+    if (invalidList.length > 0) msg += '. Invalid: ' + invalidList.join(', ');
+
+    input.value = '';
+    closeAddIpModal();
+    showToast(msg, invalidList.length > 0 ? 'error' : 'success');
+    loadIps();
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add IPs';
+  }
+}
+
+/* ════════════════════════ MAP DOMAINS MODAL ════════════════════════ */
 function openMapDomainsModal(ip, currentDomains) {
   currentMapIp = ip;
   document.getElementById('map-ip-label').textContent = ip;
   document.getElementById('map-domains-modal').classList.add('show');
 
-  const container = document.getElementById('domain-check-container');
-  container.innerHTML = '<div class="loading" style="padding:20px;"><div class="loading-spinner"></div>Loading domains...</div>';
+  var container = document.getElementById('domain-check-container');
+  container.innerHTML = '<div class="sip-loading" style="padding:20px;"><div class="sip-loading-spinner"></div>Loading domains...</div>';
 
   // Fetch user domains
-  fetch('/api/user/domains', { headers }).then(r => r.json()).then(data => {
-    const domains = data.domains || [];
+  fetch('/api/user/domains', { headers }).then(function (r) { return r.json(); }).then(function (data) {
+    var domains = data.domains || [];
     if (domains.length === 0) {
-      container.innerHTML = '<div class="domain-check-empty">No domains added yet. <a href="/domains" style="color:var(--accent);">Add domains first →</a></div>';
+      container.outerHTML = '<div class="sip-domain-check-empty" id="domain-check-container">No domains added yet. <a href="/domains">Add domains first →</a></div>';
       return;
     }
 
-    let html = '<div class="domain-check-list">';
-    domains.forEach(d => {
-      const checked = currentDomains.includes(d.domain) ? 'checked' : '';
-      html += `
-        <label class="domain-check-item">
-          <input type="checkbox" value="${escapeHtml(d.domain)}" ${checked}>
-          <span>${escapeHtml(d.domain)}</span>
-        </label>`;
+    var html = '';
+    domains.forEach(function (d) {
+      var checked = currentDomains.indexOf(d.domain) !== -1 ? 'checked' : '';
+      html +=
+        '<label class="sip-domain-check-item">' +
+          '<input type="checkbox" value="' + escapeHtml(d.domain) + '" ' + checked + '>' +
+          '<span>' + escapeHtml(d.domain) + '</span>' +
+        '</label>';
     });
-    html += '</div>';
     container.innerHTML = html;
-  }).catch(() => {
-    container.innerHTML = '<div class="domain-check-empty">Failed to load domains. Please try again.</div>';
+  }).catch(function () {
+    container.innerHTML = '<div class="sip-domain-check-empty">Failed to load domains. Please try again.</div>';
   });
 }
 
@@ -363,18 +664,18 @@ function closeMapDomainsModal() {
 
 async function saveIpDomains() {
   if (!currentMapIp) return;
-  const btn = document.getElementById('save-domains-btn');
+  var btn = document.getElementById('save-domains-btn');
   btn.disabled = true;
   btn.textContent = 'Saving...';
 
-  const checkboxes = document.querySelectorAll('#domain-check-container input[type="checkbox"]');
-  const selectedDomains = [];
-  checkboxes.forEach(cb => { if (cb.checked) selectedDomains.push(cb.value); });
+  var checkboxes = document.querySelectorAll('#domain-check-container input[type="checkbox"]');
+  var selectedDomains = [];
+  checkboxes.forEach(function (cb) { if (cb.checked) selectedDomains.push(cb.value); });
 
   try {
-    const res = await fetch('/api/user/ips/' + encodeURIComponent(currentMapIp) + '/domains', {
+    var res = await fetch('/api/user/ips/' + encodeURIComponent(currentMapIp) + '/domains', {
       method: 'PUT',
-      headers: { ...headers, 'Content-Type': 'application/json' },
+      headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ domains: selectedDomains })
     });
     if (!res.ok) throw new Error('Failed to save');
@@ -390,45 +691,49 @@ async function saveIpDomains() {
   }
 }
 
-// ─── IP LIST ─────────────────────────────────────────────
+/* ════════════════════════ DOMAIN PILL EXPAND ════════════════════════ */
+function toggleDomainExpand(btn) {
+  var pillsWrap = btn.parentElement;
+  pillsWrap.classList.add('expanded');
+}
 
+/* ════════════════════════ IP LIST ════════════════════════ */
 async function loadIps() {
   try {
-    const res = await fetch('/api/user/ips', { headers });
+    var res = await fetch('/api/user/ips', { headers });
     if (!res.ok) throw new Error();
-    const data = await res.json();
+    var data = await res.json();
     allIps = data.ips || [];
 
-    // INBOX-138: restore saved sort + status preferences before first
-    // render so user choice survives reloads (same persistence pattern
-    // as INBOX-133 table sort).
+    // INBOX-138: restore saved sort + status preferences
     try {
-      const savedSort = localStorage.getItem('ips.sort');
+      var savedSort = localStorage.getItem('ips.sort');
       if (savedSort) document.getElementById('ip-sort').value = savedSort;
-      const savedStatus = localStorage.getItem('ips.status');
+      var savedStatus = localStorage.getItem('ips.status');
       if (savedStatus) document.getElementById('ip-status').value = savedStatus;
     } catch (e) {}
 
-    // Show filter bar only when at least one IP is loaded.
-    document.getElementById('ip-filters').style.display =
-      allIps.length > 0 ? 'flex' : 'none';
+    // Show filter+action bar only when at least one IP is loaded.
+    document.getElementById('ip-filters').style.display = allIps.length > 0 ? 'flex' : 'none';
 
     applyIpFilters();
   } catch (e) {
     document.getElementById('ips-container').innerHTML =
-      '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load IPs</h3><p>Something went wrong. Please try again.</p><button class="btn btn-primary" onclick="loadIps()" style="margin-top:12px;">Retry</button></div>';
+      '<div class="sip-empty-state">' +
+      '<div class="sip-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
+      '<h3>Could not load IPs</h3>' +
+      '<p>Something went wrong. Please try again.</p>' +
+      '<button class="sip-btn sip-btn-primary" onclick="loadIps()" style="margin-top:16px;">Retry</button>' +
+      '</div>';
   }
 }
 
-// INBOX-138: filter + sort + status pipeline. Pure client-side; lists
-// are tiny so instant feedback beats a server round-trip. The search
-// matches BOTH the IP address and any mapped domain, since users may
-// hunt for "the IP that sends acme.com" rather than the IP itself.
-// See DESIGN-SYSTEM §11.8.
+// INBOX-138: filter + sort + status pipeline. Pure client-side.
+// Search matches BOTH the IP address and any mapped domain.
 function applyIpFilters() {
-  const q = (document.getElementById('ip-search').value || '').trim().toLowerCase();
-  const status = document.getElementById('ip-status').value;
-  const sort = document.getElementById('ip-sort').value;
+  var q = (document.getElementById('ip-search').value || '').trim().toLowerCase();
+  var status = document.getElementById('ip-status').value;
+  var sort = document.getElementById('ip-sort').value;
 
   // Persist choices for next visit.
   try {
@@ -437,54 +742,53 @@ function applyIpFilters() {
   } catch (e) {}
 
   // Status filter (Mapped / Unmapped)
-  let filtered = allIps;
+  var filtered = allIps;
   if (status === 'mapped') {
-    filtered = filtered.filter(ip => (ip.domains || []).length > 0);
+    filtered = filtered.filter(function (ip) { return (ip.domains || []).length > 0; });
   } else if (status === 'unmapped') {
-    filtered = filtered.filter(ip => (ip.domains || []).length === 0);
+    filtered = filtered.filter(function (ip) { return (ip.domains || []).length === 0; });
   }
 
   // Search — match IP OR any mapped domain
   if (q) {
-    filtered = filtered.filter(ip => {
-      const ipMatch = (ip.ip_address || '').toLowerCase().includes(q);
+    filtered = filtered.filter(function (ip) {
+      var ipMatch = (ip.ip_address || '').toLowerCase().indexOf(q) !== -1;
       if (ipMatch) return true;
-      const domMatch = (ip.domains || []).some(d => (d || '').toLowerCase().includes(q));
-      return domMatch;
+      return (ip.domains || []).some(function (d) { return (d || '').toLowerCase().indexOf(q) !== -1; });
     });
   }
 
   // Sort
   filtered = filtered.slice();
   if (sort === 'newest') {
-    filtered.sort((a, b) => (b.added_at || '').localeCompare(a.added_at || ''));
+    filtered.sort(function (a, b) { return (b.added_at || '').localeCompare(a.added_at || ''); });
   } else if (sort === 'oldest') {
-    filtered.sort((a, b) => (a.added_at || '').localeCompare(b.added_at || ''));
+    filtered.sort(function (a, b) { return (a.added_at || '').localeCompare(b.added_at || ''); });
   } else if (sort === 'ipasc') {
-    filtered.sort((a, b) => (a.ip_address || '').localeCompare(b.ip_address || ''));
+    filtered.sort(function (a, b) { return (a.ip_address || '').localeCompare(b.ip_address || ''); });
   } else if (sort === 'ipdesc') {
-    filtered.sort((a, b) => (b.ip_address || '').localeCompare(a.ip_address || ''));
+    filtered.sort(function (a, b) { return (b.ip_address || '').localeCompare(a.ip_address || ''); });
   }
 
   // Result count
-  const countEl = document.getElementById('ip-filter-count');
-  const isFiltering = q || status !== 'all';
+  var countEl = document.getElementById('ip-filter-count');
+  var isFiltering = q || status !== 'all';
   if (isFiltering) {
     countEl.innerHTML = 'Showing ' + filtered.length + ' of ' + allIps.length +
-      ' · <button class="filter-clear" onclick="clearIpFilters()">Clear</button>';
+      ' · <button class="sip-filter-clear" onclick="clearIpFilters()">Clear</button>';
   } else {
     countEl.textContent = allIps.length === 1 ? '1 IP' : allIps.length + ' IPs';
   }
 
   // No-match empty state
   if (filtered.length === 0 && isFiltering) {
-    let label = q ? '"' + q + '"' : status === 'unmapped' ? 'unmapped IPs' : 'mapped IPs';
+    var label = q ? '"' + q + '"' : status === 'unmapped' ? 'unmapped IPs' : 'mapped IPs';
     document.getElementById('ips-container').innerHTML =
-      '<div class="empty-state">' +
-      '<div class="empty-icon">🔍</div>' +
+      '<div class="sip-empty-state">' +
+      '<div class="sip-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>' +
       '<h3>No IPs match ' + escapeHtml(label) + '</h3>' +
       '<p>Try a different filter or clear to see all ' + allIps.length + ' IPs.</p>' +
-      '<button class="btn btn-primary" onclick="clearIpFilters()" style="margin-top:16px;">Clear filters</button>' +
+      '<button class="sip-btn sip-btn-primary" onclick="clearIpFilters()" style="margin-top:16px;">Clear filters</button>' +
       '</div>';
   } else {
     renderIps(filtered);
@@ -498,93 +802,76 @@ function clearIpFilters() {
   document.getElementById('ip-search').focus();
 }
 
+// Build HTML for the domain pill row, capping at 3 visible + "+N more" expander.
+function renderDomainPills(domains) {
+  if (!domains || domains.length === 0) {
+    return '<div class="sip-unmapped-text">Not mapped to any domain</div>';
+  }
+  var visibleCap = 3;
+  var globeSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>';
+  var html = '<div class="sip-domain-pills">';
+  domains.forEach(function (d, idx) {
+    var hidden = idx >= visibleCap ? ' hidden' : '';
+    html += '<div class="sip-domain-pill' + hidden + '">' + globeSvg + escapeHtml(d) + '</div>';
+  });
+  if (domains.length > visibleCap) {
+    var more = domains.length - visibleCap;
+    html += '<button class="sip-domain-more" onclick="toggleDomainExpand(this)">+' + more + ' more</button>';
+  }
+  html += '</div>';
+  return html;
+}
+
 function renderIps(ips) {
-  const container = document.getElementById('ips-container');
+  var container = document.getElementById('ips-container');
   if (!ips || ips.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🖥️</div>
-        <h3>No sending IPs yet</h3>
-        <p>Add your sending IP addresses to start monitoring them across SNDS and Blacklist.</p>
-        <button class="btn btn-primary" onclick="openAddIpModal()" style="margin-top:16px;">+ Add IPs</button>
-      </div>`;
+    container.innerHTML =
+      '<div class="sip-empty-state">' +
+      '<div class="sip-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></div>' +
+      '<h3>No sending IPs yet</h3>' +
+      '<p>Add your sending IP addresses to start monitoring them across SNDS and Blacklist.</p>' +
+      '<button class="sip-btn sip-btn-primary" onclick="openAddIpModal()" style="margin-top:16px;">+ Add IPs</button>' +
+      '</div>';
     return;
   }
 
-  let html = '<div class="ip-list">';
-  ips.forEach(ip => {
-    const dateAdded = ip.added_at ? 'Added ' + formatDate(ip.added_at) : '';
-    const domains = ip.domains || [];
-    const domainPillsHtml = domains.length > 0
-      ? '<div class="domain-pills">' + domains.map(d => `<span class="domain-pill">🌐 ${escapeHtml(d)}</span>`).join('') + '</div>'
-      : '<div class="no-domains-hint">No domains mapped — click "Map Domains" to assign</div>';
+  var serverIcon = '<svg class="sip-ip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>';
 
-    html += `
-      <div class="card ip-card">
-        <div class="ip-info">
-          <div class="ip-icon">🖥️</div>
-          <div style="min-width:0;">
-            <div class="ip-address">${escapeHtml(ip.ip_address)}</div>
-            <div class="ip-date">${escapeHtml(dateAdded)}</div>
-            ${domainPillsHtml}
-          </div>
-        </div>
-        <div class="ip-actions">
-          <button class="btn btn-sm" onclick="openMapDomainsModal('${escapeHtml(ip.ip_address)}', ${escapeHtml(JSON.stringify(domains))})">Map Domains</button>
-          <button class="btn btn-sm btn-remove" onclick="removeIp('${escapeHtml(ip.ip_address)}')">Remove</button>
-        </div>
-      </div>`;
+  var html = '<div class="sip-ip-list">';
+  ips.forEach(function (ip) {
+    var dateAdded = ip.added_at ? 'Added ' + formatDate(ip.added_at) : '';
+    var domains = ip.domains || [];
+    var pillsHtml = renderDomainPills(domains);
+    var statusHtml = domains.length > 0
+      ? '<div class="sip-status-pill mapped"><span class="sip-status-dot"></span>Mapped to ' + domains.length + '</div>'
+      : '<div class="sip-status-pill unmapped"><span class="sip-status-dot"></span>Unmapped</div>';
+
+    html +=
+      '<div class="sip-ip-row">' +
+      serverIcon +
+      '<div class="sip-ip-info">' +
+        '<div class="sip-ip-address">' + escapeHtml(ip.ip_address) + '</div>' +
+        '<div class="sip-ip-date">' + escapeHtml(dateAdded) + '</div>' +
+        pillsHtml +
+      '</div>' +
+      '<div class="sip-status-cell">' + statusHtml + '</div>' +
+      '<div class="sip-row-actions">' +
+        '<button class="sip-action-btn" onclick=\'openMapDomainsModal("' + escapeHtml(ip.ip_address) + '", ' + JSON.stringify(domains).replace(/"/g, '&quot;') + ')\'>Map Domains</button>' +
+        '<button class="sip-remove-btn" onclick="removeIp(\'' + escapeHtml(ip.ip_address) + '\')">Remove</button>' +
+      '</div>' +
+      '</div>';
   });
   html += '</div>';
   container.innerHTML = html;
-}
-
-async function addIps() {
-  const input = document.getElementById('ip-input');
-  const btn = document.getElementById('add-ip-btn');
-  const raw = input.value.trim();
-  if (!raw) return;
-
-  // Parse IPs: split on commas, spaces, newlines
-  const ipList = raw.split(/[\s,;\n]+/).map(s => s.trim()).filter(Boolean);
-  if (ipList.length === 0) return;
-
-  btn.disabled = true;
-  btn.textContent = 'Adding...';
-
-  try {
-    const res = await fetch('/api/user/ips', {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ips: ipList })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Failed to add IPs');
-
-    const addedCount = (data.added || []).length;
-    const invalidList = data.invalid || [];
-    let msg = addedCount + ' IP' + (addedCount !== 1 ? 's' : '') + ' added';
-    if (invalidList.length > 0) msg += '. Invalid: ' + invalidList.join(', ');
-
-    input.value = '';
-    closeAddIpModal();
-    showToast(msg, invalidList.length > 0 ? 'error' : 'success');
-    loadIps();
-  } catch (e) {
-    showToast(e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Add IPs';
-  }
 }
 
 async function removeIp(ip) {
   if (!confirm('Remove ' + ip + ' from your sending IPs? This will also remove its domain mappings.')) return;
 
   try {
-    const res = await fetch('/api/user/ips/' + encodeURIComponent(ip), {
+    var res = await fetch('/api/user/ips/' + encodeURIComponent(ip), {
       method: 'DELETE',
-      headers
+      headers: headers
     });
     if (!res.ok) throw new Error();
     showToast('IP removed');
@@ -594,70 +881,74 @@ async function removeIp(ip) {
   }
 }
 
-// INBOX-139: SNDS connection JS removed (openSndsModal, closeSndsModal,
-// setSndsProgress, sndsConnect, loadSndsStatus, sndsSyncNow,
-// sndsDisconnect). All duplicated in settings.html → Connected
-// Services. Manage Microsoft SNDS from /settings.
+/* ════════════════════════ KEYBOARD ════════════════════════ */
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    closeAddIpModal();
+    closeMapDomainsModal();
+  }
+});
 
-// ─── INIT ────────────────────────────────────────────────
-
-window.addEventListener('DOMContentLoaded', () => {
-  const token = getToken();
+/* ════════════════════════ INIT ════════════════════════ */
+window.addEventListener('DOMContentLoaded', function () {
+  var token = getToken();
   if (!token) { window.location.href = '/login'; return; }
 
   headers = { 'Authorization': 'Bearer ' + token };
 
   // Verify user
-  fetch('/api/auth/me', { headers }).then(r => {
+  fetch('/api/auth/me', { headers }).then(function (r) {
     if (!r.ok) throw new Error();
     return r.json();
-  }).then(userData => {
-    const name = userData.user.name || userData.user.email.split('@')[0];
+  }).then(function (userData) {
+    var name = userData.user.name || userData.user.email.split('@')[0];
     document.getElementById('user-name').textContent = name;
-    const plan = userData.user.plan || 'free';
+    var plan = userData.user.plan || 'free';
     document.getElementById('plan-name').textContent = plan;
-  }).catch(() => {
-    const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+  }).catch(function () {
+    var refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
     if (refresh) {
       fetch('/api/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: refresh })
-      }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
-        .then(data => {
+      }).then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(function (data) {
           // INBOX-157 (v1.16.4): unwrap nested session — see dashboard.html.
-          const session = data.session || data;
-          const accessToken  = session.access_token;
-          const refreshToken = session.refresh_token;
+          var session = data.session || data;
+          var accessToken  = session.access_token;
+          var refreshToken = session.refresh_token;
           if (!accessToken || !refreshToken) throw new Error('refresh missing tokens');
-          const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+          var storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
           storage.setItem('access_token', accessToken);
           storage.setItem('refresh_token', refreshToken);
           location.reload();
-        }).catch(() => logout());
+        }).catch(function () { logout(); });
     } else { logout(); }
   });
 
   loadIps();
-  // INBOX-139: loadSndsStatus() removed — Settings → Connected
-  // Services owns SNDS status display.
 
   // Load alert badge count
   fetch('/api/user/alerts/count', { headers })
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
       if (data && data.unread_count > 0) {
-        const badge = document.getElementById('sidebar-badge');
+        var badge = document.getElementById('sidebar-badge');
         badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
         badge.style.display = 'inline';
       }
-    }).catch(() => {});
+    }).catch(function () {});
 
-  // Close sidebar on mobile
-  document.querySelector('.main').addEventListener('click', () => {
-    document.querySelector('.sidebar').classList.remove('open');
-  });
+  // Close sidebar on mobile when clicking main
+  var mainEl = document.querySelector('.main');
+  if (mainEl) {
+    mainEl.addEventListener('click', function () {
+      document.querySelector('.sidebar').classList.remove('open');
+    });
+  }
 });
 </script>
+
 </body>
 </html>
