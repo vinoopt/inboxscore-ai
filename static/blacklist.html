@@ -213,6 +213,117 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 html[data-theme="dark"] .theme-toggle-btn .icon-sun { display: block; }
 html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 
+/* Domain dropdown (adapted from dashboard-page.css) */
+.bl-domain-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  position: relative;
+  transition: border-color 100ms ease;
+}
+.bl-domain-select:hover { border-color: var(--text); }
+.bl-domain-select-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+.bl-domain-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 5;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.bl-domain-dropdown.open { display: block; }
+.bl-domain-dropdown-item {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 100ms ease;
+}
+.bl-domain-dropdown-item:last-child { border-bottom: none; }
+.bl-domain-dropdown-item:hover { background: var(--surface-2); }
+.bl-domain-dropdown-item.selected {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* Canonical sidebar branding */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  transition: all 100ms ease;
+}
+.brand:hover { color: var(--accent); }
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.25);
+}
+.brand-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Sidebar footer with plan pill */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+.plan-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.plan-pill-tier {
+  font-weight: 600;
+  color: var(--text);
+  text-transform: capitalize;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
@@ -230,31 +341,48 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 
   <!-- ══════ SIDEBAR ══════ -->
   <aside class="sidebar">
-    <div style="padding: 16px 20px; border-bottom: 1px solid var(--border);">
-      <a href="#" class="logo">
-        <span class="logo-icon">IS</span>
-        <span>InboxScore</span>
-      </a>
-    </div>
+    <a href="/dashboard" class="brand">
+      <div class="brand-mark">IS</div>
+      <div class="brand-name">InboxScore</div>
+    </a>
+    <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
     <ul class="sidebar-nav">
-      <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
-      <li><a href="/postmaster"><span class="nav-icon">✉️</span> Google Postmaster</a></li>
-      <li><a href="/microsoft"><span class="nav-icon">📨</span> Microsoft SNDS</a></li>
-      <li><a href="/blacklist" class="active"><span class="nav-icon">🛡️</span> Blacklist Monitor</a></li>
-      <li><a href="/domains"><span class="nav-icon">🌐</span> Domains <span class="alert-badge">5</span></a></li>
-      <li><a href="/sending-ips"><span class="nav-icon">🖧</span> Sending IPs</a></li>
-      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts</a></li>
-      <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
+      <li><a href="/dashboard">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a></li>
+      <li><a href="/postmaster">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9l6 4 6-4"/></svg>
+        Google Postmaster
+      </a></li>
+      <li><a href="/microsoft">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Microsoft SNDS
+      </a></li>
+      <li><a href="/blacklist" class="active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Blacklist Monitor
+      </a></li>
+      <li><a href="/domains">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><path d="M12 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14z"/></svg>
+        Domains <span class="alert-badge">5</span>
+      </a></li>
+      <li><a href="/sending-ips">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        Sending IPs
+      </a></li>
+      <li><a href="/alerts">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.86 7.24a3 3 0 0 0-1.04.23M18 8A6 6 0 0 0 6.16 4.8M2 8a10.5 10.5 0 0 0 18.8 4h3.4a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-3.4"/><path d="M16 5v4"/><circle cx="16" cy="9" r="1"/></svg>
+        Alerts
+      </a></li>
+      <li><a href="/settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>
+        Settings
+      </a></li>
     </ul>
-    <div style="margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border);">
-      <div class="plan-badge">
-        <span style="flex: 1;">
-          <div class="plan-name" id="plan-name">Plan</div>
-          <div style="font-size: 11px; color: var(--text-muted);" id="plan-usage-text">—</div>
-          <div style="height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 8px; overflow: hidden;">
-            <div id="plan-usage-fill" style="height: 100%; width: 0%; background: var(--text); border-radius: 2px; transition: width 200ms ease;"></div>
-          </div>
-        </span>
+    <div class="sidebar-footer">
+      <div class="plan-pill" id="plan-badge">
+        <span class="plan-pill-tier"><span id="plan-name">Free</span> plan</span>
       </div>
     </div>
   </aside>
@@ -280,10 +408,13 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 
       <!-- Domain selector pill (between page header + detail card,
            matches the mockup approved on 2026-05-01). -->
-      <div class="domain-pill" id="bl-domain-pill" style="display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 999px; font-size: 13px; font-weight: 500; margin-bottom: 24px; cursor: pointer;">
-        <span style="width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0;"></span>
-        <span id="bl-domain-pill-name">mailercloud.com</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color: var(--text-muted);"><polyline points="6 9 12 15 18 9"/></svg>
+      <div class="bl-domain-select-wrap" style="position: relative; display: inline-block; margin-bottom: 24px;">
+        <div class="domain-pill" id="bl-domain-pill" onclick="blToggleDomainDropdown(event)" style="display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 999px; font-size: 13px; font-weight: 500; cursor: pointer;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0;"></span>
+          <span id="bl-domain-pill-name">mailercloud.com</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color: var(--text-muted);"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="bl-domain-dropdown" id="bl-domain-dropdown"></div>
       </div>
 
       <div class="detail-card">
@@ -499,11 +630,75 @@ function logout() {
   sessionStorage.removeItem('user');
   window.location.href = '/login';
 }
+// Global state for domain dropdown
+let _bl = {
+  domains: [],
+  selectedDomain: 'mailercloud.com'
+};
+
 function getBlacklistDomain() {
-  const sel = document.querySelector('select[name="domain"]');
-  const txt = sel?.options[sel.selectedIndex]?.text || 'mailercloud.com';
-  return txt.trim();
+  return _bl.selectedDomain;
 }
+
+// Fetch domains from /api/user/domains and populate dropdown
+async function blFetchDomains() {
+  try {
+    const token = getToken();
+    if (!token) return;
+    const resp = await fetch('/api/user/domains', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    _bl.domains = data.domains || [];
+    if (_bl.domains.length > 0 && !_bl.domains.find(d => d.domain === _bl.selectedDomain)) {
+      _bl.selectedDomain = _bl.domains[0].domain;
+    }
+    blRenderDomainDropdown();
+  } catch (e) {
+    console.error('blFetchDomains:', e);
+  }
+}
+
+// Render domain dropdown menu
+function blRenderDomainDropdown() {
+  const dd = document.getElementById('bl-domain-dropdown');
+  if (!dd) return;
+  if (_bl.domains.length === 0) { dd.innerHTML = ''; return; }
+  let html = '';
+  _bl.domains.forEach(d => {
+    const sel = (d.domain === _bl.selectedDomain) ? ' selected' : '';
+    html += `<div class="bl-domain-dropdown-item${sel}" onclick="blSelectDomain('${escapeHtml(d.domain).replace(/'/g, "\\'")}', event)">${escapeHtml(d.domain)}</div>`;
+  });
+  dd.innerHTML = html;
+  // Update pill display
+  const pillName = document.getElementById('bl-domain-pill-name');
+  if (pillName) pillName.textContent = _bl.selectedDomain;
+}
+
+// Toggle domain dropdown visibility
+function blToggleDomainDropdown(e) {
+  if (e) e.stopPropagation();
+  const dd = document.getElementById('bl-domain-dropdown');
+  if (!dd) return;
+  dd.classList.toggle('open');
+}
+
+// Select domain and refresh results
+function blSelectDomain(domain, e) {
+  if (e) e.stopPropagation();
+  _bl.selectedDomain = domain;
+  const dd = document.getElementById('bl-domain-dropdown');
+  if (dd) dd.classList.remove('open');
+  blRenderDomainDropdown();
+  refreshBlacklistForDomain(domain);
+}
+
+// Close dropdown on document click
+document.addEventListener('click', () => {
+  const dd = document.getElementById('bl-domain-dropdown');
+  if (dd) dd.classList.remove('open');
+});
 
 // Session-level blacklist cache (5 min TTL)
 const _blCache = {};
@@ -767,6 +962,9 @@ function renderBlacklistResults(data) {
     domCov.innerHTML = covHtml;
   }
 
+  // --- Domain listing detail rows (INBOX-186) ---
+  _blRenderDomainListingDetail(dListings);
+
   // --- Sending IPs section ---
   const ipResults = data.ip_results || [];
   _blAllIps = ipResults;
@@ -791,6 +989,25 @@ function _blRenderCovStrip(checkedCount, blacklistedOn) {
     html += '<span class="bl-cov-dot' + (isListed ? ' listed' : '') + '"></span>';
   }
   return html;
+}
+
+function _blRenderDomainListingDetail(listings) {
+  const domainPanel = document.querySelector('.bl-domain-panel');
+  let detailContainer = domainPanel?.nextElementSibling;
+
+  // Remove any existing detail container
+  if (detailContainer && detailContainer.classList?.contains('bl-domain-detail-container')) {
+    detailContainer.remove();
+  }
+
+  // Only render if domain has listings
+  if (!domainPanel || listings.length === 0) return;
+
+  const detailHtml = listings.map(l => _blRenderListingRow(l)).join('');
+  const container = document.createElement('div');
+  container.className = 'bl-domain-detail-container';
+  container.innerHTML = '<table class="bl-listing-details">' + detailHtml + '</table>';
+  domainPanel.parentNode.insertBefore(container, domainPanel.nextSibling);
 }
 
 function _blRenderListingRow(l) {
@@ -931,32 +1148,16 @@ window.addEventListener('DOMContentLoaded', () => {
       const userEl = document.getElementById('user-name');
       if (userEl) userEl.textContent = name;
 
-      // Plan card — mirror microsoft.html so the sidebar shows real
-      // user data instead of the hardcoded "Pro plan / 7 of 10".
+      // Plan card — update plan label
       const plan = userData.user.plan || 'free';
-      const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
       const planNameEl = document.getElementById('plan-name');
-      if (planNameEl) planNameEl.textContent = planLabel;
-      const used = userData.user.domains_used || userData.user.domain_count || null;
-      const cap = userData.user.domains_limit || (plan === 'free' ? 1 : (plan === 'pro' ? 10 : null));
-      const usageText = document.getElementById('plan-usage-text');
-      const usageFill = document.getElementById('plan-usage-fill');
-      if (usageText && usageFill) {
-        if (used != null && cap) {
-          usageText.textContent = used + ' of ' + cap + ' domains';
-          usageFill.style.width = Math.min(100, Math.round((used / cap) * 100)) + '%';
-        } else if (cap) {
-          usageText.textContent = cap + ' domain' + (cap === 1 ? '' : 's') + ' included';
-          usageFill.style.width = '0%';
-        } else {
-          usageText.textContent = 'Unlimited domains';
-          usageFill.style.width = '100%';
-        }
-      }
+      if (planNameEl) planNameEl.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
 
-      // Load initial domain results AFTER auth check has resolved.
-      const initialDomain = getBlacklistDomain();
-      refreshBlacklistForDomain(initialDomain);
+      // Load domains into dropdown, then load initial blacklist results
+      blFetchDomains().then(() => {
+        const initialDomain = getBlacklistDomain();
+        refreshBlacklistForDomain(initialDomain);
+      });
     })
     .catch(() => {
       const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
