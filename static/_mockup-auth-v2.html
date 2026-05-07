@@ -136,6 +136,7 @@ html:not([data-theme="dark"]) .au-theme-toggle .icon-moon { display: block; }
 .au-form-group { display: flex; flex-direction: column; gap: 6px; }
 .au-label { font-size: 13px; font-weight: 500; color: var(--text); }
 .au-input {
+  width: 100%;             /* fix: ensure password input fills .au-password-wrapper */
   padding: 10px 14px;
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -145,6 +146,7 @@ html:not([data-theme="dark"]) .au-theme-toggle .icon-moon { display: block; }
   font-family: inherit;
   transition: all 100ms ease;
 }
+.au-password-wrapper .au-input { padding-right: 64px; }  /* leave room for Show/Hide button */
 .au-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
