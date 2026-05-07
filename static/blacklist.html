@@ -45,8 +45,8 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 
 /* Top Nav */
 .topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); z-index: 10; }
-.logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); letter-spacing: -0.01em; }
-.logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 4px 8px rgba(139,92,246,0.25); }
+/* Old .logo / .logo-icon CSS removed — markup now uses .brand / .brand-mark
+   (canonical Dashboard pattern). Definitions for those live further down. */
 .nav-right { display: flex; align-items: center; gap: 16px; }
 .user-name { font-size: 13px; color: var(--text-muted); }
 .logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
@@ -57,15 +57,36 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .layout { display: flex; flex: 1; }
 
 /* Sidebar */
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+/* Sidebar — match dashboard.html computed values exactly. The previous
+   inline rules used purple/violet accent + 3px left-border which fought
+   the canonical Dashboard pattern (subtle dark-text on light-grey).
+   Lesson: when you replace markup, also clean up the OLD CSS that
+   targets the same selectors — otherwise specificity wars and you
+   ship a half-fix. */
+.sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; flex-shrink: 0; display: flex; flex-direction: column; }
 .sidebar-nav { list-style: none; }
-.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
+.sidebar-nav li a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  color: var(--text-muted); text-decoration: none;
+  font-size: 13px; font-weight: 500;
+  border-radius: 7px;
+  transition: background 100ms ease, color 100ms ease;
+  margin-bottom: 1px;
+}
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
-.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+.sidebar-nav li a.active {
+  color: var(--text); background: var(--surface-2); font-weight: 500;
+  border-left: none;  /* explicit override of any older rule */
+}
+.sidebar-nav li a svg { color: currentColor; flex-shrink: 0; }
 .sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
 .sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
-.alert-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; display: none; }.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
-.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
+.alert-badge {
+  margin-left: auto; font-size: 11px; color: var(--text-muted);
+  background: var(--surface-2); padding: 1px 6px; border-radius: 4px;
+  font-weight: 500; min-width: 18px; text-align: center;
+}
 
 /* Main */
 .main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
@@ -281,24 +302,26 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   transition: all 100ms ease;
 }
 .brand:hover { color: var(--accent); }
+/* Canonical brand-mark — black square with white IS letterform.
+   Match dashboard.html exactly (was previously a violet gradient pill). */
 .brand-mark {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-  color: white;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  background: var(--text);
+  color: var(--surface);
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: -0.04em;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(139, 92, 246, 0.25);
 }
 .brand-name {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
 }
 
 /* Sidebar footer with plan pill */
