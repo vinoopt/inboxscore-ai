@@ -3,214 +3,214 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sign Up — InboxScore</title>
+<title>Sign up — InboxScore</title>
 <meta name="description" content="Create your free InboxScore account. Monitor your email deliverability, get alerts, and keep your inbox placement healthy.">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light')
+      document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
-  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f5; --border: #e4e4e7; --border-strong: #d4d4d8;
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f5; --surface-3: #e4e4e7;
+  --border: #e4e4e7; --border-strong: #d4d4d8;
   --text: #18181b; --text-muted: #52525b; --text-subtle: #71717a;
-  --accent: #7c3aed; --accent-hover: #6d28d9; --accent-glow: rgba(124,58,237,0.18);
-  --green: #047857; --red: #b91c1c;
+  --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #ede9fe; --accent-glow: rgba(124,58,237,0.18);
+  --green: #047857; --green-bg: #d1fae5;
+  --red: #b91c1c; --red-bg: #fee2e2;
 }
-body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-
-nav { display: flex; justify-content: space-between; align-items: center; padding: 14px 40px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); }
-.logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); letter-spacing: -0.01em; }
-.logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(139,92,246,0.25); }
-.nav-links { display: flex; gap: 24px; align-items: center; }
-.nav-links a { color: var(--text-muted); text-decoration: none; font-size: 14px; transition: color 0.15s; }
-.nav-links a:hover { color: var(--text); }
-
-.auth-container { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
-.auth-card { width: 100%; max-width: 420px; }
-.auth-card h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; text-align: center; }
-.auth-card .subtitle { color: var(--text-muted); font-size: 15px; text-align: center; margin-bottom: 32px; }
-
-.form-group { margin-bottom: 20px; }
-.form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-.form-group input { width: 100%; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 15px; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
-.form-group input::placeholder { color: var(--text-muted); }
-.form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-.form-group input.error { border-color: var(--red); }
-
-.password-wrapper { position: relative; }
-.password-toggle { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 4px; }
-.password-toggle:hover { color: var(--text); }
-
-.form-error { font-size: 13px; color: var(--red); margin-top: 6px; display: none; }
-.form-error.visible { display: block; }
-
-.auth-btn { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.15s, transform 0.1s; box-shadow: 0 4px 10px -2px rgba(124,58,237,0.25); font-family: inherit; margin-top: 8px; }
-.auth-btn:hover { background: var(--accent-hover); }
-.auth-btn:active { transform: scale(0.99); }
-.auth-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-
-.auth-divider { display: flex; align-items: center; gap: 16px; margin: 28px 0; }
-.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-.auth-divider span { font-size: 13px; color: var(--text-muted); }
-
-.auth-footer { text-align: center; font-size: 14px; color: var(--text-muted); margin-top: 24px; }
-.auth-footer a { color: var(--accent); text-decoration: none; font-weight: 500; }
-.auth-footer a:hover { text-decoration: underline; }
-
-.alert { padding: 12px 16px; border-radius: 10px; font-size: 14px; margin-bottom: 20px; display: none; }
-.alert.error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--red); display: block; }
-.alert.success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: var(--green); display: block; }
-
-.password-strength { height: 3px; border-radius: 2px; margin-top: 8px; transition: all 0.3s; background: var(--border); }
-.password-strength.weak { background: var(--red); width: 33%; }
-.password-strength.medium { background: #eab308; width: 66%; }
-.password-strength.strong { background: var(--green); width: 100%; }
-
-.google-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 15px; font-weight: 500; text-decoration: none; transition: background 0.2s, border-color 0.2s; cursor: pointer; }
-.google-btn:hover { background: var(--surface-2); border-color: var(--text-muted); }
-
-@media (max-width: 768px) {
-  nav { padding: 12px 20px; }
-  .auth-card h1 { font-size: 24px; }
+html[data-theme="dark"] {
+  --bg: #0a0a0a; --surface: #161616; --surface-2: #262626; --surface-3: #383838;
+  --border: #333333; --border-strong: #404040;
+  --text: #fafafa; --text-muted: #a3a3a3; --text-subtle: #808080;
+  --accent: #a78bfa; --accent-hover: #c4b5fd; --accent-soft: #3f2d6e; --accent-glow: rgba(167,139,250,0.18);
+  --green: #10b981; --green-bg: #064e3b;
+  --red: #f87171; --red-bg: #7f1d1d;
 }
+body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; transition: background 200ms ease, color 200ms ease; }
+.au-topnav { display: flex; justify-content: space-between; align-items: center; padding: 16px 32px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.au-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+.au-brand-mark { width: 28px; height: 28px; background: var(--text); color: var(--surface); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; letter-spacing: -0.04em; }
+.au-brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.025em; }
+.au-nav-actions { display: flex; align-items: center; gap: 12px; }
+.au-theme-toggle { width: 32px; height: 32px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-muted); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 100ms ease; }
+.au-theme-toggle:hover { color: var(--text); border-color: var(--text); }
+.au-theme-toggle .icon-sun, .au-theme-toggle .icon-moon { display: none; }
+html[data-theme="dark"] .au-theme-toggle .icon-sun { display: block; }
+html:not([data-theme="dark"]) .au-theme-toggle .icon-moon { display: block; }
+.au-nav-link { font-size: 13px; color: var(--text-muted); text-decoration: none; padding: 6px 12px; border-radius: 6px; transition: all 100ms ease; }
+.au-nav-link:hover { color: var(--text); background: var(--surface-2); }
+
+.au-shell { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
+.au-card { width: 420px; max-width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 36px 32px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+.au-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+.au-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+.au-alert { display: none; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+.au-alert.show { display: block; }
+.au-alert.error { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+.au-alert.success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.au-google-btn { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer; text-decoration: none; font-family: inherit; transition: all 100ms ease; }
+.au-google-btn:hover { border-color: var(--text); background: var(--surface-2); }
+.au-google-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+.au-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; font-size: 12px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.06em; }
+.au-divider::before, .au-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.au-form { display: flex; flex-direction: column; gap: 16px; }
+.au-form-group { display: flex; flex-direction: column; gap: 6px; }
+.au-label { font-size: 13px; font-weight: 500; color: var(--text); }
+.au-input { width: 100%; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; outline: none; font-family: inherit; transition: all 100ms ease; }
+.au-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.au-input.error { border-color: var(--red); box-shadow: 0 0 0 3px rgba(185,28,28,0.12); }
+.au-password-wrapper { position: relative; }
+.au-password-wrapper .au-input { padding-right: 64px; }
+.au-password-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 11px; font-weight: 500; color: var(--text-muted); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-family: inherit; }
+.au-password-toggle:hover { background: var(--surface-3); color: var(--text); }
+.au-form-error { display: none; font-size: 12px; color: var(--red); }
+.au-form-error.show { display: block; }
+.au-hint { font-size: 12px; color: var(--text-subtle); margin-top: 4px; }
+.au-link { color: var(--accent); text-decoration: none; font-weight: 500; }
+.au-link:hover { text-decoration: underline; }
+.au-submit-btn { width: 100%; padding: 11px 16px; background: var(--text); color: var(--surface); border: 1px solid var(--text); border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 100ms ease; margin-top: 4px; }
+.au-submit-btn:hover:not(:disabled) { opacity: 0.9; }
+.au-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.au-footer-row { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; font-size: 13px; color: var(--text-muted); }
+.au-footer-row a { color: var(--accent); text-decoration: none; font-weight: 500; }
+.au-footer-row a:hover { text-decoration: underline; }
+@media (max-width: 480px) { .au-card { padding: 28px 22px; } .au-topnav { padding: 12px 20px; } }
 </style>
 </head>
 <body>
 
-<nav>
-  <a href="/" class="logo">
-    <div class="logo-icon">📨</div>
-    InboxScore
+<nav class="au-topnav">
+  <a href="/" class="au-brand">
+    <div class="au-brand-mark">IS</div>
+    <div class="au-brand-name">InboxScore</div>
   </a>
-  <div class="nav-links">
-    <a href="/login">Log In</a>
+  <div class="au-nav-actions">
+    <button class="au-theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <a href="/login" class="au-nav-link">Log in</a>
   </div>
 </nav>
 
-<div class="auth-container">
-  <div class="auth-card">
-    <h1>Create your account</h1>
-    <p class="subtitle">Start monitoring your email deliverability for free</p>
+<div class="au-shell">
+  <div class="au-card">
+    <div class="au-title">Create your account</div>
+    <div class="au-subtitle">Get started for free. No credit card required.</div>
+    <div class="au-alert" id="alert"></div>
 
-    <div id="alert" class="alert"></div>
-
-    <a href="https://jxqxvexoduynwpywhevr.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://inboxscore.ai" class="google-btn">
-      <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-      Continue with Google
+    <a href="https://jxqxvexoduynwpywhevr.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://inboxscore.ai" class="au-google-btn">
+      <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
+      Sign up with Google
     </a>
 
-    <div class="auth-divider"><span>or</span></div>
+    <div class="au-divider">or</div>
 
-    <form id="signup-form" onsubmit="handleSignup(event)">
-      <div class="form-group">
-        <label>Full name</label>
-        <input type="text" id="name" placeholder="John Doe" autocomplete="name">
+    <form class="au-form" id="signup-form" onsubmit="handleSignup(event)">
+      <div class="au-form-group">
+        <label class="au-label" for="name">Name</label>
+        <input type="text" class="au-input" id="name" placeholder="John Doe" autocomplete="name">
       </div>
-      <div class="form-group">
-        <label>Email address</label>
-        <input type="email" id="email" placeholder="you@company.com" required autocomplete="email">
-        <div class="form-error" id="email-error"></div>
+      <div class="au-form-group">
+        <label class="au-label" for="email">Email</label>
+        <input type="email" class="au-input" id="email" placeholder="you@company.com" required autocomplete="email">
+        <div class="au-form-error" id="email-error"></div>
       </div>
-      <div class="form-group">
-        <label>Password</label>
-        <div class="password-wrapper">
-          <input type="password" id="password" placeholder="Min. 8 characters" required minlength="8" autocomplete="new-password">
-          <button type="button" class="password-toggle" onclick="togglePassword()">Show</button>
+      <div class="au-form-group">
+        <label class="au-label" for="password">Password</label>
+        <div class="au-password-wrapper">
+          <input type="password" class="au-input" id="password" placeholder="At least 8 characters" required minlength="8" autocomplete="new-password">
+          <button type="button" class="au-password-toggle" onclick="togglePassword()">Show</button>
         </div>
-        <div class="password-strength" id="pw-strength"></div>
-        <div class="form-error" id="password-error"></div>
+        <div class="au-form-error" id="password-error"></div>
+        <div class="au-hint">Use at least 8 characters with a mix of letters, numbers, and symbols.</div>
       </div>
-      <button type="submit" class="auth-btn" id="submit-btn">Create Account</button>
+      <button type="submit" class="au-submit-btn" id="submit-btn">Create account</button>
     </form>
 
-    <div class="auth-footer">
+    <div class="au-footer-row">
       Already have an account? <a href="/login">Log in</a>
     </div>
   </div>
 </div>
 
 <script>
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'light';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
+}
+
 function togglePassword() {
-  const pw = document.getElementById('password');
-  const btn = pw.nextElementSibling;
+  var pw = document.getElementById('password');
+  var btn = pw.parentElement.querySelector('.au-password-toggle');
   if (pw.type === 'password') { pw.type = 'text'; btn.textContent = 'Hide'; }
   else { pw.type = 'password'; btn.textContent = 'Show'; }
 }
 
-document.getElementById('password').addEventListener('input', function() {
-  const bar = document.getElementById('pw-strength');
-  const len = this.value.length;
-  bar.className = 'password-strength';
-  if (len === 0) return;
-  if (len < 8) bar.classList.add('weak');
-  else if (len < 12 || !/[A-Z]/.test(this.value) || !/[0-9]/.test(this.value)) bar.classList.add('medium');
-  else bar.classList.add('strong');
-});
-
 async function handleSignup(e) {
   e.preventDefault();
-  const btn = document.getElementById('submit-btn');
-  const alert = document.getElementById('alert');
-  const name = document.getElementById('name').value.trim();
-  const email = document.getElementById('email').value.trim();
-  const password = document.getElementById('password').value;
+  var btn = document.getElementById('submit-btn');
+  var alertEl = document.getElementById('alert');
+  var name = document.getElementById('name').value.trim();
+  var email = document.getElementById('email').value.trim();
+  var password = document.getElementById('password').value;
 
-  // Reset errors
-  alert.className = 'alert';
-  alert.style.display = 'none';
-  document.querySelectorAll('.form-error').forEach(e => e.classList.remove('visible'));
-  document.querySelectorAll('input.error').forEach(e => e.classList.remove('error'));
+  alertEl.className = 'au-alert';
+  document.querySelectorAll('.au-form-error').forEach(function (e) { e.classList.remove('show'); });
+  document.querySelectorAll('input.error').forEach(function (e) { e.classList.remove('error'); });
 
-  // Validate
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     document.getElementById('email').classList.add('error');
-    const err = document.getElementById('email-error');
-    err.textContent = 'Please enter a valid email address';
-    err.classList.add('visible');
+    var ee = document.getElementById('email-error');
+    ee.textContent = 'Please enter a valid email address';
+    ee.classList.add('show');
     return;
   }
   if (password.length < 8) {
     document.getElementById('password').classList.add('error');
-    const err = document.getElementById('password-error');
-    err.textContent = 'Password must be at least 8 characters';
-    err.classList.add('visible');
+    var pe = document.getElementById('password-error');
+    pe.textContent = 'Password must be at least 8 characters';
+    pe.classList.add('show');
     return;
   }
 
-  btn.disabled = true;
-  btn.textContent = 'Creating account...';
+  btn.disabled = true; btn.textContent = 'Creating account…';
 
   try {
-    const res = await fetch('/api/auth/signup', {
+    var res = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, name: name || null })
+      body: JSON.stringify({ email: email, password: password, name: name || null })
     });
-    const data = await res.json();
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Signup failed');
 
-    if (!res.ok) {
-      throw new Error(data.detail || 'Signup failed');
-    }
-
-    // Track signup in GA4
     if (window.gtag) gtag('event', 'sign_up', { method: 'email' });
 
-    alert.className = 'alert success';
-    alert.textContent = 'Account created! Please check your email to verify your account, then log in.';
-    alert.style.display = 'block';
+    alertEl.className = 'au-alert show success';
+    alertEl.textContent = 'Account created! Please check your email to verify your account, then log in.';
     document.getElementById('signup-form').reset();
-    document.getElementById('pw-strength').className = 'password-strength';
   } catch (err) {
-    alert.className = 'alert error';
-    alert.textContent = err.message;
-    alert.style.display = 'block';
+    alertEl.className = 'au-alert show error';
+    alertEl.textContent = err.message;
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Create Account';
+    btn.disabled = false; btn.textContent = 'Create account';
   }
 }
 </script>
+
 </body>
 </html>
