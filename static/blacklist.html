@@ -85,12 +85,142 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
 .sidebar-backdrop.show { display: block; }
 
+/* ════════════════════════════════════════════════════════════════
+   Chrome the migration agent left out — postmaster-page-v2.css
+   defines these as .pm-* but the markup here uses unprefixed
+   class names, so we have to declare the unprefixed versions.
+   Without these the .provider-head flex layout never engaged
+   (rendered display:block) and Scan now stacked under the title
+   text instead of sitting on the right of the row.
+   ════════════════════════════════════════════════════════════════ */
+.detail-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  margin-top: 24px;
+}
+.provider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.provider-head-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.body-pad { padding: 28px 32px 32px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 100ms ease;
+  font-family: inherit;
+  border: 1px solid transparent;
+}
+.btn svg { width: 14px; height: 14px; }
+.btn.primary {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+}
+.btn.primary:hover { opacity: 0.9; }
+
+.domain-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 100ms ease;
+}
+.domain-pill:hover { border-color: var(--text); }
+
+/* Search / filter / sort toolbar (used above the IP table). */
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.search-input {
+  flex: 1;
+  min-width: 240px;
+  height: 36px;
+  padding: 0 14px 0 38px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") no-repeat 12px center;
+  font-size: 13px;
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color 100ms ease;
+}
+.search-input:hover { border-color: var(--text); }
+.search-input:focus { outline: none; border-color: var(--text); }
+.filter-select, .sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 36px;
+  padding: 0 32px 0 14px;
+  background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 11px center;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.filter-select:hover, .sort-select:hover { border-color: var(--text); }
+
+/* Theme toggle in page header (sun/moon icon). Mirrors microsoft.html. */
+.theme-toggle-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+.theme-toggle-btn:hover { color: var(--text); border-color: var(--text); }
+.theme-toggle-btn .icon-sun, .theme-toggle-btn .icon-moon { display: none; }
+html[data-theme="dark"] .theme-toggle-btn .icon-sun { display: block; }
+html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
+
 /* Responsive */
 @media (max-width: 768px) {
   .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
   .sidebar.open { left: 0; }
   .mobile-toggle { display: block; }
   .main { padding: 24px 16px; }
+  .provider-head { padding: 18px 20px; }
+  .body-pad { padding: 20px; }
 }
 </style>
 </head>
@@ -137,6 +267,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
         </div>
         <div style="display: flex; gap: 12px; align-items: center;">
           <span class="user-name" id="user-name">Loading...</span>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
           <button class="logout-btn" onclick="logout()">Log Out</button>
         </div>
       </div>
@@ -163,7 +297,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
               <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;"><span id="bl-last-checked"></span></div>
             </div>
           </div>
-          <button class="badge-accent" onclick="runBlacklistCheck(true)" id="bl-check-btn" style="background: var(--text); color: var(--surface); border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500;">
+          <button class="btn primary" onclick="runBlacklistCheck(true)" id="bl-check-btn">
             ↻ Scan now
           </button>
         </div>
@@ -328,6 +462,16 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 // BLACKLIST MONITOR — V2 PAGE
 // Migrated from email-health.html, adapted for new V2 mockup DOM structure
 // ════════════════════════════════════════════════════════════════════════════════════════════
+
+// Theme toggle — same key (`inboxscore-theme`) the rest of the app uses, so
+// dark/light persists across pages. The FOUC-killing script in <head>
+// hydrates the right value before any CSS paints.
+function toggleTheme() {
+  const root = document.documentElement;
+  const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
+}
 
 // Auth helpers — must match the canonical pattern used by microsoft.html /
 // postmaster.html / dashboard.html so the user's `access_token` (set on
