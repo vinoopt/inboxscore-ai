@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- FOUC hydration script -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light')
+      document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -20,430 +30,896 @@
   --orange: #c2410c; --orange-bg: #ffedd5;
   --red: #b91c1c; --red-bg: #fee2e2;
 }
-body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-
-/* Top Nav */
-.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); z-index: 10; }
-.logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); letter-spacing: -0.01em; }
-.logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 4px 8px rgba(139,92,246,0.25); }
-.nav-right { display: flex; align-items: center; gap: 16px; }
-.user-name { font-size: 13px; color: var(--text-muted); }
-.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
-.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
-.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
-
-/* Layout */
+html[data-theme="dark"] {
+  --bg: #0a0a0a; --surface: #161616; --surface-2: #262626; --surface-3: #383838;
+  --border: #333333; --border-strong: #404040;
+  --text: #fafafa; --text-muted: #a3a3a3; --text-subtle: #808080;
+  --accent: #a78bfa; --accent-hover: #c4b5fd; --accent-soft: #3f2d6e; --accent-glow: rgba(167, 139, 250, 0.18);
+  --green: #10b981; --green-bg: #064e3b;
+  --yellow: #f59e0b; --yellow-bg: #78350f;
+  --orange: #f97316; --orange-bg: #7c2d12;
+  --red: #f87171; --red-bg: #7f1d1d;
+}
+body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; transition: background 200ms ease, color 200ms ease; }
 .layout { display: flex; flex: 1; }
 
-/* Sidebar */
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
-.sidebar-nav { list-style: none; flex: 1; }
-.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
+/* ══════ SIDEBAR (canonical) ══════ */
+.sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; color: var(--text-muted); text-decoration: none;
+  font-size: 13px; font-weight: 500;
+  border-radius: 7px;
+  transition: background 100ms ease, color 100ms ease;
+  margin-bottom: 1px;
+}
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
-.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); }
-.sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-.alert-badge { background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; margin-left: auto; min-width: 18px; text-align: center; }
-.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
-.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
+.sidebar-nav li a.active { color: var(--text); background: var(--surface-2); font-weight: 500; border-left: none; }
+.sidebar-nav li a svg { color: currentColor; flex-shrink: 0; }
+.alert-badge {
+  margin-left: auto; font-size: 11px; color: var(--text);
+  background: var(--red-bg); padding: 1px 6px; border-radius: 4px;
+  font-weight: 600; min-width: 18px; text-align: center;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none; color: var(--text);
+  transition: all 100ms ease;
+}
+.brand:hover { color: var(--accent); }
+.brand-mark {
+  width: 26px; height: 26px;
+  background: var(--text); color: var(--surface);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: -0.04em; flex-shrink: 0;
+}
+.brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.025em; }
+.sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); }
+.plan-pill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; font-size: 12px; color: var(--text-muted);
+}
+.plan-pill-tier { font-weight: 500; color: var(--text); text-transform: capitalize; }
 
-/* Main */
-/* 2026-04-27: added margin-inline auto so the content centers when the
-   flex parent gives us more space than max-width allows. Same fix as
-   Dashboard — without this, all empty space ended up on the right. */
-.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); max-width: 960px; margin-left: auto; margin-right: auto; }
-
-/* Page Header */
+/* ══════ MAIN ══════ */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: 100vh; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.page-header-left { min-width: 0; }
 .page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; max-width: 720px; }
+.page-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.user-name { font-size: 13px; color: var(--text-muted); }
+.theme-toggle-btn {
+  width: 34px; height: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-strong); background: transparent;
+  color: var(--text-muted); border-radius: 8px; cursor: pointer;
+  transition: all 100ms ease;
+}
+.theme-toggle-btn:hover { color: var(--text); border-color: var(--text); }
+.theme-toggle-btn .icon-sun, .theme-toggle-btn .icon-moon { display: none; }
+html[data-theme="dark"] .theme-toggle-btn .icon-sun { display: block; }
+html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
+.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
 
-/* INBOX-143 (v1.16.2): tab nav across the top of /alerts. Replaces
-   the Settings → Notifications page; everything alert-related now
-   lives here under three tabs. */
-.alerts-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 24px; gap: 0; }
-.alerts-tab { padding: 12px 18px; font-size: 14px; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s; user-select: none; }
-.alerts-tab:hover { color: var(--text); }
-.alerts-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
-.alerts-tab .tab-count { display: inline-block; margin-left: 6px; font-size: 11px; padding: 1px 7px; background: var(--surface-2); color: var(--text-muted); border-radius: 999px; font-weight: 500; }
-.alerts-tab.active .tab-count { background: var(--accent-soft); color: var(--accent); }
+/* ══════ DOMAIN DROPDOWN — canonical pattern ══════ */
+.al-domain-select-wrap { position: relative; display: inline-block; margin-bottom: 24px; }
+.al-domain-select {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text); cursor: pointer;
+  position: relative;
+  transition: border-color 100ms ease;
+  font-family: inherit;
+}
+.al-domain-select:hover { border-color: var(--text); }
+.al-domain-select-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text-subtle);
+  flex-shrink: 0;
+}
+.al-domain-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 5;
+  max-height: 320px;
+  overflow-y: auto;
+  min-width: 220px;
+}
+.al-domain-dropdown.open { display: block; }
+.al-domain-dropdown-item {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 100ms ease;
+}
+.al-domain-dropdown-item:last-child { border-bottom: none; }
+.al-domain-dropdown-item:hover { background: var(--surface-2); }
+.al-domain-dropdown-item.selected {
+  background: var(--surface-2);
+  color: var(--text); font-weight: 500;
+}
+.al-domain-dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
 
-/* Tab panels */
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
+/* ══════ TABS ══════ */
+.al-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.al-tab {
+  padding: 10px 18px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 100ms ease;
+  font-family: inherit;
+}
+.al-tab:hover { color: var(--text); }
+.al-tab.active { color: var(--text); border-bottom-color: var(--text); font-weight: 600; }
+.al-tab-count {
+  display: inline-block; margin-left: 6px;
+  padding: 1px 7px; background: var(--surface-2); color: var(--text-muted);
+  border-radius: 10px; font-size: 11px; font-weight: 500;
+}
+.al-tab.active .al-tab-count { background: var(--text); color: var(--surface); }
+.al-tab-panel { display: none; }
+.al-tab-panel.active { display: block; }
 
-/* Rules + Channels rows */
-.cfg-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0; margin-bottom: 14px; }
-.cfg-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); gap: 12px; }
-.cfg-row:last-child { border-bottom: 0; }
-.cfg-label { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
-.cfg-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
-.cfg-section-h { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; margin: 0 0 10px; }
-.cfg-section { margin-bottom: 24px; }
+/* ══════ FEED ══════ */
+.al-filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.al-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface); color: var(--text-muted);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+  transition: all 100ms ease;
+  font-family: inherit;
+}
+.al-chip:hover { border-color: var(--text); color: var(--text); }
+.al-chip.active { background: var(--text); color: var(--surface); border-color: var(--text); }
+.al-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.al-chip.severity-critical:not(.active) .al-chip-dot { background: var(--red); }
+.al-chip.severity-warning:not(.active) .al-chip-dot { background: var(--yellow); }
+.al-range-anchor {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-subtle);
+  margin-bottom: 16px;
+}
+.al-range-anchor svg { width: 12px; height: 12px; color: var(--text-subtle); }
 
-/* Toggle */
-.toggle { width: 38px; height: 22px; background: var(--surface-3); border-radius: 999px; position: relative; cursor: pointer; transition: background 0.18s; flex-shrink: 0; }
-.toggle::after { content: ''; position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: left 0.18s; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
-.toggle.on { background: var(--accent); }
-.toggle.on::after { left: 18px; }
-.toggle.disabled { opacity: 0.5; cursor: not-allowed; }
+/* ══════ ALERT LIST ══════ */
+.al-list { display: flex; flex-direction: column; gap: 8px; list-style: none; }
+.al-item {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+.al-item:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.al-sev-icon {
+  flex-shrink: 0; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; margin-top: 1px;
+}
+.al-sev-icon.critical { background: var(--red-bg); color: var(--red); }
+.al-sev-icon.warning  { background: var(--yellow-bg); color: var(--yellow); }
+.al-sev-icon.info     { background: var(--surface-2); color: var(--text-muted); }
+.al-sev-icon svg { width: 14px; height: 14px; }
+.al-body { flex: 1; min-width: 0; }
+.al-title-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.al-title { font-size: 14px; font-weight: 500; color: var(--text); }
+.al-time { font-size: 12px; color: var(--text-subtle); white-space: nowrap; flex-shrink: 0; }
+.al-desc { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+.al-domain {
+  font-size: 11px; color: var(--text-subtle); margin-top: 6px;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: 'Geist Mono', monospace;
+}
+.al-domain svg { width: 11px; height: 11px; color: var(--text-subtle); }
+.al-chevron { flex-shrink: 0; align-self: center; color: var(--text-subtle); }
+.al-chevron svg { width: 16px; height: 16px; }
+.al-item:hover .al-chevron { color: var(--text); }
 
-/* Pro-soon hint pill */
-.pro-soon { font-size: 10px; font-weight: 600; padding: 2px 8px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; letter-spacing: 0.02em; }
-
-/* Setup btn (disabled, for Slack/etc) */
-.setup-btn { padding: 5px 12px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 12px; cursor: not-allowed; opacity: 0.5; font-family: inherit; }
-
-/* Save button row */
-.cfg-save-row { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 8px; }
-.cfg-save-btn { padding: 8px 22px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.18s; font-family: inherit; }
-.cfg-save-btn:hover { background: #6d28d9; }
-.cfg-save-btn:disabled { opacity: 0.6; cursor: wait; }
-.cfg-saved-msg { font-size: 12px; color: var(--green); opacity: 0; transition: opacity 0.2s; }
-.cfg-saved-msg.show { opacity: 1; }
-
-/* Pagination */
-.pager { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
-.pager-btns { display: flex; gap: 8px; }
-.pager-btn { padding: 5px 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit; }
-.pager-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
-.pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* Filter Chips */
-.alerts-filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-.filter-chip { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 12px; cursor: pointer; transition: all 0.2s; }
-.filter-chip:hover { border-color: var(--accent); color: var(--text); }
-.filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-.mark-all-btn { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-muted); transition: all 0.2s; margin-left: auto; }
-.mark-all-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-/* Alert Feed */
-.alert-feed { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-.alert-item { display: flex; gap: 14px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); transition: all 0.2s; cursor: pointer; }
-.alert-item:hover { border-color: var(--accent); }
-.alert-item.unread { border-left: 3px solid var(--accent); }
-.alert-item.resolved { opacity: 0.7; }
-.alert-severity { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-.sev-critical { background: var(--red-bg); }
-.sev-warning { background: var(--yellow-bg); }
-.sev-info { background: var(--accent-soft); }
-.sev-resolved { background: var(--green-bg); }
-.alert-body { flex: 1; min-width: 0; }
-.alert-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
-.alert-title { font-size: 14px; font-weight: 600; }
-.alert-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; margin-left: 12px; }
-.alert-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 6px; line-height: 1.5; }
-.alert-domain { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
-.badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
-.badge-green { background: var(--green-bg); color: var(--green); }
-.badge-red { background: var(--red-bg); color: var(--red); }
-
-/* Alert Actions (on hover) */
-.alert-actions { display: flex; gap: 6px; flex-shrink: 0; opacity: 0; transition: opacity 0.2s; }
-.alert-item:hover .alert-actions { opacity: 1; }
-.alert-action-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 4px; border-radius: 4px; transition: all 0.2s; }
-.alert-action-btn:hover { color: var(--text); background: var(--surface-2); }
-.alert-action-btn.delete:hover { color: var(--red); }
-
-/* Empty State */
-.empty-state { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 64px 48px; text-align: center; }
-.empty-icon { font-size: 48px; margin-bottom: 16px; }
-.empty-state h3 { font-size: 18px; margin-bottom: 8px; }
-.empty-state p { color: var(--text-muted); font-size: 14px; max-width: 400px; margin: 0 auto; }
-
-/* Alert Detail Modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; display: none; align-items: center; justify-content: center; }
-.modal-overlay.show { display: flex; }
-.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; max-width: 520px; width: 90%; max-height: 80vh; overflow-y: auto; }
-.modal h2 { font-size: 18px; margin-bottom: 12px; }
-.modal .modal-severity { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
-.modal .modal-severity.critical { background: var(--red-bg); color: var(--red); }
-.modal .modal-severity.warning { background: var(--yellow-bg); color: var(--yellow); }
-.modal .modal-severity.info { background: rgba(99,102,241,0.15); color: var(--accent); }
-.modal .modal-message { font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 16px; }
-.modal .modal-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 20px; }
-.modal .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-.modal .btn { padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
-.modal .btn-primary { background: var(--accent); color: white; }
-.modal .btn-primary:hover { background: #5558e6; }
-.modal .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
-.modal .btn-outline:hover { border-color: var(--red); color: var(--red); }
-
-/* Loading */
-.loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* ══════ EMPTY / LOADING ══════ */
+.al-empty-state {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 48px; text-align: center;
+}
+.al-empty-icon { font-size: 32px; color: var(--text-subtle); margin-bottom: 12px; display: flex; justify-content: center; }
+.al-empty-state h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
+.al-empty-state p { color: var(--text-muted); font-size: 14px; max-width: 480px; margin: 0 auto; }
+.al-loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.al-loading-spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: al-spin 0.8s linear infinite;
+}
+@keyframes al-spin { to { transform: rotate(360deg); } }
 
 /* Toast */
-.toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 13px; z-index: 200; opacity: 0; transform: translateY(20px); transition: all 0.3s; pointer-events: none; }
-.toast.show { opacity: 1; transform: translateY(0); }
-.toast.success { background: var(--green); color: white; }
-.toast.error { background: var(--red); color: white; }
+.al-toast {
+  position: fixed; bottom: 24px; right: 24px;
+  padding: 12px 20px; border-radius: 10px;
+  font-size: 14px; z-index: 100;
+  animation: al-slide-in 0.3s ease;
+}
+.al-toast.success { background: var(--green-bg); border: 1px solid var(--green); color: var(--green); }
+.al-toast.error { background: var(--red-bg); border: 1px solid var(--red); color: var(--red); }
+@keyframes al-slide-in { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* Sidebar Backdrop */
-.sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
-.sidebar-backdrop.show { display: block; }
+/* ══════ RULES + CHANNELS ══════ */
+.al-cfg-section { margin-bottom: 24px; }
+.al-cfg-h {
+  font-size: 11px; color: var(--text-subtle);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  font-weight: 600; margin-bottom: 10px;
+}
+.al-cfg-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.al-cfg-row {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.al-cfg-row:last-child { border-bottom: none; }
+.al-cfg-row-left { flex: 1; min-width: 0; }
+.al-cfg-label {
+  font-size: 14px; font-weight: 500; color: var(--text);
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+}
+.al-cfg-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+.al-pro-pill {
+  font-size: 10px; font-weight: 500;
+  padding: 2px 7px;
+  background: var(--accent-soft); color: var(--accent);
+  border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.al-toggle {
+  position: relative; width: 36px; height: 20px;
+  background: var(--surface-3);
+  border-radius: 999px; cursor: pointer;
+  transition: background 150ms ease;
+  flex-shrink: 0;
+  border: 1px solid var(--border-strong);
+}
+.al-toggle::after {
+  content: '';
+  position: absolute; top: 1px; left: 1px;
+  width: 16px; height: 16px;
+  background: var(--text); border-radius: 50%;
+  transition: transform 150ms ease;
+}
+.al-toggle.on { background: var(--text); border-color: var(--text); }
+.al-toggle.on::after { transform: translateX(16px); background: var(--surface); }
+.al-setup-btn {
+  padding: 6px 14px; border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  font-family: inherit; flex-shrink: 0;
+  transition: all 100ms ease;
+}
+.al-setup-btn:hover:not(:disabled) { border-color: var(--text); }
+.al-setup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.al-cfg-save-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+.al-cfg-saved-msg { font-size: 12px; color: var(--green); display: none; }
+.al-cfg-saved-msg.show { display: inline; }
+.al-cfg-save-btn {
+  padding: 8px 16px; border-radius: 8px;
+  background: var(--text); color: var(--surface); border: 1px solid var(--text);
+  font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
+  transition: all 100ms ease;
+}
+.al-cfg-save-btn:hover { opacity: 0.9; }
+.al-cfg-save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* Responsive */
+/* ══════ MODAL ══════ */
+.al-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 50;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.al-modal-overlay.show { display: flex; }
+.al-modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 28px;
+  width: 520px; max-width: 100%; max-height: 85vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+}
+.al-modal-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.al-modal-sev-icon {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; flex-shrink: 0;
+}
+.al-modal-sev-icon.critical { background: var(--red-bg); color: var(--red); }
+.al-modal-sev-icon.warning  { background: var(--yellow-bg); color: var(--yellow); }
+.al-modal-sev-icon.info     { background: var(--surface-2); color: var(--text-muted); }
+.al-modal-sev-icon svg { width: 18px; height: 18px; }
+.al-modal h3 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; flex: 1; min-width: 0; }
+.al-modal-sev-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.al-modal-sev-pill.critical { background: var(--red-bg); color: var(--red); }
+.al-modal-sev-pill.warning { background: var(--yellow-bg); color: var(--yellow); }
+.al-modal-sev-pill.info { background: var(--surface-2); color: var(--text-muted); }
+.al-modal-message { font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 16px; }
+.al-modal-meta {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 16px; margin-bottom: 16px;
+}
+.al-modal-meta-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 13px; }
+.al-modal-meta-row:not(:last-child) { border-bottom: 1px solid var(--border); }
+.al-modal-meta-label { color: var(--text-muted); }
+.al-modal-meta-value { color: var(--text); font-weight: 500; font-family: 'Geist Mono', monospace; }
+.al-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+.al-btn {
+  padding: 8px 16px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text);
+  transition: all 100ms ease; font-family: inherit;
+  text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.al-btn:hover { border-color: var(--text); }
+.al-btn-primary { background: var(--text); color: var(--surface); border-color: var(--text); }
+.al-btn-primary:hover { opacity: 0.9; }
+
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
 @media (max-width: 768px) {
-  .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar { position: fixed; left: -260px; top: 0; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
   .sidebar.open { left: 0; }
   .mobile-toggle { display: block; }
   .main { padding: 24px 16px; }
-  .alerts-filters { flex-wrap: wrap; }
-  .alert-actions { opacity: 1; }
+  .page-header { flex-direction: column; gap: 12px; }
+  .al-tabs { overflow-x: auto; }
+  .al-domain-select { width: 100%; }
 }
 </style>
 </head>
 <body>
 
-<nav class="topnav">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
-    <a href="/dashboard" class="logo">
-      <div class="logo-icon" style="font-size:11px;font-weight:700;color:white;">IS</div>
-      InboxScore
-    </a>
-  </div>
-  <div class="nav-right">
-    <span class="user-name" id="user-name"></span>
-    <button class="logout-btn" onclick="logout()">Log Out</button>
-  </div>
-</nav>
-
-<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
-
 <div class="layout">
+
+  <!-- ══════ SIDEBAR (canonical) ══════ -->
   <aside class="sidebar">
+    <a href="/dashboard" class="brand">
+      <div class="brand-mark">IS</div>
+      <div class="brand-name">InboxScore</div>
+    </a>
+    <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
     <ul class="sidebar-nav">
-      <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
-      <li><a href="/postmaster"><span class="nav-icon">📬</span> Google Postmaster</a></li>
-      <li><a href="/microsoft"><span class="nav-icon">📨</span> Microsoft SNDS</a></li>
-      <li><a href="/blacklist"><span class="nav-icon">🛡️</span> Blacklist Monitor</a></li>
-      <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
-      <li><a href="/sending-ips"><span class="nav-icon">🖥️</span> Sending IPs</a></li>
-      <li><a href="/alerts" class="active"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
-      <li><a href="/settings"><span class="nav-icon">⚙️</span> Settings</a></li>
+      <li><a href="/dashboard"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Dashboard</a></li>
+      <li><a href="/postmaster"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></span> Google Postmaster</a></li>
+      <li><a href="/microsoft"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7.5"/><path d="M22 7 12 13 2 7"/><path d="M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="m22 22-1.5-1.5"/></svg></span> Microsoft SNDS</a></li>
+      <li><a href="/blacklist"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span> Blacklist Monitor</a></li>
+      <li><a href="/domains"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span> Domains</a></li>
+      <li><a href="/sending-ips"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg></span> Sending IPs</a></li>
+      <li><a href="/alerts" class="active"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
+      <li><a href="/settings"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/><circle cx="12" cy="12" r="3"/></svg></span> Settings</a></li>
     </ul>
-    <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
+    <div class="sidebar-footer">
+      <div class="plan-pill">
+        <span class="plan-pill-tier"><span id="plan-name">Free</span> plan</span>
+      </div>
+    </div>
   </aside>
 
+  <!-- ══════ MAIN ══════ -->
   <main class="main">
-    <h1 class="page-title">Alerts</h1>
-    <p class="page-subtitle">See what fired, configure rules, and choose where alerts go.</p>
+    <div style="max-width: 1280px; margin: 0 auto;">
 
-    <!-- INBOX-143 (v1.16.2): three-tab consolidation. Feed = the alert
-         stream. Rules = trigger configuration (was Settings →
-         Notifications). Channels = where alerts go + digests. -->
-    <div class="alerts-tabs" role="tablist">
-      <div class="alerts-tab active" data-tab="feed"     role="tab" onclick="setAlertsTab('feed')">Feed</div>
-      <div class="alerts-tab"        data-tab="rules"    role="tab" onclick="setAlertsTab('rules')">Rules</div>
-      <div class="alerts-tab"        data-tab="channels" role="tab" onclick="setAlertsTab('channels')">Channels</div>
-    </div>
-
-    <!-- ──────────── FEED ──────────── -->
-    <div class="tab-panel active" id="tab-feed" role="tabpanel">
-      <!-- Filter Chips -->
-      <div class="alerts-filters" id="filters-bar">
-        <span class="filter-chip active" data-filter="all" onclick="setFilter('all')">All</span>
-        <span class="filter-chip" data-filter="critical" onclick="setFilter('critical')">Critical</span>
-        <span class="filter-chip" data-filter="warning" onclick="setFilter('warning')">Warnings</span>
-        <span class="filter-chip" data-filter="resolved" onclick="setFilter('resolved')">Resolved</span>
-        <!-- Domain chips will be dynamically added here -->
-        <button class="mark-all-btn" id="mark-all-btn" onclick="markAllRead()" style="display:none">Mark all read</button>
-      </div>
-
-      <!-- Alert Feed -->
-      <div id="alerts-loading" class="loading"><div class="loading-spinner"></div>Loading alerts...</div>
-      <ul id="alerts-list" class="alert-feed" style="display:none"></ul>
-      <div id="alerts-empty" class="empty-state" style="display:none">
-        <div class="empty-icon">🔔</div>
-        <h3>No alerts yet</h3>
-        <p>When we detect score changes, blacklist events, or DNS issues with your monitored domains, alerts will show up here.</p>
-      </div>
-
-      <!-- Pagination (shown when >20 alerts on a page) -->
-      <div class="pager" id="alerts-pager" style="display:none">
-        <span id="pager-info"></span>
-        <div class="pager-btns">
-          <button class="pager-btn" id="pager-prev" onclick="changePage(-1)">‹ Prev</button>
-          <button class="pager-btn" id="pager-next" onclick="changePage(1)">Next ›</button>
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Alerts</h1>
+          <p class="page-subtitle">See what fired, configure rules, and choose where alerts go.</p>
         </div>
-      </div>
-    </div>
-
-    <!-- ──────────── RULES ──────────── -->
-    <div class="tab-panel" id="tab-rules" role="tabpanel">
-      <div class="cfg-section">
-        <div class="cfg-section-h">Trigger when…</div>
-        <div class="cfg-card">
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Spam rate threshold</div>
-              <div class="cfg-desc">Warn above 0.1%, escalate to critical above 0.3% (Gmail's own block threshold).</div>
-            </div>
-            <div class="toggle on" data-pref="spam_threshold" onclick="this.classList.toggle('on')"></div>
-          </div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Authentication drops</div>
-              <div class="cfg-desc">Warn when SPF, DKIM, or DMARC pass-rate drops below 99%; critical below 95%.</div>
-            </div>
-            <div class="toggle on" data-pref="auth_drops" onclick="this.classList.toggle('on')"></div>
-          </div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Blacklist detection</div>
-              <div class="cfg-desc">Fire when any sending IP or sending domain is listed.</div>
-            </div>
-            <div class="toggle on" data-pref="blacklist_alerts" onclick="this.classList.toggle('on')"></div>
-          </div>
-          <!-- INBOX-143: DNS record changes deferred — record-diff
-               pipeline not yet built. Re-add when implemented. -->
+        <div class="page-header-actions">
+          <span class="user-name" id="user-name"></span>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button class="logout-btn" onclick="logout()">Log Out</button>
         </div>
       </div>
 
-      <div class="cfg-save-row">
-        <span class="cfg-saved-msg" id="rules-saved-msg">Saved</span>
-        <button class="cfg-save-btn" id="rules-save-btn" onclick="savePrefs('rules')">Save changes</button>
+      <!-- Domain dropdown -->
+      <div class="al-domain-select-wrap">
+        <button class="al-domain-select" onclick="toggleDomainDropdown(event)">
+          <span class="al-domain-select-dot"></span>
+          <span id="selected-domain-label">All domains</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="al-domain-dropdown" id="domain-dropdown"></div>
       </div>
-    </div>
 
-    <!-- ──────────── CHANNELS ──────────── -->
-    <div class="tab-panel" id="tab-channels" role="tabpanel">
-      <div class="cfg-section">
-        <div class="cfg-section-h">Channels</div>
-        <div class="cfg-card">
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Email</div>
-              <div class="cfg-desc" id="channels-email-desc">Send alerts to your account email.</div>
-            </div>
-            <div class="toggle on" data-pref="scan_alerts" onclick="this.classList.toggle('on')"></div>
-          </div>
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Slack webhook <span class="pro-soon" style="margin-left:6px;">Pro · per-domain routing soon</span></div>
-              <div class="cfg-desc">Not configured — post alerts to a Slack channel.</div>
-            </div>
-            <button class="setup-btn" disabled>Set up</button>
-          </div>
-          <!-- INBOX-143: Custom webhook deferred — Pro/API tier feature. -->
+      <!-- Tabs -->
+      <div class="al-tabs" role="tablist">
+        <button class="al-tab active" data-tab="feed" onclick="setTab('feed')" role="tab">Feed <span class="al-tab-count" id="feed-count">0</span></button>
+        <button class="al-tab" data-tab="rules" onclick="setTab('rules')" role="tab">Rules</button>
+        <button class="al-tab" data-tab="channels" onclick="setTab('channels')" role="tab">Channels</button>
+      </div>
+
+      <!-- ═══ FEED ═══ -->
+      <div class="al-tab-panel active" id="tab-feed" role="tabpanel">
+        <div class="al-filter-row">
+          <button class="al-chip active" data-filter="all" onclick="setFilter(this, 'all')">All</button>
+          <button class="al-chip severity-critical" data-filter="critical" onclick="setFilter(this, 'critical')"><span class="al-chip-dot"></span>Critical</button>
+          <button class="al-chip severity-warning" data-filter="warning" onclick="setFilter(this, 'warning')"><span class="al-chip-dot"></span>Warning</button>
+        </div>
+        <div class="al-range-anchor" id="range-anchor" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="range-anchor-text">Showing the last 30 days</span>
+        </div>
+
+        <div id="alerts-container">
+          <div class="al-loading"><div class="al-loading-spinner"></div>Loading alerts...</div>
         </div>
       </div>
 
-      <div class="cfg-section">
-        <div class="cfg-section-h">Digests</div>
-        <div class="cfg-card">
-          <div class="cfg-row">
-            <div>
-              <div class="cfg-label">Weekly digest</div>
-              <div class="cfg-desc">Email summary every Monday at 9:00 AM with the week's alerts.</div>
+      <!-- ═══ RULES ═══ -->
+      <div class="al-tab-panel" id="tab-rules" role="tabpanel">
+        <div class="al-cfg-section">
+          <div class="al-cfg-h">Trigger when…</div>
+          <div class="al-cfg-card">
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">Spam rate threshold</div>
+                <div class="al-cfg-desc">Warn above 0.1%, escalate to critical above 0.3% (Gmail's own block threshold).</div>
+              </div>
+              <div class="al-toggle on" data-pref="spam_threshold" onclick="this.classList.toggle('on')"></div>
             </div>
-            <div class="toggle" data-pref="weekly_digest" onclick="this.classList.toggle('on')"></div>
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">Authentication drops</div>
+                <div class="al-cfg-desc">Warn when SPF, DKIM, or DMARC pass-rate drops below 99%; critical below 95%.</div>
+              </div>
+              <div class="al-toggle on" data-pref="auth_drops" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">Blacklist detection</div>
+                <div class="al-cfg-desc">Fire when any sending IP or sending domain is listed on a DNSBL.</div>
+              </div>
+              <div class="al-toggle on" data-pref="blacklist_alerts" onclick="this.classList.toggle('on')"></div>
+            </div>
           </div>
+        </div>
+        <div class="al-cfg-save-row">
+          <span class="al-cfg-saved-msg" id="rules-saved-msg">Saved</span>
+          <button class="al-cfg-save-btn" id="rules-save-btn" onclick="savePrefs('rules')">Save changes</button>
         </div>
       </div>
 
-      <div class="cfg-save-row">
-        <span class="cfg-saved-msg" id="channels-saved-msg">Saved</span>
-        <button class="cfg-save-btn" id="channels-save-btn" onclick="savePrefs('channels')">Save changes</button>
+      <!-- ═══ CHANNELS ═══ -->
+      <div class="al-tab-panel" id="tab-channels" role="tabpanel">
+        <div class="al-cfg-section">
+          <div class="al-cfg-h">Channels</div>
+          <div class="al-cfg-card">
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">Email</div>
+                <div class="al-cfg-desc" id="channels-email-desc">Send alerts to your account email.</div>
+              </div>
+              <div class="al-toggle on" data-pref="scan_alerts" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">
+                  Slack webhook
+                  <span class="al-pro-pill">Pro · Coming soon</span>
+                </div>
+                <div class="al-cfg-desc">Post alerts to a Slack channel via incoming webhook. Per-domain routing on the way.</div>
+              </div>
+              <button class="al-setup-btn" disabled>Set up</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="al-cfg-section">
+          <div class="al-cfg-h">Digests</div>
+          <div class="al-cfg-card">
+            <div class="al-cfg-row">
+              <div class="al-cfg-row-left">
+                <div class="al-cfg-label">Weekly digest</div>
+                <div class="al-cfg-desc">Email summary every Monday at 9:00 AM with the week's alerts.</div>
+              </div>
+              <div class="al-toggle" data-pref="weekly_digest" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="al-cfg-save-row">
+          <span class="al-cfg-saved-msg" id="channels-saved-msg">Saved</span>
+          <button class="al-cfg-save-btn" id="channels-save-btn" onclick="savePrefs('channels')">Save changes</button>
+        </div>
       </div>
+
     </div>
   </main>
 </div>
 
-<!-- Detail Modal -->
-<div class="modal-overlay" id="alert-modal" onclick="if(event.target===this)closeModal()">
-  <div class="modal">
-    <h2 id="modal-title"></h2>
-    <span class="modal-severity" id="modal-severity"></span>
-    <div class="modal-message" id="modal-message"></div>
-    <div class="modal-meta" id="modal-meta"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="deleteFromModal()">Delete</button>
-      <button class="btn btn-primary" onclick="closeModal()">Close</button>
+<!-- Alert detail modal -->
+<div class="al-modal-overlay" id="alert-modal" onclick="if(event.target===this) closeAlert()">
+  <div class="al-modal" role="dialog" aria-labelledby="al-modal-title">
+    <div class="al-modal-header">
+      <div class="al-modal-sev-icon" id="modal-sev-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div style="flex:1; min-width:0;">
+        <h3 id="al-modal-title">—</h3>
+        <span class="al-modal-sev-pill" id="modal-sev-pill">—</span>
+      </div>
+    </div>
+    <div class="al-modal-message" id="modal-message">—</div>
+    <div class="al-modal-meta">
+      <div class="al-modal-meta-row">
+        <span class="al-modal-meta-label">Domain</span>
+        <span class="al-modal-meta-value" id="modal-domain">—</span>
+      </div>
+      <div class="al-modal-meta-row">
+        <span class="al-modal-meta-label">Source</span>
+        <span class="al-modal-meta-value" id="modal-source">—</span>
+      </div>
+      <div class="al-modal-meta-row">
+        <span class="al-modal-meta-label">Triggered</span>
+        <span class="al-modal-meta-value" id="modal-triggered">—</span>
+      </div>
+    </div>
+    <div class="al-modal-actions">
+      <button class="al-btn" onclick="closeAlert()">Close</button>
+      <a class="al-btn al-btn-primary" id="modal-investigate-link" href="#" onclick="closeAlert()">Investigate →</a>
     </div>
   </div>
 </div>
 
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
 <script>
-function toggleSidebar() {
-  document.querySelector('.sidebar').classList.toggle('open');
-  document.getElementById('sidebar-backdrop').classList.toggle('show');
+/* ═══════════ HELPERS ═══════════ */
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
-
-let allAlerts = [];
-let currentFilter = 'all';
-let domainFilter = null;
-let currentModalAlert = null;
-let headers = {};
-
-// INBOX-143: pagination state for the Feed. 20-per-page is plenty
-// since 30-day retention caps the back-catalog at a manageable size.
-const PAGE_SIZE = 20;
-let currentPage = 0;
-
-function getToken() {
-  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+function getTimeAgo(ts) {
+  if (!ts) return '';
+  var diff = (Date.now() - new Date(ts).getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  if (diff < 86400 * 30) return Math.floor(diff / 86400) + 'd ago';
+  return Math.floor(diff / 86400 / 30) + 'mo ago';
 }
-
+function showToast(msg, type) {
+  type = type || 'success';
+  var existing = document.querySelector('.al-toast');
+  if (existing) existing.remove();
+  var t = document.createElement('div');
+  t.className = 'al-toast ' + type;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function () { t.remove(); }, 3500);
+}
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'light';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
+}
+function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('open'); }
+function getToken() { return localStorage.getItem('access_token') || sessionStorage.getItem('access_token'); }
 function logout() {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  sessionStorage.removeItem('access_token');
-  sessionStorage.removeItem('refresh_token');
-  localStorage.removeItem('user');
-  sessionStorage.removeItem('user');
+  ['access_token','refresh_token','user'].forEach(function (k) { localStorage.removeItem(k); sessionStorage.removeItem(k); });
   window.location.href = '/login';
 }
 
-// ─── Load Alerts ─────────────────────────────
+/* ═══════════ STATE ═══════════ */
+var headers = {};
+var allAlerts = [];           /* alerts last 30 days, normalised */
+var currentSeverity = 'all';
+var currentDomain = 'All domains';
+var currentModalAlert = null;
+
+/* ═══════════ TABS ═══════════ */
+function setTab(tab) {
+  document.querySelectorAll('.al-tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === tab); });
+  document.querySelectorAll('.al-tab-panel').forEach(function (p) { p.classList.toggle('active', p.id === 'tab-' + tab); });
+  try { localStorage.setItem('alerts.tab', tab); } catch (e) {}
+  if ((tab === 'rules' || tab === 'channels') && !window._prefsLoaded) loadPrefs();
+}
+
+/* ═══════════ DOMAIN DROPDOWN ═══════════ */
+function toggleDomainDropdown(e) {
+  e.stopPropagation();
+  document.getElementById('domain-dropdown').classList.toggle('open');
+}
+function selectDomain(name) {
+  currentDomain = name;
+  document.getElementById('selected-domain-label').textContent = name;
+  renderDomainDropdown();
+  document.getElementById('domain-dropdown').classList.remove('open');
+  renderAlerts();
+}
+function renderDomainDropdown() {
+  var dd = document.getElementById('domain-dropdown');
+  /* Compute unique domains from loaded alerts */
+  var seen = {};
+  allAlerts.forEach(function (a) { if (a.domain) seen[a.domain] = true; });
+  var domains = Object.keys(seen).sort();
+
+  var html = '<div class="al-domain-dropdown-item' + (currentDomain === 'All domains' ? ' selected' : '') + '" onclick="selectDomain(\'All domains\')">All domains</div>';
+  if (domains.length > 0) html += '<div class="al-domain-dropdown-divider"></div>';
+  domains.forEach(function (d) {
+    var sel = currentDomain === d ? ' selected' : '';
+    html += '<div class="al-domain-dropdown-item' + sel + '" onclick="selectDomain(\'' + escapeHtml(d).replace(/'/g, "\\'") + '\')">' + escapeHtml(d) + '</div>';
+  });
+  dd.innerHTML = html;
+}
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.al-domain-select-wrap')) {
+    document.getElementById('domain-dropdown').classList.remove('open');
+  }
+});
+
+/* ═══════════ FEED ═══════════ */
+function setFilter(el, sev) {
+  currentSeverity = sev;
+  document.querySelectorAll('.al-chip').forEach(function (c) { c.classList.remove('active'); });
+  el.classList.add('active');
+  try { localStorage.setItem('alerts.severity', sev); } catch (e) {}
+  renderAlerts();
+}
+
 async function loadAlerts() {
   try {
-    const res = await fetch('/api/user/alerts?limit=100', { headers });
-    if (!res.ok) throw new Error('Failed to load alerts');
-    const data = await res.json();
-    allAlerts = data.alerts || [];
-    buildDomainChips();
+    var res = await fetch('/api/user/alerts?limit=200', { headers });
+    if (!res.ok) throw new Error();
+    var data = await res.json();
+    var rawAlerts = data.alerts || data || [];
+
+    /* Filter to last 30 days client-side */
+    var THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    var now = Date.now();
+    allAlerts = rawAlerts.filter(function (a) {
+      if (!a.created_at) return true;
+      return (now - new Date(a.created_at).getTime()) <= THIRTY_DAYS_MS;
+    });
+
+    renderDomainDropdown();
     renderAlerts();
-    updateSidebarBadge();
   } catch (e) {
-    console.error('Error loading alerts:', e);
-    document.getElementById('alerts-loading').style.display = 'none';
-    document.getElementById('alerts-list').style.display = 'none';
-    const empty = document.getElementById('alerts-empty');
-    empty.style.display = 'block';
-    empty.innerHTML = '<div class="empty-icon">⚠️</div><h3>Could not load alerts</h3><p>Something went wrong. Please try again.</p><button onclick="loadAlerts()" style="margin-top:12px;padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Retry</button>';
+    document.getElementById('alerts-container').innerHTML =
+      '<div class="al-empty-state">' +
+      '<div class="al-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
+      '<h3>Could not load alerts</h3>' +
+      '<p>Something went wrong. Please try again.</p>' +
+      '<button class="al-btn al-btn-primary" onclick="loadAlerts()" style="margin-top:16px;">Retry</button>' +
+      '</div>';
   }
 }
 
-function buildDomainChips() {
-  // Extract unique domains from alerts
-  const domains = [...new Set(allAlerts.filter(a => a.domain).map(a => a.domain))];
-  const filtersBar = document.getElementById('filters-bar');
-  // Remove existing domain chips
-  filtersBar.querySelectorAll('.filter-chip[data-domain]').forEach(el => el.remove());
-  // Add domain chips before the mark-all button
-  const markBtn = document.getElementById('mark-all-btn');
-  domains.forEach(d => {
-    const chip = document.createElement('span');
-    chip.className = 'filter-chip';
-    chip.dataset.domain = d;
-    chip.textContent = d;
-    chip.onclick = () => setDomainFilter(d);
-    filtersBar.insertBefore(chip, markBtn);
-  });
+function severityIconSvg(sev) {
+  if (sev === 'critical' || sev === 'warning') {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+}
+function sevClass(sev) { return sev === 'critical' ? 'critical' : sev === 'warning' ? 'warning' : 'info'; }
 
-  // Show/hide mark all read button
-  const unread = allAlerts.filter(a => !a.is_read).length;
-  document.getElementById('mark-all-btn').style.display = unread > 0 ? 'block' : 'none';
+function applyFilters(alerts) {
+  return alerts.filter(function (a) {
+    if (currentSeverity !== 'all' && a.severity !== currentSeverity) return false;
+    if (currentDomain !== 'All domains' && a.domain !== currentDomain) return false;
+    return true;
+  });
 }
 
+function renderAlerts() {
+  var container = document.getElementById('alerts-container');
+  var filtered = applyFilters(allAlerts);
+
+  /* Update Feed tab count + 30-day anchor */
+  document.getElementById('feed-count').textContent = filtered.length;
+  var anchor = document.getElementById('range-anchor');
+  if (allAlerts.length > 0) {
+    anchor.style.display = 'flex';
+    var label = filtered.length === 1 ? '1 alert' : filtered.length + ' alerts';
+    document.getElementById('range-anchor-text').textContent = 'Showing the last 30 days · ' + label;
+  } else {
+    anchor.style.display = 'none';
+  }
+
+  if (allAlerts.length === 0) {
+    container.innerHTML =
+      '<div class="al-empty-state">' +
+      '<div class="al-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div>' +
+      '<h3>No alerts in the last 30 days</h3>' +
+      '<p>When we detect score changes, blacklist events, or DNS issues with your monitored domains, alerts will show up here.</p>' +
+      '</div>';
+    return;
+  }
+
+  if (filtered.length === 0) {
+    var hint = currentSeverity !== 'all' ? currentSeverity + ' alerts' : (currentDomain !== 'All domains' ? 'alerts for ' + currentDomain : 'alerts');
+    container.innerHTML =
+      '<div class="al-empty-state">' +
+      '<div class="al-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>' +
+      '<h3>No ' + escapeHtml(hint) + ' in the last 30 days</h3>' +
+      '<p>Try a different severity or domain.</p>' +
+      '</div>';
+    return;
+  }
+
+  /* Newest-first */
+  var sorted = filtered.slice().sort(function (a, b) {
+    return (b.created_at || '').localeCompare(a.created_at || '');
+  });
+
+  var globeSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>';
+  var chevronSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+  var html = '<ul class="al-list">';
+  sorted.forEach(function (a) {
+    var cls = sevClass(a.severity);
+    var domLine = a.domain ? '<span class="al-domain">' + globeSvg + escapeHtml(a.domain) + (a.source ? ' · ' + escapeHtml(a.source) : '') + '</span>' : '';
+    html +=
+      '<li class="al-item" onclick="openAlert(\'' + escapeHtml(a.id) + '\')">' +
+      '<div class="al-sev-icon ' + cls + '">' + severityIconSvg(a.severity) + '</div>' +
+      '<div class="al-body">' +
+        '<div class="al-title-row">' +
+          '<span class="al-title">' + escapeHtml(a.title || '') + '</span>' +
+          '<span class="al-time">' + getTimeAgo(a.created_at) + '</span>' +
+        '</div>' +
+        (a.message ? '<div class="al-desc">' + escapeHtml(a.message) + '</div>' : '') +
+        domLine +
+      '</div>' +
+      '<div class="al-chevron">' + chevronSvg + '</div>' +
+      '</li>';
+  });
+  html += '</ul>';
+  container.innerHTML = html;
+}
+
+/* ═══════════ MODAL ═══════════ */
+function openAlert(alertId) {
+  var alert = allAlerts.find(function (a) { return String(a.id) === String(alertId); });
+  if (!alert) return;
+  currentModalAlert = alert;
+
+  var sev = sevClass(alert.severity);
+  document.getElementById('modal-sev-icon').className = 'al-modal-sev-icon ' + sev;
+  document.getElementById('modal-sev-icon').innerHTML = severityIconSvg(alert.severity);
+  document.getElementById('al-modal-title').textContent = alert.title || '';
+  var pill = document.getElementById('modal-sev-pill');
+  pill.className = 'al-modal-sev-pill ' + sev;
+  pill.textContent = alert.severity || 'info';
+  document.getElementById('modal-message').textContent = alert.message || '';
+  document.getElementById('modal-domain').textContent = alert.domain || '—';
+  document.getElementById('modal-source').textContent = alert.source || '—';
+  document.getElementById('modal-triggered').textContent = alert.created_at ? new Date(alert.created_at).toLocaleString() : '—';
+
+  /* Investigate link — deep-link to the source page if known */
+  var link = document.getElementById('modal-investigate-link');
+  var href = '#';
+  if (alert.source) {
+    var s = alert.source.toLowerCase();
+    if (s.indexOf('postmaster') >= 0) href = '/postmaster';
+    else if (s.indexOf('snds') >= 0 || s.indexOf('microsoft') >= 0) href = '/microsoft';
+    else if (s.indexOf('blacklist') >= 0) href = '/blacklist';
+    else if (s.indexOf('dns') >= 0 || s.indexOf('email health') >= 0) href = '/dashboard';
+  }
+  link.href = href;
+
+  document.getElementById('alert-modal').classList.add('show');
+
+  /* Silently mark as read so the badge stays accurate */
+  if (!alert.is_read) {
+    fetch('/api/alerts/' + alertId + '/read', { method: 'PUT', headers }).then(function (r) {
+      if (r.ok) {
+        alert.is_read = true;
+        updateSidebarBadge();
+      }
+    }).catch(function () {});
+  }
+}
+function closeAlert() {
+  document.getElementById('alert-modal').classList.remove('show');
+  currentModalAlert = null;
+}
+
+/* ═══════════ PREFERENCES ═══════════ */
+async function loadPrefs() {
+  try {
+    var res = await fetch('/api/user/preferences', { headers });
+    if (!res.ok) return;
+    var data = await res.json();
+    var prefs = data.preferences || data || {};
+    document.querySelectorAll('.al-toggle[data-pref]').forEach(function (t) {
+      var key = t.dataset.pref;
+      var defaultOn = (key !== 'weekly_digest');
+      var value = (key in prefs) ? !!prefs[key] : defaultOn;
+      if (value) t.classList.add('on'); else t.classList.remove('on');
+    });
+    window._prefsLoaded = true;
+
+    /* Show real account email */
+    var meRes = await fetch('/api/auth/me', { headers });
+    if (meRes.ok) {
+      var me = await meRes.json();
+      var email = me && me.user && me.user.email;
+      if (email) {
+        var desc = document.getElementById('channels-email-desc');
+        if (desc) desc.textContent = 'Send alerts to ' + email + '.';
+      }
+    }
+  } catch (e) { console.warn('Could not load preferences', e); }
+}
+
+async function savePrefs(which) {
+  var btnId = which + '-save-btn';
+  var msgId = which + '-saved-msg';
+  var btn = document.getElementById(btnId);
+  var msg = document.getElementById(msgId);
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    var prefs = {};
+    document.querySelectorAll('.al-toggle[data-pref]').forEach(function (t) {
+      prefs[t.dataset.pref] = t.classList.contains('on');
+    });
+    var res = await fetch('/api/user/preferences', {
+      method: 'PUT',
+      headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(prefs)
+    });
+    if (!res.ok) {
+      var err = await res.json().catch(function () { return {}; });
+      throw new Error(err.detail || 'Failed to save');
+    }
+    if (msg) { msg.classList.add('show'); setTimeout(function () { msg.classList.remove('show'); }, 2000); }
+  } catch (e) {
+    showToast(e.message || 'Failed to save', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save changes'; }
+  }
+}
+
+/* ═══════════ SIDEBAR BADGE ═══════════ */
 function updateSidebarBadge() {
-  const unread = allAlerts.filter(a => !a.is_read).length;
-  const badge = document.getElementById('sidebar-badge');
+  var unread = allAlerts.filter(function (a) { return !a.is_read; }).length;
+  var badge = document.getElementById('sidebar-badge');
   if (unread > 0) {
     badge.textContent = unread > 99 ? '99+' : unread;
     badge.style.display = 'inline';
@@ -452,379 +928,85 @@ function updateSidebarBadge() {
   }
 }
 
-function renderAlerts() {
-  document.getElementById('alerts-loading').style.display = 'none';
-  const list = document.getElementById('alerts-list');
-  const empty = document.getElementById('alerts-empty');
-  const pager = document.getElementById('alerts-pager');
-
-  let filtered = allAlerts;
-
-  // Apply type filter
-  if (currentFilter === 'critical') {
-    filtered = filtered.filter(a => a.severity === 'critical');
-  } else if (currentFilter === 'warning') {
-    filtered = filtered.filter(a => a.severity === 'warning');
-  } else if (currentFilter === 'resolved') {
-    filtered = filtered.filter(a => a.is_read && (a.severity === 'info' || a.resolved));
-  }
-
-  // Apply domain filter
-  if (domainFilter) {
-    filtered = filtered.filter(a => a.domain === domainFilter);
-  }
-
-  if (filtered.length === 0) {
-    list.style.display = 'none';
-    if (pager) pager.style.display = 'none';
-    empty.style.display = 'block';
-    if (currentFilter !== 'all' || domainFilter) {
-      empty.querySelector('h3').textContent = 'No matching alerts';
-      empty.querySelector('p').textContent = 'No alerts match this filter.';
-    } else {
-      empty.querySelector('h3').textContent = 'No alerts yet';
-      empty.querySelector('p').textContent = 'When we detect score changes, blacklist events, or DNS issues with your monitored domains, alerts will show up here.';
-    }
-    return;
-  }
-
-  // INBOX-143: slice for pagination. Filter changes reset to page 0
-  // (handled in setFilter / setDomainFilter).
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  if (currentPage >= totalPages) currentPage = totalPages - 1;
-  const start = currentPage * PAGE_SIZE;
-  const pageSlice = filtered.slice(start, start + PAGE_SIZE);
-
-  list.style.display = 'flex';
-  empty.style.display = 'none';
-
-  // Pager UI: only show if there's more than one page worth.
-  if (pager) {
-    if (filtered.length > PAGE_SIZE) {
-      pager.style.display = 'flex';
-      const info = document.getElementById('pager-info');
-      const prev = document.getElementById('pager-prev');
-      const next = document.getElementById('pager-next');
-      const last = Math.min(start + PAGE_SIZE, filtered.length);
-      if (info) info.textContent = `Showing ${start + 1}–${last} of ${filtered.length}`;
-      if (prev) prev.disabled = currentPage === 0;
-      if (next) next.disabled = currentPage >= totalPages - 1;
-    } else {
-      pager.style.display = 'none';
-    }
-  }
-
-  list.innerHTML = pageSlice.map(alert => {
-    const timeAgo = getTimeAgo(alert.created_at);
-    const isResolved = alert.is_read && (alert.severity === 'info' || alert.resolved);
-    const icon = alert.severity === 'critical' ? '🔴' : alert.severity === 'warning' ? '⚠️' : '🟢';
-    const sevClass = alert.severity === 'critical' ? 'sev-critical' : alert.severity === 'warning' ? 'sev-warning' : isResolved ? 'sev-resolved' : 'sev-info';
-
-    const resolvedBadge = isResolved ? ' <span class="badge badge-green">Resolved</span>' : '';
-    const source = alert.source || '';
-
-    return `
-      <li class="alert-item ${alert.is_read ? '' : 'unread'} ${isResolved ? 'resolved' : ''}" onclick="openAlert('${alert.id}')">
-        <div class="alert-severity ${sevClass}">${icon}</div>
-        <div class="alert-body">
-          <div class="alert-title-row">
-            <span class="alert-title">${escapeHtml(alert.title)}</span>
-            <span class="alert-time">${timeAgo}</span>
-          </div>
-          ${alert.message ? `<div class="alert-desc">${escapeHtml(alert.message)}${resolvedBadge}</div>` : ''}
-          ${alert.domain ? `<span class="alert-domain">🌐 ${escapeHtml(alert.domain)}${source ? ' · ' + escapeHtml(source) : ''}</span>` : ''}
-        </div>
-        <div class="alert-actions">
-          ${!alert.is_read ? `<button class="alert-action-btn" onclick="event.stopPropagation();markRead('${alert.id}')" title="Mark as read">✓</button>` : ''}
-          <button class="alert-action-btn delete" onclick="event.stopPropagation();deleteAlert('${alert.id}')" title="Delete">✕</button>
-        </div>
-      </li>
-    `;
-  }).join('');
-}
-
-// ─── Filters ─────────────────────────────
-function setFilter(filter) {
-  currentFilter = filter;
-  domainFilter = null;
-  currentPage = 0;  // INBOX-143: reset paging on filter change
-  document.querySelectorAll('.filter-chip').forEach(chip => {
-    chip.classList.toggle('active', chip.dataset.filter === filter);
-  });
-  // Deactivate domain chips
-  document.querySelectorAll('.filter-chip[data-domain]').forEach(chip => chip.classList.remove('active'));
-  renderAlerts();
-}
-
-function setDomainFilter(domain) {
-  domainFilter = domain;
-  currentFilter = 'all';
-  currentPage = 0;  // INBOX-143: reset paging on filter change
-  document.querySelectorAll('.filter-chip').forEach(chip => {
-    chip.classList.toggle('active', chip.dataset.domain === domain);
-  });
-  renderAlerts();
-}
-
-// ─── Actions ─────────────────────────────
-async function markRead(alertId) {
-  try {
-    const res = await fetch('/api/alerts/' + alertId + '/read', { method: 'PUT', headers });
-    if (res.ok) {
-      const alert = allAlerts.find(a => a.id === alertId);
-      if (alert) alert.is_read = true;
-      renderAlerts();
-      updateSidebarBadge();
-      // Update mark all button visibility
-      const unread = allAlerts.filter(a => !a.is_read).length;
-      document.getElementById('mark-all-btn').style.display = unread > 0 ? 'block' : 'none';
-    }
-  } catch (e) {
-    showToast('Failed to mark as read', 'error');
-  }
-}
-
-async function markAllRead() {
-  try {
-    const res = await fetch('/api/user/alerts/read-all', { method: 'PUT', headers });
-    if (res.ok) {
-      allAlerts.forEach(a => a.is_read = true);
-      renderAlerts();
-      updateSidebarBadge();
-      document.getElementById('mark-all-btn').style.display = 'none';
-      showToast('All alerts marked as read', 'success');
-    }
-  } catch (e) {
-    showToast('Failed to mark all as read', 'error');
-  }
-}
-
-async function deleteAlert(alertId) {
-  try {
-    const res = await fetch('/api/alerts/' + alertId, { method: 'DELETE', headers });
-    if (res.ok) {
-      allAlerts = allAlerts.filter(a => a.id !== alertId);
-      renderAlerts();
-      updateSidebarBadge();
-      showToast('Alert deleted', 'success');
-    }
-  } catch (e) {
-    showToast('Failed to delete alert', 'error');
-  }
-}
-
-// ─── Modal ─────────────────────────────
-function openAlert(alertId) {
-  const alert = allAlerts.find(a => a.id === alertId);
-  if (!alert) return;
-  currentModalAlert = alert;
-
-  document.getElementById('modal-title').textContent = alert.title;
-
-  const sev = document.getElementById('modal-severity');
-  sev.textContent = alert.severity;
-  sev.className = 'modal-severity ' + alert.severity;
-
-  document.getElementById('modal-message').textContent = alert.message || 'No additional details.';
-
-  const time = new Date(alert.created_at).toLocaleString();
-  let metaText = `Type: ${alert.type || alert.severity} · ${time}`;
-  if (alert.domain) metaText += ` · Domain: ${alert.domain}`;
-  document.getElementById('modal-meta').textContent = metaText;
-
-  document.getElementById('alert-modal').classList.add('show');
-
-  if (!alert.is_read) markRead(alertId);
-}
-
-function closeModal() {
-  document.getElementById('alert-modal').classList.remove('show');
-  currentModalAlert = null;
-}
-
-function deleteFromModal() {
-  if (currentModalAlert) {
-    deleteAlert(currentModalAlert.id);
-    closeModal();
-  }
-}
-
-// ─── Helpers ─────────────────────────────
-function getTimeAgo(dateStr) {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-  if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
-  return new Date(dateStr).toLocaleDateString();
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-// ─── INBOX-143: tab switching + persistence ────────────────────
-function setAlertsTab(tabName) {
-  document.querySelectorAll('.alerts-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.tab === tabName);
-  });
-  document.querySelectorAll('.tab-panel').forEach(p => {
-    p.classList.toggle('active', p.id === 'tab-' + tabName);
-  });
-  try { localStorage.setItem('alerts.tab', tabName); } catch (e) {}
-
-  // Lazy-load preferences the first time Rules or Channels is opened.
-  if ((tabName === 'rules' || tabName === 'channels') && !window._prefsLoaded) {
-    loadPrefs();
-  }
-}
-
-// ─── INBOX-143: load + save user preferences for Rules/Channels ──
-async function loadPrefs() {
-  try {
-    const res = await fetch('/api/user/preferences', { headers });
-    if (!res.ok) return;
-    const data = await res.json();
-    const prefs = data.preferences || data || {};
-    document.querySelectorAll('.toggle[data-pref]').forEach(t => {
-      const key = t.dataset.pref;
-      // Default ON for everything except weekly_digest
-      const defaultOn = (key !== 'weekly_digest');
-      const value = (key in prefs) ? !!prefs[key] : defaultOn;
-      if (value) t.classList.add('on'); else t.classList.remove('on');
-    });
-    window._prefsLoaded = true;
-
-    // Show real account email on the channel-row description.
-    const meRes = await fetch('/api/auth/me', { headers });
-    if (meRes.ok) {
-      const me = await meRes.json();
-      const email = me?.user?.email;
-      if (email) {
-        const desc = document.getElementById('channels-email-desc');
-        if (desc) desc.textContent = 'Send alerts to ' + email + '.';
-      }
-    }
-  } catch (e) {
-    console.warn('Could not load preferences', e);
-  }
-}
-
-async function savePrefs(which) {
-  const btnId = which + '-save-btn';
-  const msgId = which + '-saved-msg';
-  const btn = document.getElementById(btnId);
-  const msg = document.getElementById(msgId);
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-
-  try {
-    const prefs = {};
-    document.querySelectorAll('.toggle[data-pref]').forEach(t => {
-      prefs[t.dataset.pref] = t.classList.contains('on');
-    });
-    const res = await fetch('/api/user/preferences', {
-      method: 'PUT',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(prefs)
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Failed to save');
-    }
-    if (msg) {
-      msg.classList.add('show');
-      setTimeout(() => msg.classList.remove('show'), 2000);
-    }
-  } catch (e) {
-    showToast(e.message || 'Failed to save', 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Save changes'; }
-  }
-}
-
-// ─── INBOX-143: pagination for the Feed ────────────────────────
-function changePage(delta) {
-  currentPage = Math.max(0, currentPage + delta);
-  renderAlerts();
-  // Scroll the feed back into view so the user sees the new page.
-  document.querySelector('.alerts-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function showToast(msg, type = 'success') {
-  const toast = document.getElementById('toast');
-  toast.textContent = msg;
-  toast.className = 'toast show ' + type;
-  setTimeout(() => { toast.className = 'toast'; }, 3000);
-}
-
-// Keyboard: Escape closes modal
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
+/* ═══════════ KEYBOARD ═══════════ */
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeAlert();
 });
 
-// ─── Init ─────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  const token = getToken();
+/* ═══════════ INIT ═══════════ */
+window.addEventListener('DOMContentLoaded', function () {
+  var token = getToken();
   if (!token) { window.location.href = '/login'; return; }
-
   headers = { 'Authorization': 'Bearer ' + token };
 
-  // Verify user
-  fetch('/api/auth/me', { headers }).then(r => {
+  /* Verify user */
+  fetch('/api/auth/me', { headers }).then(function (r) {
     if (!r.ok) throw new Error();
     return r.json();
-  }).then(userData => {
-    const name = userData.user.name || userData.user.email.split('@')[0];
+  }).then(function (userData) {
+    var name = userData.user.name || userData.user.email.split('@')[0];
     document.getElementById('user-name').textContent = name;
-    const plan = userData.user.plan || 'free';
-    document.getElementById('plan-name').textContent = plan;
-  }).catch(() => {
-    const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+    document.getElementById('plan-name').textContent = userData.user.plan || 'free';
+  }).catch(function () {
+    var refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
     if (refresh) {
       fetch('/api/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: refresh })
-      }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
-        .then(data => {
-          // INBOX-157 (v1.16.4): unwrap nested session — see dashboard.html.
-          const session = data.session || data;
-          const accessToken  = session.access_token;
-          const refreshToken = session.refresh_token;
+      }).then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(function (data) {
+          /* INBOX-157 — unwrap nested session */
+          var session = data.session || data;
+          var accessToken = session.access_token;
+          var refreshToken = session.refresh_token;
           if (!accessToken || !refreshToken) throw new Error('refresh missing tokens');
-          const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+          var storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
           storage.setItem('access_token', accessToken);
           storage.setItem('refresh_token', refreshToken);
           location.reload();
-        }).catch(() => logout());
+        }).catch(function () { logout(); });
     } else { logout(); }
   });
 
+  /* Restore preferences */
+  try {
+    var savedSev = localStorage.getItem('alerts.severity');
+    if (savedSev) {
+      currentSeverity = savedSev;
+      document.querySelectorAll('.al-chip').forEach(function (c) {
+        c.classList.toggle('active', c.dataset.filter === savedSev);
+      });
+    }
+  } catch (e) {}
+
   loadAlerts();
 
-  // INBOX-143: restore the user's last-active tab. URL hash wins over
-  // localStorage so deep-links like /alerts#rules work for support docs.
-  const validTabs = ['feed', 'rules', 'channels'];
-  let initialTab = 'feed';
-  const hash = (window.location.hash || '').replace('#', '');
-  if (validTabs.includes(hash)) {
-    initialTab = hash;
-  } else {
-    try {
-      const saved = localStorage.getItem('alerts.tab');
-      if (validTabs.includes(saved)) initialTab = saved;
-    } catch (e) {}
-  }
-  if (initialTab !== 'feed') setAlertsTab(initialTab);
+  /* Sidebar badge — refresh on init */
+  fetch('/api/user/alerts/count', { headers })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      if (data && data.unread_count > 0) {
+        var badge = document.getElementById('sidebar-badge');
+        badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+        badge.style.display = 'inline';
+      }
+    }).catch(function () {});
 
-  // Close sidebar on mobile
-  document.querySelector('.main').addEventListener('click', () => {
-    document.querySelector('.sidebar').classList.remove('open');
-    document.getElementById('sidebar-backdrop').classList.remove('show');
-  });
+  /* Restore tab — URL hash wins over localStorage */
+  var validTabs = ['feed', 'rules', 'channels'];
+  var tab = (location.hash || '').replace('#', '');
+  if (validTabs.indexOf(tab) === -1) {
+    try { tab = localStorage.getItem('alerts.tab') || 'feed'; } catch (e) { tab = 'feed'; }
+  }
+  if (validTabs.indexOf(tab) === -1) tab = 'feed';
+  if (tab !== 'feed') setTab(tab);
+
+  /* Close sidebar on mobile */
+  var mainEl = document.querySelector('.main');
+  if (mainEl) mainEl.addEventListener('click', function () { document.querySelector('.sidebar').classList.remove('open'); });
 });
 </script>
+
 </body>
 </html>
