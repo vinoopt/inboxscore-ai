@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InboxScore — Real-time email deliverability monitoring</title>
+<meta name="description" content="Monitor 20+ blacklists, Google Postmaster, and Microsoft SNDS in one place. Catch deliverability problems in minutes, not days.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  /* Attio-grounded light palette */
+  --bg: #ffffff;
+  --bg-secondary: #fbfbfb;       /* secondary surface, very light */
+  --surface: #ffffff;            /* card surface */
+  --surface-2: #f1f1f1;          /* hover bg, light surface */
+  --surface-tint: #f7f7f8;       /* subtle tinted band */
+  --border: #e8e8e9;             /* subtle stroke */
+  --border-strong: #dadada;      /* default stroke */
+  --border-weak: #f1f1f1;        /* very light divider */
+  --text: #1c1c1e;               /* black-100, primary */
+  --text-strong: #0e0e10;        /* extra-strong, hero / display */
+  --text-muted: #414147;         /* black-500, body muted */
+  --text-subtle: #606067;        /* black-600, captions */
+  --text-faint: #b0b0b4;         /* caption foreground */
+
+  /* InboxScore brand accent — kept across app + marketing */
+  --accent: #7c3aed;             /* light-theme variant */
+  --accent-hover: #6d28d9;
+  --accent-soft: rgba(124,58,237,0.08);
+  --accent-glow: rgba(124,58,237,0.14);
+
+  --green: #16a34a;
+  --red: #ff4444;
+  --yellow: #ffb200;
+
+  /* Attio oklch shadow scale */
+  --shadow-1: 0px 1px 3px 0px oklch(0% 0 0 / .03);
+  --shadow-2: 0px 2px 4px -1px oklch(0% 0 0 / .04);
+  --shadow-3: 0px 4px 8px -2px oklch(0% 0 0 / .05);
+  --shadow-4: 0px 8px 16px -4px oklch(0% 0 0 / .06);
+  --shadow-5: 0px 16px 32px -8px oklch(0% 0 0 / .07);
+  --shadow-cameo: 0px 32px 64px -16px oklch(0% 0 0 / .08), 0px 4px 8px -2px oklch(0% 0 0 / .04);
+}
+
+html, body { background: var(--bg); color: var(--text); }
+body {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: "ss01","cv11";
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+  font-size: 15px;
+  min-height: 100vh;
+}
+
+a { color: inherit; text-decoration: none; }
+.mkt-shell { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+
+/* ──────────── TOPNAV ──────────── */
+.mkt-topnav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+}
+.mkt-topnav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 0;
+}
+.mkt-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.025em; font-size: 15px; color: var(--text-strong); }
+.mkt-brand-mark {
+  width: 26px; height: 26px;
+  background: var(--text-strong); color: var(--bg);
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 11px; letter-spacing: -0.04em;
+}
+.mkt-nav-links { display: flex; gap: 4px; align-items: center; }
+.mkt-nav-link {
+  padding: 8px 14px;
+  font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+  border-radius: 6px;
+  transition: color 150ms cubic-bezier(0.4,0,0.2,1), background 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-nav-link:hover { color: var(--text-strong); background: var(--surface-2); }
+.mkt-nav-cta {
+  padding: 8px 16px;
+  font-size: 13.5px; font-weight: 500;
+  background: var(--text-strong); color: #ffffff;
+  border-radius: 6px;
+  transition: opacity 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-nav-cta:hover { opacity: 0.9; }
+
+/* ──────────── HERO ──────────── */
+.mkt-hero {
+  position: relative;
+  padding: 96px 0 80px;
+  overflow: hidden;
+  text-align: center;
+}
+.mkt-hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(124,58,237,0.06), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 30%, rgba(124,58,237,0.04), transparent 65%);
+  pointer-events: none;
+}
+.mkt-hero > * { position: relative; }
+.mkt-hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 14px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  margin-bottom: 28px;
+  box-shadow: var(--shadow-1);
+}
+.mkt-hero-eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px rgba(22,163,74,0.4); }
+.mkt-hero-title {
+  font-size: clamp(40px, 6vw, 72px);
+  font-weight: 600;                 /* Attio uses 600 for headings */
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  max-width: 880px;
+  margin: 0 auto 24px;
+  color: var(--text-strong);
+}
+.mkt-hero-title em {
+  font-style: normal;
+  background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 60%, #1c1c1e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.mkt-hero-sub {
+  font-size: 18px; color: var(--text-muted);
+  max-width: 620px; margin: 0 auto 36px;
+  line-height: 1.55;
+  font-weight: 500;
+}
+.mkt-hero-actions { display: inline-flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.mkt-btn-primary {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 11px 22px;
+  font-size: 14px; font-weight: 500;
+  background: var(--text-strong); color: #ffffff;
+  border-radius: 6px;
+  transition: opacity 150ms cubic-bezier(0.4,0,0.2,1), transform 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
+.mkt-btn-secondary {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 11px 22px;
+  font-size: 14px; font-weight: 500;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  transition: all 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-btn-secondary:hover { border-color: var(--text); background: var(--surface-2); }
+.mkt-hero-trust {
+  display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
+  margin-top: 28px;
+  font-size: 12.5px; color: var(--text-subtle);
+}
+.mkt-hero-trust-item { display: inline-flex; align-items: center; gap: 6px; }
+.mkt-hero-trust-item svg { color: var(--green); width: 14px; height: 14px; }
+
+.mkt-hero-cameo {
+  margin: 72px auto 0;
+  max-width: 1080px;
+  padding: 0 12px;
+}
+.mkt-hero-cameo-frame {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  box-shadow: var(--shadow-cameo);
+  overflow: hidden;
+}
+.mkt-hero-cameo-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-tint);
+}
+.mkt-hero-cameo-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border-strong); }
+.mkt-hero-cameo-url {
+  margin-left: auto; margin-right: auto;
+  font-size: 11px; color: var(--text-subtle); font-family: "JetBrains Mono", ui-monospace, monospace;
+  padding: 3px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+}
+.mkt-hero-cameo-body {
+  padding: 36px 28px;
+  background: linear-gradient(180deg, rgba(124,58,237,0.025) 0%, transparent 100%);
+}
+.mkt-hero-cameo-stat-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  margin-bottom: 24px;
+}
+.mkt-hero-cameo-stat {
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.mkt-hero-cameo-stat-label { font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-weight: 500; }
+.mkt-hero-cameo-stat-value { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-strong); }
+.mkt-hero-cameo-stat-trend { font-size: 11px; color: var(--green); margin-top: 4px; font-weight: 500; }
+.mkt-hero-cameo-domain-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.mkt-hero-cameo-domain-row:last-child { margin-bottom: 0; }
+.mkt-hero-cameo-status-pill {
+  font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+  background: rgba(22,163,74,0.10); color: var(--green);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.mkt-hero-cameo-status-pill.warn { background: rgba(255,178,0,0.14); color: #b97700; }
+.mkt-hero-cameo-domain-name { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; color: var(--text-strong); }
+.mkt-hero-cameo-meta { margin-left: auto; font-size: 11px; color: var(--text-subtle); }
+
+/* ──────────── SECTION COMMON ──────────── */
+.mkt-section { padding: 96px 0; }
+.mkt-section-eyebrow {
+  display: inline-block;
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+.mkt-section-title {
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 16px;
+  max-width: 720px;
+  color: var(--text-strong);
+}
+.mkt-section-sub {
+  font-size: 17px;
+  color: var(--text-muted);
+  max-width: 600px;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+/* ──────────── LIVE SCAN ──────────── */
+.mkt-scan {
+  background: linear-gradient(180deg, var(--bg) 0%, var(--surface-tint) 100%);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+.mkt-scan-form {
+  margin-top: 36px;
+  display: inline-flex; gap: 8px; padding: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  width: 100%; max-width: 540px;
+  box-shadow: var(--shadow-3);
+}
+.mkt-scan-form:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-3), 0 0 0 4px var(--accent-glow);
+}
+.mkt-scan-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: transparent; border: none; outline: none;
+  color: var(--text-strong); font-family: inherit;
+  font-size: 14.5px; font-weight: 500;
+}
+.mkt-scan-input::placeholder { color: var(--text-faint); }
+.mkt-scan-btn {
+  padding: 10px 20px;
+  background: var(--text-strong); color: #ffffff;
+  border: none; border-radius: 6px;
+  font-size: 13.5px; font-weight: 500;
+  cursor: pointer; font-family: inherit;
+  transition: opacity 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-scan-btn:hover { opacity: 0.9; }
+.mkt-scan-hint {
+  margin-top: 16px;
+  font-size: 12.5px; color: var(--text-subtle);
+}
+
+/* ──────────── HOW IT WORKS ──────────── */
+.mkt-steps {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 56px;
+}
+.mkt-step {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px 28px;
+  transition: box-shadow 200ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-step:hover { box-shadow: var(--shadow-2); }
+.mkt-step-num {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-soft);
+  border-radius: 6px;
+  font-size: 13px; font-weight: 600; color: var(--accent);
+  margin-bottom: 18px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.mkt-step-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.015em; color: var(--text-strong); }
+.mkt-step-desc { font-size: 14.5px; color: var(--text-muted); line-height: 1.55; }
+
+/* ──────────── FEATURES ──────────── */
+.mkt-features {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 56px;
+}
+.mkt-feature {
+  padding: 28px 24px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: box-shadow 200ms cubic-bezier(0.4,0,0.2,1), transform 200ms cubic-bezier(0.4,0,0.2,1), border-color 200ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-feature:hover { border-color: var(--border-strong); box-shadow: var(--shadow-3); transform: translateY(-2px); }
+.mkt-feature-icon {
+  width: 36px; height: 36px;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+  color: var(--accent);
+}
+.mkt-feature-icon svg { width: 18px; height: 18px; }
+.mkt-feature-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em; color: var(--text-strong); }
+.mkt-feature-desc { font-size: 14px; color: var(--text-muted); line-height: 1.55; }
+
+/* ──────────── WHY ──────────── */
+.mkt-why { background: var(--surface-tint); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.mkt-why-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  margin-top: 56px;
+}
+.mkt-why-item-num {
+  font-size: 40px; font-weight: 600; letter-spacing: -0.03em;
+  color: var(--accent); margin-bottom: 12px; line-height: 1;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.mkt-why-item-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; color: var(--text-strong); }
+.mkt-why-item-desc { font-size: 14.5px; color: var(--text-muted); line-height: 1.55; }
+
+/* ──────────── PRICING ──────────── */
+.mkt-pricing-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 56px;
+  align-items: stretch;
+}
+.mkt-tier {
+  padding: 32px 28px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  display: flex; flex-direction: column;
+  transition: box-shadow 200ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-tier:hover { box-shadow: var(--shadow-3); }
+.mkt-tier.featured {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-4), 0 0 0 4px var(--accent-glow);
+  position: relative;
+}
+.mkt-tier.featured::before {
+  content: 'Most popular';
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  font-size: 11px; font-weight: 600; padding: 4px 12px;
+  background: var(--accent); color: #ffffff;
+  border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.mkt-tier-name { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+.mkt-tier-price { font-size: 48px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; margin-bottom: 4px; color: var(--text-strong); }
+.mkt-tier-price-suffix { font-size: 14px; color: var(--text-subtle); font-weight: 500; }
+.mkt-tier-desc { font-size: 13.5px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5; }
+.mkt-tier-features { list-style: none; padding: 0; margin: 0 0 28px; flex: 1; }
+.mkt-tier-features li {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 0;
+  font-size: 13.5px; color: var(--text);
+  border-bottom: 1px solid var(--border-weak);
+  font-weight: 500;
+}
+.mkt-tier-features li:last-child { border-bottom: none; }
+.mkt-tier-features li svg { width: 14px; height: 14px; color: var(--green); flex-shrink: 0; margin-top: 3px; }
+.mkt-tier-cta {
+  display: block; text-align: center;
+  padding: 11px 18px;
+  border-radius: 6px;
+  font-size: 14px; font-weight: 500;
+  border: 1px solid var(--border-strong);
+  color: var(--text-strong); background: var(--bg);
+  transition: all 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-tier-cta:hover { border-color: var(--text-strong); background: var(--surface-2); }
+.mkt-tier.featured .mkt-tier-cta { background: var(--text-strong); color: #ffffff; border-color: var(--text-strong); }
+.mkt-tier.featured .mkt-tier-cta:hover { opacity: 0.9; background: var(--text-strong); }
+
+/* ──────────── FAQ ──────────── */
+.mkt-faq { max-width: 760px; margin: 56px auto 0; }
+.mkt-faq-item {
+  border-bottom: 1px solid var(--border);
+}
+.mkt-faq-item:first-child { border-top: 1px solid var(--border); }
+.mkt-faq-q {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 22px 4px;
+  cursor: pointer;
+  font-size: 16px; font-weight: 500;
+  user-select: none;
+  list-style: none;
+  color: var(--text-strong);
+}
+.mkt-faq-q::-webkit-details-marker { display: none; }
+.mkt-faq-q-icon {
+  color: var(--text-subtle); font-size: 20px; line-height: 1;
+  transition: transform 200ms cubic-bezier(0.65,0,0.35,1);
+}
+.mkt-faq-item[open] .mkt-faq-q-icon { transform: rotate(45deg); color: var(--accent); }
+.mkt-faq-a {
+  padding: 0 4px 22px;
+  font-size: 14.5px; color: var(--text-muted); line-height: 1.6;
+}
+
+/* ──────────── FINAL CTA ──────────── */
+.mkt-final {
+  text-align: center;
+  padding: 96px 28px;
+  margin: 0 32px;
+  border-radius: 20px;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 50%, rgba(124,58,237,0.08), transparent 70%),
+    var(--surface-tint);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-2);
+}
+.mkt-final-title {
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin-bottom: 16px;
+  color: var(--text-strong);
+}
+.mkt-final-sub { font-size: 16px; color: var(--text-muted); margin-bottom: 32px; max-width: 540px; margin-inline: auto 32px; font-weight: 500; }
+
+/* ──────────── FOOTER ──────────── */
+.mkt-footer {
+  border-top: 1px solid var(--border);
+  padding: 64px 0 32px;
+  margin-top: 96px;
+  background: var(--bg);
+}
+.mkt-footer-grid {
+  display: grid; grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 36px;
+  margin-bottom: 36px;
+}
+.mkt-footer-col-title {
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  margin-bottom: 14px;
+}
+.mkt-footer-col a {
+  display: block;
+  padding: 6px 0;
+  font-size: 13.5px; color: var(--text-muted);
+  transition: color 150ms cubic-bezier(0.4,0,0.2,1);
+  font-weight: 500;
+}
+.mkt-footer-col a:hover { color: var(--text-strong); }
+.mkt-footer-tagline { font-size: 13.5px; color: var(--text-muted); margin-top: 12px; max-width: 280px; line-height: 1.55; }
+.mkt-footer-bottom {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12.5px; color: var(--text-subtle);
+  flex-wrap: wrap; gap: 12px;
+}
+
+/* ──────────── RESPONSIVE ──────────── */
+@media (max-width: 768px) {
+  .mkt-shell { padding: 0 20px; }
+  .mkt-section { padding: 64px 0; }
+  .mkt-hero { padding: 64px 0 48px; }
+  .mkt-hero-cameo-stat-row { grid-template-columns: repeat(2, 1fr); }
+  .mkt-steps, .mkt-features, .mkt-pricing-grid, .mkt-why-grid { grid-template-columns: 1fr; }
+  .mkt-footer-grid { grid-template-columns: 1fr 1fr; }
+  .mkt-nav-links { gap: 0; }
+  .mkt-nav-link { padding: 6px 10px; font-size: 13px; }
+  .mkt-final { margin: 0 20px; padding: 64px 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════ TOPNAV ════════ -->
+<nav class="mkt-topnav">
+  <div class="mkt-shell mkt-topnav-inner">
+    <a href="/" class="mkt-brand">
+      <span class="mkt-brand-mark">IS</span>
+      InboxScore
+    </a>
+    <div class="mkt-nav-links">
+      <a href="#features" class="mkt-nav-link">Features</a>
+      <a href="#pricing" class="mkt-nav-link">Pricing</a>
+      <a href="#faq" class="mkt-nav-link">FAQ</a>
+      <a href="/login" class="mkt-nav-link">Log in</a>
+      <a href="/signup" class="mkt-nav-cta">Sign up free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ════════ HERO ════════ -->
+<header class="mkt-hero">
+  <div class="mkt-shell">
+    <div class="mkt-hero-eyebrow">
+      <span class="mkt-hero-eyebrow-dot"></span>
+      Real-time monitoring across 20+ DNSBLs · GPM · SNDS
+    </div>
+    <h1 class="mkt-hero-title">Know your <em>inbox placement</em><br>before your customers do.</h1>
+    <p class="mkt-hero-sub">InboxScore monitors 20+ blacklists, Google Postmaster, and Microsoft SNDS in one place — so you catch deliverability problems in minutes, not days.</p>
+    <div class="mkt-hero-actions">
+      <a href="/signup" class="mkt-btn-primary">
+        Start free
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </a>
+      <a href="#scan" class="mkt-btn-secondary">Scan a domain →</a>
+    </div>
+    <div class="mkt-hero-trust">
+      <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Free forever · 1 domain</span>
+      <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>No credit card</span>
+      <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Setup in 2 minutes</span>
+    </div>
+
+    <!-- Dashboard cameo -->
+    <div class="mkt-hero-cameo">
+      <div class="mkt-hero-cameo-frame">
+        <div class="mkt-hero-cameo-bar">
+          <span class="mkt-hero-cameo-dot"></span>
+          <span class="mkt-hero-cameo-dot"></span>
+          <span class="mkt-hero-cameo-dot"></span>
+          <span class="mkt-hero-cameo-url">inboxscore.ai/dashboard</span>
+        </div>
+        <div class="mkt-hero-cameo-body">
+          <div class="mkt-hero-cameo-stat-row">
+            <div class="mkt-hero-cameo-stat">
+              <div class="mkt-hero-cameo-stat-label">Score</div>
+              <div class="mkt-hero-cameo-stat-value">94</div>
+              <div class="mkt-hero-cameo-stat-trend">+3 this week</div>
+            </div>
+            <div class="mkt-hero-cameo-stat">
+              <div class="mkt-hero-cameo-stat-label">Blacklists</div>
+              <div class="mkt-hero-cameo-stat-value">0 / 160</div>
+              <div class="mkt-hero-cameo-stat-trend">All clear</div>
+            </div>
+            <div class="mkt-hero-cameo-stat">
+              <div class="mkt-hero-cameo-stat-label">Spam rate</div>
+              <div class="mkt-hero-cameo-stat-value">0.04%</div>
+              <div class="mkt-hero-cameo-stat-trend">−0.02%</div>
+            </div>
+            <div class="mkt-hero-cameo-stat">
+              <div class="mkt-hero-cameo-stat-label">DKIM pass</div>
+              <div class="mkt-hero-cameo-stat-value">99.8%</div>
+              <div class="mkt-hero-cameo-stat-trend">Healthy</div>
+            </div>
+          </div>
+          <div class="mkt-hero-cameo-domain-row">
+            <span class="mkt-hero-cameo-status-pill">Clean</span>
+            <span class="mkt-hero-cameo-domain-name">mailercloud.com</span>
+            <span class="mkt-hero-cameo-meta">Last scan · 4 min ago</span>
+          </div>
+          <div class="mkt-hero-cameo-domain-row">
+            <span class="mkt-hero-cameo-status-pill">Clean</span>
+            <span class="mkt-hero-cameo-domain-name">voicenotes.com</span>
+            <span class="mkt-hero-cameo-meta">Last scan · 2 min ago</span>
+          </div>
+          <div class="mkt-hero-cameo-domain-row">
+            <span class="mkt-hero-cameo-status-pill warn">Warning</span>
+            <span class="mkt-hero-cameo-domain-name">redrail.redbus.com</span>
+            <span class="mkt-hero-cameo-meta">DMARC alignment 96%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ════════ LIVE SCAN ════════ -->
+<section class="mkt-section mkt-scan" id="scan">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">No signup needed</span>
+    <h2 class="mkt-section-title" style="margin-inline:auto;">See your real status in 30 seconds.</h2>
+    <p class="mkt-section-sub" style="margin-inline:auto;">Drop in your sending domain. We'll check 20+ DNSBLs, SPF/DKIM/DMARC, MX records, and TLS configuration — all live.</p>
+    <form class="mkt-scan-form" onsubmit="event.preventDefault(); window.location.href='/?domain=' + encodeURIComponent(document.getElementById('scan-input').value);">
+      <input type="text" id="scan-input" class="mkt-scan-input" placeholder="example.com" autocomplete="off" spellcheck="false">
+      <button type="submit" class="mkt-scan-btn">Scan now →</button>
+    </form>
+    <p class="mkt-scan-hint">No credit card. No signup. Results in under 30 seconds.</p>
+  </div>
+</section>
+
+<!-- ════════ HOW IT WORKS ════════ -->
+<section class="mkt-section">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">How it works</span>
+    <h2 class="mkt-section-title">Three steps. That's it.</h2>
+    <p class="mkt-section-sub">From signup to your first alert in under five minutes.</p>
+    <div class="mkt-steps">
+      <div class="mkt-step">
+        <div class="mkt-step-num">01</div>
+        <h3 class="mkt-step-title">Add your domain</h3>
+        <p class="mkt-step-desc">Paste your sending domain. We auto-discover SPF includes, DKIM selectors, MX records, and your sending IPs.</p>
+      </div>
+      <div class="mkt-step">
+        <div class="mkt-step-num">02</div>
+        <h3 class="mkt-step-title">We monitor non-stop</h3>
+        <p class="mkt-step-desc">Connect Google Postmaster + Microsoft SNDS for ISP signals. We also poll 20+ DNSBLs every few hours.</p>
+      </div>
+      <div class="mkt-step">
+        <div class="mkt-step-num">03</div>
+        <h3 class="mkt-step-title">Get alerts that matter</h3>
+        <p class="mkt-step-desc">Real-time alerts on Slack, email, or webhook the moment something breaks — not in a daily digest.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ FEATURES ════════ -->
+<section class="mkt-section" id="features" style="background: var(--surface-tint); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">Features</span>
+    <h2 class="mkt-section-title">Everything you need in one place.</h2>
+    <p class="mkt-section-sub">Stop stitching together 5 tools to track deliverability. We replace all of them.</p>
+    <div class="mkt-features">
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+        </span>
+        <h3 class="mkt-feature-title">Blacklist Monitor</h3>
+        <p class="mkt-feature-desc">20+ DNSBLs covered including Spamhaus ZEN, Barracuda, SORBS, and SpamCop. Detection in minutes.</p>
+      </div>
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg>
+        </span>
+        <h3 class="mkt-feature-title">Google Postmaster</h3>
+        <p class="mkt-feature-desc">Spam rate, IP reputation, domain reputation, and authentication pass-rates pulled directly from Gmail.</p>
+      </div>
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7.5"/><path d="M22 7 12 13 2 7"/><path d="M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="m22 22-1.5-1.5"/></svg>
+        </span>
+        <h3 class="mkt-feature-title">Microsoft SNDS</h3>
+        <p class="mkt-feature-desc">Per-IP reputation, complaint rates, and trap hits straight from Outlook + Hotmail. The signal that's actually hard to get.</p>
+      </div>
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        </span>
+        <h3 class="mkt-feature-title">Real-time Alerts</h3>
+        <p class="mkt-feature-desc">Slack, email, or webhook delivery the moment a threshold is crossed. No daily digests. No noise.</p>
+      </div>
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        </span>
+        <h3 class="mkt-feature-title">Multi-domain Dashboard</h3>
+        <p class="mkt-feature-desc">Monitor 100s of sending domains and brands from one view. Sort by score. Filter by issue. Drill in fast.</p>
+      </div>
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        </span>
+        <h3 class="mkt-feature-title">Sending IP Reputation</h3>
+        <p class="mkt-feature-desc">Track every IP that sends on your behalf. Map IPs to domains. See per-IP reputation across providers.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ WHY ════════ -->
+<section class="mkt-section mkt-why">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">Why InboxScore</span>
+    <h2 class="mkt-section-title">Built for senders who care about reaching the inbox.</h2>
+    <div class="mkt-why-grid">
+      <div>
+        <div class="mkt-why-item-num">20+</div>
+        <h3 class="mkt-why-item-title">DNSBLs covered</h3>
+        <p class="mkt-why-item-desc">Most competitors check 5. We check Spamhaus ZEN, Barracuda, SORBS, SpamCop, UCEPROTECT, and 15+ more.</p>
+      </div>
+      <div>
+        <div class="mkt-why-item-num">G+M</div>
+        <h3 class="mkt-why-item-title">Google + Microsoft, one tool</h3>
+        <p class="mkt-why-item-desc">Stop logging into two postmaster portals. We pull both Gmail and Outlook signals into a single dashboard.</p>
+      </div>
+      <div>
+        <div class="mkt-why-item-num">5m</div>
+        <h3 class="mkt-why-item-title">Time to first alert</h3>
+        <p class="mkt-why-item-desc">From signup to your first deliverability alert in under five minutes. No support call required.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ PRICING TEASE ════════ -->
+<section class="mkt-section" id="pricing">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">Pricing</span>
+    <h2 class="mkt-section-title">Simple, sender-friendly pricing.</h2>
+    <p class="mkt-section-sub">Start free. Upgrade when you outgrow it. No surprises.</p>
+    <div class="mkt-pricing-grid">
+      <div class="mkt-tier">
+        <div class="mkt-tier-name">Free</div>
+        <div class="mkt-tier-price">$0<span class="mkt-tier-price-suffix"> / forever</span></div>
+        <p class="mkt-tier-desc">Perfect for small senders or trying us out.</p>
+        <ul class="mkt-tier-features">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>1 domain monitored</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>20+ DNSBL checks</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Email alerts</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Daily scans</li>
+        </ul>
+        <a href="/signup" class="mkt-tier-cta">Start free</a>
+      </div>
+      <div class="mkt-tier featured">
+        <div class="mkt-tier-name">Pro</div>
+        <div class="mkt-tier-price">$49<span class="mkt-tier-price-suffix"> / month</span></div>
+        <p class="mkt-tier-desc">For teams managing real sending volume.</p>
+        <ul class="mkt-tier-features">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Up to 10 domains</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Google Postmaster + SNDS</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Slack + webhook alerts</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Hourly scans</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Sending IP reputation</li>
+        </ul>
+        <a href="/signup" class="mkt-tier-cta">Start free trial</a>
+      </div>
+      <div class="mkt-tier">
+        <div class="mkt-tier-name">Enterprise</div>
+        <div class="mkt-tier-price">Custom</div>
+        <p class="mkt-tier-desc">For ESPs and high-volume senders.</p>
+        <ul class="mkt-tier-features">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Unlimited domains</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>API access</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SSO + audit logs</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Dedicated support</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Custom integrations</li>
+        </ul>
+        <a href="mailto:hello@inboxscore.ai" class="mkt-tier-cta">Talk to sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ FAQ ════════ -->
+<section class="mkt-section" id="faq" style="background: var(--surface-tint); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">FAQ</span>
+    <h2 class="mkt-section-title" style="text-align:center; margin-inline:auto;">Common questions</h2>
+    <div class="mkt-faq">
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">How is this different from Postmark or Mailgun?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">Postmark and Mailgun are email service providers — they send your email. InboxScore monitors deliverability for whatever ESP you use. We work alongside them, not instead of them.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">Does it work with my email service?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">Yes — InboxScore is ESP-agnostic. Whether you're sending from SendGrid, Postmark, Amazon SES, your own SMTP, or any combination, we monitor your sending domains and IPs the same way.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">How fast are blacklist alerts?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">DNSBL scans run every few hours on free, every hour on Pro. The moment a listing is detected, we fire your configured alert channels. Most users get notified within 60 minutes of being listed.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">Do you support transactional and marketing email?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">Both. Whether you're sending password resets, receipts, newsletters, or campaigns — if it goes through SMTP, we monitor it.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">Can I monitor multiple domains?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">Yes. Free plan covers 1 domain, Pro covers up to 10, Enterprise is unlimited. Each domain has its own dashboard, alerts, and history.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">How do I cancel?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">One click in Settings → Plan & Billing. We don't make you call anyone. Your historical data stays accessible until your next billing cycle.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ FINAL CTA ════════ -->
+<section class="mkt-section" style="padding: 0;">
+  <div class="mkt-final">
+    <h2 class="mkt-final-title">Stop guessing about deliverability.</h2>
+    <p class="mkt-final-sub">Set up InboxScore in 2 minutes. Get your first alert before lunch.</p>
+    <a href="/signup" class="mkt-btn-primary">
+      Sign up free
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+    </a>
+  </div>
+</section>
+
+<!-- ════════ FOOTER ════════ -->
+<footer class="mkt-footer">
+  <div class="mkt-shell">
+    <div class="mkt-footer-grid">
+      <div>
+        <a href="/" class="mkt-brand">
+          <span class="mkt-brand-mark">IS</span>
+          InboxScore
+        </a>
+        <p class="mkt-footer-tagline">Real-time email deliverability monitoring for senders who care about reaching the inbox.</p>
+      </div>
+      <div class="mkt-footer-col">
+        <div class="mkt-footer-col-title">Product</div>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="#scan">Scan a domain</a>
+      </div>
+      <div class="mkt-footer-col">
+        <div class="mkt-footer-col-title">Company</div>
+        <a href="#">About</a>
+        <a href="#">Blog</a>
+        <a href="#">Customers</a>
+        <a href="mailto:hello@inboxscore.ai">Contact</a>
+      </div>
+      <div class="mkt-footer-col">
+        <div class="mkt-footer-col-title">Legal</div>
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Security</a>
+        <a href="#">DPA</a>
+      </div>
+    </div>
+    <div class="mkt-footer-bottom">
+      <span>© 2026 InboxScore.ai · All rights reserved.</span>
+      <span>Made with care for email senders.</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
