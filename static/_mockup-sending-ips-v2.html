@@ -294,15 +294,36 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   border-radius: 12px;
   font-size: 11px;
   font-weight: 500;
-  background: var(--accent-soft);
-  color: var(--accent);
-  border: none;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
 .sip-domain-pill svg {
-  width: 12px;
-  height: 12px;
-  color: currentColor;
+  width: 11px;
+  height: 11px;
+  color: var(--text-subtle);
 }
+.sip-domain-more {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 100ms ease;
+}
+.sip-domain-more:hover {
+  border-color: var(--text);
+  background: var(--surface-3);
+}
+.sip-domain-pill.hidden { display: none; }
+.sip-domain-pills.expanded .sip-domain-pill.hidden { display: inline-flex; }
+.sip-domain-pills.expanded .sip-domain-more { display: none; }
 .sip-unmapped-text {
   font-size: 12px;
   color: var(--text-muted);
@@ -377,6 +398,157 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 
 /* Mobile toggle */
 .mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+
+/* ════════════════════════ MODAL — V2 (Vercel-grounded) ════════════════════════ */
+.sip-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.sip-modal-overlay.show { display: flex; }
+.sip-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px;
+  width: 480px;
+  max-width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+}
+.sip-modal h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.02em;
+}
+.sip-modal-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.sip-modal-desc strong {
+  color: var(--text);
+  font-family: 'Geist Mono', monospace;
+  font-weight: 500;
+}
+.sip-form-group { margin-bottom: 16px; }
+.sip-form-group label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.sip-form-group textarea,
+.sip-form-group input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+  transition: all 100ms ease;
+}
+.sip-form-group textarea {
+  min-height: 110px;
+  resize: vertical;
+  font-family: 'Geist Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.sip-form-group textarea:focus,
+.sip-form-group input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.sip-form-hint {
+  font-size: 12px;
+  color: var(--text-subtle);
+  margin-top: 6px;
+}
+.sip-domain-check-list {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.sip-domain-check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 100ms ease;
+}
+.sip-domain-check-item:last-child { border-bottom: none; }
+.sip-domain-check-item:hover { background: var(--surface-3); }
+.sip-domain-check-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.sip-domain-check-item span {
+  font-size: 13px;
+  color: var(--text);
+  font-family: 'Geist Mono', monospace;
+}
+.sip-domain-check-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: 8px;
+  border: 1px dashed var(--border-strong);
+}
+.sip-domain-check-empty a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.sip-domain-check-empty a:hover { text-decoration: underline; }
+.sip-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 0;
+}
+.sip-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  transition: all 100ms ease;
+  font-family: inherit;
+}
+.sip-btn:hover { border-color: var(--text); }
+.sip-btn-primary {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+}
+.sip-btn-primary:hover { opacity: 0.9; }
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -463,7 +635,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
           <span class="sip-row-count">10 IPs</span>
         </div>
         <div class="sip-action-row-right">
-          <button class="sip-add-btn">
+          <button class="sip-add-btn" onclick="openAddIpModal()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add IPs
           </button>
@@ -472,27 +644,32 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 
       <!-- IP List -->
       <div class="sip-ip-list">
-        <!-- Row 1: Mapped IP -->
+        <!-- Row 1: Mapped IP — many domains demonstrating +N more overflow -->
         <div class="sip-ip-row">
           <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
           <div class="sip-ip-info">
             <div class="sip-ip-address">162.19.145.175</div>
             <div class="sip-ip-date">Added Mar 9, 2026</div>
             <div class="sip-domain-pills">
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>mailercloud.com</div>
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>voicenotes.com</div>
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>redrail.redbus.com</div>
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>mailercloud.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>voicenotes.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>redrail.redbus.com</div>
+              <div class="sip-domain-pill hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>newsletter.shoppersstop.com</div>
+              <div class="sip-domain-pill hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>track.mailercloud.com</div>
+              <div class="sip-domain-pill hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>news.mailercloud.com</div>
+              <div class="sip-domain-pill hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>updates.voicenotes.com</div>
+              <div class="sip-domain-pill hidden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>support.redbus.com</div>
+              <button class="sip-domain-more" onclick="toggleDomainExpand(this)">+5 more</button>
             </div>
           </div>
           <div class="sip-status-cell">
             <div class="sip-status-pill mapped">
               <span class="sip-status-dot"></span>
-              Mapped to 4
+              Mapped to 8
             </div>
           </div>
           <div class="sip-row-actions">
-            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-action-btn" onclick="openMapDomainsModal(this)">Map Domains</button>
             <button class="sip-remove-btn">Remove</button>
           </div>
         </div>
@@ -504,7 +681,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             <div class="sip-ip-address">162.19.145.174</div>
             <div class="sip-ip-date">Added Mar 9, 2026</div>
             <div class="sip-domain-pills">
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>newsletter.shoppersstop.com</div>
             </div>
           </div>
           <div class="sip-status-cell">
@@ -514,7 +691,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             </div>
           </div>
           <div class="sip-row-actions">
-            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-action-btn" onclick="openMapDomainsModal(this)">Map Domains</button>
             <button class="sip-remove-btn">Remove</button>
           </div>
         </div>
@@ -526,7 +703,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             <div class="sip-ip-address">162.19.145.173</div>
             <div class="sip-ip-date">Added Mar 9, 2026</div>
             <div class="sip-domain-pills">
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>newsletter.shoppersstop.com</div>
             </div>
           </div>
           <div class="sip-status-cell">
@@ -536,7 +713,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             </div>
           </div>
           <div class="sip-row-actions">
-            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-action-btn" onclick="openMapDomainsModal(this)">Map Domains</button>
             <button class="sip-remove-btn">Remove</button>
           </div>
         </div>
@@ -548,7 +725,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             <div class="sip-ip-address">162.19.145.172</div>
             <div class="sip-ip-date">Added Mar 9, 2026</div>
             <div class="sip-domain-pills">
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>newsletter.shoppersstop.com</div>
             </div>
           </div>
           <div class="sip-status-cell">
@@ -558,7 +735,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             </div>
           </div>
           <div class="sip-row-actions">
-            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-action-btn" onclick="openMapDomainsModal(this)">Map Domains</button>
             <button class="sip-remove-btn">Remove</button>
           </div>
         </div>
@@ -570,7 +747,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             <div class="sip-ip-address">103.147.105.99</div>
             <div class="sip-ip-date">Added Mar 9, 2026</div>
             <div class="sip-domain-pills">
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>newsletter.shoppersstop.com</div>
             </div>
           </div>
           <div class="sip-status-cell">
@@ -580,7 +757,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             </div>
           </div>
           <div class="sip-row-actions">
-            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-action-btn" onclick="openMapDomainsModal(this)">Map Domains</button>
             <button class="sip-remove-btn">Remove</button>
           </div>
         </div>
@@ -592,7 +769,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             <div class="sip-ip-address">103.147.105.254</div>
             <div class="sip-ip-date">Added Mar 9, 2026</div>
             <div class="sip-domain-pills">
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>newsletter.shoppersstop.com</div>
             </div>
           </div>
           <div class="sip-status-cell">
@@ -602,7 +779,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             </div>
           </div>
           <div class="sip-row-actions">
-            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-action-btn" onclick="openMapDomainsModal(this)">Map Domains</button>
             <button class="sip-remove-btn">Remove</button>
           </div>
         </div>
@@ -614,7 +791,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             <div class="sip-ip-address">103.147.104.13</div>
             <div class="sip-ip-date">Added Apr 27, 2026</div>
             <div class="sip-domain-pills">
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>mailercloud.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>mailercloud.com</div>
             </div>
           </div>
           <div class="sip-status-cell">
@@ -624,7 +801,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             </div>
           </div>
           <div class="sip-row-actions">
-            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-action-btn" onclick="openMapDomainsModal(this)">Map Domains</button>
             <button class="sip-remove-btn">Remove</button>
           </div>
         </div>
@@ -636,7 +813,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             <div class="sip-ip-address">103.147.104.14</div>
             <div class="sip-ip-date">Added Apr 27, 2026</div>
             <div class="sip-domain-pills">
-              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>mailercloud.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>mailercloud.com</div>
             </div>
           </div>
           <div class="sip-status-cell">
@@ -646,7 +823,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             </div>
           </div>
           <div class="sip-row-actions">
-            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-action-btn" onclick="openMapDomainsModal(this)">Map Domains</button>
             <button class="sip-remove-btn">Remove</button>
           </div>
         </div>
@@ -666,7 +843,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             </div>
           </div>
           <div class="sip-row-actions">
-            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-action-btn" onclick="openMapDomainsModal(this)">Map Domains</button>
             <button class="sip-remove-btn">Remove</button>
           </div>
         </div>
@@ -686,7 +863,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             </div>
           </div>
           <div class="sip-row-actions">
-            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-action-btn" onclick="openMapDomainsModal(this)">Map Domains</button>
             <button class="sip-remove-btn">Remove</button>
           </div>
         </div>
@@ -696,7 +873,74 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   </main>
 </div>
 
-<!-- Minimal JS for theme toggle and sidebar mobile -->
+<!-- ════════════════════════ ADD IPs MODAL ════════════════════════ -->
+<div class="sip-modal-overlay" id="add-ip-modal" onclick="if(event.target===this) closeAddIpModal()">
+  <div class="sip-modal" role="dialog" aria-labelledby="add-ip-title">
+    <h3 id="add-ip-title">Add Sending IPs</h3>
+    <p class="sip-modal-desc">Enter one or more IP addresses you use to send email. You can paste multiple IPs separated by commas, spaces, or new lines.</p>
+    <div class="sip-form-group">
+      <label for="ip-input">IP Addresses</label>
+      <textarea id="ip-input" placeholder="e.g. 198.51.100.1, 198.51.100.2&#10;or one per line:&#10;198.51.100.1&#10;198.51.100.2"></textarea>
+      <div class="sip-form-hint">Both IPv4 and IPv6 are supported. Duplicates are skipped automatically.</div>
+    </div>
+    <div class="sip-modal-actions">
+      <button class="sip-btn" onclick="closeAddIpModal()">Cancel</button>
+      <button class="sip-btn sip-btn-primary">Add IPs</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════ MAP DOMAINS MODAL ════════════════════════ -->
+<div class="sip-modal-overlay" id="map-domains-modal" onclick="if(event.target===this) closeMapDomainsModal()">
+  <div class="sip-modal" role="dialog" aria-labelledby="map-domains-title">
+    <h3 id="map-domains-title">Map Domains</h3>
+    <p class="sip-modal-desc">Select which domains this IP sends email for: <strong id="map-ip-label">—</strong></p>
+    <div class="sip-form-group">
+      <label>Your domains</label>
+      <div class="sip-domain-check-list" id="domain-check-container">
+        <label class="sip-domain-check-item">
+          <input type="checkbox" value="mailercloud.com" checked>
+          <span>mailercloud.com</span>
+        </label>
+        <label class="sip-domain-check-item">
+          <input type="checkbox" value="voicenotes.com" checked>
+          <span>voicenotes.com</span>
+        </label>
+        <label class="sip-domain-check-item">
+          <input type="checkbox" value="redrail.redbus.com" checked>
+          <span>redrail.redbus.com</span>
+        </label>
+        <label class="sip-domain-check-item">
+          <input type="checkbox" value="newsletter.shoppersstop.com">
+          <span>newsletter.shoppersstop.com</span>
+        </label>
+        <label class="sip-domain-check-item">
+          <input type="checkbox" value="track.mailercloud.com">
+          <span>track.mailercloud.com</span>
+        </label>
+        <label class="sip-domain-check-item">
+          <input type="checkbox" value="news.mailercloud.com">
+          <span>news.mailercloud.com</span>
+        </label>
+        <label class="sip-domain-check-item">
+          <input type="checkbox" value="updates.voicenotes.com">
+          <span>updates.voicenotes.com</span>
+        </label>
+        <label class="sip-domain-check-item">
+          <input type="checkbox" value="support.redbus.com">
+          <span>support.redbus.com</span>
+        </label>
+      </div>
+      <div class="sip-form-hint">Don't see a domain? <a href="/domains" style="color:var(--accent);text-decoration:none;">Add it on the Domains page →</a></div>
+    </div>
+    <div class="sip-modal-actions">
+      <button class="sip-btn" onclick="closeMapDomainsModal()">Cancel</button>
+      <button class="sip-btn sip-btn-primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Minimal JS for theme toggle, sidebar mobile, and modal/pill behaviour -->
 <script>
 function toggleTheme() {
   var current = document.documentElement.getAttribute('data-theme') || 'light';
@@ -707,14 +951,45 @@ function toggleTheme() {
 
 function toggleSidebar() {
   var sidebar = document.querySelector('.sidebar');
-  if (sidebar) {
-    sidebar.classList.toggle('open');
-  }
+  if (sidebar) sidebar.classList.toggle('open');
 }
 
-function logout() {
-  alert('Logout clicked');
+function logout() { alert('Logout clicked'); }
+
+/* Domain pill +N more expand */
+function toggleDomainExpand(btn) {
+  var pillsWrap = btn.parentElement;
+  pillsWrap.classList.add('expanded');
 }
+
+/* Add IPs modal */
+function openAddIpModal() {
+  document.getElementById('ip-input').value = '';
+  document.getElementById('add-ip-modal').classList.add('show');
+  setTimeout(function () { document.getElementById('ip-input').focus(); }, 80);
+}
+function closeAddIpModal() {
+  document.getElementById('add-ip-modal').classList.remove('show');
+}
+
+/* Map Domains modal */
+function openMapDomainsModal(triggerEl) {
+  var row = triggerEl.closest('.sip-ip-row');
+  var ip = row ? (row.querySelector('.sip-ip-address') || {}).textContent : '—';
+  document.getElementById('map-ip-label').textContent = (ip || '—').trim();
+  document.getElementById('map-domains-modal').classList.add('show');
+}
+function closeMapDomainsModal() {
+  document.getElementById('map-domains-modal').classList.remove('show');
+}
+
+/* Close modals on Escape */
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    closeAddIpModal();
+    closeMapDomainsModal();
+  }
+});
 </script>
 
 </body>
