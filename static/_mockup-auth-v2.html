@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auth (Login / Signup / Forgot) — InboxScore (Mockup V2)</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light')
+      document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f5; --surface-3: #e4e4e7;
+  --border: #e4e4e7; --border-strong: #d4d4d8;
+  --text: #18181b; --text-muted: #52525b; --text-subtle: #71717a;
+  --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #ede9fe; --accent-glow: rgba(124,58,237,0.18);
+  --green: #047857; --green-bg: #d1fae5;
+  --red: #b91c1c; --red-bg: #fee2e2;
+}
+html[data-theme="dark"] {
+  --bg: #0a0a0a; --surface: #161616; --surface-2: #262626; --surface-3: #383838;
+  --border: #333333; --border-strong: #404040;
+  --text: #fafafa; --text-muted: #a3a3a3; --text-subtle: #808080;
+  --accent: #a78bfa; --accent-hover: #c4b5fd; --accent-soft: #3f2d6e; --accent-glow: rgba(167,139,250,0.18);
+  --green: #10b981; --green-bg: #064e3b;
+  --red: #f87171; --red-bg: #7f1d1d;
+}
+body {
+  font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  transition: background 200ms ease, color 200ms ease;
+}
+
+/* TOPNAV */
+.au-topnav {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.au-brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; color: var(--text);
+}
+.au-brand-mark {
+  width: 28px; height: 28px;
+  background: var(--text); color: var(--surface);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: -0.04em;
+}
+.au-brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.025em; }
+.au-nav-actions { display: flex; align-items: center; gap: 12px; }
+.au-theme-toggle {
+  width: 32px; height: 32px;
+  border: 1px solid var(--border-strong); background: transparent;
+  color: var(--text-muted); border-radius: 8px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all 100ms ease;
+}
+.au-theme-toggle:hover { color: var(--text); border-color: var(--text); }
+.au-theme-toggle .icon-sun, .au-theme-toggle .icon-moon { display: none; }
+html[data-theme="dark"] .au-theme-toggle .icon-sun { display: block; }
+html:not([data-theme="dark"]) .au-theme-toggle .icon-moon { display: block; }
+.au-nav-link {
+  font-size: 13px; color: var(--text-muted); text-decoration: none;
+  padding: 6px 12px; border-radius: 6px;
+  transition: all 100ms ease;
+}
+.au-nav-link:hover { color: var(--text); background: var(--surface-2); }
+
+/* LAYOUT */
+.au-shell {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px 20px;
+}
+.au-card {
+  width: 420px; max-width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 36px 32px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.au-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+.au-subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+
+/* Alert banner */
+.au-alert { display: none; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+.au-alert.show { display: block; }
+.au-alert.error { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+.au-alert.success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+
+/* Google button */
+.au-google-btn {
+  width: 100%;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text); cursor: pointer; text-decoration: none;
+  font-family: inherit;
+  transition: all 100ms ease;
+}
+.au-google-btn:hover { border-color: var(--text); background: var(--surface-2); }
+.au-google-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+.au-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0;
+  font-size: 12px; color: var(--text-subtle);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.au-divider::before, .au-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+/* Form */
+.au-form { display: flex; flex-direction: column; gap: 16px; }
+.au-form-group { display: flex; flex-direction: column; gap: 6px; }
+.au-label { font-size: 13px; font-weight: 500; color: var(--text); }
+.au-input {
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px; outline: none;
+  font-family: inherit;
+  transition: all 100ms ease;
+}
+.au-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.au-input.error { border-color: var(--red); box-shadow: 0 0 0 3px rgba(185,28,28,0.12); }
+.au-form-error {
+  display: none;
+  font-size: 12px; color: var(--red);
+}
+.au-form-error.show { display: block; }
+.au-password-wrapper { position: relative; }
+.au-password-toggle {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none;
+  font-size: 11px; font-weight: 500; color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px; border-radius: 4px;
+  font-family: inherit;
+}
+.au-password-toggle:hover { background: var(--surface-3); color: var(--text); }
+
+.au-form-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px;
+}
+.au-checkbox-label {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text-muted); cursor: pointer;
+}
+.au-checkbox-label input[type="checkbox"] {
+  width: 14px; height: 14px; accent-color: var(--accent);
+  cursor: pointer; margin: 0;
+}
+.au-link {
+  color: var(--accent); text-decoration: none; font-weight: 500;
+}
+.au-link:hover { text-decoration: underline; }
+
+.au-submit-btn {
+  width: 100%;
+  padding: 11px 16px;
+  background: var(--text); color: var(--surface);
+  border: 1px solid var(--text);
+  border-radius: 8px;
+  font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 100ms ease;
+  margin-top: 4px;
+}
+.au-submit-btn:hover:not(:disabled) { opacity: 0.9; }
+.au-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.au-footer-row {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.au-footer-row a {
+  color: var(--accent); text-decoration: none; font-weight: 500;
+}
+.au-footer-row a:hover { text-decoration: underline; }
+
+/* Hint / helper text */
+.au-hint { font-size: 12px; color: var(--text-subtle); margin-top: 4px; }
+
+/* Forgot password — success state */
+.au-success-block { text-align: center; padding: 12px 0; }
+.au-success-icon {
+  width: 56px; height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: var(--green-bg); color: var(--green);
+  display: flex; align-items: center; justify-content: center;
+}
+.au-success-icon svg { width: 28px; height: 28px; }
+.au-success-title { font-size: 17px; font-weight: 700; color: var(--green); margin-bottom: 8px; }
+.au-success-msg { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6; }
+
+/* Demo controls */
+.demo-bar {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 6px 14px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  z-index: 30;
+  flex-wrap: wrap; max-width: 95vw; justify-content: center;
+}
+.demo-label {
+  font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px;
+}
+.demo-divider { width: 1px; height: 12px; background: var(--border-strong); }
+.demo-btn {
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text-muted);
+  font-size: 11px; cursor: pointer; font-family: inherit;
+  transition: all 100ms ease;
+}
+.demo-btn:hover { border-color: var(--text); color: var(--text); }
+.demo-btn.on { background: var(--text); color: var(--surface); border-color: var(--text); }
+
+.au-view { display: none; }
+.au-view.active { display: block; }
+
+@media (max-width: 480px) {
+  .au-card { padding: 28px 22px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="au-topnav">
+  <a href="/" class="au-brand">
+    <div class="au-brand-mark">IS</div>
+    <div class="au-brand-name">InboxScore</div>
+  </a>
+  <div class="au-nav-actions">
+    <button class="au-theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <a href="/signup" class="au-nav-link" id="topnav-cta">Sign up free</a>
+  </div>
+</nav>
+
+<div class="au-shell">
+
+  <!-- ═══ LOGIN VIEW ═══ -->
+  <div class="au-view active" id="view-login">
+    <div class="au-card">
+      <div class="au-title">Welcome back</div>
+      <div class="au-subtitle">Log in to your InboxScore account.</div>
+      <div class="au-alert" id="login-alert"></div>
+
+      <a href="https://jxqxvexoduynwpywhevr.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://inboxscore.ai" class="au-google-btn">
+        <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
+        Continue with Google
+      </a>
+
+      <div class="au-divider">or</div>
+
+      <form class="au-form" onsubmit="event.preventDefault(); demoSubmit('login');">
+        <div class="au-form-group">
+          <label class="au-label" for="login-email">Email</label>
+          <input type="email" class="au-input" id="login-email" placeholder="you@company.com" required autocomplete="email">
+          <div class="au-form-error" id="login-email-error">Enter a valid email address</div>
+        </div>
+        <div class="au-form-group">
+          <label class="au-label" for="login-password">Password</label>
+          <div class="au-password-wrapper">
+            <input type="password" class="au-input" id="login-password" placeholder="Enter your password" required autocomplete="current-password">
+            <button type="button" class="au-password-toggle" onclick="togglePassword('login-password', this)">Show</button>
+          </div>
+        </div>
+        <div class="au-form-row">
+          <label class="au-checkbox-label">
+            <input type="checkbox"> Remember me
+          </label>
+          <a href="#" class="au-link" onclick="event.preventDefault(); setView('forgot');">Forgot password?</a>
+        </div>
+        <button type="submit" class="au-submit-btn" id="login-submit-btn">Log in</button>
+      </form>
+
+      <div class="au-footer-row">
+        Don't have an account? <a href="#" onclick="event.preventDefault(); setView('signup');">Sign up</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SIGNUP VIEW ═══ -->
+  <div class="au-view" id="view-signup">
+    <div class="au-card">
+      <div class="au-title">Create your account</div>
+      <div class="au-subtitle">Get started for free. No credit card required.</div>
+      <div class="au-alert" id="signup-alert"></div>
+
+      <a href="https://jxqxvexoduynwpywhevr.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://inboxscore.ai" class="au-google-btn">
+        <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
+        Sign up with Google
+      </a>
+
+      <div class="au-divider">or</div>
+
+      <form class="au-form" onsubmit="event.preventDefault(); demoSubmit('signup');">
+        <div class="au-form-group">
+          <label class="au-label" for="signup-name">Name</label>
+          <input type="text" class="au-input" id="signup-name" placeholder="John Doe" autocomplete="name">
+        </div>
+        <div class="au-form-group">
+          <label class="au-label" for="signup-email">Email</label>
+          <input type="email" class="au-input" id="signup-email" placeholder="you@company.com" required autocomplete="email">
+        </div>
+        <div class="au-form-group">
+          <label class="au-label" for="signup-password">Password</label>
+          <div class="au-password-wrapper">
+            <input type="password" class="au-input" id="signup-password" placeholder="At least 8 characters" required minlength="8" autocomplete="new-password">
+            <button type="button" class="au-password-toggle" onclick="togglePassword('signup-password', this)">Show</button>
+          </div>
+          <div class="au-hint">Use at least 8 characters with a mix of letters, numbers, and symbols.</div>
+        </div>
+        <button type="submit" class="au-submit-btn" id="signup-submit-btn">Create account</button>
+      </form>
+
+      <div class="au-footer-row">
+        Already have an account? <a href="#" onclick="event.preventDefault(); setView('login');">Log in</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ FORGOT PASSWORD VIEW ═══ -->
+  <div class="au-view" id="view-forgot">
+    <div class="au-card" id="forgot-form-card">
+      <div class="au-title">Reset your password</div>
+      <div class="au-subtitle">Enter your email and we'll send you a link to reset your password.</div>
+      <div class="au-alert" id="forgot-alert"></div>
+
+      <form class="au-form" onsubmit="event.preventDefault(); demoSubmit('forgot');">
+        <div class="au-form-group">
+          <label class="au-label" for="forgot-email">Email</label>
+          <input type="email" class="au-input" id="forgot-email" placeholder="you@company.com" required autocomplete="email">
+        </div>
+        <button type="submit" class="au-submit-btn" id="forgot-submit-btn">Send reset link</button>
+      </form>
+
+      <div class="au-footer-row">
+        Remember your password? <a href="#" onclick="event.preventDefault(); setView('login');">Log in</a>
+      </div>
+    </div>
+
+    <!-- Forgot — success state (toggle via demo bar) -->
+    <div class="au-card" id="forgot-success-card" style="display:none;">
+      <div class="au-success-block">
+        <div class="au-success-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="au-success-title">Check your inbox</div>
+        <div class="au-success-msg">We've sent a password reset link to <strong style="color:var(--text);">vinoop@mailercloud.com</strong>. Click the link in the email to reset your password.</div>
+        <div class="au-hint" style="margin-bottom:18px;">Didn't get it? Check your spam folder or <a href="#" class="au-link" onclick="event.preventDefault(); setForgotState('form');">try again</a>.</div>
+        <a href="#" class="au-link" onclick="event.preventDefault(); setView('login');" style="font-weight:500;">← Back to log in</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Demo controls -->
+<div class="demo-bar">
+  <span class="demo-label">View:</span>
+  <button class="demo-btn on" id="demo-login" onclick="setView('login')">Login</button>
+  <button class="demo-btn" id="demo-signup" onclick="setView('signup')">Signup</button>
+  <button class="demo-btn" id="demo-forgot" onclick="setView('forgot')">Forgot</button>
+  <div class="demo-divider"></div>
+  <span class="demo-label">Forgot state:</span>
+  <button class="demo-btn on" id="demo-forgot-form" onclick="setForgotState('form')">Form</button>
+  <button class="demo-btn" id="demo-forgot-success" onclick="setForgotState('success')">Sent</button>
+  <div class="demo-divider"></div>
+  <span class="demo-label">Error:</span>
+  <button class="demo-btn" onclick="showAlert('error', 'Invalid email or password')">Trigger</button>
+  <button class="demo-btn" onclick="clearAllAlerts()">Clear</button>
+</div>
+
+<script>
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'light';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
+}
+
+function setView(view) {
+  ['login','signup','forgot'].forEach(function (v) {
+    document.getElementById('view-' + v).classList.toggle('active', v === view);
+    document.getElementById('demo-' + v).classList.toggle('on', v === view);
+  });
+  /* Update top-nav CTA depending on view */
+  var topCta = document.getElementById('topnav-cta');
+  if (view === 'signup') {
+    topCta.textContent = 'Log in';
+    topCta.onclick = function (e) { e.preventDefault(); setView('login'); };
+  } else {
+    topCta.textContent = 'Sign up free';
+    topCta.onclick = function (e) { e.preventDefault(); setView('signup'); };
+  }
+  /* Reset forgot to form view when switching */
+  if (view === 'forgot') setForgotState('form');
+}
+
+function setForgotState(state) {
+  document.getElementById('forgot-form-card').style.display = state === 'form' ? 'block' : 'none';
+  document.getElementById('forgot-success-card').style.display = state === 'success' ? 'block' : 'none';
+  document.getElementById('demo-forgot-form').classList.toggle('on', state === 'form');
+  document.getElementById('demo-forgot-success').classList.toggle('on', state === 'success');
+}
+
+function togglePassword(inputId, btn) {
+  var input = document.getElementById(inputId);
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = 'Hide'; }
+  else { input.type = 'password'; btn.textContent = 'Show'; }
+}
+
+function demoSubmit(form) {
+  /* Real submit happens via /api/auth/{login|signup|forgot-password} */
+  if (form === 'forgot') setForgotState('success');
+  else alert('Demo: ' + form + ' submit. In production this calls /api/auth/' + form + '.');
+}
+
+function showAlert(type, msg) {
+  ['login','signup','forgot'].forEach(function (v) {
+    var el = document.getElementById(v + '-alert');
+    if (!el) return;
+    el.className = 'au-alert show ' + type;
+    el.textContent = msg;
+  });
+}
+function clearAllAlerts() {
+  ['login','signup','forgot'].forEach(function (v) {
+    var el = document.getElementById(v + '-alert');
+    if (el) el.className = 'au-alert';
+  });
+}
+</script>
+
+</body>
+</html>
