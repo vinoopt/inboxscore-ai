@@ -318,16 +318,23 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 // Migrated from email-health.html, adapted for new V2 mockup DOM structure
 // ════════════════════════════════════════════════════════════════════════════════════════════
 
-// Auth helpers
+// Auth helpers — must match the canonical pattern used by microsoft.html /
+// postmaster.html / dashboard.html so the user's `access_token` (set on
+// login) is actually picked up. Earlier draft used a `inboxscore-auth-token`
+// key which never existed → null → page bounced to /login → /login bounced
+// to /dashboard because the real `access_token` was already valid.
 function getToken() {
-  try { return localStorage.getItem('inboxscore-auth-token'); } catch (e) { return null; }
+  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
 }
 function logout() {
-  try { localStorage.removeItem('inboxscore-auth-token'); } catch (e) {}
+  if (window.cacheClear) window.cacheClear();
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  sessionStorage.removeItem('access_token');
+  sessionStorage.removeItem('refresh_token');
+  sessionStorage.removeItem('user');
   window.location.href = '/login';
-}
-function getUserName() {
-  try { return localStorage.getItem('inboxscore-user-name') || 'User'; } catch (e) { return 'User'; }
 }
 function getBlacklistDomain() {
   const sel = document.querySelector('select[name="domain"]');
@@ -667,21 +674,46 @@ function _blRenderIpRow(r) {
   `;
 }
 
-// Boot
-document.addEventListener('DOMContentLoaded', async function() {
+// Boot — matches the canonical auth flow used by microsoft.html /
+// postmaster.html: validate token via /api/auth/me, retry once via
+// /api/auth/refresh, only then load page data.
+window.addEventListener('DOMContentLoaded', () => {
   const token = getToken();
-  const userName = getUserName();
-  const userEl = document.getElementById('user-name');
-  if (userEl) userEl.textContent = userName;
+  if (!token) { window.location.href = '/login'; return; }
 
-  if (!token) {
-    window.location.href = '/login';
-    return;
-  }
+  const headers = { 'Authorization': 'Bearer ' + token };
 
-  // Load initial domain results
-  const initialDomain = getBlacklistDomain();
-  await refreshBlacklistForDomain(initialDomain);
+  fetch('/api/auth/me', { headers })
+    .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    .then(userData => {
+      const name = userData.user.name || userData.user.email.split('@')[0];
+      const userEl = document.getElementById('user-name');
+      if (userEl) userEl.textContent = name;
+
+      // Load initial domain results AFTER auth check has resolved.
+      const initialDomain = getBlacklistDomain();
+      refreshBlacklistForDomain(initialDomain);
+    })
+    .catch(() => {
+      const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+      if (refresh) {
+        fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refresh })
+        }).then(r => { if (!r.ok) throw new Error(); return r.json(); })
+          .then(data => {
+            const session = data.session || data;
+            const accessToken  = session.access_token;
+            const refreshToken = session.refresh_token;
+            if (!accessToken || !refreshToken) throw new Error('refresh missing tokens');
+            const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+            storage.setItem('access_token', accessToken);
+            storage.setItem('refresh_token', refreshToken);
+            location.reload();
+          }).catch(() => logout());
+      } else { logout(); }
+    });
 });
 </script>
 
