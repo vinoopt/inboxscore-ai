@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings — InboxScore (Mockup V2)</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light')
+      document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f5; --surface-3: #e4e4e7;
+  --border: #e4e4e7; --border-strong: #d4d4d8;
+  --text: #18181b; --text-muted: #52525b; --text-subtle: #71717a;
+  --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #ede9fe; --accent-glow: rgba(124,58,237,0.18);
+  --green: #047857; --green-bg: #d1fae5;
+  --yellow: #b45309; --yellow-bg: #fef3c7;
+  --orange: #c2410c; --orange-bg: #ffedd5;
+  --red: #b91c1c; --red-bg: #fee2e2;
+}
+html[data-theme="dark"] {
+  --bg: #0a0a0a; --surface: #161616; --surface-2: #262626; --surface-3: #383838;
+  --border: #333333; --border-strong: #404040;
+  --text: #fafafa; --text-muted: #a3a3a3; --text-subtle: #808080;
+  --accent: #a78bfa; --accent-hover: #c4b5fd; --accent-soft: #3f2d6e; --accent-glow: rgba(167, 139, 250, 0.18);
+  --green: #10b981; --green-bg: #064e3b;
+  --yellow: #f59e0b; --yellow-bg: #78350f;
+  --orange: #f97316; --orange-bg: #7c2d12;
+  --red: #f87171; --red-bg: #7f1d1d;
+}
+body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; transition: background 200ms ease, color 200ms ease; }
+.layout { display: flex; flex: 1; }
+
+/* SIDEBAR (canonical) */
+.sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; color: var(--text-muted); text-decoration: none; font-size: 13px; font-weight: 500; border-radius: 7px; transition: background 100ms ease, color 100ms ease; margin-bottom: 1px; }
+.sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
+.sidebar-nav li a.active { color: var(--text); background: var(--surface-2); font-weight: 500; border-left: none; }
+.sidebar-nav li a svg { color: currentColor; flex-shrink: 0; }
+.alert-badge { margin-left: auto; font-size: 11px; color: var(--text-muted); background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-weight: 500; min-width: 18px; text-align: center; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--border); text-decoration: none; color: var(--text); transition: all 100ms ease; }
+.brand:hover { color: var(--accent); }
+.brand-mark { width: 26px; height: 26px; background: var(--text); color: var(--surface); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; letter-spacing: -0.04em; flex-shrink: 0; }
+.brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.025em; }
+.sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); }
+.plan-pill { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); }
+.plan-pill-tier { font-weight: 500; color: var(--text); text-transform: capitalize; }
+
+/* MAIN */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: 100vh; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; max-width: 720px; }
+.page-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.user-name { font-size: 13px; color: var(--text-muted); }
+.theme-toggle-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-strong); background: transparent; color: var(--text-muted); border-radius: 8px; cursor: pointer; transition: all 100ms ease; }
+.theme-toggle-btn:hover { color: var(--text); border-color: var(--text); }
+.theme-toggle-btn .icon-sun, .theme-toggle-btn .icon-moon { display: none; }
+html[data-theme="dark"] .theme-toggle-btn .icon-sun { display: block; }
+html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
+.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
+
+/* SETTINGS SHELL: left vertical nav + right panel */
+.set-layout { display: flex; gap: 32px; align-items: flex-start; }
+.set-nav {
+  width: 220px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  position: sticky; top: 16px;
+}
+.set-nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  color: var(--text-muted); cursor: pointer;
+  font-size: 13px; font-weight: 500;
+  background: none; border: none; text-align: left;
+  font-family: inherit;
+  transition: all 100ms ease;
+}
+.set-nav-item:hover { color: var(--text); background: var(--surface-2); }
+.set-nav-item.active { color: var(--text); background: var(--surface-2); font-weight: 600; }
+.set-nav-item svg { flex-shrink: 0; }
+.set-nav-item .set-soon-pill {
+  margin-left: auto; font-size: 9px; font-weight: 600;
+  color: var(--text-muted); background: var(--surface-3);
+  padding: 2px 6px; border-radius: 999px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.set-nav-item.active .set-soon-pill { background: var(--surface); }
+
+.set-content { flex: 1; min-width: 0; }
+.set-panel { display: none; }
+.set-panel.active { display: block; }
+.set-section-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.set-section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+
+/* GENERAL — account field rows */
+.set-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.set-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.set-row:last-child { border-bottom: none; }
+.set-row-left { flex: 1; min-width: 0; }
+.set-row-label { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+.set-row-value { font-size: 14px; color: var(--text); font-weight: 500; }
+.set-row-value-mono { font-family: 'Geist Mono', monospace; }
+.set-btn-sm {
+  padding: 6px 14px; border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  font-family: inherit; flex-shrink: 0;
+  transition: all 100ms ease;
+}
+.set-btn-sm:hover { border-color: var(--text); }
+.set-danger-row {
+  padding: 16px 20px;
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.set-danger-link {
+  background: none; border: none;
+  color: var(--red); font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.set-danger-link:hover { text-decoration: underline; }
+
+/* CONNECTED SERVICES — provider cards */
+.set-conn-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 20px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  transition: all 100ms ease;
+}
+.set-conn-icon {
+  width: 44px; height: 44px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.set-conn-info { flex: 1; min-width: 0; }
+.set-conn-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.set-conn-status { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.set-conn-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.set-conn-status-dot.connected { background: var(--green); }
+.set-conn-status-dot.disconnected { background: var(--text-subtle); }
+.set-conn-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.set-pro-pill {
+  font-size: 10px; font-weight: 600;
+  padding: 2px 8px;
+  background: var(--accent-soft); color: var(--accent);
+  border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.set-pro-callout {
+  margin: -8px 0 12px;
+  padding: 12px 18px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  font-size: 12px; color: var(--text-muted);
+  display: flex; align-items: center; gap: 8px;
+}
+.set-pro-callout svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+.set-pro-callout strong { color: var(--accent); }
+.set-btn-primary {
+  padding: 8px 16px; border-radius: 8px;
+  background: var(--text); color: var(--surface); border: 1px solid var(--text);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  font-family: inherit; transition: all 100ms ease;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.set-btn-primary:hover { opacity: 0.9; }
+.set-btn-danger {
+  padding: 8px 14px; border-radius: 8px;
+  background: var(--surface); color: var(--red);
+  border: 1px solid var(--border-strong);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  font-family: inherit; transition: all 100ms ease;
+}
+.set-btn-danger:hover { border-color: var(--red); background: var(--red-bg); }
+
+/* COMING SOON empty state */
+.set-soon-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 56px 32px; text-align: center;
+}
+.set-soon-icon {
+  width: 56px; height: 56px;
+  border-radius: 14px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  color: var(--text-muted);
+}
+.set-soon-icon svg { width: 24px; height: 24px; }
+.set-soon-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.set-soon-card p { font-size: 13px; color: var(--text-muted); max-width: 420px; margin: 0 auto; line-height: 1.6; }
+.set-soon-card p strong { color: var(--accent); font-weight: 600; }
+
+/* MODAL — SNDS connect (multi-step) */
+.set-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 50;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.set-modal-overlay.show { display: flex; }
+.set-modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 28px;
+  width: 480px; max-width: 100%; max-height: 90vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+  overflow-y: auto;
+}
+.set-modal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.set-modal-icon { width: 32px; height: 32px; flex-shrink: 0; }
+.set-modal-title-block { flex: 1; min-width: 0; }
+.set-modal-title { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.set-modal-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.set-modal-close {
+  width: 28px; height: 28px;
+  border: none; background: none;
+  color: var(--text-subtle); font-size: 22px;
+  cursor: pointer; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+}
+.set-modal-close:hover { color: var(--text); background: var(--surface-2); }
+
+.set-step-instructions {
+  font-size: 13px; color: var(--text-muted);
+  line-height: 1.7; margin-bottom: 18px;
+}
+.set-step-instructions strong { color: var(--text); font-weight: 600; }
+.set-step-instructions a { color: var(--accent); text-decoration: none; }
+.set-step-instructions a:hover { text-decoration: underline; }
+.set-step-instructions ol { padding-left: 20px; }
+.set-step-instructions li { margin-bottom: 4px; }
+.set-form-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text);
+  font-size: 13px; outline: none;
+  font-family: 'Geist Mono', monospace;
+  margin-bottom: 6px;
+  transition: all 100ms ease;
+}
+.set-form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.set-form-hint { font-size: 11px; color: var(--text-subtle); line-height: 1.5; }
+.set-form-hint code {
+  background: var(--surface-2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'Geist Mono', monospace;
+}
+.set-modal-cta {
+  width: 100%; margin-top: 16px;
+  padding: 10px; border-radius: 8px;
+  background: var(--text); color: var(--surface); border: 1px solid var(--text);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit;
+  transition: all 100ms ease;
+}
+.set-modal-cta:hover:not(:disabled) { opacity: 0.9; }
+.set-modal-cta:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Modal Step 2: progress */
+.set-prog-list { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 16px; }
+.set-prog-step { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.set-prog-icon {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-subtle);
+}
+.set-prog-step.done .set-prog-icon { border-color: var(--green); background: var(--green); color: white; }
+.set-prog-step.done .set-prog-icon::after { content: '✓'; font-size: 12px; }
+.set-prog-step.active .set-prog-icon {
+  border-color: var(--accent);
+  border-top-color: transparent;
+  animation: prog-spin 0.8s linear infinite;
+}
+@keyframes prog-spin { to { transform: rotate(360deg); } }
+.set-prog-note {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: var(--surface-2); border-radius: 8px;
+  font-size: 12px; color: var(--text-muted);
+  text-align: center;
+}
+
+/* Modal Step 3: success */
+.set-success-block { text-align: center; padding: 8px 0; }
+.set-success-icon {
+  width: 56px; height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: var(--green-bg); color: var(--green);
+  display: flex; align-items: center; justify-content: center;
+}
+.set-success-icon svg { width: 28px; height: 28px; }
+.set-success-title { font-size: 17px; font-weight: 700; color: var(--green); margin-bottom: 6px; }
+.set-success-msg { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.6; }
+
+/* DEMO CONTROLS — for previewing all states */
+.demo-bar {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 6px 14px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  z-index: 30;
+  flex-wrap: wrap; max-width: 95vw; justify-content: center;
+}
+.demo-label {
+  font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;
+  font-size: 10px;
+}
+.demo-divider { width: 1px; height: 12px; background: var(--border-strong); }
+.demo-btn {
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text-muted);
+  font-size: 11px; cursor: pointer; font-family: inherit;
+  transition: all 100ms ease;
+}
+.demo-btn:hover { border-color: var(--text); color: var(--text); }
+.demo-btn.on { background: var(--text); color: var(--surface); border-color: var(--text); }
+
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: -260px; top: 0; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar.open { left: 0; }
+  .mobile-toggle { display: block; }
+  .main { padding: 24px 16px; }
+  .page-header { flex-direction: column; gap: 12px; }
+  .set-layout { flex-direction: column; }
+  .set-nav { width: 100%; flex-direction: row; overflow-x: auto; position: static; }
+  .set-conn-card { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <a href="/dashboard" class="brand"><div class="brand-mark">IS</div><div class="brand-name">InboxScore</div></a>
+    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+    <ul class="sidebar-nav">
+      <li><a href="/dashboard"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Dashboard</a></li>
+      <li><a href="/postmaster"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></span> Google Postmaster</a></li>
+      <li><a href="/microsoft"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7.5"/><path d="M22 7 12 13 2 7"/><path d="M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="m22 22-1.5-1.5"/></svg></span> Microsoft SNDS</a></li>
+      <li><a href="/blacklist"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span> Blacklist Monitor</a></li>
+      <li><a href="/domains"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span> Domains</a></li>
+      <li><a href="/sending-ips"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg></span> Sending IPs</a></li>
+      <li><a href="/alerts"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span> Alerts</a></li>
+      <li><a href="/settings" class="active"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/><circle cx="12" cy="12" r="3"/></svg></span> Settings</a></li>
+    </ul>
+    <div class="sidebar-footer"><div class="plan-pill"><span class="plan-pill-tier">Pro plan</span></div></div>
+  </aside>
+
+  <main class="main">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Settings</h1>
+          <p class="page-subtitle">Manage your account, connections, and preferences.</p>
+        </div>
+        <div class="page-header-actions">
+          <span class="user-name">Vinoop Thayatt</span>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button class="logout-btn">Log Out</button>
+        </div>
+      </div>
+
+      <div class="set-layout">
+        <!-- Settings sub-nav (left) -->
+        <nav class="set-nav">
+          <button class="set-nav-item active" onclick="setSettingsTab('general', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            General
+          </button>
+          <button class="set-nav-item" onclick="setSettingsTab('connections', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Connected Services
+          </button>
+          <button class="set-nav-item" onclick="setSettingsTab('billing', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            Plan &amp; Billing
+            <span class="set-soon-pill">Soon</span>
+          </button>
+          <button class="set-nav-item" onclick="setSettingsTab('api', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+            API Access
+            <span class="set-soon-pill">Soon</span>
+          </button>
+          <button class="set-nav-item" onclick="setSettingsTab('team', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Team
+            <span class="set-soon-pill">Soon</span>
+          </button>
+        </nav>
+
+        <!-- Settings panels (right) -->
+        <div class="set-content">
+
+          <!-- ═══ GENERAL ═══ -->
+          <div class="set-panel active" id="sp-general">
+            <div class="set-section-title">General</div>
+            <div class="set-section-desc">Your account profile and password.</div>
+
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-row-left"><div class="set-row-label">Name</div><div class="set-row-value">Vinoop Thayatt</div></div>
+                <button class="set-btn-sm">Edit</button>
+              </div>
+              <div class="set-row">
+                <div class="set-row-left"><div class="set-row-label">Email</div><div class="set-row-value set-row-value-mono">vinoop@mailercloud.com</div></div>
+                <span style="font-size:11px;color:var(--text-subtle);">Verified</span>
+              </div>
+              <div class="set-row">
+                <div class="set-row-left"><div class="set-row-label">Company</div><div class="set-row-value">Mailercloud</div></div>
+                <button class="set-btn-sm">Edit</button>
+              </div>
+              <div class="set-row">
+                <div class="set-row-left"><div class="set-row-label">Password</div><div class="set-row-value">••••••••••••</div></div>
+                <button class="set-btn-sm">Update</button>
+              </div>
+            </div>
+
+            <div class="set-danger-row">
+              <div class="set-row-left">
+                <div class="set-row-value" style="color:var(--text);">Delete account</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Permanently remove your account, domains, and historical data. Cannot be undone.</div>
+              </div>
+              <button class="set-danger-link" onclick="alert('Confirm: type DELETE to confirm')">Delete Account →</button>
+            </div>
+          </div>
+
+          <!-- ═══ CONNECTED SERVICES ═══ -->
+          <div class="set-panel" id="sp-connections">
+            <div class="set-section-title">Connected Services</div>
+            <div class="set-section-desc">Manage your provider integrations and data sources.</div>
+
+            <!-- Google Postmaster -->
+            <div class="set-conn-card" id="gpm-card">
+              <div class="set-conn-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
+              </div>
+              <div class="set-conn-info">
+                <div class="set-conn-name">Google Postmaster Tools</div>
+                <div class="set-conn-status" id="gpm-status">
+                  <span id="gpm-status-content"></span>
+                </div>
+              </div>
+              <div class="set-conn-actions" id="gpm-actions"></div>
+            </div>
+            <div class="set-pro-callout" id="gpm-pro-callout" style="display:none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <span>Google Postmaster integration is available on <strong>Pro</strong> plans and above.</span>
+            </div>
+
+            <!-- Microsoft SNDS -->
+            <div class="set-conn-card" id="snds-card">
+              <div class="set-conn-icon">
+                <svg width="20" height="20" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+              </div>
+              <div class="set-conn-info">
+                <div class="set-conn-name">Microsoft SNDS</div>
+                <div class="set-conn-status" id="snds-status">
+                  <span id="snds-status-content"></span>
+                </div>
+              </div>
+              <div class="set-conn-actions" id="snds-actions"></div>
+            </div>
+
+          </div>
+
+          <!-- ═══ PLAN & BILLING (coming soon) ═══ -->
+          <div class="set-panel" id="sp-billing">
+            <div class="set-section-title">Plan &amp; Billing</div>
+            <div class="set-section-desc">Manage your subscription, view usage, and update payment details.</div>
+            <div class="set-soon-card">
+              <div class="set-soon-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+              </div>
+              <h3>Coming Soon</h3>
+              <p>Plan management, billing history, and payment settings will land here. You're currently on the <strong>Pro plan</strong>.</p>
+            </div>
+          </div>
+
+          <!-- ═══ API ACCESS (coming soon) ═══ -->
+          <div class="set-panel" id="sp-api">
+            <div class="set-section-title">API Access</div>
+            <div class="set-section-desc">Generate API keys and manage programmatic access to your data.</div>
+            <div class="set-soon-card">
+              <div class="set-soon-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+              </div>
+              <h3>Coming Soon</h3>
+              <p>Generate API keys for programmatic access to your domain scores, alerts, and metrics.</p>
+            </div>
+          </div>
+
+          <!-- ═══ TEAM (coming soon) ═══ -->
+          <div class="set-panel" id="sp-team">
+            <div class="set-section-title">Team</div>
+            <div class="set-section-desc">Invite teammates, manage roles, and view audit logs.</div>
+            <div class="set-soon-card">
+              <div class="set-soon-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <h3>Coming Soon</h3>
+              <p>Invite teammates to collaborate on your InboxScore workspace with role-based access control.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ═══════ SNDS CONNECT MODAL — multi-step ═══════ -->
+<div class="set-modal-overlay" id="snds-modal" onclick="if(event.target===this) closeSndsModal()">
+  <div class="set-modal" role="dialog">
+    <div class="set-modal-header">
+      <svg class="set-modal-icon" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+      <div class="set-modal-title-block">
+        <div class="set-modal-title">Connect Microsoft SNDS</div>
+        <div class="set-modal-subtitle">Smart Network Data Services</div>
+      </div>
+      <button class="set-modal-close" onclick="closeSndsModal()">&times;</button>
+    </div>
+
+    <!-- Step 1: Key input -->
+    <div id="snds-step-1">
+      <div class="set-step-instructions">
+        <strong>How to get your SNDS key:</strong>
+        <ol>
+          <li>Go to <a href="https://postmaster.live.com/snds" target="_blank">postmaster.live.com/snds</a></li>
+          <li>Sign in with your Microsoft account</li>
+          <li>Request access for your sending IPs</li>
+          <li>Enable <strong>Automated Data Access</strong></li>
+          <li>Copy the unique key URL provided</li>
+        </ol>
+      </div>
+      <input type="text" class="set-form-input" id="snds-key-input" placeholder="b00b03c1-3ed4-4a7d-8763-0f3a8fee5276" autocomplete="off" spellcheck="false">
+      <div class="set-form-hint">Paste only the key (the value after <code>key=</code>). Looks like: <code>b00b03c1-…-fee5276</code></div>
+      <button class="set-modal-cta" onclick="sndsModalNextStep(2)">Connect &amp; Validate</button>
+    </div>
+
+    <!-- Step 2: Progress -->
+    <div id="snds-step-2" style="display:none;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:14px;">Setting up your connection…</div>
+      <div class="set-prog-list">
+        <div class="set-prog-step done"><span class="set-prog-icon"></span><span>Connecting to Microsoft SNDS</span></div>
+        <div class="set-prog-step active"><span class="set-prog-icon"></span><span>Validating your access key…</span></div>
+        <div class="set-prog-step"><span class="set-prog-icon"></span><span style="color:var(--text-muted);">Fetching IP reputation data</span></div>
+      </div>
+      <div class="set-prog-note">This may take 10–15 seconds — Microsoft's servers can be slow to respond.</div>
+      <button class="set-modal-cta" onclick="sndsModalNextStep(3)" style="margin-top:14px;">Demo: skip to success →</button>
+    </div>
+
+    <!-- Step 3: Success -->
+    <div id="snds-step-3" style="display:none;">
+      <div class="set-success-block">
+        <div class="set-success-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="set-success-title">Connected Successfully!</div>
+        <div class="set-success-msg">Found 8 sending IPs in your SNDS account. We'll keep them in sync from now on.</div>
+        <button class="set-modal-cta" onclick="closeSndsModal(); setSndsState('connected');" style="margin-top:0;">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DEMO CONTROLS — toggle states for preview ═══════ -->
+<div class="demo-bar">
+  <span class="demo-label">Demo</span>
+  <div class="demo-divider"></div>
+  <span class="demo-label">GPM:</span>
+  <button class="demo-btn on" id="demo-gpm-disconnected" onclick="setGpmState('disconnected')">Disconnected</button>
+  <button class="demo-btn" id="demo-gpm-connected" onclick="setGpmState('connected')">Connected</button>
+  <button class="demo-btn" id="demo-gpm-progate" onclick="setGpmState('progate')">Pro-gated</button>
+  <div class="demo-divider"></div>
+  <span class="demo-label">SNDS:</span>
+  <button class="demo-btn on" id="demo-snds-disconnected" onclick="setSndsState('disconnected')">Disconnected</button>
+  <button class="demo-btn" id="demo-snds-connected" onclick="setSndsState('connected')">Connected</button>
+  <div class="demo-divider"></div>
+  <button class="demo-btn" onclick="openSndsModal()">Open SNDS modal</button>
+</div>
+
+<script>
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'light';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
+}
+function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('open'); }
+
+/* Settings sub-tab switching */
+function setSettingsTab(tab, el) {
+  document.querySelectorAll('.set-nav-item').forEach(function (n) { n.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.set-panel').forEach(function (p) { p.classList.remove('active'); });
+  var panel = document.getElementById('sp-' + tab);
+  if (panel) panel.classList.add('active');
+}
+
+/* GPM state renderer */
+function setGpmState(state) {
+  document.querySelectorAll('[id^="demo-gpm-"]').forEach(function (b) { b.classList.remove('on'); });
+  var demoBtn = document.getElementById('demo-gpm-' + state);
+  if (demoBtn) demoBtn.classList.add('on');
+
+  var status = document.getElementById('gpm-status-content');
+  var actions = document.getElementById('gpm-actions');
+  var callout = document.getElementById('gpm-pro-callout');
+
+  if (state === 'progate') {
+    status.innerHTML = 'Get Gmail reputation data, spam rates &amp; delivery insights';
+    actions.innerHTML = '<span class="set-pro-pill">Pro</span>';
+    callout.style.display = 'flex';
+  } else if (state === 'connected') {
+    status.innerHTML = '<span class="set-conn-status-dot connected"></span> Connected · vinoop@mailercloud.com · Last sync: 2h ago';
+    actions.innerHTML = '<button class="set-btn-sm" onclick="alert(\'Sync Now\')">Sync Now</button> <button class="set-btn-danger" onclick="setGpmState(\'disconnected\')">Disconnect</button>';
+    callout.style.display = 'none';
+  } else { /* disconnected */
+    status.innerHTML = 'Get Gmail reputation data, spam rates &amp; delivery insights';
+    actions.innerHTML = '<button class="set-btn-primary" onclick="alert(\'Redirecting to Google OAuth…\')">Connect</button>';
+    callout.style.display = 'none';
+  }
+}
+
+/* SNDS state renderer */
+function setSndsState(state) {
+  document.querySelectorAll('[id^="demo-snds-"]').forEach(function (b) { b.classList.remove('on'); });
+  var demoBtn = document.getElementById('demo-snds-' + state);
+  if (demoBtn) demoBtn.classList.add('on');
+
+  var status = document.getElementById('snds-status-content');
+  var actions = document.getElementById('snds-actions');
+
+  if (state === 'connected') {
+    status.innerHTML = '<span class="set-conn-status-dot connected"></span> Connected · key ending …fee5276 · Last sync: 2h ago';
+    actions.innerHTML = '<button class="set-btn-sm" onclick="alert(\'Sync Now\')">Sync Now</button> <button class="set-btn-danger" onclick="setSndsState(\'disconnected\')">Disconnect</button>';
+  } else { /* disconnected */
+    status.innerHTML = 'Get IP reputation data, complaint rates &amp; spam-trap hits from Microsoft';
+    actions.innerHTML = '<button class="set-btn-primary" onclick="openSndsModal()">Connect</button>';
+  }
+}
+
+/* SNDS modal */
+function openSndsModal() {
+  document.getElementById('snds-modal').classList.add('show');
+  sndsModalNextStep(1);
+  setTimeout(function () {
+    var input = document.getElementById('snds-key-input');
+    if (input) input.focus();
+  }, 80);
+}
+function closeSndsModal() {
+  document.getElementById('snds-modal').classList.remove('show');
+}
+function sndsModalNextStep(step) {
+  for (var i = 1; i <= 3; i++) {
+    var el = document.getElementById('snds-step-' + i);
+    if (el) el.style.display = (i === step) ? 'block' : 'none';
+  }
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeSndsModal();
+});
+
+/* Initial render */
+setGpmState('disconnected');
+setSndsState('disconnected');
+</script>
+
+</body>
+</html>
