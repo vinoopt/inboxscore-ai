@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sending IPs — InboxScore</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- FOUC hydration script — runs BEFORE body parses. -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light')
+      document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #fafafa; --surface: #ffffff; --surface-2: #f4f4f5; --surface-3: #e4e4e7;
+  --border: #e4e4e7; --border-strong: #d4d4d8;
+  --text: #18181b; --text-muted: #52525b; --text-subtle: #71717a;
+  --accent: #7c3aed; --accent-hover: #6d28d9; --accent-soft: #ede9fe; --accent-glow: rgba(124,58,237,0.18);
+  --green: #047857; --green-bg: #d1fae5;
+  --yellow: #b45309; --yellow-bg: #fef3c7;
+  --orange: #c2410c; --orange-bg: #ffedd5;
+  --red: #b91c1c; --red-bg: #fee2e2;
+}
+html[data-theme="dark"] {
+  --bg: #0a0a0a; --surface: #161616; --surface-2: #262626; --surface-3: #383838;
+  --border: #333333; --border-strong: #404040;
+  --text: #fafafa; --text-muted: #a3a3a3; --text-subtle: #808080;
+  --accent: #a78bfa; --accent-hover: #c4b5fd; --accent-soft: #3f2d6e; --accent-glow: rgba(167, 139, 250, 0.18);
+  --green: #10b981; --green-bg: #064e3b;
+  --yellow: #f59e0b; --yellow-bg: #78350f;
+  --orange: #f97316; --orange-bg: #7c2d12;
+  --red: #f87171; --red-bg: #7f1d1d;
+}
+body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; transition: background 200ms ease, color 200ms ease; }
+
+/* Layout */
+.layout { display: flex; flex: 1; }
+
+/* Sidebar */
+.sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; flex-shrink: 0; display: flex; flex-direction: column; }
+.sidebar-nav { list-style: none; }
+.sidebar-nav li a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  color: var(--text-muted); text-decoration: none;
+  font-size: 13px; font-weight: 500;
+  border-radius: 7px;
+  transition: background 100ms ease, color 100ms ease;
+  margin-bottom: 1px;
+}
+.sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
+.sidebar-nav li a.active {
+  color: var(--text); background: var(--surface-2); font-weight: 500;
+  border-left: none;
+}
+.sidebar-nav li a svg { color: currentColor; flex-shrink: 0; }
+.sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.alert-badge {
+  margin-left: auto; font-size: 11px; color: var(--text-muted);
+  background: var(--surface-2); padding: 1px 6px; border-radius: 4px;
+  font-weight: 500; min-width: 18px; text-align: center;
+}
+
+/* Brand */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  transition: all 100ms ease;
+}
+.brand:hover { color: var(--accent); }
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  background: var(--text);
+  color: var(--surface);
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  flex-shrink: 0;
+}
+.brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+/* Sidebar footer with plan pill */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+.plan-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.plan-pill-tier {
+  font-weight: 600;
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+/* Main */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 0px); }
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; }
+
+/* Page header with user + theme toggle + logout */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+.page-header-left { flex: 1; }
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.user-name { font-size: 13px; color: var(--text-muted); }
+.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
+
+/* Theme toggle button */
+.theme-toggle-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+.theme-toggle-btn:hover { color: var(--text); border-color: var(--text); }
+.theme-toggle-btn .icon-sun, .theme-toggle-btn .icon-moon { display: none; }
+html[data-theme="dark"] .theme-toggle-btn .icon-sun { display: block; }
+html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
+
+/* Action row */
+.sip-action-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.sip-action-row-left {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.sip-action-row-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sip-search-input {
+  flex: 1;
+  min-width: 240px;
+  height: 36px;
+  padding: 0 14px 0 38px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") no-repeat 12px center;
+  font-size: 13px;
+  color: var(--text);
+  font-family: inherit;
+  transition: border-color 100ms ease;
+}
+.sip-search-input:hover { border-color: var(--text); }
+.sip-search-input:focus { outline: none; border-color: var(--text); }
+.sip-filter-select, .sip-sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 36px;
+  padding: 0 32px 0 14px;
+  background: var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 11px center;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.sip-filter-select:hover, .sip-sort-select:hover { border-color: var(--text); }
+.sip-row-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* Add IPs button */
+.sip-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--text);
+  color: var(--surface);
+  border: 1px solid var(--text);
+  transition: all 100ms ease;
+  font-family: inherit;
+}
+.sip-add-btn:hover { opacity: 0.9; }
+.sip-add-btn svg { width: 14px; height: 14px; }
+
+/* IP List */
+.sip-ip-list { display: flex; flex-direction: column; gap: 8px; }
+.sip-ip-row {
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: all 100ms ease;
+}
+.sip-ip-row:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.sip-ip-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.sip-ip-info {
+  flex: 1;
+  min-width: 0;
+}
+.sip-ip-address {
+  font-size: 15px;
+  font-weight: 500;
+  font-family: 'Geist Mono', monospace;
+  color: var(--text);
+}
+.sip-ip-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.sip-domain-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.sip-domain-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: none;
+}
+.sip-domain-pill svg {
+  width: 12px;
+  height: 12px;
+  color: currentColor;
+}
+.sip-unmapped-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* Status pill */
+.sip-status-cell {
+  width: 140px;
+  flex-shrink: 0;
+}
+.sip-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.sip-status-pill.mapped {
+  background: var(--green-bg);
+  color: var(--green);
+}
+.sip-status-pill.unmapped {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.sip-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Action buttons */
+.sip-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.sip-action-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  transition: all 100ms ease;
+  font-family: inherit;
+}
+.sip-action-btn:hover {
+  color: var(--text);
+  border-color: var(--text);
+}
+.sip-remove-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 100ms ease;
+}
+.sip-remove-btn:hover {
+  color: var(--red);
+}
+
+/* Mobile toggle */
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { position: fixed; left: -260px; top: 0; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar.open { left: 0; }
+  .mobile-toggle { display: block; }
+  .main { padding: 24px 16px; }
+  .page-header { flex-direction: column; gap: 12px; }
+  .sip-action-row { flex-direction: column; }
+  .sip-action-row-left { flex-direction: column; width: 100%; }
+  .sip-action-row-right { width: 100%; justify-content: flex-start; }
+  .sip-ip-row { flex-direction: column; align-items: flex-start; }
+  .sip-status-cell { width: 100%; }
+  .sip-row-actions { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ══════ SIDEBAR ══════ -->
+  <!-- Sidebar — copied verbatim from blacklist.html canonical icon set.
+       Only difference: the .active class moves from /blacklist to /sending-ips. -->
+  <aside class="sidebar">
+    <a href="/dashboard" class="brand">
+      <div class="brand-mark">IS</div>
+      <div class="brand-name">InboxScore</div>
+    </a>
+    <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
+    <ul class="sidebar-nav">
+      <li><a href="/dashboard"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Dashboard</a></li>
+      <li><a href="/postmaster"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></span> Google Postmaster</a></li>
+      <li><a href="/microsoft"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7.5"/><path d="M22 7 12 13 2 7"/><path d="M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="m22 22-1.5-1.5"/></svg></span> Microsoft SNDS</a></li>
+      <li><a href="/blacklist"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span> Blacklist Monitor</a></li>
+      <li><a href="/domains"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span> Domains</a></li>
+      <li><a href="/sending-ips" class="active"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg></span> Sending IPs</a></li>
+      <li><a href="/alerts"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
+      <li><a href="/settings"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/><circle cx="12" cy="12" r="3"/></svg></span> Settings</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <div class="plan-pill" id="plan-badge">
+        <span class="plan-pill-tier"><span id="plan-name">Pro</span> plan</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════ MAIN ══════ -->
+  <main class="main">
+    <div style="max-width: 1280px; margin: 0 auto;">
+
+      <!-- Page header with title, subtitle, user name, theme toggle, logout -->
+      <div class="page-header">
+        <div class="page-header-left">
+          <h1 class="page-title">Sending IPs</h1>
+          <p class="page-subtitle">Manage the IP addresses you use to send email. These IPs are used across SNDS and Blacklist Monitor.</p>
+        </div>
+        <div class="page-header-actions">
+          <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Open menu">☰</button>
+          <span class="user-name">Vinoop Thayatt</span>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button class="logout-btn" onclick="logout()">Log Out</button>
+        </div>
+      </div>
+
+      <!-- Action row — search + status filter + sort + count + Add IPs button -->
+      <div class="sip-action-row">
+        <div class="sip-action-row-left">
+          <input type="text" class="sip-search-input" placeholder="Search IPs or mapped domains…" />
+          <select class="sip-filter-select">
+            <option>All status</option>
+            <option>Mapped</option>
+            <option>Unmapped</option>
+          </select>
+          <select class="sip-sort-select">
+            <option>Newest first</option>
+            <option>Oldest first</option>
+            <option>IP ↑</option>
+            <option>IP ↓</option>
+          </select>
+          <span class="sip-row-count">10 IPs</span>
+        </div>
+        <div class="sip-action-row-right">
+          <button class="sip-add-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add IPs
+          </button>
+        </div>
+      </div>
+
+      <!-- IP List -->
+      <div class="sip-ip-list">
+        <!-- Row 1: Mapped IP -->
+        <div class="sip-ip-row">
+          <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <div class="sip-ip-info">
+            <div class="sip-ip-address">162.19.145.175</div>
+            <div class="sip-ip-date">Added Mar 9, 2026</div>
+            <div class="sip-domain-pills">
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>mailercloud.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>voicenotes.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>redrail.redbus.com</div>
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+            </div>
+          </div>
+          <div class="sip-status-cell">
+            <div class="sip-status-pill mapped">
+              <span class="sip-status-dot"></span>
+              Mapped to 4
+            </div>
+          </div>
+          <div class="sip-row-actions">
+            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-remove-btn">Remove</button>
+          </div>
+        </div>
+
+        <!-- Row 2: Mapped IP -->
+        <div class="sip-ip-row">
+          <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <div class="sip-ip-info">
+            <div class="sip-ip-address">162.19.145.174</div>
+            <div class="sip-ip-date">Added Mar 9, 2026</div>
+            <div class="sip-domain-pills">
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+            </div>
+          </div>
+          <div class="sip-status-cell">
+            <div class="sip-status-pill mapped">
+              <span class="sip-status-dot"></span>
+              Mapped to 1
+            </div>
+          </div>
+          <div class="sip-row-actions">
+            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-remove-btn">Remove</button>
+          </div>
+        </div>
+
+        <!-- Row 3: Mapped IP -->
+        <div class="sip-ip-row">
+          <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <div class="sip-ip-info">
+            <div class="sip-ip-address">162.19.145.173</div>
+            <div class="sip-ip-date">Added Mar 9, 2026</div>
+            <div class="sip-domain-pills">
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+            </div>
+          </div>
+          <div class="sip-status-cell">
+            <div class="sip-status-pill mapped">
+              <span class="sip-status-dot"></span>
+              Mapped to 1
+            </div>
+          </div>
+          <div class="sip-row-actions">
+            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-remove-btn">Remove</button>
+          </div>
+        </div>
+
+        <!-- Row 4: Mapped IP -->
+        <div class="sip-ip-row">
+          <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <div class="sip-ip-info">
+            <div class="sip-ip-address">162.19.145.172</div>
+            <div class="sip-ip-date">Added Mar 9, 2026</div>
+            <div class="sip-domain-pills">
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+            </div>
+          </div>
+          <div class="sip-status-cell">
+            <div class="sip-status-pill mapped">
+              <span class="sip-status-dot"></span>
+              Mapped to 1
+            </div>
+          </div>
+          <div class="sip-row-actions">
+            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-remove-btn">Remove</button>
+          </div>
+        </div>
+
+        <!-- Row 5: Mapped IP -->
+        <div class="sip-ip-row">
+          <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <div class="sip-ip-info">
+            <div class="sip-ip-address">103.147.105.99</div>
+            <div class="sip-ip-date">Added Mar 9, 2026</div>
+            <div class="sip-domain-pills">
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+            </div>
+          </div>
+          <div class="sip-status-cell">
+            <div class="sip-status-pill mapped">
+              <span class="sip-status-dot"></span>
+              Mapped to 1
+            </div>
+          </div>
+          <div class="sip-row-actions">
+            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-remove-btn">Remove</button>
+          </div>
+        </div>
+
+        <!-- Row 6: Mapped IP -->
+        <div class="sip-ip-row">
+          <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <div class="sip-ip-info">
+            <div class="sip-ip-address">103.147.105.254</div>
+            <div class="sip-ip-date">Added Mar 9, 2026</div>
+            <div class="sip-domain-pills">
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>newsletter.shoppersstop.com</div>
+            </div>
+          </div>
+          <div class="sip-status-cell">
+            <div class="sip-status-pill mapped">
+              <span class="sip-status-dot"></span>
+              Mapped to 1
+            </div>
+          </div>
+          <div class="sip-row-actions">
+            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-remove-btn">Remove</button>
+          </div>
+        </div>
+
+        <!-- Row 7: Mapped IP -->
+        <div class="sip-ip-row">
+          <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <div class="sip-ip-info">
+            <div class="sip-ip-address">103.147.104.13</div>
+            <div class="sip-ip-date">Added Apr 27, 2026</div>
+            <div class="sip-domain-pills">
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>mailercloud.com</div>
+            </div>
+          </div>
+          <div class="sip-status-cell">
+            <div class="sip-status-pill mapped">
+              <span class="sip-status-dot"></span>
+              Mapped to 1
+            </div>
+          </div>
+          <div class="sip-row-actions">
+            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-remove-btn">Remove</button>
+          </div>
+        </div>
+
+        <!-- Row 8: Mapped IP -->
+        <div class="sip-ip-row">
+          <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <div class="sip-ip-info">
+            <div class="sip-ip-address">103.147.104.14</div>
+            <div class="sip-ip-date">Added Apr 27, 2026</div>
+            <div class="sip-domain-pills">
+              <div class="sip-domain-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>mailercloud.com</div>
+            </div>
+          </div>
+          <div class="sip-status-cell">
+            <div class="sip-status-pill mapped">
+              <span class="sip-status-dot"></span>
+              Mapped to 1
+            </div>
+          </div>
+          <div class="sip-row-actions">
+            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-remove-btn">Remove</button>
+          </div>
+        </div>
+
+        <!-- Row 9: Unmapped IP -->
+        <div class="sip-ip-row">
+          <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <div class="sip-ip-info">
+            <div class="sip-ip-address">138.197.45.12</div>
+            <div class="sip-ip-date">Added Apr 30, 2026</div>
+            <div class="sip-unmapped-text">Not mapped to any domain</div>
+          </div>
+          <div class="sip-status-cell">
+            <div class="sip-status-pill unmapped">
+              <span class="sip-status-dot"></span>
+              Unmapped
+            </div>
+          </div>
+          <div class="sip-row-actions">
+            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-remove-btn">Remove</button>
+          </div>
+        </div>
+
+        <!-- Row 10: Unmapped IP -->
+        <div class="sip-ip-row">
+          <svg class="sip-ip-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          <div class="sip-ip-info">
+            <div class="sip-ip-address">104.248.91.55</div>
+            <div class="sip-ip-date">Added May 1, 2026</div>
+            <div class="sip-unmapped-text">Not mapped to any domain</div>
+          </div>
+          <div class="sip-status-cell">
+            <div class="sip-status-pill unmapped">
+              <span class="sip-status-dot"></span>
+              Unmapped
+            </div>
+          </div>
+          <div class="sip-row-actions">
+            <button class="sip-action-btn">Map Domains</button>
+            <button class="sip-remove-btn">Remove</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Minimal JS for theme toggle and sidebar mobile -->
+<script>
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'light';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
+}
+
+function toggleSidebar() {
+  var sidebar = document.querySelector('.sidebar');
+  if (sidebar) {
+    sidebar.classList.toggle('open');
+  }
+}
+
+function logout() {
+  alert('Logout clicked');
+}
+</script>
+
+</body>
+</html>
