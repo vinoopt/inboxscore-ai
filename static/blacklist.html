@@ -217,7 +217,7 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
             <div class="bl-section-label">
               <div class="bl-section-label-left">
                 <span>Sending domain</span>
-                <span class="meta"><span class="count" id="bl-section-domain-meta">1</span> of <span class="count">1</span> clean</span>
+                <span class="meta" id="bl-section-domain-meta"><span class="count">1</span> of <span class="count">1</span> clean</span>
               </div>
             </div>
             <div class="bl-domain-panel">
@@ -483,6 +483,16 @@ function renderBlacklistResults(data) {
   const highCnt  = data.high_severity_count || 0;
   const status   = data.overall_status || 'clean';
 
+  // Toggle hero state class — drives the gradient + border + numeral colour
+  // via the .state-warn / .state-danger CSS variants. Without this the hero
+  // stays green even when the data says critical.
+  const heroEl = document.getElementById('bl-hero');
+  if (heroEl) {
+    heroEl.classList.remove('state-warn', 'state-danger');
+    if (status === 'critical') heroEl.classList.add('state-danger');
+    else if (status === 'warning') heroEl.classList.add('state-warn');
+  }
+
   const heroEyebrow = document.getElementById('bl-hero-eyebrow-text');
   const heroNum = document.getElementById('bl-hero-num');
   const heroNumOf = document.getElementById('bl-hero-num-of');
@@ -568,6 +578,29 @@ function renderBlacklistResults(data) {
     } else {
       domBadge.className = 'bl-status-badge listed';
       if (domBadgeText) domBadgeText.textContent = dCount + ' listed';
+    }
+  }
+
+  // --- Section metas (truth-tell the listed/clean counts) ---
+  // Domain section: 1 entity, 0 or 1 listed.
+  const domMeta = document.getElementById('bl-section-domain-meta');
+  if (domMeta) {
+    domMeta.textContent = dCount === 0
+      ? '1 of 1 clean'
+      : '0 of 1 clean · ' + dCount + ' listing' + (dCount === 1 ? '' : 's');
+  }
+  // IPs section: count clean vs total.
+  const ipMeta = document.getElementById('bl-section-ips-meta');
+  if (ipMeta) {
+    const ipTotal = (data.ip_results || []).length;
+    const ipListed = (data.ip_results || []).filter(r => (r.blacklisted_count || 0) > 0).length;
+    const ipClean = ipTotal - ipListed;
+    if (ipTotal === 0) {
+      ipMeta.textContent = 'No mapped IPs';
+    } else if (ipListed === 0) {
+      ipMeta.textContent = ipTotal + ' of ' + ipTotal + ' clean';
+    } else {
+      ipMeta.textContent = ipClean + ' of ' + ipTotal + ' clean · ' + ipListed + ' listed';
     }
   }
 
