@@ -153,6 +153,35 @@
 .bl-hero-cell-value.warn { color: var(--warn-text); }
 .bl-hero-cell-value.danger { color: var(--danger); }
 
+/* ──────────────────────────────────────────────────────────
+   State-aware icon swaps. Hero eyebrow + sending-domain icon
+   each ship 3 SVGs (.icon-check / .icon-warn / .icon-danger).
+   The default is .icon-check; CSS swaps which is visible based
+   on the parent state class (.bl-hero.state-warn /.state-danger
+   for the eyebrow, .bl-domain-icon.is-listed for the domain).
+   This keeps the JS to one classList toggle and avoids inner-
+   HTML rewrites which fight the FOUC-killing head script.
+   ────────────────────────────────────────────────────────── */
+
+/* Hero eyebrow icon swap */
+.bl-hero-eyebrow .icon-warn,
+.bl-hero-eyebrow .icon-danger { display: none; }
+.bl-hero.state-warn   .bl-hero-eyebrow .icon-check,
+.bl-hero.state-warn   .bl-hero-eyebrow .icon-danger { display: none; }
+.bl-hero.state-warn   .bl-hero-eyebrow .icon-warn   { display: block; }
+.bl-hero.state-danger .bl-hero-eyebrow .icon-check,
+.bl-hero.state-danger .bl-hero-eyebrow .icon-warn   { display: none; }
+.bl-hero.state-danger .bl-hero-eyebrow .icon-danger { display: block; }
+
+/* Sending-domain icon swap (clean → red ✕ when listed) */
+.bl-domain-icon .icon-danger { display: none; }
+.bl-domain-icon.is-listed {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.bl-domain-icon.is-listed .icon-check  { display: none; }
+.bl-domain-icon.is-listed .icon-danger { display: block; }
+
 .bl-hero-cell-sub {
   font-size: 11px; color: var(--fg-3);
 }

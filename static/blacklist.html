@@ -249,8 +249,11 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
     <div style="margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border);">
       <div class="plan-badge">
         <span style="flex: 1;">
-          <div class="plan-name">Pro plan</div>
-          <div style="font-size: 11px; color: var(--text-muted);">7 of 10 domains</div>
+          <div class="plan-name" id="plan-name">Plan</div>
+          <div style="font-size: 11px; color: var(--text-muted);" id="plan-usage-text">—</div>
+          <div style="height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 8px; overflow: hidden;">
+            <div id="plan-usage-fill" style="height: 100%; width: 0%; background: var(--text); border-radius: 2px; transition: width 200ms ease;"></div>
+          </div>
         </span>
       </div>
     </div>
@@ -308,7 +311,11 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
           <div class="bl-hero" id="bl-hero">
             <div class="bl-hero-numeral">
               <div class="bl-hero-eyebrow">
-                <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+                <span class="check">
+                  <svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <svg class="icon-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+                  <svg class="icon-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </span>
                 <span id="bl-hero-eyebrow-text">All clear</span>
               </div>
               <div class="bl-hero-num"><span id="bl-hero-num">0</span><span class="of">/ <span id="bl-hero-num-of">160</span></span></div>
@@ -357,8 +364,9 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             <div class="bl-domain-panel">
               <div class="bl-domain-top">
                 <div class="bl-domain-id">
-                  <div class="bl-domain-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <div class="bl-domain-icon" id="bl-domain-icon">
+                    <svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg class="icon-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </div>
                   <div>
                     <div class="bl-domain-name" id="bl-domain-name">—</div>
@@ -651,12 +659,12 @@ function renderBlacklistResults(data) {
   } else if (status === 'warning') {
     if (heroEyebrow) heroEyebrow.textContent = 'Minor listings';
     if (heroNum) heroNum.textContent = total;
-    if (heroStatus) { heroStatus.textContent = 'Monitor closely'; heroStatus.className = 'bl-hero-cell-value'; }
+    if (heroStatus) { heroStatus.textContent = 'Monitor closely'; heroStatus.className = 'bl-hero-cell-value warn'; }
     if (heroStatusSub) heroStatusSub.textContent = 'Low/medium severity only';
   } else if (status === 'critical') {
     if (heroEyebrow) heroEyebrow.textContent = 'Action required';
     if (heroNum) heroNum.textContent = total;
-    if (heroStatus) { heroStatus.textContent = 'High severity'; heroStatus.className = 'bl-hero-cell-value'; }
+    if (heroStatus) { heroStatus.textContent = 'High severity'; heroStatus.className = 'bl-hero-cell-value danger'; }
     if (heroStatusSub) heroStatusSub.textContent = 'Start delisting immediately';
   }
 
@@ -724,6 +732,10 @@ function renderBlacklistResults(data) {
       if (domBadgeText) domBadgeText.textContent = dCount + ' listed';
     }
   }
+  // Domain icon swap — green check when clean, red ✕ when listed.
+  // CSS handles the visual; JS just owns the class toggle.
+  const domIcon = document.getElementById('bl-domain-icon');
+  if (domIcon) domIcon.classList.toggle('is-listed', dCount > 0);
 
   // --- Section metas (truth-tell the listed/clean counts) ---
   // Domain section: 1 entity, 0 or 1 listed.
@@ -918,6 +930,29 @@ window.addEventListener('DOMContentLoaded', () => {
       const name = userData.user.name || userData.user.email.split('@')[0];
       const userEl = document.getElementById('user-name');
       if (userEl) userEl.textContent = name;
+
+      // Plan card — mirror microsoft.html so the sidebar shows real
+      // user data instead of the hardcoded "Pro plan / 7 of 10".
+      const plan = userData.user.plan || 'free';
+      const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
+      const planNameEl = document.getElementById('plan-name');
+      if (planNameEl) planNameEl.textContent = planLabel;
+      const used = userData.user.domains_used || userData.user.domain_count || null;
+      const cap = userData.user.domains_limit || (plan === 'free' ? 1 : (plan === 'pro' ? 10 : null));
+      const usageText = document.getElementById('plan-usage-text');
+      const usageFill = document.getElementById('plan-usage-fill');
+      if (usageText && usageFill) {
+        if (used != null && cap) {
+          usageText.textContent = used + ' of ' + cap + ' domains';
+          usageFill.style.width = Math.min(100, Math.round((used / cap) * 100)) + '%';
+        } else if (cap) {
+          usageText.textContent = cap + ' domain' + (cap === 1 ? '' : 's') + ' included';
+          usageFill.style.width = '0%';
+        } else {
+          usageText.textContent = 'Unlimited domains';
+          usageFill.style.width = '100%';
+        }
+      }
 
       // Load initial domain results AFTER auth check has resolved.
       const initialDomain = getBlacklistDomain();
