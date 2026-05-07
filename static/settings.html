@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- FOUC hydration -->
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light')
+      document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -20,540 +30,602 @@
   --orange: #c2410c; --orange-bg: #ffedd5;
   --red: #b91c1c; --red-bg: #fee2e2;
 }
-body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-
-/* Top Nav */
-.topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); z-index: 10; }
-.logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); letter-spacing: -0.01em; }
-.logo-icon { width: 26px; height: 26px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; box-shadow: 0 4px 8px rgba(139,92,246,0.25); }
-.nav-right { display: flex; align-items: center; gap: 16px; }
-.user-name { font-size: 13px; color: var(--text-muted); }
-.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
-.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
-.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
-
-/* Layout */
+html[data-theme="dark"] {
+  --bg: #0a0a0a; --surface: #161616; --surface-2: #262626; --surface-3: #383838;
+  --border: #333333; --border-strong: #404040;
+  --text: #fafafa; --text-muted: #a3a3a3; --text-subtle: #808080;
+  --accent: #a78bfa; --accent-hover: #c4b5fd; --accent-soft: #3f2d6e; --accent-glow: rgba(167, 139, 250, 0.18);
+  --green: #10b981; --green-bg: #064e3b;
+  --yellow: #f59e0b; --yellow-bg: #78350f;
+  --orange: #f97316; --orange-bg: #7c2d12;
+  --red: #f87171; --red-bg: #7f1d1d;
+}
+body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; transition: background 200ms ease, color 200ms ease; }
 .layout { display: flex; flex: 1; }
 
-/* Sidebar */
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+/* SIDEBAR */
+.sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; flex-shrink: 0; display: flex; flex-direction: column; }
 .sidebar-nav { list-style: none; }
-.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
+.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; color: var(--text-muted); text-decoration: none; font-size: 13px; font-weight: 500; border-radius: 7px; transition: background 100ms ease, color 100ms ease; margin-bottom: 1px; }
 .sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
-.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); }
-.sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-.sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
-.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
-.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
+.sidebar-nav li a.active { color: var(--text); background: var(--surface-2); font-weight: 500; border-left: none; }
+.sidebar-nav li a svg { color: currentColor; flex-shrink: 0; }
+.alert-badge { margin-left: auto; font-size: 11px; color: var(--text-muted); background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-weight: 500; min-width: 18px; text-align: center; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--border); text-decoration: none; color: var(--text); transition: all 100ms ease; }
+.brand:hover { color: var(--accent); }
+.brand-mark { width: 26px; height: 26px; background: var(--text); color: var(--surface); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; letter-spacing: -0.04em; flex-shrink: 0; }
+.brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.025em; }
+.sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); }
+.plan-pill { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); }
+.plan-pill-tier { font-weight: 500; color: var(--text); text-transform: capitalize; }
 
-/* Main */
-.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
-.page-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
-.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 28px; }
+/* MAIN */
+.main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: 100vh; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; max-width: 720px; }
+.page-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.user-name { font-size: 13px; color: var(--text-muted); }
+.theme-toggle-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-strong); background: transparent; color: var(--text-muted); border-radius: 8px; cursor: pointer; transition: all 100ms ease; }
+.theme-toggle-btn:hover { color: var(--text); border-color: var(--text); }
+.theme-toggle-btn .icon-sun, .theme-toggle-btn .icon-moon { display: none; }
+html[data-theme="dark"] .theme-toggle-btn .icon-sun { display: block; }
+html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
+.logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
 
-/* Settings Layout (sidebar + content) */
-.settings-layout { display: flex; gap: 0; min-height: 500px; }
-.settings-sidebar { width: 200px; flex-shrink: 0; border-right: 1px solid var(--border); }
-.settings-sidebar a { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: var(--text-muted); text-decoration: none; font-size: 13px; border-left: 2px solid transparent; cursor: pointer; transition: all 0.15s; }
-.settings-sidebar a:hover { color: var(--text); background: var(--surface-2); }
-.settings-sidebar a.s-active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
-.settings-sidebar a .s-icon { font-size: 15px; width: 18px; text-align: center; }
-.settings-sidebar a .s-soon { font-size: 9px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); padding: 1px 5px; border-radius: 3px; margin-left: auto; text-transform: uppercase; letter-spacing: 0.3px; }
+/* SETTINGS SHELL */
+.set-layout { display: flex; gap: 32px; align-items: flex-start; }
+.set-nav { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 16px; }
+.set-nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 7px; color: var(--text-muted); cursor: pointer; font-size: 13px; font-weight: 500; background: none; border: none; text-align: left; font-family: inherit; transition: all 100ms ease; }
+.set-nav-item:hover { color: var(--text); background: var(--surface-2); }
+.set-nav-item.active { color: var(--text); background: var(--surface-2); font-weight: 600; }
+.set-nav-item svg { flex-shrink: 0; }
+.set-nav-item .set-soon-pill { margin-left: auto; font-size: 9px; font-weight: 600; color: var(--text-muted); background: var(--surface-3); padding: 2px 6px; border-radius: 999px; letter-spacing: 0.04em; text-transform: uppercase; }
+.set-nav-item.active .set-soon-pill { background: var(--surface); }
 
-.settings-content { flex: 1; padding-left: 32px; }
-.settings-panel { display: none; }
-.settings-panel.s-visible { display: block; }
-.s-section-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-.s-section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+.set-content { flex: 1; min-width: 0; }
+.set-panel { display: none; }
+.set-panel.active { display: block; }
+.set-section-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.set-section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
 
-/* Card */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+/* GENERAL fields */
+.set-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.set-row:last-child { border-bottom: none; }
+.set-row-left { flex: 1; min-width: 0; }
+.set-row-label { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+.set-row-value { font-size: 14px; color: var(--text); font-weight: 500; word-break: break-word; }
+.set-row-value-mono { font-family: 'Geist Mono', monospace; }
+.set-btn-sm { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; flex-shrink: 0; transition: all 100ms ease; }
+.set-btn-sm:hover { border-color: var(--text); }
+.set-danger-row { padding: 16px 20px; margin-top: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.set-danger-link { background: none; border: none; color: var(--red); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.set-danger-link:hover { text-decoration: underline; }
 
-/* Settings Rows */
-.settings-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border); }
-.settings-row:last-child { border-bottom: none; }
-.settings-label { font-size: 14px; }
-.settings-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+/* CONNECTED SERVICES */
+.set-conn-card { display: flex; align-items: center; gap: 14px; padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; transition: all 100ms ease; }
+.set-conn-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.set-conn-info { flex: 1; min-width: 0; }
+.set-conn-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.set-conn-status { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.set-conn-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.set-conn-status-dot.connected { background: var(--green); }
+.set-conn-status-dot.disconnected { background: var(--text-subtle); }
+.set-conn-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+.set-pro-pill { font-size: 10px; font-weight: 600; padding: 2px 8px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; }
+.set-pro-callout { margin: -8px 0 12px; padding: 12px 18px; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+.set-pro-callout svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+.set-pro-callout strong { color: var(--accent); }
+.set-btn-primary { padding: 8px 16px; border-radius: 8px; background: var(--text); color: var(--surface); border: 1px solid var(--text); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 100ms ease; display: inline-flex; align-items: center; gap: 6px; }
+.set-btn-primary:hover { opacity: 0.9; }
+.set-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.set-btn-danger { padding: 8px 14px; border-radius: 8px; background: var(--surface); color: var(--red); border: 1px solid var(--border-strong); font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 100ms ease; }
+.set-btn-danger:hover { border-color: var(--red); background: var(--red-bg); }
 
-/* Toggles */
-.toggle { width: 40px; height: 22px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--border); position: relative; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
-.toggle.on { background: var(--accent); border-color: var(--accent); }
-.toggle::after { content: ''; width: 16px; height: 16px; border-radius: 50%; background: var(--text); position: absolute; top: 2px; left: 2px; transition: all 0.2s; }
-.toggle.on::after { left: 20px; }
+/* COMING SOON empty state */
+.set-soon-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 56px 32px; text-align: center; }
+.set-soon-icon { width: 56px; height: 56px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: var(--text-muted); }
+.set-soon-icon svg { width: 24px; height: 24px; }
+.set-soon-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.set-soon-card p { font-size: 13px; color: var(--text-muted); max-width: 420px; margin: 0 auto; line-height: 1.6; }
+.set-soon-card p strong { color: var(--accent); font-weight: 600; }
 
-/* Connection Cards */
-.connection-card { display: flex; align-items: center; gap: 14px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; }
-.connection-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-.connection-info { flex: 1; }
-.connection-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
-.connection-status { font-size: 12px; color: var(--text-muted); }
+/* MODAL — generic + SNDS multi-step */
+.set-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; align-items: center; justify-content: center; padding: 20px; }
+.set-modal-overlay.show { display: flex; }
+.set-modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; width: 480px; max-width: 100%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.18); overflow-y: auto; }
+.set-modal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.set-modal-icon { width: 32px; height: 32px; flex-shrink: 0; }
+.set-modal-title-block { flex: 1; min-width: 0; }
+.set-modal-title { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.set-modal-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.set-modal-close { width: 28px; height: 28px; border: none; background: none; color: var(--text-subtle); font-size: 22px; cursor: pointer; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+.set-modal-close:hover { color: var(--text); background: var(--surface-2); }
+.set-step-instructions { font-size: 13px; color: var(--text-muted); line-height: 1.7; margin-bottom: 18px; }
+.set-step-instructions strong { color: var(--text); font-weight: 600; }
+.set-step-instructions a { color: var(--accent); text-decoration: none; }
+.set-step-instructions a:hover { text-decoration: underline; }
+.set-step-instructions ol { padding-left: 20px; }
+.set-step-instructions li { margin-bottom: 4px; }
+.set-form-input { width: 100%; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; font-family: 'Geist Mono', monospace; margin-bottom: 6px; transition: all 100ms ease; }
+.set-form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.set-form-hint { font-size: 11px; color: var(--text-subtle); line-height: 1.5; }
+.set-form-hint code { background: var(--surface-2); padding: 1px 5px; border-radius: 3px; font-family: 'Geist Mono', monospace; }
+.set-modal-cta { width: 100%; margin-top: 16px; padding: 10px; border-radius: 8px; background: var(--text); color: var(--surface); border: 1px solid var(--text); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 100ms ease; }
+.set-modal-cta:hover:not(:disabled) { opacity: 0.9; }
+.set-modal-cta:disabled { opacity: 0.5; cursor: not-allowed; }
+.set-modal-error { margin-bottom: 12px; padding: 8px 12px; background: var(--red-bg); color: var(--red); border: 1px solid var(--red); border-radius: 8px; font-size: 12px; }
+.set-modal-cleaned-note { font-size: 11px; color: var(--green); margin-bottom: 6px; }
+.set-modal-format-error { font-size: 11px; color: var(--red); margin-bottom: 6px; }
+.set-modal-format-error code { background: var(--surface-2); padding: 1px 5px; border-radius: 3px; font-family: 'Geist Mono', monospace; }
 
-/* Buttons */
-.btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
-.btn-primary { background: var(--accent); color: white; }
-.btn-primary:hover { background: var(--accent-hover); }
-.btn-sm { padding: 5px 14px; font-size: 12px; background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; cursor: pointer; transition: all 0.2s; font-weight: 500; }
-.btn-sm:hover { border-color: var(--text-muted); color: var(--text); }
+.set-prog-list { display: flex; flex-direction: column; gap: 14px; margin: 8px 0 16px; }
+.set-prog-step { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); }
+.set-prog-step.active { color: var(--text); }
+.set-prog-step.done { color: var(--green); }
+.set-prog-step.error { color: var(--red); }
+.set-prog-icon { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border-strong); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-subtle); }
+.set-prog-step.active .set-prog-icon { border-color: var(--accent); border-top-color: transparent; animation: prog-spin 0.8s linear infinite; }
+.set-prog-step.done .set-prog-icon { border-color: var(--green); background: var(--green); color: white; }
+.set-prog-step.done .set-prog-icon::after { content: '✓'; font-size: 12px; }
+.set-prog-step.error .set-prog-icon { border-color: var(--red); color: var(--red); }
+.set-prog-step.error .set-prog-icon::after { content: '×'; font-size: 16px; line-height: 1; }
+@keyframes prog-spin { to { transform: rotate(360deg); } }
+.set-prog-note { margin-top: 8px; padding: 10px 14px; background: var(--surface-2); border-radius: 8px; font-size: 12px; color: var(--text-muted); text-align: center; }
 
-/* Category Labels */
-.category-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.set-success-block { text-align: center; padding: 8px 0; }
+.set-success-icon { width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; background: var(--green-bg); color: var(--green); display: flex; align-items: center; justify-content: center; }
+.set-success-icon svg { width: 28px; height: 28px; }
+.set-success-title { font-size: 17px; font-weight: 700; color: var(--green); margin-bottom: 6px; }
+.set-success-msg { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.6; }
+
+/* Edit modal: simple inputs */
+.set-edit-input-group { margin-bottom: 12px; }
+.set-edit-input { width: 100%; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; outline: none; font-family: inherit; transition: all 100ms ease; }
+.set-edit-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.set-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+.set-btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); transition: all 100ms ease; font-family: inherit; }
+.set-btn:hover { border-color: var(--text); }
 
 /* Toast */
-.toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; z-index: 1000; transform: translateY(-20px); opacity: 0; transition: all 0.3s; pointer-events: none; }
-.toast.show { transform: translateY(0); opacity: 1; }
-.toast.success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
-.toast.error { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+.set-toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-size: 14px; z-index: 100; animation: set-slide-in 0.3s ease; }
+.set-toast.success { background: var(--green-bg); border: 1px solid var(--green); color: var(--green); }
+.set-toast.error { background: var(--red-bg); border: 1px solid var(--red); color: var(--red); }
+@keyframes set-slide-in { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* Sidebar Backdrop */
-.sidebar-backdrop { display: none; position: fixed; inset: 0; top: 53px; background: rgba(0,0,0,0.5); z-index: 19; }
-.sidebar-backdrop.show { display: block; }
-
-/* Responsive */
+.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
 @media (max-width: 768px) {
-  .sidebar { position: fixed; left: -260px; top: 53px; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
+  .sidebar { position: fixed; left: -260px; top: 0; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
   .sidebar.open { left: 0; }
   .mobile-toggle { display: block; }
   .main { padding: 24px 16px; }
-  .settings-layout { flex-direction: column; }
-  .settings-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; padding-bottom: 8px; margin-bottom: 20px; }
-  .settings-sidebar a { white-space: nowrap; border-left: none; border-bottom: 2px solid transparent; padding: 8px 14px; }
-  .settings-sidebar a.s-active { border-left-color: transparent; border-bottom-color: var(--accent); }
-  .settings-content { padding-left: 0; }
+  .page-header { flex-direction: column; gap: 12px; }
+  .set-layout { flex-direction: column; }
+  .set-nav { width: 100%; flex-direction: row; overflow-x: auto; position: static; }
+  .set-conn-card { flex-direction: column; align-items: flex-start; }
 }
-@keyframes snds-spin { to { transform: rotate(360deg); } }
-
-/* INBOX-130: SWR refresh pill — see DESIGN-SYSTEM.md §11.5. Sits in
-   the top-right while Settings revalidates from network after
-   localStorage hydration. Never dims existing data. Mirrors the
-   Dashboard pattern (body.dh-refreshing-pill) so the visual is
-   consistent across pages. */
-body.settings-refreshing-pill::after {
-  content: '↻ Refreshing…';
-  position: fixed;
-  top: 80px; right: 24px;
-  background: var(--surface-2);
-  color: var(--text-muted);
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 500;
-  border: 1px solid var(--border);
-  z-index: 1000;
-  pointer-events: none;
-  animation: settingsPillFade 0.18s ease-out;
-}
-@keyframes settingsPillFade { from { opacity: 0; } to { opacity: 1; } }
-
 </style>
-
-<!-- INBOX-130: SWR cache helper — loads first so Settings can hydrate
-     from localStorage before /api/auth/me + /api/user/plan resolve.
-     Eliminates the "Free → Pro" plan-badge flicker on page navigation. -->
-<script src="/static/cache.js"></script>
 </head>
 <body>
 
-<nav class="topnav">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
-    <a href="/dashboard" class="logo">
-      <div class="logo-icon">IS</div>
-      InboxScore
-    </a>
-  </div>
-  <div class="nav-right">
-    <span class="user-name" id="user-name"></span>
-    <button class="logout-btn" onclick="logout()">Log Out</button>
-  </div>
-</nav>
-
-<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
-
 <div class="layout">
   <aside class="sidebar">
+    <a href="/dashboard" class="brand"><div class="brand-mark">IS</div><div class="brand-name">InboxScore</div></a>
+    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
     <ul class="sidebar-nav">
-      <li><a href="/dashboard"><span class="nav-icon">📊</span> Dashboard</a></li>
-      <li><a href="/postmaster"><span class="nav-icon">📬</span> Google Postmaster</a></li>
-      <li><a href="/microsoft"><span class="nav-icon">📨</span> Microsoft SNDS</a></li>
-      <li><a href="/blacklist"><span class="nav-icon">🛡️</span> Blacklist Monitor</a></li>
-      <li><a href="/domains"><span class="nav-icon">🌐</span> Domains</a></li>
-      <li><a href="/sending-ips"><span class="nav-icon">🖥️</span> Sending IPs</a></li>
-      <li><a href="/alerts"><span class="nav-icon">🔔</span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
-      <li><a href="/settings" class="active"><span class="nav-icon">⚙️</span> Settings</a></li>
+      <li><a href="/dashboard"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Dashboard</a></li>
+      <li><a href="/postmaster"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></span> Google Postmaster</a></li>
+      <li><a href="/microsoft"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7.5"/><path d="M22 7 12 13 2 7"/><path d="M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="m22 22-1.5-1.5"/></svg></span> Microsoft SNDS</a></li>
+      <li><a href="/blacklist"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span> Blacklist Monitor</a></li>
+      <li><a href="/domains"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span> Domains</a></li>
+      <li><a href="/sending-ips"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg></span> Sending IPs</a></li>
+      <li><a href="/alerts"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span> Alerts <span class="alert-badge" id="sidebar-badge" style="display:none;">0</span></a></li>
+      <li><a href="/settings" class="active"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/><circle cx="12" cy="12" r="3"/></svg></span> Settings</a></li>
     </ul>
-    <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">—</span> plan</div>
+    <div class="sidebar-footer"><div class="plan-pill"><span class="plan-pill-tier"><span id="plan-name">Free</span> plan</span></div></div>
   </aside>
 
   <main class="main">
-    <h1 class="page-title">Settings</h1>
-    <p class="page-subtitle">Manage your account, connections, and preferences.</p>
-
-    <div class="settings-layout">
-      <!-- Settings Sidebar -->
-      <div class="settings-sidebar">
-        <a class="s-active" onclick="showSettingsPanel('general', this)"><span class="s-icon">👤</span> General</a>
-        <a onclick="showSettingsPanel('connections', this)"><span class="s-icon">🔗</span> Connected Services</a>
-        <!-- INBOX-143 (v1.16.2): Notifications panel moved into /alerts
-             page (Rules + Channels tabs). Single home for everything
-             alert-related. -->
-        <a onclick="showSettingsPanel('billing', this)"><span class="s-icon">💳</span> Plan & Billing <span class="s-soon">Soon</span></a>
-        <a onclick="showSettingsPanel('api', this)"><span class="s-icon">🔑</span> API Access <span class="s-soon">Soon</span></a>
-        <a onclick="showSettingsPanel('team', this)"><span class="s-icon">👥</span> Team <span class="s-soon">Soon</span></a>
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Settings</h1>
+          <p class="page-subtitle">Manage your account, connections, and preferences.</p>
+        </div>
+        <div class="page-header-actions">
+          <span class="user-name" id="user-name"></span>
+          <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">
+            <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button class="logout-btn" onclick="logout()">Log Out</button>
+        </div>
       </div>
 
-      <!-- Settings Content -->
-      <div class="settings-content">
+      <div class="set-layout">
+        <nav class="set-nav">
+          <button class="set-nav-item active" data-tab="general" onclick="setSettingsTab('general', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> General</button>
+          <button class="set-nav-item" data-tab="connections" onclick="setSettingsTab('connections', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Connected Services</button>
+          <button class="set-nav-item" data-tab="billing" onclick="setSettingsTab('billing', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Plan &amp; Billing<span class="set-soon-pill">Soon</span></button>
+          <button class="set-nav-item" data-tab="api" onclick="setSettingsTab('api', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg> API Access<span class="set-soon-pill">Soon</span></button>
+          <button class="set-nav-item" data-tab="team" onclick="setSettingsTab('team', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Team<span class="set-soon-pill">Soon</span></button>
+        </nav>
 
-        <!-- ===== General ===== -->
-        <div class="settings-panel s-visible" id="sp-general">
-          <div class="s-section-title">General</div>
-          <div class="s-section-desc">Your profile and account preferences.</div>
+        <div class="set-content">
 
-          <div class="card" style="padding:0 20px;">
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Full Name</div>
-                <div class="settings-desc" id="general-name">—</div>
+          <!-- ═══ GENERAL ═══ -->
+          <div class="set-panel active" id="sp-general">
+            <div class="set-section-title">General</div>
+            <div class="set-section-desc">Your account profile and password.</div>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-row-left"><div class="set-row-label">Name</div><div class="set-row-value" id="general-name">—</div></div>
+                <button class="set-btn-sm" onclick="editField('name')">Edit</button>
               </div>
-              <button class="btn-sm" onclick="editField('name')">Edit</button>
-            </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Email</div>
-                <div class="settings-desc" id="general-email">—</div>
+              <div class="set-row">
+                <div class="set-row-left"><div class="set-row-label">Email</div><div class="set-row-value set-row-value-mono" id="general-email">—</div></div>
+                <span style="font-size:11px;color:var(--text-subtle);">Verified</span>
+              </div>
+              <div class="set-row">
+                <div class="set-row-left"><div class="set-row-label">Company</div><div class="set-row-value" id="general-company">—</div></div>
+                <button class="set-btn-sm" onclick="editField('company')">Edit</button>
+              </div>
+              <div class="set-row">
+                <div class="set-row-left"><div class="set-row-label">Password</div><div class="set-row-value">••••••••••••</div></div>
+                <button class="set-btn-sm" onclick="editField('password')">Update</button>
               </div>
             </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Company</div>
-                <div class="settings-desc" id="general-company">—</div>
+            <div class="set-danger-row">
+              <div class="set-row-left">
+                <div class="set-row-value">Delete account</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Permanently remove your account, domains, and historical data. Cannot be undone.</div>
               </div>
-              <button class="btn-sm" onclick="editField('company')">Edit</button>
+              <button class="set-danger-link" onclick="confirmDelete()">Delete Account →</button>
             </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Password</div>
-                <div class="settings-desc">Change your account password</div>
-              </div>
-              <button class="btn-sm" onclick="editField('password')">Update</button>
-            </div>
-            <!-- INBOX-143 (v1.16.2): "Sync Frequency · Postmaster data
-                 syncs daily at 6:00 AM UTC" row removed. It was a
-                 read-only fact with no action attached, and the same
-                 information is shown more usefully on each provider
-                 page (Postmaster card has "Last sync: 2h ago"). -->
           </div>
 
-          <div style="margin-top:24px;">
-            <div style="font-size:13px;font-weight:600;color:var(--red);cursor:pointer;" onclick="confirmDelete()">Delete Account →</div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Permanently remove your account and all data. This cannot be undone.</div>
+          <!-- ═══ CONNECTED SERVICES ═══ -->
+          <div class="set-panel" id="sp-connections">
+            <div class="set-section-title">Connected Services</div>
+            <div class="set-section-desc">Manage your provider integrations and data sources.</div>
+
+            <div class="set-conn-card" id="gpm-card">
+              <div class="set-conn-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
+              </div>
+              <div class="set-conn-info">
+                <div class="set-conn-name">Google Postmaster Tools</div>
+                <div class="set-conn-status" id="gpm-status">Checking connection…</div>
+              </div>
+              <div class="set-conn-actions" id="gpm-actions"></div>
+            </div>
+            <div class="set-pro-callout" id="gpm-pro-callout" style="display:none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <span>Google Postmaster integration is available on <strong>Pro</strong> plans and above.</span>
+            </div>
+
+            <div class="set-conn-card" id="snds-card">
+              <div class="set-conn-icon">
+                <svg width="20" height="20" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+              </div>
+              <div class="set-conn-info">
+                <div class="set-conn-name">Microsoft SNDS</div>
+                <div class="set-conn-status" id="snds-status">Checking…</div>
+              </div>
+              <div class="set-conn-actions" id="snds-actions"></div>
+            </div>
           </div>
+
+          <!-- ═══ COMING SOON PANELS ═══ -->
+          <div class="set-panel" id="sp-billing">
+            <div class="set-section-title">Plan &amp; Billing</div>
+            <div class="set-section-desc">Manage your subscription, view usage, and update payment details.</div>
+            <div class="set-soon-card">
+              <div class="set-soon-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
+              <h3>Coming Soon</h3>
+              <p>Plan management, billing history, and payment settings will land here. You're currently on the <strong id="billing-plan-name">— plan</strong>.</p>
+            </div>
+          </div>
+
+          <div class="set-panel" id="sp-api">
+            <div class="set-section-title">API Access</div>
+            <div class="set-section-desc">Generate API keys and manage programmatic access to your data.</div>
+            <div class="set-soon-card">
+              <div class="set-soon-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg></div>
+              <h3>Coming Soon</h3>
+              <p>Generate API keys for programmatic access to your domain scores, alerts, and metrics.</p>
+            </div>
+          </div>
+
+          <div class="set-panel" id="sp-team">
+            <div class="set-section-title">Team</div>
+            <div class="set-section-desc">Invite teammates, manage roles, and view audit logs.</div>
+            <div class="set-soon-card">
+              <div class="set-soon-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+              <h3>Coming Soon</h3>
+              <p>Invite teammates to collaborate on your InboxScore workspace with role-based access control.</p>
+            </div>
+          </div>
+
         </div>
-
-        <!-- ===== Connected Services ===== -->
-        <div class="settings-panel" id="sp-connections">
-          <div class="s-section-title">Connected Services</div>
-          <div class="s-section-desc">Manage your provider integrations and data sources.</div>
-
-          <!-- Google Postmaster -->
-          <div class="connection-card" id="gpm-card">
-            <div class="connection-icon" style="background:rgba(66,133,244,0.15);">
-              <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.11A6.96 6.96 0 015.48 12c0-.73.13-1.43.36-2.11V7.05H2.18A11.96 11.96 0 001 12c0 1.94.46 3.77 1.18 5.05l3.66-2.94z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.05l3.66 2.84c.87-2.6 3.3-4.51 6.16-4.51z"/></svg>
-            </div>
-            <div class="connection-info">
-              <div class="connection-name">Google Postmaster Tools</div>
-              <div class="connection-status" id="gpm-status">Checking connection...</div>
-            </div>
-            <div id="gpm-actions"></div>
-          </div>
-          <div id="gpm-pro-gate" style="display:none;margin:-6px 0 12px;padding:10px 16px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;">
-            <div style="font-size:12px;color:var(--text-muted);">
-              🔒 Google Postmaster integration is available on <strong style="color:var(--accent);">Pro</strong> plans and above.
-            </div>
-          </div>
-
-          <!-- Microsoft SNDS -->
-          <div class="connection-card" id="snds-card">
-            <div class="connection-icon" style="background:rgba(0,164,239,0.15);">
-              <svg width="20" height="20" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
-            </div>
-            <div class="connection-info">
-              <div class="connection-name">Microsoft SNDS</div>
-              <div class="connection-status" id="snds-status-text">Checking...</div>
-            </div>
-            <div id="snds-actions-disconnected" style="display:none;gap:8px;">
-              <button class="btn btn-sm" onclick="openSndsModal()">Connect</button>
-            </div>
-            <div id="snds-actions-connected" style="display:none;gap:8px;">
-              <button class="btn btn-sm" id="snds-sync-btn" onclick="sndsSyncNow()">Sync Now</button>
-              <button class="btn btn-sm" style="color:var(--red);border-color:rgba(239,68,68,0.3);" onclick="sndsDisconnect()">Disconnect</button>
-            </div>
-          </div>
-
-          <!-- SNDS Connect Modal -->
-          <div id="snds-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
-            <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:480px;width:90%;position:relative;">
-              <button onclick="closeSndsModal()" id="snds-modal-close" style="position:absolute;top:12px;right:16px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">&times;</button>
-              <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-                <svg width="28" height="28" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
-                <div>
-                  <div style="font-size:16px;font-weight:600;">Connect Microsoft SNDS</div>
-                  <div style="font-size:12px;color:var(--text-muted);">Smart Network Data Services</div>
-                </div>
-              </div>
-              <!-- Step 1: Key input -->
-              <div id="snds-step-input">
-                <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
-                  <strong>How to get your SNDS key:</strong><br>
-                  1. Go to <a href="https://postmaster.live.com/snds" target="_blank" style="color:var(--accent);">postmaster.live.com/snds</a><br>
-                  2. Sign in with your Microsoft account<br>
-                  3. Request access for your sending IPs<br>
-                  4. Enable <strong>"Automated Data Access"</strong><br>
-                  5. Copy the unique key URL provided
-                </div>
-                <input type="text" id="snds-key-input" placeholder="b00b03c1-3ed4-4a7d-8763-0f3a8fee5276" oninput="sndsKeyOnInput(event)" onpaste="sndsKeyOnPaste(event)" autocomplete="off" spellcheck="false" style="width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:'SF Mono',Menlo,Consolas,monospace;margin-bottom:6px;box-sizing:border-box;">
-                <div id="snds-key-helper" style="font-size:11px;color:var(--text-muted);margin-bottom:6px;line-height:1.4;">Paste only the key (the value after <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px;">key=</code>). Looks like: <code style="background:var(--surface-2);padding:1px 4px;border-radius:3px;">b00b03c1-…-fee5276</code></div>
-                <div id="snds-key-cleaned-note" style="display:none;font-size:11px;color:var(--text-muted);margin-bottom:6px;">✓ Detected a URL — using the key portion only.</div>
-                <div id="snds-key-format-error" style="display:none;font-size:11px;color:var(--red);margin-bottom:6px;">This doesn't look like an SNDS key. It should be 36 characters in the format <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>.</div>
-                <div id="snds-modal-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:12px;"></div>
-                <button id="snds-connect-btn" onclick="sndsConnect()" disabled style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;opacity:0.5;">Connect & Validate</button>
-              </div>
-              <!-- Step 2: Progress steps (shown during validation) -->
-              <div id="snds-step-progress" style="display:none;">
-                <div style="font-size:14px;font-weight:600;margin-bottom:16px;">Setting up your connection...</div>
-                <div id="snds-progress-steps" style="display:flex;flex-direction:column;gap:12px;">
-                  <div class="snds-prog-step" id="snds-prog-1" style="display:flex;align-items:center;gap:10px;font-size:13px;">
-                    <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
-                    <span>Connecting to Microsoft SNDS...</span>
-                  </div>
-                  <div class="snds-prog-step" id="snds-prog-2" style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted);">
-                    <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
-                    <span>Validating your access key...</span>
-                  </div>
-                  <div class="snds-prog-step" id="snds-prog-3" style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-muted);">
-                    <span class="snds-prog-icon" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"></span>
-                    <span>Fetching IP reputation data...</span>
-                  </div>
-                </div>
-                <div style="margin-top:16px;padding:10px;background:var(--surface-2);border-radius:8px;font-size:12px;color:var(--text-muted);text-align:center;">
-                  This may take 10-15 seconds — Microsoft's servers can be slow to respond
-                </div>
-              </div>
-              <!-- Step 3: Success -->
-              <div id="snds-step-success" style="display:none;text-align:center;">
-                <div style="font-size:40px;margin-bottom:12px;">&#10003;</div>
-                <div style="font-size:16px;font-weight:600;color:var(--green);margin-bottom:8px;">Connected Successfully!</div>
-                <div id="snds-success-detail" style="font-size:13px;color:var(--text-muted);margin-bottom:16px;"></div>
-                <button onclick="closeSndsModal();loadSndsStatus();" style="padding:10px 24px;background:var(--accent);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Done</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- INBOX-143 (v1.16.2): removed Yahoo/AOL CFL + Google Safe
-               Browsing cards. Yahoo CFL is per-IP-block ESP-only signup
-               with no public API — not user-connectable. GSB has been
-               running server-side automatically since 2026-04-26 (see
-               reference_inboxscore_gsb.md) — no user action required. -->
-        </div>
-
-        <!-- INBOX-143 (v1.16.2): Notifications panel removed. Alert
-             rules + delivery channels + digest now live on /alerts as
-             tabs (Rules + Channels). One mental home for everything
-             alert-related; Settings becomes pure account/billing. -->
-
-        <!-- ===== Plan & Billing (Coming Soon) ===== -->
-        <div class="settings-panel" id="sp-billing">
-          <div class="s-section-title">Plan & Billing</div>
-          <div class="s-section-desc">Manage your subscription, view usage, and update payment details.</div>
-
-          <div class="card" style="padding:40px;text-align:center;">
-            <div style="font-size:36px;margin-bottom:12px;">💳</div>
-            <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Coming Soon</div>
-            <div style="font-size:13px;color:var(--text-muted);max-width:340px;margin:0 auto;">Plan management, billing history, and payment settings will be available here. You're currently on the <span style="color:var(--accent);font-weight:600;" id="billing-plan-name">— plan</span>.</div>
-          </div>
-        </div>
-
-        <!-- ===== API Access (Coming Soon) ===== -->
-        <div class="settings-panel" id="sp-api">
-          <div class="s-section-title">API Access</div>
-          <div class="s-section-desc">Generate API keys and manage programmatic access to your data.</div>
-
-          <div class="card" style="padding:40px;text-align:center;">
-            <div style="font-size:36px;margin-bottom:12px;">🔑</div>
-            <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Coming Soon</div>
-            <div style="font-size:13px;color:var(--text-muted);max-width:340px;margin:0 auto;">API key generation, usage statistics, rate limits, and webhook management will be available here.</div>
-          </div>
-        </div>
-
-        <!-- ===== Team (Coming Soon) ===== -->
-        <div class="settings-panel" id="sp-team">
-          <div class="s-section-title">Team</div>
-          <div class="s-section-desc">Invite team members and manage roles.</div>
-
-          <div class="card" style="padding:40px;text-align:center;">
-            <div style="font-size:36px;margin-bottom:12px;">👥</div>
-            <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Coming Soon</div>
-            <div style="font-size:13px;color:var(--text-muted);max-width:340px;margin:0 auto;">Invite team members, assign roles (Admin, Viewer), and manage access to your InboxScore workspace.</div>
-          </div>
-        </div>
-
-      </div><!-- /settings-content -->
-    </div><!-- /settings-layout -->
+      </div>
+    </div>
   </main>
 </div>
 
-<!-- Edit Modal -->
-<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:center;justify-content:center;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;width:400px;max-width:90vw;">
-    <div style="font-size:16px;font-weight:600;margin-bottom:16px;" id="edit-modal-title">Edit</div>
+<!-- ═══════ EDIT MODAL — Name / Company / Password ═══════ -->
+<div class="set-modal-overlay" id="edit-modal" onclick="if(event.target===this) closeEditModal()">
+  <div class="set-modal" role="dialog">
+    <div class="set-modal-header">
+      <div class="set-modal-title-block"><div class="set-modal-title" id="edit-modal-title">Edit</div></div>
+      <button class="set-modal-close" onclick="closeEditModal()">&times;</button>
+    </div>
     <div id="edit-modal-body"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
-      <button class="btn-sm" onclick="closeEditModal()">Cancel</button>
-      <button class="btn btn-primary" style="padding:8px 20px;font-size:13px;" id="edit-modal-save" onclick="saveEditModal()">Save</button>
+    <div class="set-modal-actions">
+      <button class="set-btn" onclick="closeEditModal()">Cancel</button>
+      <button class="set-modal-cta" id="edit-modal-save" onclick="saveEditModal()" style="width:auto;margin-top:0;padding:8px 18px;">Save</button>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- ═══════ SNDS CONNECT MODAL ═══════ -->
+<div class="set-modal-overlay" id="snds-modal" onclick="if(event.target===this) closeSndsModal()">
+  <div class="set-modal" role="dialog">
+    <div class="set-modal-header">
+      <svg class="set-modal-icon" viewBox="0 0 23 23"><rect x="1" y="1" width="10" height="10" fill="#F25022"/><rect x="12" y="1" width="10" height="10" fill="#7FBA00"/><rect x="1" y="12" width="10" height="10" fill="#00A4EF"/><rect x="12" y="12" width="10" height="10" fill="#FFB900"/></svg>
+      <div class="set-modal-title-block">
+        <div class="set-modal-title">Connect Microsoft SNDS</div>
+        <div class="set-modal-subtitle">Smart Network Data Services</div>
+      </div>
+      <button class="set-modal-close" id="snds-modal-close" onclick="closeSndsModal()">&times;</button>
+    </div>
+
+    <div id="snds-step-input">
+      <div class="set-step-instructions">
+        <strong>How to get your SNDS key:</strong>
+        <ol>
+          <li>Go to <a href="https://postmaster.live.com/snds" target="_blank" rel="noopener">postmaster.live.com/snds</a></li>
+          <li>Sign in with your Microsoft account</li>
+          <li>Request access for your sending IPs</li>
+          <li>Enable <strong>Automated Data Access</strong></li>
+          <li>Copy the unique key URL provided</li>
+        </ol>
+      </div>
+      <input type="text" class="set-form-input" id="snds-key-input" placeholder="b00b03c1-3ed4-4a7d-8763-0f3a8fee5276" autocomplete="off" spellcheck="false" oninput="sndsKeyOnInput(event)" onpaste="sndsKeyOnPaste(event)">
+      <div class="set-form-hint" id="snds-key-helper">Paste only the key (the value after <code>key=</code>). Looks like: <code>b00b03c1-…-fee5276</code></div>
+      <div class="set-modal-cleaned-note" id="snds-key-cleaned-note" style="display:none;">✓ Detected a URL — using the key portion only.</div>
+      <div class="set-modal-format-error" id="snds-key-format-error" style="display:none;">This doesn't look like an SNDS key. It should be 36 characters in the format <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>.</div>
+      <div class="set-modal-error" id="snds-modal-error" style="display:none;"></div>
+      <button class="set-modal-cta" id="snds-connect-btn" onclick="sndsConnect()" disabled>Connect &amp; Validate</button>
+    </div>
+
+    <div id="snds-step-progress" style="display:none;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:14px;">Setting up your connection…</div>
+      <div class="set-prog-list" id="snds-progress-steps">
+        <div class="set-prog-step" id="snds-prog-1"><span class="set-prog-icon"></span><span>Connecting to Microsoft SNDS</span></div>
+        <div class="set-prog-step" id="snds-prog-2"><span class="set-prog-icon"></span><span>Validating your access key</span></div>
+        <div class="set-prog-step" id="snds-prog-3"><span class="set-prog-icon"></span><span>Fetching IP reputation data</span></div>
+      </div>
+      <div class="set-prog-note">This may take 10–15 seconds — Microsoft's servers can be slow to respond.</div>
+    </div>
+
+    <div id="snds-step-success" style="display:none;">
+      <div class="set-success-block">
+        <div class="set-success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="set-success-title">Connected Successfully!</div>
+        <div class="set-success-msg" id="snds-success-detail">Connected!</div>
+        <button class="set-modal-cta" onclick="closeSndsModal();loadSndsStatus();" style="margin-top:0;">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
-
+/* ═══════════ HELPERS ═══════════ */
 function escapeHtml(str) {
   if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
-
-function toggleSidebar() {
-  document.querySelector('.sidebar').classList.toggle('open');
-  document.getElementById('sidebar-backdrop').classList.toggle('show');
-}
-
-function getToken() {
-  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-}
-
-function getHeaders() {
-  return { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' };
-}
-
+function getToken() { return localStorage.getItem('access_token') || sessionStorage.getItem('access_token'); }
+function getHeaders() { return { 'Authorization': 'Bearer ' + getToken(), 'Content-Type': 'application/json' }; }
+function authHeaders() { return { 'Authorization': 'Bearer ' + getToken() }; }
 function logout() {
-  localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); localStorage.removeItem('user');
-  sessionStorage.removeItem('access_token'); sessionStorage.removeItem('refresh_token'); sessionStorage.removeItem('user');
+  ['access_token','refresh_token','user'].forEach(function (k) { localStorage.removeItem(k); sessionStorage.removeItem(k); });
   window.location.href = '/login';
 }
-
-function showToast(msg, type = 'success') {
-  const t = document.getElementById('toast');
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'light';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
+}
+function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('open'); }
+function showToast(msg, type) {
+  type = type || 'success';
+  var existing = document.querySelector('.set-toast');
+  if (existing) existing.remove();
+  var t = document.createElement('div');
+  t.className = 'set-toast ' + type;
   t.textContent = msg;
-  t.className = 'toast ' + type + ' show';
-  setTimeout(() => t.classList.remove('show'), 3000);
+  document.body.appendChild(t);
+  setTimeout(function () { t.remove(); }, 3500);
+}
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  var diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
+}
+function _emptyIfPlaceholder(s) { return (s === '—' || !s) ? '' : s; }
+
+/* ═══════════ STATE ═══════════ */
+var currentEditField = null;
+var SETTINGS_CACHE_KEY = 'settings.profile';
+var SETTINGS_CACHE_TTL_MS = 60 * 60 * 1000;
+
+/* ═══════════ TABS ═══════════ */
+function setSettingsTab(tab, el) {
+  document.querySelectorAll('.set-nav-item').forEach(function (n) { n.classList.remove('active'); });
+  if (el) el.classList.add('active');
+  else {
+    var b = document.querySelector('.set-nav-item[data-tab="' + tab + '"]');
+    if (b) b.classList.add('active');
+  }
+  document.querySelectorAll('.set-panel').forEach(function (p) { p.classList.remove('active'); });
+  var panel = document.getElementById('sp-' + tab);
+  if (panel) panel.classList.add('active');
 }
 
-// ─── Settings Panel Switching ──────────────────────────────
-function showSettingsPanel(panelId, el) {
-  document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('s-visible'));
-  const target = document.getElementById('sp-' + panelId);
-  if (target) target.classList.add('s-visible');
-  document.querySelectorAll('.settings-sidebar a').forEach(a => a.classList.remove('s-active'));
-  if (el) el.classList.add('s-active');
+/* ═══════════ SETTINGS LOAD (SWR) ═══════════ */
+function _settingsApplySnapshot(snap) {
+  if (!snap) return;
+  if (snap.displayName) document.getElementById('user-name').textContent = snap.displayName;
+  if (snap.email) document.getElementById('general-email').textContent = snap.email;
+  if (snap.profileName) document.getElementById('general-name').textContent = snap.profileName;
+  if (snap.company !== undefined) document.getElementById('general-company').textContent = snap.company || '—';
+  if (snap.plan) {
+    document.getElementById('plan-name').textContent = snap.plan;
+    var billingEl = document.getElementById('billing-plan-name');
+    if (billingEl) billingEl.textContent = snap.plan.charAt(0).toUpperCase() + snap.plan.slice(1) + ' plan';
+  }
 }
 
-// ─── Edit Modal ────────────────────────────────────────────
-let currentEditField = null;
-
-// INBOX-149 (v1.16.3): when reading the current display value to pre-fill
-// the edit input, treat the "—" placeholder as empty. Otherwise users
-// either type after the em-dash (saving "—Vinoop") or have to manually
-// delete it before typing — both are bad UX.
-function _emptyIfPlaceholder(s) {
-  if (!s) return '';
-  const t = String(s).trim();
-  return (t === '—' || t === '-') ? '' : t;
+function _settingsHydrateFromCache() {
+  if (!window.cacheGet) return false;
+  var snap = window.cacheGet(SETTINGS_CACHE_KEY, SETTINGS_CACHE_TTL_MS);
+  if (!snap) return false;
+  _settingsApplySnapshot(snap);
+  return true;
 }
 
+async function loadSettings() {
+  var token = getToken();
+  if (!token) { window.location.href = '/login'; return; }
+  var headers = { 'Authorization': 'Bearer ' + token };
+  _settingsHydrateFromCache();
+
+  try {
+    var responses = await Promise.all([
+      fetch('/api/auth/me', { headers }),
+      fetch('/api/user/plan', { headers }),
+      fetch('/api/user/profile', { headers }),
+    ]);
+    var meRes = responses[0], planRes = responses[1], profileRes = responses[2];
+    if (!meRes.ok) throw new Error('auth');
+
+    var me = await meRes.json();
+    var email = me.user.email;
+    var displayName = me.user.name || email.split('@')[0];
+
+    var profileName = displayName, company = '';
+    if (profileRes.ok) {
+      var profile = await profileRes.json();
+      profileName = profile.name || displayName;
+      company = profile.company || '';
+    }
+
+    var planName = 'free';
+    if (planRes.ok) {
+      var plan = await planRes.json();
+      planName = plan.plan || 'free';
+    }
+
+    var snapshot = { displayName, email, profileName, company, plan: planName };
+    _settingsApplySnapshot(snapshot);
+    if (window.cacheSet) window.cacheSet(SETTINGS_CACHE_KEY, snapshot);
+  } catch (e) {
+    /* INBOX-157 nested-session refresh */
+    var refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+    if (refresh) {
+      try {
+        var r = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refresh })
+        });
+        if (!r.ok) throw new Error();
+        var data = await r.json();
+        var session = data.session || data;
+        var accessToken = session.access_token;
+        var refreshToken = session.refresh_token;
+        if (!accessToken || !refreshToken) throw new Error();
+        var storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
+        storage.setItem('access_token', accessToken);
+        storage.setItem('refresh_token', refreshToken);
+        location.reload();
+      } catch (er) { logout(); }
+    } else { logout(); }
+  }
+}
+
+/* ═══════════ EDIT MODAL ═══════════ */
 function editField(field) {
   currentEditField = field;
-  const modal = document.getElementById('edit-modal');
-  const title = document.getElementById('edit-modal-title');
-  const body = document.getElementById('edit-modal-body');
+  var modal = document.getElementById('edit-modal');
+  var title = document.getElementById('edit-modal-title');
+  var body = document.getElementById('edit-modal-body');
 
   if (field === 'name') {
     title.textContent = 'Edit Name';
-    const cur = _emptyIfPlaceholder(document.getElementById('general-name').textContent);
-    body.innerHTML = '<input type="text" id="edit-input" value="' + escapeHtml(cur) + '" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;" placeholder="Your name">';
+    var cur = _emptyIfPlaceholder(document.getElementById('general-name').textContent);
+    body.innerHTML = '<div class="set-edit-input-group"><input type="text" id="edit-input" class="set-edit-input" value="' + escapeHtml(cur) + '" placeholder="Your name"></div>';
   } else if (field === 'company') {
     title.textContent = 'Edit Company';
-    const cur = _emptyIfPlaceholder(document.getElementById('general-company').textContent);
-    body.innerHTML = '<input type="text" id="edit-input" value="' + escapeHtml(cur) + '" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;" placeholder="Company name">';
+    var curC = _emptyIfPlaceholder(document.getElementById('general-company').textContent);
+    body.innerHTML = '<div class="set-edit-input-group"><input type="text" id="edit-input" class="set-edit-input" value="' + escapeHtml(curC) + '" placeholder="Company name"></div>';
   } else if (field === 'password') {
     title.textContent = 'Update Password';
-    body.innerHTML = `
-      <input type="password" id="edit-pw-new" placeholder="New password (min 6 chars)" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;margin-bottom:10px;" minlength="6">
-      <input type="password" id="edit-pw-confirm" placeholder="Confirm password" style="width:100%;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;outline:none;">
-    `;
+    body.innerHTML =
+      '<div class="set-edit-input-group"><input type="password" id="edit-pw-new" class="set-edit-input" placeholder="New password (min 6 chars)" minlength="6"></div>' +
+      '<div class="set-edit-input-group"><input type="password" id="edit-pw-confirm" class="set-edit-input" placeholder="Confirm password"></div>';
   }
-  modal.style.display = 'flex';
-
-  // INBOX-149: focus + select-all the first input on open. If the field
-  // already had a value, select-all means typing replaces (no manual
-  // backspace dance). For an empty field, focus puts the cursor ready.
-  setTimeout(() => {
-    const inp = body.querySelector('input');
+  modal.classList.add('show');
+  /* INBOX-149: focus + select-all the first input on open */
+  setTimeout(function () {
+    var inp = body.querySelector('input');
     if (inp) { inp.focus(); inp.select(); }
   }, 0);
 }
 
 function closeEditModal() {
-  document.getElementById('edit-modal').style.display = 'none';
+  document.getElementById('edit-modal').classList.remove('show');
   currentEditField = null;
 }
 
 async function saveEditModal() {
-  const btn = document.getElementById('edit-modal-save');
-  btn.disabled = true; btn.textContent = 'Saving...';
-
+  var btn = document.getElementById('edit-modal-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
   try {
     if (currentEditField === 'name' || currentEditField === 'company') {
-      const val = document.getElementById('edit-input').value.trim();
-      const payload = {};
-      if (currentEditField === 'name') payload.name = val;
-      else payload.company = val;
-
-      const res = await fetch('/api/user/profile', { method: 'PUT', headers: getHeaders(), body: JSON.stringify(payload) });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Failed'); }
-
+      var val = document.getElementById('edit-input').value.trim();
+      var payload = {};
+      if (currentEditField === 'name') payload.name = val; else payload.company = val;
+      var res = await fetch('/api/user/profile', { method: 'PUT', headers: getHeaders(), body: JSON.stringify(payload) });
+      if (!res.ok) { var err = await res.json(); throw new Error(err.detail || 'Failed'); }
       if (currentEditField === 'name') {
         document.getElementById('general-name').textContent = val || '—';
         document.getElementById('user-name').textContent = val;
       } else {
         document.getElementById('general-company').textContent = val || '—';
       }
-      // INBOX-130: keep the SWR cache in sync with the edit so the next
-      // visit hydrates with the updated value rather than the stale one.
+      /* INBOX-130 — keep SWR cache in sync */
       if (window.cacheGet && window.cacheSet) {
-        const snap = window.cacheGet(SETTINGS_CACHE_KEY, SETTINGS_CACHE_TTL_MS) || {};
-        if (currentEditField === 'name') {
-          snap.profileName = val;
-          snap.displayName = val;
-        } else {
-          snap.company = val;
-        }
+        var snap = window.cacheGet(SETTINGS_CACHE_KEY, SETTINGS_CACHE_TTL_MS) || {};
+        if (currentEditField === 'name') { snap.profileName = val; snap.displayName = val; } else { snap.company = val; }
         window.cacheSet(SETTINGS_CACHE_KEY, snap);
       }
       showToast('Updated successfully');
     } else if (currentEditField === 'password') {
-      const newPw = document.getElementById('edit-pw-new').value;
-      const confirmPw = document.getElementById('edit-pw-confirm').value;
+      var newPw = document.getElementById('edit-pw-new').value;
+      var confirmPw = document.getElementById('edit-pw-confirm').value;
       if (newPw !== confirmPw) { showToast('Passwords do not match', 'error'); return; }
       if (newPw.length < 6) { showToast('Password must be at least 6 characters', 'error'); return; }
-
-      const res = await fetch('/api/user/password', { method: 'PUT', headers: getHeaders(), body: JSON.stringify({ new_password: newPw }) });
-      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Failed'); }
+      var resP = await fetch('/api/user/password', { method: 'PUT', headers: getHeaders(), body: JSON.stringify({ new_password: newPw }) });
+      if (!resP.ok) { var errP = await resP.json(); throw new Error(errP.detail || 'Failed'); }
       showToast('Password updated successfully');
     }
     closeEditModal();
@@ -564,189 +636,52 @@ async function saveEditModal() {
   }
 }
 
-// Click outside modal to close
-document.getElementById('edit-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeEditModal();
-});
-
-// ─── Load Settings ─────────────────────────────────────────
-// INBOX-130: SWR pattern — hydrate the four user-profile fields
-// (display name, email, plan, company + toggles) from localStorage
-// on first paint, then revalidate from the network in parallel.
-// Eliminates the "Free → Pro" badge flicker that Vinoop reported on
-// 2026-04-29. 1h TTL because plan rarely changes within a session.
-const SETTINGS_CACHE_KEY = 'settings.profile';
-const SETTINGS_CACHE_TTL_MS = 1 * 60 * 60 * 1000;
-
-function _settingsApplySnapshot(snap) {
-  if (!snap) return;
-  // User name + email
-  if (snap.displayName) document.getElementById('user-name').textContent = snap.displayName;
-  if (snap.email) {
-    document.getElementById('general-email').textContent = snap.email;
-    // INBOX-159 (v1.16.5): notif-email-desc was the alert-summary
-    // description inside the old Settings → Notifications panel,
-    // which moved to /alerts in INBOX-143. The element no longer
-    // exists here. Setting textContent on the null return crashed
-    // _settingsApplySnapshot, threw out of loadSettings, triggered
-    // the catch-block refresh + location.reload() → infinite reload
-    // loop. Vinoop hit it on 2026-04-30 after the auth fix landed.
-    const notifDesc = document.getElementById('notif-email-desc');
-    if (notifDesc) notifDesc.textContent = 'Send alert summaries to ' + snap.email;
-  }
-  // Profile name + company
-  if (snap.profileName) document.getElementById('general-name').textContent = snap.profileName;
-  if (snap.company !== undefined) {
-    document.getElementById('general-company').textContent = snap.company || '—';
-  }
-  // Plan badge (sidebar) + Plan & Billing card
-  if (snap.plan) {
-    document.getElementById('plan-name').textContent = snap.plan;
-    const billingEl = document.getElementById('billing-plan-name');
-    if (billingEl) billingEl.textContent = snap.plan.charAt(0).toUpperCase() + snap.plan.slice(1) + ' Plan';
-  }
-  // INBOX-159 (v1.16.5): notification toggles moved to /alerts → Rules
-  // and Channels tabs in INBOX-143. The setToggle helper here was
-  // removed at the same time but the calls weren't — every call
-  // raised ReferenceError, which the outer try/catch in loadSettings
-  // mistook for an auth failure and triggered a refresh + reload
-  // loop. Bug bundle with notif-email-desc above.
+/* ═══════════ DELETE ACCOUNT ═══════════ */
+function confirmDelete() {
+  if (!confirm('Are you sure? This is permanent and cannot be undone.')) return;
+  var input = prompt('Type DELETE to permanently remove your account:');
+  if (input === 'DELETE') deleteAccount();
+  else showToast('Account deletion cancelled', 'error');
 }
 
-function _settingsHydrateFromCache() {
-  if (!window.cacheGet) return false;
-  const snap = window.cacheGet(SETTINGS_CACHE_KEY, SETTINGS_CACHE_TTL_MS);
-  if (!snap) return false;
-  _settingsApplySnapshot(snap);
-  return true;
-}
-
-function _settingsShowRefreshingPill() {
-  document.body.classList.add('settings-refreshing-pill');
-}
-function _settingsHideRefreshingPill() {
-  document.body.classList.remove('settings-refreshing-pill');
-}
-
-async function loadSettings() {
-  const token = getToken();
-  if (!token) { window.location.href = '/login'; return; }
-  const headers = { 'Authorization': 'Bearer ' + token };
-
-  // SWR step 1: paint instantly from cache if we have a recent snapshot.
-  const _hydrated = _settingsHydrateFromCache();
-  if (_hydrated) _settingsShowRefreshingPill();
-
+async function deleteAccount() {
   try {
-    const [meRes, planRes, profileRes, domainsRes] = await Promise.all([
-      fetch('/api/auth/me', { headers }),
-      fetch('/api/user/plan', { headers }),
-      fetch('/api/user/profile', { headers }),
-      fetch('/api/user/domains', { headers }),
-    ]);
-
-    if (!meRes.ok) throw new Error('auth');
-
-    const me = await meRes.json();
-    const email = me.user.email;
-    const displayName = me.user.name || email.split('@')[0];
-
-    // Profile data
-    let profileName = displayName;
-    let company = '';
-    let prefs = null;
-    if (profileRes.ok) {
-      const profile = await profileRes.json();
-      profileName = profile.name || displayName;
-      company = profile.company || '';
-      prefs = profile.preferences || null;
-    }
-
-    // Plan data
-    let planName = 'free';
-    if (planRes.ok) {
-      const plan = await planRes.json();
-      planName = plan.plan || 'free';
-    }
-
-    // Build the full snapshot, paint it, and cache it for next visit.
-    const snapshot = {
-      displayName,
-      email,
-      profileName,
-      company,
-      plan: planName,
-      prefs,
-    };
-    _settingsApplySnapshot(snapshot);
-    if (window.cacheSet) window.cacheSet(SETTINGS_CACHE_KEY, snapshot);
-    _settingsHideRefreshingPill();
-
-  } catch (e) {
-    const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
-    if (refresh) {
-      try {
-        const r = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refresh }) });
-        if (!r.ok) throw new Error();
-        const data = await r.json();
-        // INBOX-157 (v1.16.4): unwrap nested session — see dashboard.html.
-        const session = data.session || data;
-        const accessToken  = session.access_token;
-        const refreshToken = session.refresh_token;
-        if (!accessToken || !refreshToken) throw new Error('refresh missing tokens');
-        const storage = localStorage.getItem('refresh_token') ? localStorage : sessionStorage;
-        storage.setItem('access_token', accessToken);
-        storage.setItem('refresh_token', refreshToken);
-        location.reload();
-      } catch { logout(); }
-    } else { logout(); }
-  }
-}
-
-// INBOX-143 (v1.16.2): setToggle + saveNotifications removed.
-// Their UI now lives on /alerts (Rules + Channels tabs); the underlying
-// /api/user/preferences endpoint is unchanged so the alerts page just
-// calls it directly.
-
-// ─── Postmaster Connection ─────────────────────────────────
-async function loadPostmasterStatus() {
-  const token = getToken();
-  if (!token) return;
-
-  try {
-    const res = await fetch('/api/postmaster/status', { headers: { 'Authorization': 'Bearer ' + token } });
+    var res = await fetch('/api/user/account', { method: 'DELETE', headers: getHeaders() });
     if (!res.ok) throw new Error();
-    const data = await res.json();
+    showToast('Account deleted. Redirecting…');
+    setTimeout(function () { localStorage.clear(); sessionStorage.clear(); window.location.href = '/'; }, 2000);
+  } catch (e) { showToast('Failed to delete account', 'error'); }
+}
 
-    const status = document.getElementById('gpm-status');
-    const actions = document.getElementById('gpm-actions');
-    const proGate = document.getElementById('gpm-pro-gate');
-
+/* ═══════════ POSTMASTER ═══════════ */
+async function loadPostmasterStatus() {
+  var token = getToken();
+  if (!token) return;
+  try {
+    var res = await fetch('/api/postmaster/status', { headers: authHeaders() });
+    if (!res.ok) throw new Error();
+    var data = await res.json();
+    var status = document.getElementById('gpm-status');
+    var actions = document.getElementById('gpm-actions');
+    var callout = document.getElementById('gpm-pro-callout');
     if (!data.is_pro) {
       status.textContent = 'Get Gmail reputation data, spam rates & delivery insights';
-      actions.innerHTML = '';
-      proGate.style.display = 'block';
+      actions.innerHTML = '<span class="set-pro-pill">Pro</span>';
+      callout.style.display = 'flex';
       return;
     }
-    proGate.style.display = 'none';
-
+    callout.style.display = 'none';
     if (data.connected) {
-      // INBOX-127: parity with Microsoft SNDS card — show "Last sync: Xm ago"
-      // so users can validate data freshness at a glance.
-      const lastSyncStr = data.last_sync_at
-        ? ` · Last sync: ${timeAgo(data.last_sync_at)}`
-        : '';
-      status.innerHTML = '<span style="color:var(--green);">● Connected</span> · ' + escapeHtml(data.google_email) + escapeHtml(lastSyncStr);
-      actions.innerHTML = `
-        <div style="display:flex;gap:8px;">
-          <button class="btn-sm" onclick="syncPostmaster()" id="pm-sync-btn">Sync Now</button>
-          <button class="btn-sm" onclick="disconnectPostmaster()" style="color:var(--red);border-color:rgba(239,68,68,0.3);">Disconnect</button>
-        </div>`;
+      var lastSyncStr = data.last_sync_at ? ' · Last sync: ' + timeAgo(data.last_sync_at) : '';
+      status.innerHTML = '<span class="set-conn-status-dot connected"></span> Connected · ' + escapeHtml(data.google_email || '') + escapeHtml(lastSyncStr);
+      actions.innerHTML =
+        '<button class="set-btn-sm" onclick="syncPostmaster()" id="pm-sync-btn">Sync Now</button>' +
+        ' <button class="set-btn-danger" onclick="disconnectPostmaster()">Disconnect</button>';
     } else {
       status.textContent = 'Get Gmail reputation data, spam rates & delivery insights';
-      actions.innerHTML = '<button class="btn btn-primary" onclick="connectPostmaster()" style="padding:6px 16px;font-size:12px;">Connect</button>';
+      actions.innerHTML = '<button class="set-btn-primary" onclick="connectPostmaster()">Connect</button>';
     }
-  } catch {
+  } catch (e) {
     document.getElementById('gpm-status').textContent = 'Unable to check status';
     document.getElementById('gpm-actions').innerHTML = '';
   }
@@ -754,9 +689,9 @@ async function loadPostmasterStatus() {
 
 async function connectPostmaster() {
   try {
-    const res = await fetch('/api/postmaster/authorize', { headers: { 'Authorization': 'Bearer ' + getToken() } });
-    if (!res.ok) { const e = await res.json(); showToast(e.detail || 'Failed', 'error'); return; }
-    const data = await res.json();
+    var res = await fetch('/api/postmaster/authorize', { headers: authHeaders() });
+    if (!res.ok) { var e = await res.json(); showToast(e.detail || 'Failed', 'error'); return; }
+    var data = await res.json();
     window.location.href = data.authorization_url;
   } catch (e) { showToast('Failed: ' + e.message, 'error'); }
 }
@@ -764,420 +699,283 @@ async function connectPostmaster() {
 async function disconnectPostmaster() {
   if (!confirm('Disconnect Google Postmaster Tools? Your historical metrics will be preserved.')) return;
   try {
-    const res = await fetch('/api/postmaster/disconnect', { method: 'POST', headers: { 'Authorization': 'Bearer ' + getToken() } });
+    var res = await fetch('/api/postmaster/disconnect', { method: 'POST', headers: authHeaders() });
     if (!res.ok) throw new Error();
     showToast('Google Postmaster disconnected');
     loadPostmasterStatus();
-  } catch { showToast('Failed to disconnect', 'error'); }
+  } catch (e) { showToast('Failed to disconnect', 'error'); }
 }
 
 async function syncPostmaster() {
-  const btn = document.getElementById('pm-sync-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Syncing...'; }
+  var btn = document.getElementById('pm-sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
   try {
-    const res = await fetch('/api/postmaster/sync', { method: 'POST', headers: { 'Authorization': 'Bearer ' + getToken() } });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Sync failed'); }
-    const data = await res.json();
+    var res = await fetch('/api/postmaster/sync', { method: 'POST', headers: authHeaders() });
+    if (!res.ok) { var err = await res.json(); throw new Error(err.detail || 'Sync failed'); }
+    var data = await res.json();
     if (data.errors && data.errors.length > 0) showToast(data.errors[0], 'error');
     else if (data.domains_synced === 0) showToast('Synced 0 domains. Verify at postmaster.google.com', 'error');
-    else showToast(`Synced ${data.domains_synced} domain(s), ${data.metrics_saved} metric(s)`);
+    else showToast('Synced ' + data.domains_synced + ' domain(s), ' + data.metrics_saved + ' metric(s)');
   } catch (e) { showToast('Sync failed: ' + e.message, 'error'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = 'Sync Now'; } }
 }
 
-// ─── Delete Account ────────────────────────────────────────
-function confirmDelete() {
-  if (!confirm('Are you sure? This is permanent and cannot be undone.')) return;
-  const input = prompt('Type DELETE to permanently remove your account:');
-  if (input === 'DELETE') deleteAccount();
-  else showToast('Account deletion cancelled', 'error');
-}
-
-async function deleteAccount() {
-  try {
-    const res = await fetch('/api/user/account', { method: 'DELETE', headers: getHeaders() });
-    if (!res.ok) throw new Error();
-    showToast('Account deleted. Redirecting...');
-    setTimeout(() => { localStorage.clear(); sessionStorage.clear(); window.location.href = '/'; }, 2000);
-  } catch { showToast('Failed to delete account', 'error'); }
-}
-
-// ─── Export Data ───────────────────────────────────────────
-async function exportData() {
-  showToast('Preparing export...');
-  try {
-    const res = await fetch('/api/user/export', { headers: getHeaders() });
-    if (!res.ok) throw new Error();
-    const data = await res.json();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'inboxscore-export.json'; a.click();
-    URL.revokeObjectURL(url);
-    showToast('Data exported');
-  } catch { showToast('Export failed', 'error'); }
-}
-
-// ─── Init ──────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  loadSettings();
-  loadPostmasterStatus();
-
-  // Postmaster callback status
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('postmaster') === 'connected') {
-    showToast('Google Postmaster connected successfully!');
-    window.history.replaceState({}, '', '/settings');
-    // Auto-switch to Connected Services panel
-    showSettingsPanel('connections', document.querySelectorAll('.settings-sidebar a')[1]);
-  } else if (params.get('postmaster') === 'error') {
-    showToast('Failed to connect Google Postmaster. Please try again.', 'error');
-    window.history.replaceState({}, '', '/settings');
-    showSettingsPanel('connections', document.querySelectorAll('.settings-sidebar a')[1]);
-  } else if (params.get('tab') === 'connections' || params.get('tab') === 'connected-services') {
-    // INBOX-92: Dashboard's Provider Status cards (Google / Microsoft / Yahoo)
-    // deep-link here with ?tab=connections so users land directly on the
-    // connect/disconnect/sync controls instead of the General tab.
-    showSettingsPanel('connections', document.querySelectorAll('.settings-sidebar a')[1]);
-  }
-
-  // Close sidebar on main click (mobile)
-  document.querySelector('.main').addEventListener('click', () => {
-    document.querySelector('.sidebar').classList.remove('open');
-    document.getElementById('sidebar-backdrop').classList.remove('show');
-  });
-
-  // Alert badge
-  const token = getToken();
-  if (token) {
-    fetch('/api/user/alerts/count', { headers: { 'Authorization': 'Bearer ' + token } })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data && data.unread_count > 0) {
-          const badge = document.getElementById('sidebar-badge');
-          badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
-          badge.style.display = 'inline';
-        }
-      }).catch(() => {});
-
-    // Load SNDS connection status
-    loadSndsStatus();
-  }
-});
-
-// ─── MICROSOFT SNDS FUNCTIONS ──────────────────────────────
-
+/* ═══════════ MICROSOFT SNDS ═══════════ */
 function loadSndsStatus() {
-  const token = getToken();
+  var token = getToken();
   if (!token) return;
-  fetch('/api/snds/status', { headers: { 'Authorization': 'Bearer ' + token } })
-    .then(r => {
+  fetch('/api/snds/status', { headers: authHeaders() })
+    .then(function (r) {
       if (r.status === 403) return { connected: false, is_pro: false };
       return r.ok ? r.json() : { connected: false, is_pro: true };
     })
-    .then(data => {
-      const card = document.getElementById('snds-card');
-      const statusText = document.getElementById('snds-status-text');
-      const actionsDisc = document.getElementById('snds-actions-disconnected');
-      const actionsConn = document.getElementById('snds-actions-connected');
-
+    .then(function (data) {
+      var statusText = document.getElementById('snds-status');
+      var actions = document.getElementById('snds-actions');
       if (!data.is_pro) {
         statusText.textContent = 'Requires Pro plan';
-        card.style.borderStyle = 'dashed';
-        card.style.opacity = '0.6';
-        actionsDisc.style.display = 'none';
-        actionsConn.style.display = 'none';
+        actions.innerHTML = '<span class="set-pro-pill">Pro</span>';
       } else if (data.connected) {
-        const ipText = data.ip_count ? `${data.ip_count} IP${data.ip_count > 1 ? 's' : ''} monitored` : 'Connected';
-        let syncText = '';
-        if (data.last_sync_at) {
-          const ago = timeAgo(data.last_sync_at);
-          syncText = ` · Last sync: ${ago}`;
-        }
-        statusText.innerHTML = `<span style="color:var(--green);">● Connected</span> · ${escapeHtml(ipText)}${escapeHtml(syncText)}`;
-        card.style.borderStyle = 'solid';
-        card.style.opacity = '1';
-        actionsDisc.style.display = 'none';
-        actionsConn.style.display = 'flex';
+        var ipText = data.ip_count ? data.ip_count + ' IP' + (data.ip_count > 1 ? 's' : '') + ' monitored' : 'Connected';
+        var syncText = '';
+        if (data.last_sync_at) syncText = ' · Last sync: ' + timeAgo(data.last_sync_at);
+        statusText.innerHTML = '<span class="set-conn-status-dot connected"></span> Connected · ' + escapeHtml(ipText) + escapeHtml(syncText);
+        actions.innerHTML =
+          '<button class="set-btn-sm" id="snds-sync-btn" onclick="sndsSyncNow()">Sync Now</button>' +
+          ' <button class="set-btn-danger" onclick="sndsDisconnect()">Disconnect</button>';
       } else {
-        statusText.textContent = 'IP reputation & junk mail data · Not connected';
-        card.style.borderStyle = 'dashed';
-        card.style.opacity = '1';
-        actionsDisc.style.display = 'flex';
-        actionsConn.style.display = 'none';
+        statusText.textContent = 'IP reputation & junk mail data';
+        actions.innerHTML = '<button class="set-btn-primary" onclick="openSndsModal()">Connect</button>';
       }
     })
-    .catch(() => {
-      document.getElementById('snds-status-text').textContent = 'Unable to check status';
+    .catch(function () {
+      document.getElementById('snds-status').textContent = 'Unable to check status';
     });
 }
 
 function openSndsModal() {
-  const modal = document.getElementById('snds-modal');
-  modal.style.display = 'flex';
-  // Reset to input step
+  var modal = document.getElementById('snds-modal');
+  modal.classList.add('show');
   document.getElementById('snds-step-input').style.display = 'block';
   document.getElementById('snds-step-progress').style.display = 'none';
   document.getElementById('snds-step-success').style.display = 'none';
-  document.getElementById('snds-modal-close').style.display = 'block';
+  document.getElementById('snds-modal-close').style.display = 'flex';
   document.getElementById('snds-key-input').value = '';
   document.getElementById('snds-modal-error').style.display = 'none';
-  // INBOX-124: keep button disabled until user types a valid UUID
-  const btn = document.getElementById('snds-connect-btn');
+  var btn = document.getElementById('snds-connect-btn');
   btn.disabled = true;
-  btn.style.opacity = '0.5';
   btn.textContent = 'Connect & Validate';
-  // Reset helper / cleaned-note / format-error to default state
-  const helper = document.getElementById('snds-key-helper');
-  const cleanedNote = document.getElementById('snds-key-cleaned-note');
-  const formatErr = document.getElementById('snds-key-format-error');
-  if (helper) helper.style.display = 'block';
-  if (cleanedNote) cleanedNote.style.display = 'none';
-  if (formatErr) formatErr.style.display = 'none';
+  document.getElementById('snds-key-helper').style.display = 'block';
+  document.getElementById('snds-key-cleaned-note').style.display = 'none';
+  document.getElementById('snds-key-format-error').style.display = 'none';
+  /* Reset progress steps */
+  ['1','2','3'].forEach(function (n) {
+    var el = document.getElementById('snds-prog-' + n);
+    if (el) el.className = 'set-prog-step';
+  });
+  setTimeout(function () { document.getElementById('snds-key-input').focus(); }, 80);
 }
 
 function closeSndsModal() {
-  document.getElementById('snds-modal').style.display = 'none';
+  document.getElementById('snds-modal').classList.remove('show');
 }
 
 function setSndsProgress(step, status) {
-  // status: 'active' (spinning), 'done' (checkmark), 'pending' (empty), 'error' (red X)
-  const el = document.getElementById('snds-prog-' + step);
+  var el = document.getElementById('snds-prog-' + step);
   if (!el) return;
-  const icon = el.querySelector('.snds-prog-icon');
-  if (status === 'active') {
-    el.style.color = 'var(--text)';
-    icon.style.borderColor = 'var(--accent)';
-    icon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" style="animation:snds-spin 1s linear infinite;"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="30 70" stroke-linecap="round"/></svg>';
-  } else if (status === 'done') {
-    el.style.color = 'var(--green)';
-    icon.style.borderColor = 'var(--green)';
-    icon.style.background = 'var(--green)';
-    icon.innerHTML = '<span style="color:white;font-size:11px;font-weight:700;">&#10003;</span>';
-  } else if (status === 'error') {
-    el.style.color = 'var(--red)';
-    icon.style.borderColor = 'var(--red)';
-    icon.innerHTML = '<span style="color:var(--red);font-size:12px;font-weight:700;">&times;</span>';
-  } else {
-    el.style.color = 'var(--text-muted)';
-    icon.style.borderColor = 'var(--border)';
-    icon.style.background = 'transparent';
-    icon.innerHTML = '';
-  }
+  el.classList.remove('active','done','error');
+  if (status === 'active') el.classList.add('active');
+  else if (status === 'done') el.classList.add('done');
+  else if (status === 'error') el.classList.add('error');
 }
 
-// ─── SNDS key input cleanup (INBOX-124) ─────────────────────────
-// Users frequently paste the full URL from the SNDS portal page
-// (e.g. "/data/?key=<UUID>" or "https://...?key=<UUID>") instead
-// of just the UUID. They also paste with stray whitespace or smart
-// quotes. cleanSndsKey() heals all of that silently and returns the
-// canonical 36-char UUID — or the trimmed input if no UUID found
-// (so the regex check below can flag it).
-const SNDS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
+/* INBOX-124 — SNDS key input cleanup */
+var SNDS_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function cleanSndsKey(raw) {
   if (!raw) return { value: '', wasUrl: false };
-  // Strip whitespace + smart quotes / backticks at ends
-  let v = String(raw).trim().replace(/^["'`‘’“”]+|["'`‘’“”]+$/g, '');
-  let wasUrl = false;
-  // If a `key=` segment is present anywhere, take everything after it
-  // up to the next `&` or whitespace — handles full URLs, paths,
-  // query strings, copy-from-browser-address-bar, etc.
-  const keyIdx = v.toLowerCase().indexOf('key=');
+  var v = String(raw).trim().replace(/^["'`‘’“”]+|["'`‘’“”]+$/g, '');
+  var wasUrl = false;
+  var keyIdx = v.toLowerCase().indexOf('key=');
   if (keyIdx >= 0) {
     v = v.slice(keyIdx + 4);
-    const stop = v.search(/[&\s#]/);
+    var stop = v.search(/[&\s#]/);
     if (stop >= 0) v = v.slice(0, stop);
     wasUrl = true;
   }
-  return { value: v.trim(), wasUrl };
+  return { value: v.trim(), wasUrl: wasUrl };
 }
-
-function sndsKeyOnInput(_e) {
-  const inp = document.getElementById('snds-key-input');
-  const helper = document.getElementById('snds-key-helper');
-  const cleanedNote = document.getElementById('snds-key-cleaned-note');
-  const formatErr = document.getElementById('snds-key-format-error');
-  const btn = document.getElementById('snds-connect-btn');
-  const modalErr = document.getElementById('snds-modal-error');
-  // Hide any prior server error from a failed Connect attempt
+function sndsKeyOnInput() {
+  var inp = document.getElementById('snds-key-input');
+  var helper = document.getElementById('snds-key-helper');
+  var cleanedNote = document.getElementById('snds-key-cleaned-note');
+  var formatErr = document.getElementById('snds-key-format-error');
+  var btn = document.getElementById('snds-connect-btn');
+  var modalErr = document.getElementById('snds-modal-error');
   if (modalErr) modalErr.style.display = 'none';
 
-  const raw = inp.value;
-  const { value: cleaned, wasUrl } = cleanSndsKey(raw);
+  var raw = inp.value;
+  var cleaned = cleanSndsKey(raw);
+  if (cleaned.value !== raw && cleaned.value !== raw.trim()) inp.value = cleaned.value;
 
-  // If we cleaned anything, replace input value silently — but only
-  // if the cleaned form differs (avoid resetting the cursor every
-  // keystroke).
-  if (cleaned !== raw && cleaned !== raw.trim()) {
-    inp.value = cleaned;
-  }
-
-  // Empty → reset all messages, disable button
-  if (!cleaned) {
+  if (!cleaned.value) {
     helper.style.display = 'block';
     cleanedNote.style.display = 'none';
     formatErr.style.display = 'none';
     btn.disabled = true;
-    btn.style.opacity = '0.5';
     return;
   }
-
-  // Non-empty → check UUID format
-  const valid = SNDS_UUID_RE.test(cleaned);
+  var valid = SNDS_UUID_RE.test(cleaned.value);
   if (valid) {
     helper.style.display = 'none';
     formatErr.style.display = 'none';
-    cleanedNote.style.display = wasUrl ? 'block' : 'none';
+    cleanedNote.style.display = cleaned.wasUrl ? 'block' : 'none';
     btn.disabled = false;
-    btn.style.opacity = '1';
   } else {
     helper.style.display = 'none';
     cleanedNote.style.display = 'none';
     formatErr.style.display = 'block';
     btn.disabled = true;
-    btn.style.opacity = '0.5';
   }
 }
-
-function sndsKeyOnPaste(e) {
-  // Let the default paste happen, then run cleanup on next tick.
-  // (Doing it here lets the browser apply the paste, then we tidy.)
-  setTimeout(() => sndsKeyOnInput(e), 0);
-}
+function sndsKeyOnPaste() { setTimeout(sndsKeyOnInput, 0); }
 
 async function sndsConnect() {
-  const inp = document.getElementById('snds-key-input');
-  const { value: key } = cleanSndsKey(inp.value);
-  // Defensive — button should already be disabled, but check format too
-  if (!key) {
-    document.getElementById('snds-modal-error').textContent = 'Please enter your SNDS key';
-    document.getElementById('snds-modal-error').style.display = 'block';
-    return;
-  }
-  if (!SNDS_UUID_RE.test(key)) {
-    document.getElementById('snds-modal-error').textContent = 'Key format invalid — expected a 36-character UUID.';
-    document.getElementById('snds-modal-error').style.display = 'block';
-    return;
-  }
+  var inp = document.getElementById('snds-key-input');
+  var keyResult = cleanSndsKey(inp.value);
+  var key = keyResult.value;
+  var modalErr = document.getElementById('snds-modal-error');
+  if (!key) { modalErr.textContent = 'Please enter your SNDS key'; modalErr.style.display = 'block'; return; }
+  if (!SNDS_UUID_RE.test(key)) { modalErr.textContent = 'Key format invalid — expected a 36-character UUID.'; modalErr.style.display = 'block'; return; }
 
-  // Switch to progress view
   document.getElementById('snds-step-input').style.display = 'none';
   document.getElementById('snds-step-progress').style.display = 'block';
-  document.getElementById('snds-modal-close').style.display = 'none'; // prevent closing during validation
+  document.getElementById('snds-modal-close').style.display = 'none';
 
-  // Animate progress steps
   setSndsProgress(1, 'active');
   setSndsProgress(2, 'pending');
   setSndsProgress(3, 'pending');
 
-  // Small delay so user sees step 1
-  await new Promise(r => setTimeout(r, 800));
+  await new Promise(function (r) { setTimeout(r, 800); });
   setSndsProgress(1, 'done');
   setSndsProgress(2, 'active');
 
   try {
-    const token = getToken();
-    const resp = await fetch('/api/snds/connect', {
+    var resp = await fetch('/api/snds/connect', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ snds_key: key }),
+      headers: getHeaders(),
+      body: JSON.stringify({ snds_key: key })
     });
-    const data = await resp.json();
-
+    var data = await resp.json();
     if (resp.ok && data.success) {
       setSndsProgress(2, 'done');
       setSndsProgress(3, 'active');
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(function (r) { setTimeout(r, 600); });
       setSndsProgress(3, 'done');
-      await new Promise(r => setTimeout(r, 400));
-
-      // Show success
+      await new Promise(function (r) { setTimeout(r, 400); });
       document.getElementById('snds-step-progress').style.display = 'none';
       document.getElementById('snds-step-success').style.display = 'block';
-      document.getElementById('snds-modal-close').style.display = 'block';
-      const ipCount = data.ip_count || 0;
+      document.getElementById('snds-modal-close').style.display = 'flex';
+      var ipCount = data.ip_count || 0;
       document.getElementById('snds-success-detail').textContent =
-        ipCount > 0 ? `Found ${ipCount} sending IP${ipCount > 1 ? 's' : ''} in your SNDS data.` : 'Connected! Data will appear after the next sync.';
+        ipCount > 0 ? 'Found ' + ipCount + ' sending IP' + (ipCount > 1 ? 's' : '') + ' in your SNDS data.' : 'Connected! Data will appear after the next sync.';
     } else {
-      setSndsProgress(2, 'error');
-      document.getElementById('snds-modal-close').style.display = 'block';
-      // Show error in progress view
-      const errDiv = document.createElement('div');
-      errDiv.style.cssText = 'margin-top:16px;padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:12px;color:var(--red);';
-      errDiv.textContent = data.detail || data.error || 'Failed to validate key. Please check and try again.';
-      const retryBtn = document.createElement('button');
-      retryBtn.textContent = 'Try Again';
-      retryBtn.style.cssText = 'margin-top:10px;padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;';
-      retryBtn.onclick = () => openSndsModal();
-      errDiv.appendChild(document.createElement('br'));
-      errDiv.appendChild(retryBtn);
-      document.getElementById('snds-progress-steps').appendChild(errDiv);
+      sndsShowError(data.detail || data.error || 'Failed to validate key. Please check and try again.');
     }
   } catch (e) {
-    setSndsProgress(2, 'error');
-    document.getElementById('snds-modal-close').style.display = 'block';
-    const errDiv = document.createElement('div');
-    errDiv.style.cssText = 'margin-top:16px;padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:12px;color:var(--red);';
-    errDiv.textContent = 'Connection error. Please check your network and try again.';
-    const retryBtn = document.createElement('button');
-    retryBtn.textContent = 'Try Again';
-    retryBtn.style.cssText = 'margin-top:10px;padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:13px;cursor:pointer;';
-    retryBtn.onclick = () => openSndsModal();
-    errDiv.appendChild(document.createElement('br'));
-    errDiv.appendChild(retryBtn);
-    document.getElementById('snds-progress-steps').appendChild(errDiv);
+    sndsShowError('Connection error. Please check your network and try again.');
   }
 }
 
-async function sndsSyncNow() {
-  const btn = document.getElementById('snds-sync-btn');
-  btn.textContent = 'Syncing...';
-  btn.disabled = true;
+function sndsShowError(message) {
+  setSndsProgress(2, 'error');
+  document.getElementById('snds-modal-close').style.display = 'flex';
+  var stepsHost = document.getElementById('snds-progress-steps');
+  var existing = stepsHost.querySelector('.snds-error-block');
+  if (existing) existing.remove();
+  var errDiv = document.createElement('div');
+  errDiv.className = 'snds-error-block';
+  errDiv.style.cssText = 'margin-top:14px;padding:12px;background:var(--red-bg);border:1px solid var(--red);border-radius:8px;font-size:12px;color:var(--red);';
+  errDiv.textContent = message;
+  var retryBtn = document.createElement('button');
+  retryBtn.textContent = 'Try Again';
+  retryBtn.className = 'set-modal-cta';
+  retryBtn.style.cssText = 'margin-top:10px;width:auto;padding:6px 14px;font-size:12px;';
+  retryBtn.onclick = function () { openSndsModal(); };
+  errDiv.appendChild(document.createElement('br'));
+  errDiv.appendChild(retryBtn);
+  stepsHost.appendChild(errDiv);
+}
 
+async function sndsSyncNow() {
+  var btn = document.getElementById('snds-sync-btn');
+  btn.textContent = 'Syncing…'; btn.disabled = true;
   try {
-    const token = getToken();
-    const resp = await fetch('/api/snds/sync', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token },
-    });
-    if (resp.ok) {
-      loadSndsStatus();
-    }
+    var resp = await fetch('/api/snds/sync', { method: 'POST', headers: authHeaders() });
+    if (resp.ok) loadSndsStatus();
   } catch (e) {
     console.error('SNDS sync error:', e);
   } finally {
-    btn.textContent = 'Sync Now';
-    btn.disabled = false;
+    btn.textContent = 'Sync Now'; btn.disabled = false;
   }
 }
 
 async function sndsDisconnect() {
   if (!confirm('Disconnect Microsoft SNDS? This will remove all stored SNDS data.')) return;
-
   try {
-    const token = getToken();
-    await fetch('/api/snds/disconnect', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token },
-    });
+    await fetch('/api/snds/disconnect', { method: 'POST', headers: authHeaders() });
     loadSndsStatus();
-  } catch (e) {
-    console.error('SNDS disconnect error:', e);
-  }
+  } catch (e) { console.error('SNDS disconnect error:', e); }
 }
 
-function timeAgo(dateStr) {
-  if (!dateStr) return '';
-  const now = new Date();
-  const then = new Date(dateStr);
-  const diffMs = now - then;
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
-}
+/* ═══════════ KEYBOARD ═══════════ */
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    closeEditModal();
+    /* Don't allow closing SNDS modal during validation (close button hidden) */
+    var sndsClose = document.getElementById('snds-modal-close');
+    if (sndsClose && sndsClose.style.display !== 'none') closeSndsModal();
+  }
+});
+
+/* ═══════════ INIT ═══════════ */
+window.addEventListener('DOMContentLoaded', function () {
+  loadSettings();
+  loadPostmasterStatus();
+  loadSndsStatus();
+
+  /* Postmaster OAuth callback */
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('postmaster') === 'connected') {
+    showToast('Google Postmaster connected successfully!');
+    window.history.replaceState({}, '', '/settings');
+    setSettingsTab('connections');
+  } else if (params.get('postmaster') === 'error') {
+    showToast('Failed to connect Google Postmaster. Please try again.', 'error');
+    window.history.replaceState({}, '', '/settings');
+    setSettingsTab('connections');
+  } else if (params.get('tab') === 'connections' || params.get('tab') === 'connected-services') {
+    setSettingsTab('connections');
+  }
+
+  /* Sidebar badge */
+  var token = getToken();
+  if (token) {
+    fetch('/api/user/alerts/count', { headers: authHeaders() })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (data && data.unread_count > 0) {
+          var badge = document.getElementById('sidebar-badge');
+          badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+          badge.style.display = 'inline';
+        }
+      }).catch(function () {});
+  }
+
+  /* Mobile: close sidebar on main click */
+  var mainEl = document.querySelector('.main');
+  if (mainEl) mainEl.addEventListener('click', function () { document.querySelector('.sidebar').classList.remove('open'); });
+});
 </script>
+
 </body>
 </html>
