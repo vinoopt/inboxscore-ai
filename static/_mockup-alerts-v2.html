@@ -43,13 +43,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 
 .layout { display: flex; flex: 1; }
 
-/* ════════════════════ SIDEBAR (canonical) ════════════════════ */
+/* ══════ SIDEBAR (canonical) ══════ */
 .sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; flex-shrink: 0; display: flex; flex-direction: column; }
 .sidebar-nav { list-style: none; }
 .sidebar-nav li a {
   display: flex; align-items: center; gap: 10px;
-  padding: 7px 10px;
-  color: var(--text-muted); text-decoration: none;
+  padding: 7px 10px; color: var(--text-muted); text-decoration: none;
   font-size: 13px; font-weight: 500;
   border-radius: 7px;
   transition: background 100ms ease, color 100ms ease;
@@ -88,12 +87,12 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 }
 .plan-pill-tier { font-weight: 500; color: var(--text); text-transform: capitalize; }
 
-/* ════════════════════ MAIN ════════════════════ */
+/* ══════ MAIN ══════ */
 .main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: 100vh; }
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
 .page-header-left { min-width: 0; }
 .page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; max-width: 720px; }
+.page-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; max-width: 720px; }
 .page-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .user-name { font-size: 13px; color: var(--text-muted); }
 .theme-toggle-btn {
@@ -110,7 +109,60 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
 .logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
 
-/* ════════════════════ TABS (Feed / Rules / Channels) ════════════════════ */
+/* ══════ DOMAIN DROPDOWN — canonical pattern from blacklist.html ══════ */
+.al-domain-select {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text); cursor: pointer;
+  position: relative;
+  transition: border-color 100ms ease;
+  font-family: inherit;
+  margin-bottom: 24px;
+}
+.al-domain-select:hover { border-color: var(--text); }
+.al-domain-select-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text-subtle);
+  flex-shrink: 0;
+}
+.al-domain-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 5;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.al-domain-dropdown.open { display: block; }
+.al-domain-dropdown-item {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 100ms ease;
+  display: flex; align-items: center; gap: 8px;
+}
+.al-domain-dropdown-item:last-child { border-bottom: none; }
+.al-domain-dropdown-item:hover { background: var(--surface-2); }
+.al-domain-dropdown-item.selected {
+  background: var(--surface-2);
+  color: var(--text); font-weight: 500;
+}
+.al-domain-dropdown-divider {
+  height: 1px; background: var(--border);
+  margin: 4px 0;
+}
+
+/* ══════ TABS (Feed / Rules / Channels) ══════ */
 .al-tabs {
   display: flex; gap: 0;
   border-bottom: 1px solid var(--border);
@@ -146,10 +198,10 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .al-tab-panel { display: none; }
 .al-tab-panel.active { display: block; }
 
-/* ════════════════════ FEED — filter chips ════════════════════ */
+/* ══════ FEED — severity chips + range anchor ══════ */
 .al-filter-row {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 .al-chip {
   display: inline-flex; align-items: center; gap: 6px;
@@ -172,23 +224,15 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 }
 .al-chip.severity-critical:not(.active) .al-chip-dot { background: var(--red); }
 .al-chip.severity-warning:not(.active) .al-chip-dot { background: var(--yellow); }
-.al-chip-divider {
-  width: 1px; height: 16px; background: var(--border-strong);
-  margin: 0 4px;
-}
-.al-chip-label {
-  font-size: 11px; color: var(--text-subtle); margin-right: 4px;
-  text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
-}
-.al-mark-all {
-  margin-left: auto;
-  background: none; border: none;
-  font-size: 12px; color: var(--accent); font-weight: 500;
-  cursor: pointer; font-family: inherit;
-}
-.al-mark-all:hover { text-decoration: underline; }
 
-/* ════════════════════ ALERT LIST ════════════════════ */
+.al-range-anchor {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-subtle);
+  margin-bottom: 16px;
+}
+.al-range-anchor svg { width: 12px; height: 12px; color: var(--text-subtle); }
+
+/* ══════ ALERT LIST (no per-row actions, no resolved state) ══════ */
 .al-list { display: flex; flex-direction: column; gap: 8px; }
 .al-item {
   display: flex; align-items: flex-start; gap: 14px;
@@ -199,12 +243,9 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   transition: all 100ms ease;
 }
 .al-item:hover { background: var(--surface-2); border-color: var(--border-strong); }
-.al-item.unread { border-left: 3px solid var(--accent); padding-left: 14px; }
-.al-item.resolved { opacity: 0.62; }
-.al-item.resolved .al-title { text-decoration: line-through; text-decoration-color: var(--text-subtle); }
 
 .al-sev-icon {
-  flex-shrink: 0; width: 24px; height: 24px;
+  flex-shrink: 0; width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 6px;
   margin-top: 1px;
@@ -223,7 +264,6 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .al-desc {
   font-size: 13px; color: var(--text-muted);
   margin-top: 4px; line-height: 1.5;
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 .al-domain {
   font-size: 11px; color: var(--text-subtle);
@@ -232,30 +272,14 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   font-family: 'Geist Mono', monospace;
 }
 .al-domain svg { width: 11px; height: 11px; color: var(--text-subtle); }
-.al-resolved-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px;
-  background: var(--green-bg); color: var(--green);
-  font-size: 10px; font-weight: 500;
-  border-radius: 999px;
-  text-transform: uppercase; letter-spacing: 0.04em;
+.al-chevron {
+  flex-shrink: 0; align-self: center;
+  color: var(--text-subtle);
 }
-.al-row-actions {
-  display: flex; gap: 4px; flex-shrink: 0; align-self: center;
-}
-.al-icon-btn {
-  width: 28px; height: 28px; padding: 0;
-  border: 1px solid transparent;
-  background: transparent; color: var(--text-subtle);
-  border-radius: 6px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 100ms ease; font-family: inherit;
-}
-.al-icon-btn:hover { color: var(--text); background: var(--surface-3); border-color: var(--border-strong); }
-.al-icon-btn.delete:hover { color: var(--red); border-color: var(--red); }
-.al-icon-btn svg { width: 14px; height: 14px; }
+.al-chevron svg { width: 16px; height: 16px; }
+.al-item:hover .al-chevron { color: var(--text); }
 
-/* ════════════════════ EMPTY / PAGER ════════════════════ */
+/* ══════ EMPTY ══════ */
 .al-empty-state {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; padding: 48px; text-align: center;
@@ -264,24 +288,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .al-empty-state h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
 .al-empty-state p { color: var(--text-muted); font-size: 14px; max-width: 480px; margin: 0 auto; }
 
-.al-pager {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-top: 20px;
-  padding: 12px 0;
-}
-.al-pager-info { font-size: 12px; color: var(--text-muted); }
-.al-pager-btns { display: flex; gap: 6px; }
-.al-pager-btn {
-  padding: 6px 12px; border-radius: 6px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface); color: var(--text);
-  font-size: 12px; cursor: pointer; font-family: inherit;
-  transition: all 100ms ease;
-}
-.al-pager-btn:hover:not(:disabled) { border-color: var(--text); }
-.al-pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* ════════════════════ RULES + CHANNELS — config cards ════════════════════ */
+/* ══════ RULES + CHANNELS ══════ */
 .al-cfg-section { margin-bottom: 24px; }
 .al-cfg-h {
   font-size: 11px; color: var(--text-subtle);
@@ -313,8 +320,6 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   border-radius: 999px;
   text-transform: uppercase; letter-spacing: 0.04em;
 }
-
-/* V2 zinc toggle */
 .al-toggle {
   position: relative;
   width: 36px; height: 20px;
@@ -336,7 +341,6 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 }
 .al-toggle.on { background: var(--text); border-color: var(--text); }
 .al-toggle.on::after { transform: translateX(16px); background: var(--surface); }
-
 .al-setup-btn {
   padding: 6px 14px; border-radius: 8px;
   border: 1px solid var(--border-strong);
@@ -347,7 +351,6 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 }
 .al-setup-btn:hover:not(:disabled) { border-color: var(--text); }
 .al-setup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
 .al-cfg-save-row {
   display: flex; align-items: center; justify-content: flex-end; gap: 12px;
   margin-top: 16px;
@@ -364,7 +367,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 }
 .al-cfg-save-btn:hover { opacity: 0.9; }
 
-/* ════════════════════ MODAL — alert detail ════════════════════ */
+/* ══════ MODAL — alert detail ══════ */
 .al-modal-overlay {
   display: none; position: fixed; inset: 0;
   background: rgba(0,0,0,0.6); z-index: 50;
@@ -437,8 +440,6 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   transition: all 100ms ease; font-family: inherit;
 }
 .al-btn:hover { border-color: var(--text); }
-.al-btn-danger { color: var(--red); border-color: var(--red); }
-.al-btn-danger:hover { background: var(--red-bg); }
 .al-btn-primary {
   background: var(--text); color: var(--surface); border-color: var(--text);
 }
@@ -452,9 +453,8 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   .mobile-toggle { display: block; }
   .main { padding: 24px 16px; }
   .page-header { flex-direction: column; gap: 12px; }
-  .al-filter-row { flex-direction: row; }
   .al-tabs { overflow-x: auto; }
-  .al-mark-all { margin-left: 0; }
+  .al-domain-select { width: 100%; }
 }
 </style>
 </head>
@@ -506,6 +506,23 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
         </div>
       </div>
 
+      <!-- Domain dropdown — canonical pattern from blacklist.html -->
+      <div class="al-domain-select-wrap" style="position: relative; display: inline-block; margin-bottom: 24px;">
+        <button class="al-domain-select" onclick="toggleDomainDropdown(event)">
+          <span class="al-domain-select-dot"></span>
+          <span id="selected-domain-label">All domains</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="al-domain-dropdown" id="domain-dropdown">
+          <div class="al-domain-dropdown-item selected" onclick="selectDomain('All domains')">All domains</div>
+          <div class="al-domain-dropdown-divider"></div>
+          <div class="al-domain-dropdown-item" onclick="selectDomain('mailercloud.com')">mailercloud.com</div>
+          <div class="al-domain-dropdown-item" onclick="selectDomain('voicenotes.com')">voicenotes.com</div>
+          <div class="al-domain-dropdown-item" onclick="selectDomain('redrail.redbus.com')">redrail.redbus.com</div>
+          <div class="al-domain-dropdown-item" onclick="selectDomain('newsletter.shoppersstop.com')">newsletter.shoppersstop.com</div>
+        </div>
+      </div>
+
       <!-- Tabs -->
       <div class="al-tabs" role="tablist">
         <button class="al-tab active" data-tab="feed" onclick="setTab('feed')" role="tab">Feed <span class="al-tab-count">12</span></button>
@@ -513,28 +530,26 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
         <button class="al-tab" data-tab="channels" onclick="setTab('channels')" role="tab">Channels</button>
       </div>
 
-      <!-- ═══════════ FEED TAB ═══════════ -->
+      <!-- ═══ FEED TAB ═══ -->
       <div class="al-tab-panel active" id="tab-feed" role="tabpanel">
 
-        <!-- Filter chips -->
+        <!-- Severity chips only — no Resolved chip, no per-domain chips (dropdown handles that) -->
         <div class="al-filter-row">
-          <button class="al-chip active" onclick="setFilter(this, 'all')">All</button>
-          <button class="al-chip severity-critical" onclick="setFilter(this, 'critical')"><span class="al-chip-dot"></span>Critical</button>
-          <button class="al-chip severity-warning" onclick="setFilter(this, 'warning')"><span class="al-chip-dot"></span>Warning</button>
-          <span class="al-chip-divider"></span>
-          <span class="al-chip-label">Domain</span>
-          <button class="al-chip" onclick="setFilter(this, 'mailercloud.com')">mailercloud.com</button>
-          <button class="al-chip" onclick="setFilter(this, 'voicenotes.com')">voicenotes.com</button>
-          <button class="al-chip" onclick="setFilter(this, 'redrail.redbus.com')">redrail.redbus.com</button>
-          <button class="al-chip" onclick="setFilter(this, 'newsletter.shoppersstop.com')">newsletter.shoppersstop.com</button>
-          <button class="al-mark-all" onclick="alert('Mark all read clicked')">Mark all read</button>
+          <button class="al-chip active" onclick="setFilter(this)">All</button>
+          <button class="al-chip severity-critical" onclick="setFilter(this)"><span class="al-chip-dot"></span>Critical</button>
+          <button class="al-chip severity-warning" onclick="setFilter(this)"><span class="al-chip-dot"></span>Warning</button>
         </div>
 
-        <!-- Alert list -->
+        <!-- Range anchor — sets expectation that this is the last 30 days -->
+        <div class="al-range-anchor">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Showing the last 30 days · 12 alerts
+        </div>
+
+        <!-- Alert list — flat, no resolved styling, no per-row actions -->
         <ul class="al-list">
 
-          <!-- Critical, unread -->
-          <li class="al-item unread" onclick="openAlert(1)">
+          <li class="al-item" onclick="openAlert(1)">
             <div class="al-sev-icon critical">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
@@ -546,14 +561,10 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
               <div class="al-desc">Gmail spam rate hit 0.42% on the past 24h — above Gmail's own block threshold.</div>
               <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>mailercloud.com · Google Postmaster</span>
             </div>
-            <div class="al-row-actions">
-              <button class="al-icon-btn" onclick="event.stopPropagation();alert('Mark as read')" title="Mark as read"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
-              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
+            <div class="al-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
           </li>
 
-          <!-- Warning, unread -->
-          <li class="al-item unread" onclick="openAlert(2)">
+          <li class="al-item" onclick="openAlert(2)">
             <div class="al-sev-icon warning">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
@@ -565,14 +576,10 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
               <div class="al-desc">DKIM authentication is succeeding on 97.3% of messages — investigate signing config.</div>
               <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>voicenotes.com · Email Health</span>
             </div>
-            <div class="al-row-actions">
-              <button class="al-icon-btn" onclick="event.stopPropagation();alert('Mark as read')" title="Mark as read"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
-              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
+            <div class="al-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
           </li>
 
-          <!-- Warning, unread -->
-          <li class="al-item unread" onclick="openAlert(3)">
+          <li class="al-item" onclick="openAlert(3)">
             <div class="al-sev-icon warning">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
@@ -584,14 +591,10 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
               <div class="al-desc">DMARC alignment fell below 99%. Some legitimate mail may be flagged at receivers.</div>
               <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>newsletter.shoppersstop.com · Email Health</span>
             </div>
-            <div class="al-row-actions">
-              <button class="al-icon-btn" onclick="event.stopPropagation();alert('Mark as read')" title="Mark as read"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
-              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
+            <div class="al-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
           </li>
 
-          <!-- Critical, read, RESOLVED — muted + line-through -->
-          <li class="al-item resolved" onclick="openAlert(4)">
+          <li class="al-item" onclick="openAlert(4)">
             <div class="al-sev-icon critical">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
@@ -600,16 +603,13 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
                 <span class="al-title">Listed on Spamhaus ZEN</span>
                 <span class="al-time">1d ago</span>
               </div>
-              <div class="al-desc">162.19.145.175 was listed on Spamhaus ZEN — now delisted. <span class="al-resolved-badge">Resolved</span></div>
+              <div class="al-desc">162.19.145.175 was added to the Spamhaus ZEN blocklist.</div>
               <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>162.19.145.175 · Blacklist Monitor</span>
             </div>
-            <div class="al-row-actions">
-              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
+            <div class="al-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
           </li>
 
-          <!-- Info, read, RESOLVED -->
-          <li class="al-item resolved" onclick="openAlert(5)">
+          <li class="al-item" onclick="openAlert(5)">
             <div class="al-sev-icon info">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             </div>
@@ -618,15 +618,12 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
                 <span class="al-title">DNS A record changed</span>
                 <span class="al-time">2d ago</span>
               </div>
-              <div class="al-desc">A record value updated from 162.19.145.10 to 162.19.145.20. <span class="al-resolved-badge">Resolved</span></div>
+              <div class="al-desc">A record value updated from 162.19.145.10 to 162.19.145.20.</div>
               <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>redrail.redbus.com · DNS Monitor</span>
             </div>
-            <div class="al-row-actions">
-              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
+            <div class="al-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
           </li>
 
-          <!-- Critical, read (NOT resolved — investigated but issue persists) -->
           <li class="al-item" onclick="openAlert(6)">
             <div class="al-sev-icon critical">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -639,25 +636,14 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
               <div class="al-desc">103.147.105.99 was added to the Barracuda Reputation Block List. Submit a delisting request to clear it.</div>
               <span class="al-domain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>103.147.105.99 · Blacklist Monitor</span>
             </div>
-            <div class="al-row-actions">
-              <button class="al-icon-btn delete" onclick="event.stopPropagation();alert('Delete')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
+            <div class="al-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div>
           </li>
 
         </ul>
 
-        <!-- Pager -->
-        <div class="al-pager">
-          <span class="al-pager-info">Showing 1–6 of 12</span>
-          <div class="al-pager-btns">
-            <button class="al-pager-btn" disabled>‹ Prev</button>
-            <button class="al-pager-btn">Next ›</button>
-          </div>
-        </div>
-
       </div>
 
-      <!-- ═══════════ RULES TAB ═══════════ -->
+      <!-- ═══ RULES TAB ═══ -->
       <div class="al-tab-panel" id="tab-rules" role="tabpanel">
         <div class="al-cfg-section">
           <div class="al-cfg-h">Trigger when…</div>
@@ -691,7 +677,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
         </div>
       </div>
 
-      <!-- ═══════════ CHANNELS TAB ═══════════ -->
+      <!-- ═══ CHANNELS TAB ═══ -->
       <div class="al-tab-panel" id="tab-channels" role="tabpanel">
         <div class="al-cfg-section">
           <div class="al-cfg-h">Channels</div>
@@ -739,7 +725,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   </main>
 </div>
 
-<!-- ════════════════════ ALERT DETAIL MODAL ════════════════════ -->
+<!-- ═══ ALERT DETAIL MODAL ═══ -->
 <div class="al-modal-overlay" id="alert-modal" onclick="if(event.target===this) closeAlert()">
   <div class="al-modal" role="dialog" aria-labelledby="al-modal-title">
     <div class="al-modal-header">
@@ -767,13 +753,8 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
         <span class="al-modal-meta-label">Triggered</span>
         <span class="al-modal-meta-value">May 7, 2026 · 13:42 UTC</span>
       </div>
-      <div class="al-modal-meta-row">
-        <span class="al-modal-meta-label">Status</span>
-        <span class="al-modal-meta-value">Unread</span>
-      </div>
     </div>
     <div class="al-modal-actions">
-      <button class="al-btn al-btn-danger" onclick="alert('Delete')">Delete</button>
       <button class="al-btn" onclick="closeAlert()">Close</button>
       <button class="al-btn al-btn-primary" onclick="alert('Investigate')">Investigate →</button>
     </div>
@@ -798,11 +779,26 @@ function setTab(tab) {
     p.classList.toggle('active', p.id === 'tab-' + tab);
   });
 }
-function setFilter(el, value) {
+function setFilter(el) {
   document.querySelectorAll('.al-chip').forEach(function (c) { c.classList.remove('active'); });
   el.classList.add('active');
-  /* Filter logic placeholder — real wiring lives in /alerts page */
 }
+function toggleDomainDropdown(e) {
+  e.stopPropagation();
+  document.getElementById('domain-dropdown').classList.toggle('open');
+}
+function selectDomain(name) {
+  document.getElementById('selected-domain-label').textContent = name;
+  document.querySelectorAll('.al-domain-dropdown-item').forEach(function (i) {
+    i.classList.toggle('selected', i.textContent.trim() === name);
+  });
+  document.getElementById('domain-dropdown').classList.remove('open');
+}
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.al-domain-select-wrap')) {
+    document.getElementById('domain-dropdown').classList.remove('open');
+  }
+});
 function openAlert(id) {
   document.getElementById('alert-modal').classList.add('show');
 }
