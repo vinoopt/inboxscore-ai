@@ -487,6 +487,212 @@ a { color: inherit; text-decoration: none; }
 .mkt-app-provider-status { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--green); }
 .mkt-app-provider-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
 
+/* ──────────── PANE SWITCHER ──────────── */
+.mkt-pane { display: none; }
+.mkt-pane.active { display: block; }
+
+.mkt-showcase-tab { -webkit-tap-highlight-color: transparent; }
+
+/* ── Postmaster pane ── */
+.mkt-pm-hero {
+  padding: 22px 26px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.mkt-pm-hero-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  margin-bottom: 8px;
+}
+.mkt-pm-hero-value {
+  font-size: 38px; font-weight: 700; letter-spacing: -0.03em;
+  color: var(--text-strong); line-height: 1; margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.mkt-pm-hero-trend { font-size: 12.5px; color: var(--green); margin-bottom: 14px; }
+.mkt-pm-chart { width: 100%; }
+.mkt-pm-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-bottom: 14px;
+}
+.mkt-pm-stat {
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.mkt-pm-stat-label {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle); margin-bottom: 6px;
+}
+.mkt-pm-stat-value { font-size: 20px; font-weight: 700; color: var(--text-strong); margin-bottom: 2px; letter-spacing: -0.02em; }
+.mkt-pm-stat-meta { font-size: 11.5px; color: var(--text-muted); }
+
+/* ── Microsoft SNDS pane ── */
+.mkt-ms-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  margin-bottom: 16px;
+}
+.mkt-ms-stat {
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.mkt-ms-stat-num {
+  font-size: 26px; font-weight: 700; letter-spacing: -0.025em;
+  color: var(--text-strong); margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.mkt-ms-stat.green .mkt-ms-stat-num { color: var(--green); }
+.mkt-ms-stat.yellow .mkt-ms-stat-num { color: var(--yellow); }
+.mkt-ms-stat.red .mkt-ms-stat-num { color: var(--red); }
+.mkt-ms-stat-label {
+  font-size: 10.5px; font-weight: 500;
+  color: var(--text-muted);
+}
+.mkt-ms-table {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.mkt-ms-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.7fr 0.7fr 0.9fr;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--border);
+}
+.mkt-ms-row:last-child { border-bottom: none; }
+.mkt-ms-row.mkt-ms-head {
+  background: var(--surface-2);
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+}
+.mkt-ms-row .mkt-mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11.5px; color: var(--text); }
+.mkt-ms-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 500;
+  background: var(--green-soft); color: var(--green); width: fit-content;
+}
+.mkt-ms-pill::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+/* ── Blacklist pane ── */
+.mkt-bl-hero {
+  display: flex; align-items: center; gap: 18px;
+  padding: 22px 26px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.mkt-bl-hero-icon {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--green-soft); color: var(--green);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.mkt-bl-hero-icon svg { width: 28px; height: 28px; }
+.mkt-bl-hero-title { font-size: 24px; font-weight: 700; letter-spacing: -0.025em; color: var(--text-strong); margin-bottom: 4px; }
+.mkt-bl-hero-meta { font-size: 13px; color: var(--text-muted); }
+.mkt-bl-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+}
+.mkt-bl-cell {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11.5px; color: var(--text);
+  font-weight: 500;
+}
+.mkt-bl-cell svg { width: 11px; height: 11px; color: var(--green); flex-shrink: 0; }
+
+/* ── Alerts pane ── */
+.mkt-al-channels {
+  display: inline-flex; gap: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px; overflow: hidden;
+  margin-bottom: 16px;
+}
+.mkt-al-channel {
+  padding: 7px 16px;
+  font-size: 13px; color: var(--text-muted);
+  background: transparent;
+  border: none;
+  font-family: inherit; cursor: pointer;
+}
+.mkt-al-channel.active { background: var(--surface-2); color: var(--text); font-weight: 500; }
+
+.mkt-al-rules {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.mkt-al-rule {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px; color: var(--text);
+}
+.mkt-al-rule:last-child { border-bottom: none; }
+.mkt-al-rule-meta { font-size: 11.5px; color: var(--text-subtle); margin-top: 2px; }
+.mkt-al-toggle {
+  width: 32px; height: 18px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  position: relative;
+  flex-shrink: 0;
+  transition: background 200ms;
+}
+.mkt-al-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: left 200ms;
+}
+.mkt-al-toggle.on { background: var(--text); }
+.mkt-al-toggle.on::after { left: 16px; background: var(--bg); }
+
+.mkt-al-recent-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  margin-bottom: 10px;
+}
+.mkt-al-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.mkt-al-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.mkt-al-item:last-child { border-bottom: none; }
+.mkt-al-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.mkt-al-dot.ok { background: var(--green); box-shadow: 0 0 6px rgba(16,185,129,0.55); }
+.mkt-al-dot.warn { background: var(--yellow); box-shadow: 0 0 6px rgba(245,158,11,0.55); }
+.mkt-al-msg { font-size: 13px; color: var(--text); }
+.mkt-al-meta { font-size: 11.5px; color: var(--text-subtle); margin-top: 2px; }
+
 /* ──────────── SECTION COMMON ──────────── */
 .mkt-section { padding: 96px 0; }
 .mkt-section-eyebrow {
@@ -791,11 +997,11 @@ a { color: inherit; text-decoration: none; }
 <!-- ════════ PRODUCT SHOWCASE ════════ -->
 <section class="mkt-showcase">
   <div class="mkt-showcase-tabs">
-    <button class="mkt-showcase-tab active">Dashboard</button>
-    <button class="mkt-showcase-tab">Postmaster</button>
-    <button class="mkt-showcase-tab">Microsoft SNDS</button>
-    <button class="mkt-showcase-tab">Blacklist Monitor</button>
-    <button class="mkt-showcase-tab">Alerts</button>
+    <button class="mkt-showcase-tab active" data-tab="dashboard">Dashboard</button>
+    <button class="mkt-showcase-tab" data-tab="postmaster">Postmaster</button>
+    <button class="mkt-showcase-tab" data-tab="microsoft">Microsoft SNDS</button>
+    <button class="mkt-showcase-tab" data-tab="blacklist">Blacklist Monitor</button>
+    <button class="mkt-showcase-tab" data-tab="alerts">Alerts</button>
   </div>
 
   <div class="mkt-showcase-frame">
@@ -804,7 +1010,7 @@ a { color: inherit; text-decoration: none; }
         <span class="mkt-window-dot"></span>
         <span class="mkt-window-dot"></span>
         <span class="mkt-window-dot"></span>
-        <span class="mkt-window-url">inboxscore.ai/dashboard</span>
+        <span class="mkt-window-url" id="mkt-window-url">inboxscore.ai/dashboard</span>
       </div>
 
       <div class="mkt-app">
@@ -819,19 +1025,19 @@ a { color: inherit; text-decoration: none; }
             InboxScore
           </div>
           <nav class="mkt-app-nav">
-            <span class="mkt-app-nav-item active">
+            <span class="mkt-app-nav-item active" data-nav="dashboard">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
               Dashboard
             </span>
-            <span class="mkt-app-nav-item">
+            <span class="mkt-app-nav-item" data-nav="postmaster">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
               Google Postmaster
             </span>
-            <span class="mkt-app-nav-item">
+            <span class="mkt-app-nav-item" data-nav="microsoft">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/></svg>
               Microsoft SNDS
             </span>
-            <span class="mkt-app-nav-item">
+            <span class="mkt-app-nav-item" data-nav="blacklist">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               Blacklist Monitor
             </span>
@@ -843,7 +1049,7 @@ a { color: inherit; text-decoration: none; }
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/></svg>
               Sending IPs
             </span>
-            <span class="mkt-app-nav-item">
+            <span class="mkt-app-nav-item" data-nav="alerts">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg>
               Alerts
             </span>
@@ -858,6 +1064,9 @@ a { color: inherit; text-decoration: none; }
         </aside>
 
         <main class="mkt-app-main">
+
+          <!-- ── PANE: DASHBOARD ── -->
+          <div class="mkt-pane active" id="pane-dashboard">
           <div class="mkt-app-header">
             <div>
               <div class="mkt-app-title">Dashboard</div>
@@ -974,6 +1183,147 @@ a { color: inherit; text-decoration: none; }
               <span class="mkt-app-provider-status">Connected</span>
             </div>
           </div>
+          </div><!-- /pane-dashboard -->
+
+          <!-- ── PANE: POSTMASTER ── -->
+          <div class="mkt-pane" id="pane-postmaster">
+            <div class="mkt-app-header">
+              <div>
+                <div class="mkt-app-title">Google Postmaster</div>
+                <div class="mkt-app-subtitle">Gmail spam, authentication, and reputation signals</div>
+              </div>
+              <div class="mkt-app-header-right">
+                <span>Vinoop Thayatt</span>
+                <span class="mkt-app-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                <span class="mkt-app-logout">Log Out</span>
+              </div>
+            </div>
+
+            <div class="mkt-pm-hero" style="margin-top:18px;">
+              <div class="mkt-pm-hero-label">SPAM RATE · LAST 30 DAYS</div>
+              <div class="mkt-pm-hero-value">0.04%</div>
+              <div class="mkt-pm-hero-trend">↓ 0.02% vs prior period · within Gmail safe range</div>
+              <div class="mkt-pm-chart">
+                <svg viewBox="0 0 800 100" preserveAspectRatio="none" style="width:100%; height:90px;">
+                  <defs><linearGradient id="pmGradD" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#10b981" stop-opacity="0.22"/><stop offset="100%" stop-color="#10b981" stop-opacity="0"/></linearGradient></defs>
+                  <path d="M0,30 L40,28 L80,32 L120,25 L160,28 L200,22 L240,28 L280,20 L320,18 L360,22 L400,16 L440,18 L480,15 L520,20 L560,17 L600,14 L640,18 L680,15 L720,12 L760,15 L800,18 L800,100 L0,100 Z" fill="url(#pmGradD)"/>
+                  <path d="M0,30 L40,28 L80,32 L120,25 L160,28 L200,22 L240,28 L280,20 L320,18 L360,22 L400,16 L440,18 L480,15 L520,20 L560,17 L600,14 L640,18 L680,15 L720,12 L760,15 L800,18" stroke="#10b981" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="mkt-pm-stats">
+              <div class="mkt-pm-stat"><div class="mkt-pm-stat-label">IP REPUTATION</div><div class="mkt-pm-stat-value">High</div><div class="mkt-pm-stat-meta">No Gmail complaints</div></div>
+              <div class="mkt-pm-stat"><div class="mkt-pm-stat-label">DOMAIN REPUTATION</div><div class="mkt-pm-stat-value">High</div><div class="mkt-pm-stat-meta">Across all sending</div></div>
+              <div class="mkt-pm-stat"><div class="mkt-pm-stat-label">AUTH PASS</div><div class="mkt-pm-stat-value">99.8%</div><div class="mkt-pm-stat-meta">SPF · DKIM · DMARC</div></div>
+            </div>
+          </div><!-- /pane-postmaster -->
+
+          <!-- ── PANE: MICROSOFT SNDS ── -->
+          <div class="mkt-pane" id="pane-microsoft">
+            <div class="mkt-app-header">
+              <div>
+                <div class="mkt-app-title">Microsoft SNDS</div>
+                <div class="mkt-app-subtitle">Outlook + Hotmail per-IP reputation</div>
+              </div>
+              <div class="mkt-app-header-right">
+                <span>Vinoop Thayatt</span>
+                <span class="mkt-app-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                <span class="mkt-app-logout">Log Out</span>
+              </div>
+            </div>
+
+            <div class="mkt-ms-strip" style="margin-top:18px;">
+              <div class="mkt-ms-stat green"><div class="mkt-ms-stat-num">4</div><div class="mkt-ms-stat-label">Green IPs</div></div>
+              <div class="mkt-ms-stat yellow"><div class="mkt-ms-stat-num">0</div><div class="mkt-ms-stat-label">Yellow IPs</div></div>
+              <div class="mkt-ms-stat red"><div class="mkt-ms-stat-num">0</div><div class="mkt-ms-stat-label">Red IPs</div></div>
+              <div class="mkt-ms-stat"><div class="mkt-ms-stat-num">0.01%</div><div class="mkt-ms-stat-label">Avg complaint rate</div></div>
+            </div>
+
+            <div class="mkt-ms-table">
+              <div class="mkt-ms-row mkt-ms-head"><span>IP ADDRESS</span><span>STATUS</span><span>COMPLAINT</span><span>TRAP HITS</span><span>LAST SEEN</span></div>
+              <div class="mkt-ms-row"><span class="mkt-mono">198.51.100.1</span><span class="mkt-ms-pill">Green</span><span>0.01%</span><span>0</span><span>2 min ago</span></div>
+              <div class="mkt-ms-row"><span class="mkt-mono">198.51.100.2</span><span class="mkt-ms-pill">Green</span><span>0.02%</span><span>0</span><span>5 min ago</span></div>
+              <div class="mkt-ms-row"><span class="mkt-mono">198.51.100.3</span><span class="mkt-ms-pill">Green</span><span>0.00%</span><span>0</span><span>1 min ago</span></div>
+              <div class="mkt-ms-row"><span class="mkt-mono">198.51.100.4</span><span class="mkt-ms-pill">Green</span><span>0.03%</span><span>0</span><span>8 min ago</span></div>
+            </div>
+          </div><!-- /pane-microsoft -->
+
+          <!-- ── PANE: BLACKLIST MONITOR ── -->
+          <div class="mkt-pane" id="pane-blacklist">
+            <div class="mkt-app-header">
+              <div>
+                <div class="mkt-app-title">Blacklist Monitor</div>
+                <div class="mkt-app-subtitle">Real-time DNSBL checks across 25+ blocklists</div>
+              </div>
+              <div class="mkt-app-header-right">
+                <span>Vinoop Thayatt</span>
+                <span class="mkt-app-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                <span class="mkt-app-logout">Log Out</span>
+              </div>
+            </div>
+
+            <div class="mkt-bl-hero" style="margin-top:18px;">
+              <div class="mkt-bl-hero-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div>
+                <div class="mkt-bl-hero-title">All Clear</div>
+                <div class="mkt-bl-hero-meta">0 of 160 listings · Last checked 4 minutes ago · 6 IPs scanned</div>
+              </div>
+            </div>
+
+            <div class="mkt-bl-grid">
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Spamhaus ZEN</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Spamhaus DBL</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Barracuda</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SORBS</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SpamCop</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>UCEPROTECT 1</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>UCEPROTECT 2</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SURBL</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>URIBL</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Invaluement</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Mailspike</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>PSBL</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SpamRats</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>0Spam</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>+11 more</div>
+            </div>
+          </div><!-- /pane-blacklist -->
+
+          <!-- ── PANE: ALERTS ── -->
+          <div class="mkt-pane" id="pane-alerts">
+            <div class="mkt-app-header">
+              <div>
+                <div class="mkt-app-title">Alerts</div>
+                <div class="mkt-app-subtitle">Real-time notifications when deliverability drops</div>
+              </div>
+              <div class="mkt-app-header-right">
+                <span>Vinoop Thayatt</span>
+                <span class="mkt-app-icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                <span class="mkt-app-logout">Log Out</span>
+              </div>
+            </div>
+
+            <div class="mkt-al-channels" style="margin-top:18px;">
+              <button class="mkt-al-channel active">Email</button>
+              <button class="mkt-al-channel">Slack</button>
+              <button class="mkt-al-channel">Webhook</button>
+            </div>
+
+            <div class="mkt-al-rules">
+              <div class="mkt-al-rule"><div><div>Spam rate above 0.3%</div><div class="mkt-al-rule-meta">Gmail Postmaster signal</div></div><span class="mkt-al-toggle on"></span></div>
+              <div class="mkt-al-rule"><div><div>Blacklist listing detected</div><div class="mkt-al-rule-meta">Any of 25+ DNSBLs</div></div><span class="mkt-al-toggle on"></span></div>
+              <div class="mkt-al-rule"><div><div>DKIM pass rate drops below 95%</div><div class="mkt-al-rule-meta">Auth signal</div></div><span class="mkt-al-toggle on"></span></div>
+              <div class="mkt-al-rule"><div><div>SNDS IP turns yellow or red</div><div class="mkt-al-rule-meta">Microsoft signal</div></div><span class="mkt-al-toggle on"></span></div>
+            </div>
+
+            <div class="mkt-al-recent-label">RECENT ALERTS</div>
+            <div class="mkt-al-list">
+              <div class="mkt-al-item"><span class="mkt-al-dot ok"></span><div><div class="mkt-al-msg">All checks passed for mailercloud.com</div><div class="mkt-al-meta">4 minutes ago · email sent to vinoop@mailercloud.com</div></div></div>
+              <div class="mkt-al-item"><span class="mkt-al-dot warn"></span><div><div class="mkt-al-msg">DMARC alignment dropped to 96% on redrail.redbus.com</div><div class="mkt-al-meta">2 hours ago · email + Slack sent</div></div></div>
+              <div class="mkt-al-item"><span class="mkt-al-dot ok"></span><div><div class="mkt-al-msg">voicenotes.com cleared from PSBL after 12 minutes</div><div class="mkt-al-meta">Yesterday · auto-resolved</div></div></div>
+            </div>
+          </div><!-- /pane-alerts -->
 
         </main>
       </div>
@@ -1140,5 +1490,32 @@ a { color: inherit; text-decoration: none; }
   </div>
 </footer>
 
+<script>
+(function(){
+  var tabs = document.querySelectorAll('.mkt-showcase-tab');
+  var panes = document.querySelectorAll('.mkt-pane');
+  var navItems = document.querySelectorAll('.mkt-app-nav-item');
+  var urlEl = document.getElementById('mkt-window-url');
+  var urlMap = {
+    dashboard: 'inboxscore.ai/dashboard',
+    postmaster: 'inboxscore.ai/postmaster',
+    microsoft: 'inboxscore.ai/microsoft',
+    blacklist: 'inboxscore.ai/blacklist',
+    alerts: 'inboxscore.ai/alerts'
+  };
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){
+      var target = t.getAttribute('data-tab');
+      tabs.forEach(function(x){ x.classList.toggle('active', x === t); });
+      panes.forEach(function(p){ p.classList.toggle('active', p.id === 'pane-' + target); });
+      navItems.forEach(function(n){
+        var nav = n.getAttribute('data-nav');
+        if (nav) n.classList.toggle('active', nav === target);
+      });
+      if (urlEl && urlMap[target]) urlEl.textContent = urlMap[target];
+    });
+  });
+})();
+</script>
 </body>
 </html>
