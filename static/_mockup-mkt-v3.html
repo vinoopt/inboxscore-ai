@@ -1182,10 +1182,10 @@ html[data-theme="dark"] .mkt-topnav {
 <!-- ════════ HERO (centred, scan-form-as-action) ════════ -->
 <header class="mkt-hero">
   <div class="mkt-shell">
-    <a href="#scan" class="mkt-hero-eyebrow">
+    <span class="mkt-hero-eyebrow">
+      <span class="mkt-hero-eyebrow-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(22,163,74,0.4);"></span>
       Live · 1,247 sending domains monitored
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-    </a>
+    </span>
     <h1 class="mkt-hero-title">Is your email reaching the inbox?</h1>
     <p class="mkt-hero-sub">Check your domain's deliverability in 30 seconds. Get a clear score, see what's broken, and learn exactly how to fix it. Free, no signup needed.</p>
 
@@ -1644,20 +1644,6 @@ html[data-theme="dark"] .mkt-topnav {
   </div>
 </section>
 
-<!-- ════════ LIVE SCAN ════════ -->
-<section class="mkt-section mkt-scan" id="scan">
-  <div class="mkt-shell">
-    <span class="mkt-section-eyebrow">No signup needed</span>
-    <h2 class="mkt-section-title" style="margin-inline:auto;">See your real status in 30 seconds.</h2>
-    <p class="mkt-section-sub" style="margin-inline:auto;">Drop in your sending domain. We'll check 20+ DNSBLs, SPF/DKIM/DMARC, MX records, and TLS configuration — all live.</p>
-    <form class="mkt-scan-form" onsubmit="event.preventDefault(); window.location.href='/?domain=' + encodeURIComponent(document.getElementById('scan-input').value);">
-      <input type="text" id="scan-input" class="mkt-scan-input" placeholder="example.com" autocomplete="off" spellcheck="false">
-      <button type="submit" class="mkt-scan-btn">Scan now →</button>
-    </form>
-    <p class="mkt-scan-hint">No credit card. No signup. Results in under 30 seconds.</p>
-  </div>
-</section>
-
 <!-- ════════ HOW IT WORKS ════════ -->
 <section class="mkt-section">
   <div class="mkt-shell">
@@ -1863,7 +1849,7 @@ html[data-theme="dark"] .mkt-topnav {
         <a href="#features">Features</a>
         <a href="#pricing">Pricing</a>
         <a href="/dashboard">Dashboard</a>
-        <a href="#scan">Scan a domain</a>
+        <a href="#mkt-hero-scan-input">Scan a domain</a>
       </div>
       <div class="mkt-footer-col">
         <div class="mkt-footer-col-title">Company</div>
