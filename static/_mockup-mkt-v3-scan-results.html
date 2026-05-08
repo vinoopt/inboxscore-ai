@@ -126,16 +126,21 @@ html:not([data-theme="dark"]) .theme-toggle .icon-moon { display: block; }
 .hero-trust-item { display: inline-flex; align-items: center; gap: 6px; }
 .hero-trust-item svg { color: var(--green); width: 14px; height: 14px; }
 
-/* Loading state */
-.loading-card { max-width: 540px; margin: 80px auto; text-align: center; padding: 48px 32px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-3); }
-.loading-spinner { width: 48px; height: 48px; margin: 0 auto 24px; border: 3px solid var(--border); border-top-color: var(--text-strong); border-radius: 50%; animation: spin 0.8s linear infinite; }
+/* Loading state — 7-step checklist matching the live /dashboard scan flow.
+   Each item ticks off in sequence so users see exactly what's being checked
+   instead of a black-box spinner. */
+.loading-card { max-width: 560px; margin: 64px auto; text-align: center; padding: 48px 32px; }
+.loading-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-strong); margin-bottom: 4px; }
+.loading-domain { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; color: var(--text-muted); margin-bottom: 6px; }
+.loading-meta { font-size: 13px; color: var(--text-subtle); margin-bottom: 28px; }
+.check-list { max-width: 360px; margin: 0 auto; text-align: left; }
+.check-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; margin-bottom: 4px; color: var(--text-muted); font-size: 14px; transition: all 220ms ease; }
+.check-item.active { background: var(--surface-2); color: var(--text-strong); }
+.check-item.done { color: var(--green); }
+.check-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; transition: all 220ms ease; }
+.check-item.active .check-dot { border-color: var(--text-strong); border-top-color: transparent; animation: spin 0.8s linear infinite; }
+.check-item.done .check-dot { background: var(--green); border-color: var(--green); animation: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.loading-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-strong); margin-bottom: 6px; }
-.loading-domain { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; color: var(--text-muted); margin-bottom: 20px; }
-.loading-progress { height: 4px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin-bottom: 14px; }
-.loading-progress-bar { height: 100%; background: var(--text-strong); border-radius: 999px; animation: progress 25s linear infinite; }
-@keyframes progress { 0% { width: 0%; } 80% { width: 85%; } 100% { width: 95%; } }
-.loading-meta { font-size: 12.5px; color: var(--text-subtle); }
 
 /* Error inline banner */
 .error-banner { max-width: 540px; margin: 16px auto 0; padding: 12px 16px; background: var(--red-soft); border: 1px solid var(--red); border-radius: 8px; color: var(--red); font-size: 13.5px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
@@ -281,15 +286,23 @@ html:not([data-theme="dark"]) .theme-toggle .icon-moon { display: block; }
   </div>
 </section>
 
-<!-- ════════ STATE: LOADING ════════ -->
+<!-- ════════ STATE: LOADING (matches /dashboard scan flow) ════════ -->
 <section class="state-pane" id="state-loading">
   <div class="shell">
     <div class="loading-card">
-      <div class="loading-spinner"></div>
-      <div class="loading-title">Scanning your domain</div>
       <div class="loading-domain">acme.com</div>
-      <div class="loading-progress"><div class="loading-progress-bar"></div></div>
-      <div class="loading-meta">Checking 14 deliverability signals · usually takes 15–25 seconds</div>
+      <div class="loading-title">Running deliverability checks…</div>
+      <div class="loading-meta">Usually takes 15–25 seconds</div>
+      <div class="check-list" id="mkt-check-list">
+        <div class="check-item" data-check="mx"><div class="check-dot"></div>MX Records</div>
+        <div class="check-item" data-check="spf"><div class="check-dot"></div>SPF Validation</div>
+        <div class="check-item" data-check="dkim"><div class="check-dot"></div>DKIM Configuration</div>
+        <div class="check-item" data-check="dmarc"><div class="check-dot"></div>DMARC Policy</div>
+        <div class="check-item" data-check="blacklists"><div class="check-dot"></div>Blacklist Scan (40+ lists)</div>
+        <div class="check-item" data-check="tls"><div class="check-dot"></div>TLS &amp; Encryption</div>
+        <div class="check-item" data-check="ip_reputation"><div class="check-dot"></div>IP Reputation Analysis</div>
+        <div class="check-item" data-check="score"><div class="check-dot"></div>Calculating Score</div>
+      </div>
     </div>
   </div>
 </section>
@@ -651,19 +664,24 @@ html:not([data-theme="dark"]) .theme-toggle .icon-moon { display: block; }
   </div>
 </section>
 
-<!-- ════════ STATE: ERROR ════════ -->
+<!-- ════════ STATE: ERROR ════════
+     The hero form normalizes input client-side before validating, so
+     https://, http://, www., trailing /paths, ?query, #hash, port, and
+     mailto-style email prefixes are all stripped automatically. The
+     error state only fires for input that fails AFTER normalization —
+     no dot, blank, or non-domain characters. ═════════════════════ -->
 <section class="state-pane" id="state-error">
   <div class="shell hero">
     <span class="hero-eyebrow"><span class="hero-eyebrow-dot"></span>Live · 1,247 sending domains monitored</span>
     <h1 class="hero-title">Is your email reaching the inbox?</h1>
     <p class="hero-sub">Check your domain's deliverability in 30 seconds. Get a clear score, see what's broken, and learn exactly how to fix it. Free, no signup needed.</p>
     <form class="hero-form">
-      <input type="text" class="hero-form-input" value="not-a-domain" autofocus>
+      <input type="text" class="hero-form-input" value="acme" autofocus>
       <button type="submit" class="hero-form-btn">Scan domain →</button>
     </form>
     <div class="error-banner">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      Please enter a valid domain (e.g. acme.com) — without https:// or paths.
+      That doesn't look like a valid domain. Try something like <strong>acme.com</strong>.
     </div>
   </div>
 </section>
@@ -684,6 +702,7 @@ document.querySelectorAll('.state-btn').forEach(function(btn){
       p.classList.toggle('active', p.id === 'state-' + target);
     });
     history.replaceState(null, '', '#' + target);
+    if (target === 'loading') animateChecklist();
   });
 });
 
@@ -695,6 +714,59 @@ document.querySelectorAll('.state-btn').forEach(function(btn){
     if (btn) btn.click();
   }
 })();
+
+/* Animate the 7-step checklist on the loading state — same rhythm as
+   the live /dashboard scan flow (active spinner → done tick after a
+   short delay, then advance to the next item). The last item
+   ("Calculating Score") stays active and never ticks, mirroring the
+   real flow where the scan completes there and we transition to results. */
+function animateChecklist() {
+  var items = document.querySelectorAll('#mkt-check-list .check-item');
+  if (!items.length) return;
+  items.forEach(function (i) {
+    i.classList.remove('active', 'done');
+    i.querySelector('.check-dot').textContent = '';
+  });
+  var idx = 0;
+  function advance() {
+    if (idx > 0) {
+      var prev = items[idx - 1];
+      prev.classList.remove('active');
+      if (idx < items.length) {
+        prev.classList.add('done');
+        prev.querySelector('.check-dot').textContent = '✓';
+      } else {
+        prev.classList.add('active');
+        return;
+      }
+    }
+    if (idx < items.length) {
+      items[idx].classList.add('active');
+      idx += 1;
+      setTimeout(advance, 1400 + Math.random() * 700);
+    }
+  }
+  advance();
+}
+
+/* Domain input normalization — strips https://, http://, www., paths,
+   query strings, hash, port, and email prefixes so users entering
+   "https://www.acme.com/pricing" or "support@acme.com" all resolve
+   to "acme.com". This is the same helper that ships in the live
+   homepage hero form. Surface this here for parity / documentation. */
+function normalizeDomain(input) {
+  if (!input) return '';
+  var s = String(input).trim().toLowerCase();
+  if (s.indexOf('@') !== -1) s = s.split('@').pop();         // strip email prefix
+  s = s.replace(/^https?:\/\//, '');                         // strip protocol
+  s = s.replace(/^www\./, '');                               // strip leading www.
+  s = s.split('/')[0].split('?')[0].split('#')[0];           // strip path/query/hash
+  s = s.split(':')[0];                                       // strip port
+  return s;
+}
+function isValidDomain(d) {
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(d);
+}
 </script>
 
 </body>

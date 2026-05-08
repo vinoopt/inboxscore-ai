@@ -1224,7 +1224,7 @@ html[data-theme="dark"] .mkt-app-provider-icon.m { background: #ffffff; border-c
     <h1 class="mkt-hero-title">Is your email reaching the inbox?</h1>
     <p class="mkt-hero-sub">Check your domain's deliverability in 30 seconds. Get a clear score, see what's broken, and learn exactly how to fix it. Free, no signup needed.</p>
 
-    <form class="mkt-hero-scan" onsubmit="event.preventDefault(); var d=document.getElementById('mkt-hero-scan-input').value.trim(); if(d) window.location.href='/?domain='+encodeURIComponent(d);">
+    <form class="mkt-hero-scan" onsubmit="handleHeroScan(event)">
       <input type="text" id="mkt-hero-scan-input" class="mkt-hero-scan-input" placeholder="Enter your domain (e.g. acme.com)" autocomplete="off" spellcheck="false" autofocus required>
       <button type="submit" class="mkt-hero-scan-btn">Scan domain →</button>
     </form>
@@ -1932,6 +1932,49 @@ function toggleTheme() {
       .catch(function () {});
   } catch (e) {}
 })();
+
+/* ════════════════════════════════════════════════════════════════════════
+   Domain input normalization. Users paste all sorts of things into the
+   scan box — full URLs, emails, links with paths. Be lenient: strip
+   the noise client-side and only error on input that's genuinely not a
+   domain (no dot, blank, weird characters). The same helper is mirrored
+   in _mockup-mkt-v3-scan-results.html so behaviour stays in sync.
+
+     https://acme.com           → acme.com
+     http://www.acme.com:8080   → acme.com
+     www.acme.com/pricing       → acme.com
+     ACME.COM/path?utm=x#hash   → acme.com
+     support@acme.com           → acme.com
+     "  acme.com  "             → acme.com
+   ════════════════════════════════════════════════════════════════════════ */
+function normalizeDomain(input) {
+  if (!input) return '';
+  var s = String(input).trim().toLowerCase();
+  if (s.indexOf('@') !== -1) s = s.split('@').pop();         // strip email prefix
+  s = s.replace(/^https?:\/\//, '');                         // strip protocol
+  s = s.replace(/^www\./, '');                               // strip leading www.
+  s = s.split('/')[0].split('?')[0].split('#')[0];           // strip path/query/hash
+  s = s.split(':')[0];                                       // strip port
+  return s;
+}
+function isValidDomain(d) {
+  return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(d);
+}
+function handleHeroScan(e) {
+  e.preventDefault();
+  var raw = document.getElementById('mkt-hero-scan-input').value;
+  var d = normalizeDomain(raw);
+  if (!d) return;
+  if (!isValidDomain(d)) {
+    /* Once the live scan flow lands, this is where the error state
+       renders inline. For the temporarily-broken hero (pre-INBOX-200
+       migration), keep the existing behaviour: navigate to /?domain=
+       so the URL still reflects what they tried. */
+    window.location.href = '/?domain=' + encodeURIComponent(d);
+    return;
+  }
+  window.location.href = '/?domain=' + encodeURIComponent(d);
+}
 
 /* Defensive autofocus — some browsers skip the autofocus attribute when
    the page renders with data-theme stored from localStorage (FOUC script
