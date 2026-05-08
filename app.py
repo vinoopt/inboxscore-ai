@@ -406,8 +406,16 @@ async def _run_scan(request: ScanRequest, req: Request):
         sentry_sdk.set_user({"id": scan_user_id} if scan_user_id else None)
         sentry_sdk.set_tag("user_authenticated", "true" if scan_user_id else "false")
 
-    # Rate limit check — plan-aware
-    if is_db_available():
+    # INBOX-201: bypass list for the team during dogfooding + GTM testing.
+    # Comma-separated CIDRs/IPs in the RATE_LIMIT_BYPASS_IPS env var get
+    # unlimited scans regardless of auth state. Skips the rate_limits
+    # table entirely so testing doesn't pollute analytics or fight the
+    # row-by-IP unique constraint.
+    bypass_raw = os.environ.get("RATE_LIMIT_BYPASS_IPS", "")
+    bypass_ips = {ip.strip() for ip in bypass_raw.split(",") if ip.strip()}
+    if client_ip and client_ip in bypass_ips:
+        pass  # skip rate-limit entirely
+    elif is_db_available():
         rate_check = check_rate_limit(
             ip_address=client_ip,
             max_scans=ANONYMOUS_LIMIT,
@@ -415,10 +423,18 @@ async def _run_scan(request: ScanRequest, req: Request):
         )
         if not rate_check["allowed"]:
             plan = rate_check.get("plan", "anonymous")
+            limit = rate_check.get("max_scans", ANONYMOUS_LIMIT)
             if plan == "anonymous":
-                message = "You've used your 3 free scans today. Create a free account for 5 scans/day, or upgrade to Pro for unlimited scans."
+                message = (
+                    f"You've used your {limit} free scans today. "
+                    "Create a free account for 5 scans/day, "
+                    "or upgrade to Pro for unlimited scans."
+                )
             elif plan == "free":
-                message = "You've used your 5 free scans today. Upgrade to Pro for unlimited scans and advanced monitoring."
+                message = (
+                    f"You've used your {limit} free scans today. "
+                    "Upgrade to Pro for unlimited scans and advanced monitoring."
+                )
             else:
                 message = "Daily scan limit reached."
 

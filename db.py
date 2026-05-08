@@ -416,7 +416,13 @@ PLAN_DOMAIN_LIMITS = {
     "enterprise": -1,  # unlimited
 }
 
-ANONYMOUS_LIMIT = 3
+# INBOX-201: bumped 3→10. The marketing scan-flow is the single biggest
+# top-of-funnel asset; capping anonymous prospects at 3 scans/day was
+# brutal — even a curious buyer who tested 2 domains then refreshed the
+# page hit the wall. Each scan is ~10–25s of server CPU only (no money
+# cost), so we can be generous. Logged-in users still tracked by
+# user_id with their plan's limit (5 free / unlimited Pro).
+ANONYMOUS_LIMIT = 10
 
 
 class PlanDomainLimitExceeded(Exception):
