@@ -1872,6 +1872,67 @@ function toggleTheme() {
   try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   Auth flow handlers (ported from legacy index.html during v3 migration).
+   The marketing homepage is the redirect target for:
+     1. Supabase Google OAuth         → ?#access_token=...&type=…
+     2. Email signup verification     → #access_token=...&type=signup
+     3. Magic link / token refresh    → #access_token=...
+   Without this, users land here from those flows and silently appear
+   logged-out because the hash is ignored. type=recovery is forwarded to
+   /reset-password so the user can set a new password.
+   ════════════════════════════════════════════════════════════════════════ */
+(function handleAuthCallback() {
+  if (!window.location.hash || window.location.hash.indexOf('access_token=') === -1) return;
+  try {
+    var params = new URLSearchParams(window.location.hash.substring(1));
+    var accessToken = params.get('access_token');
+    var refreshToken = params.get('refresh_token');
+    var type = params.get('type');
+    if (!accessToken) return;
+
+    /* Recovery flow → forward the hash to /reset-password (the form there
+       reads the token from window.location.hash and calls PUT /api/user/password). */
+    if (type === 'recovery') {
+      window.location.replace('/reset-password' + window.location.hash);
+      return;
+    }
+
+    /* Normal sign-in / signup-verification → store tokens + go to dashboard. */
+    try {
+      localStorage.setItem('access_token', accessToken);
+      if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
+    } catch (e) {}
+    if (typeof gtag === 'function') {
+      gtag('event', type === 'signup' ? 'email_verified' : 'login', { method: 'oauth' });
+    }
+    /* Clear hash before navigating so the token isn't kept in history. */
+    history.replaceState(null, '', window.location.pathname);
+    window.location.href = '/dashboard';
+  } catch (e) {
+    /* Swallow — fall through to normal homepage render. */
+  }
+})();
+
+/* If user already has a session, swap "Log in" / "Sign up free" in the
+   topnav for a single "Dashboard" CTA. Avoids the awkward state where a
+   logged-in user sees a marketing page asking them to sign up. */
+(function updateNavForSession() {
+  try {
+    var token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    if (!token) return;
+    fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function () {
+        var login = document.querySelector('.mkt-nav-secondary[href="/login"]');
+        var signup = document.querySelector('.mkt-nav-cta[href="/signup"]');
+        if (login) login.remove();
+        if (signup) { signup.href = '/dashboard'; signup.textContent = 'Dashboard'; }
+      })
+      .catch(function () {});
+  } catch (e) {}
+})();
+
 /* Defensive autofocus — some browsers skip the autofocus attribute when
    the page renders with data-theme stored from localStorage (FOUC script
    triggers a layout recalc that can cancel autofocus). Explicit focus

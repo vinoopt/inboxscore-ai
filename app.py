@@ -2636,6 +2636,16 @@ async def serve_forgot_password():
     return _html("forgot-password.html")
 
 
+@app.get("/reset-password")
+async def serve_reset_password():
+    # Supabase password-reset emails redirect users to /reset-password
+    # with the recovery token in the URL fragment (#access_token=...).
+    # The page reads the hash client-side and calls PUT /api/user/password.
+    # Until v1.16.4 (May 2026) this route did not exist, breaking the
+    # forgot-password flow with a 404 (INBOX-673 / INBOX-200).
+    return _html("reset-password.html")
+
+
 @app.get("/dashboard")
 async def serve_dashboard():
     return _html("dashboard.html")
