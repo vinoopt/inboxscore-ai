@@ -225,11 +225,11 @@ html[data-theme="dark"] .mkt-topnav {
 .mkt-hero-eyebrow:hover svg { transform: translateX(2px); color: var(--text-strong); }
 
 .mkt-hero-title {
-  font-size: clamp(40px, 5.4vw, 76px);
+  font-size: clamp(36px, 4.6vw, 64px);
   font-weight: 600;
-  letter-spacing: -0.04em;
-  line-height: 0.95;
-  max-width: 980px;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  max-width: 880px;
   margin: 0 auto 24px;
   color: var(--text-strong);
 }
@@ -638,8 +638,11 @@ html[data-theme="dark"] .mkt-topnav {
   font-size: 14px; font-weight: 700;
   flex-shrink: 0;
 }
-.mkt-app-provider-icon.g { background: linear-gradient(135deg, #ea4335, #fbbc05); color: #fff; }
-.mkt-app-provider-icon.m { background: linear-gradient(135deg, #00a4ef, #f25022); color: #fff; }
+.mkt-app-provider-icon.g { background: #ffffff; padding: 4px; border: 1px solid var(--border); }
+.mkt-app-provider-icon.m { background: #ffffff; padding: 4px; border: 1px solid var(--border); }
+html[data-theme="dark"] .mkt-app-provider-icon.g,
+html[data-theme="dark"] .mkt-app-provider-icon.m { background: #ffffff; border-color: rgba(255,255,255,0.1); }
+.mkt-app-provider-icon svg { width: 100%; height: 100%; display: block; }
 .mkt-app-provider-text { flex: 1; min-width: 0; }
 .mkt-app-provider-name { font-size: 13px; font-weight: 600; color: var(--text-strong); margin-bottom: 1px; }
 .mkt-app-provider-sub { font-size: 12px; color: var(--text-muted); }
@@ -813,24 +816,20 @@ html[data-theme="dark"] .mkt-topnav {
 }
 .mkt-al-rule:last-child { border-bottom: none; }
 .mkt-al-rule-meta { font-size: 11.5px; color: var(--text-subtle); margin-top: 2px; }
-.mkt-al-toggle {
-  width: 32px; height: 18px;
+.mkt-al-status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px;
+  font-size: 11px; font-weight: 600;
+  background: var(--green-soft); color: var(--green);
   border-radius: 999px;
-  background: var(--border-strong);
-  position: relative;
   flex-shrink: 0;
-  transition: background 200ms;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-.mkt-al-toggle::after {
-  content: ''; position: absolute; top: 2px; left: 2px;
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
-  transition: left 200ms;
+.mkt-al-status-pill::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor;
 }
-.mkt-al-toggle.on { background: var(--text-strong); }
-.mkt-al-toggle.on::after { left: 16px; }
 
 .mkt-al-recent-label {
   font-size: 11px; font-weight: 600;
@@ -1190,7 +1189,7 @@ html[data-theme="dark"] .mkt-topnav {
     <p class="mkt-hero-sub">Check your domain's deliverability in 30 seconds. Get a clear score, see what's broken, and learn exactly how to fix it. Free, no signup needed.</p>
 
     <form class="mkt-hero-scan" onsubmit="event.preventDefault(); var d=document.getElementById('mkt-hero-scan-input').value.trim(); if(d) window.location.href='/?domain='+encodeURIComponent(d);">
-      <input type="text" id="mkt-hero-scan-input" class="mkt-hero-scan-input" placeholder="Enter your domain (e.g. acme.com)" autocomplete="off" spellcheck="false" required>
+      <input type="text" id="mkt-hero-scan-input" class="mkt-hero-scan-input" placeholder="Enter your domain (e.g. acme.com)" autocomplete="off" spellcheck="false" autofocus required>
       <button type="submit" class="mkt-hero-scan-btn">Scan domain →</button>
     </form>
 
@@ -1268,9 +1267,6 @@ html[data-theme="dark"] .mkt-topnav {
               Settings
             </span>
           </nav>
-          <div class="mkt-app-side-bottom">
-            <div class="mkt-app-plan">Pro Plan</div>
-          </div>
         </aside>
 
         <!-- Main -->
@@ -1283,33 +1279,6 @@ html[data-theme="dark"] .mkt-topnav {
               <div class="mkt-app-title">Dashboard</div>
               <div class="mkt-app-subtitle">Live deliverability snapshot for the selected domain.</div>
             </div>
-            <div class="mkt-app-header-right">
-              <span>Vinoop Thayatt</span>
-              <span class="mkt-app-icon-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-              </span>
-              <span class="mkt-app-logout">Log Out</span>
-            </div>
-          </div>
-
-          <div class="mkt-app-actions">
-            <span class="mkt-app-domain-pill">
-              mailercloud.com
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </span>
-            <div class="mkt-app-toggle">
-              <button class="mkt-app-toggle-btn active">Single Domain</button>
-              <button class="mkt-app-toggle-btn">View All Domains</button>
-            </div>
-            <span class="mkt-app-action-spacer"></span>
-            <button class="mkt-app-action-btn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
-              Refresh
-            </button>
-            <button class="mkt-app-action-btn primary">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-              Scan New Domain
-            </button>
           </div>
 
           <!-- Score card -->
@@ -1332,7 +1301,7 @@ html[data-theme="dark"] .mkt-topnav {
                   All clear
                 </span>
               </div>
-              <div class="mkt-app-score-meta">mailercloud.com · Last scanned May 8, 2026, 10:11 AM</div>
+              <div class="mkt-app-score-meta">inboxscore.ai · Last scanned May 8, 2026, 10:11 AM</div>
               <div class="mkt-app-score-pills">
                 <span class="mkt-app-pill ok">11 passed</span>
                 <span class="mkt-app-pill warn">0 warnings</span>
@@ -1349,7 +1318,7 @@ html[data-theme="dark"] .mkt-topnav {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 SCORE TREND · LAST 7 DAYS
               </div>
-              <div class="mkt-app-trend-domain">mailercloud.com</div>
+              <div class="mkt-app-trend-domain">inboxscore.ai</div>
             </div>
             <div class="mkt-app-bars">
               <div class="mkt-app-bar-col"><div class="mkt-app-bar" style="height:78%"></div></div>
@@ -1381,7 +1350,14 @@ html[data-theme="dark"] .mkt-topnav {
           </div>
           <div class="mkt-app-providers">
             <div class="mkt-app-provider">
-              <div class="mkt-app-provider-icon g">G</div>
+              <div class="mkt-app-provider-icon g">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+              </div>
               <div class="mkt-app-provider-text">
                 <div class="mkt-app-provider-name">Google Postmaster</div>
                 <div class="mkt-app-provider-sub">Gmail deliverability data</div>
@@ -1389,7 +1365,14 @@ html[data-theme="dark"] .mkt-topnav {
               <span class="mkt-app-provider-status">Connected</span>
             </div>
             <div class="mkt-app-provider">
-              <div class="mkt-app-provider-icon m">M</div>
+              <div class="mkt-app-provider-icon m">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <rect x="1" y="1" width="10" height="10" fill="#F25022"/>
+                  <rect x="13" y="1" width="10" height="10" fill="#7FBA00"/>
+                  <rect x="1" y="13" width="10" height="10" fill="#00A4EF"/>
+                  <rect x="13" y="13" width="10" height="10" fill="#FFB900"/>
+                </svg>
+              </div>
               <div class="mkt-app-provider-text">
                 <div class="mkt-app-provider-name">Microsoft SNDS</div>
                 <div class="mkt-app-provider-sub">Outlook IP reputation</div>
@@ -1405,13 +1388,6 @@ html[data-theme="dark"] .mkt-topnav {
               <div>
                 <div class="mkt-app-title">Google Postmaster</div>
                 <div class="mkt-app-subtitle">Gmail spam, authentication, and reputation signals</div>
-              </div>
-              <div class="mkt-app-header-right">
-                <span>Vinoop Thayatt</span>
-                <span class="mkt-app-icon-btn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/></svg>
-                </span>
-                <span class="mkt-app-logout">Log Out</span>
               </div>
             </div>
 
@@ -1458,13 +1434,6 @@ html[data-theme="dark"] .mkt-topnav {
               <div>
                 <div class="mkt-app-title">Microsoft SNDS</div>
                 <div class="mkt-app-subtitle">Outlook + Hotmail per-IP reputation</div>
-              </div>
-              <div class="mkt-app-header-right">
-                <span>Vinoop Thayatt</span>
-                <span class="mkt-app-icon-btn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>
-                </span>
-                <span class="mkt-app-logout">Log Out</span>
               </div>
             </div>
 
@@ -1521,13 +1490,6 @@ html[data-theme="dark"] .mkt-topnav {
                 <div class="mkt-app-title">Blacklist Monitor</div>
                 <div class="mkt-app-subtitle">Real-time DNSBL checks across 25+ blocklists</div>
               </div>
-              <div class="mkt-app-header-right">
-                <span>Vinoop Thayatt</span>
-                <span class="mkt-app-icon-btn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>
-                </span>
-                <span class="mkt-app-logout">Log Out</span>
-              </div>
             </div>
 
             <div class="mkt-bl-hero" style="margin-top:18px;">
@@ -1566,13 +1528,6 @@ html[data-theme="dark"] .mkt-topnav {
                 <div class="mkt-app-title">Alerts</div>
                 <div class="mkt-app-subtitle">Real-time notifications when deliverability drops</div>
               </div>
-              <div class="mkt-app-header-right">
-                <span>Vinoop Thayatt</span>
-                <span class="mkt-app-icon-btn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>
-                </span>
-                <span class="mkt-app-logout">Log Out</span>
-              </div>
             </div>
 
             <div class="mkt-al-channels" style="margin-top:18px;">
@@ -1587,28 +1542,28 @@ html[data-theme="dark"] .mkt-topnav {
                   <div>Spam rate above 0.3%</div>
                   <div class="mkt-al-rule-meta">Gmail Postmaster signal</div>
                 </div>
-                <span class="mkt-al-toggle on"></span>
+                <span class="mkt-al-status-pill">On</span>
               </div>
               <div class="mkt-al-rule">
                 <div>
                   <div>Blacklist listing detected</div>
                   <div class="mkt-al-rule-meta">Any of 25+ DNSBLs</div>
                 </div>
-                <span class="mkt-al-toggle on"></span>
+                <span class="mkt-al-status-pill">On</span>
               </div>
               <div class="mkt-al-rule">
                 <div>
                   <div>DKIM pass rate drops below 95%</div>
                   <div class="mkt-al-rule-meta">Auth signal</div>
                 </div>
-                <span class="mkt-al-toggle on"></span>
+                <span class="mkt-al-status-pill">On</span>
               </div>
               <div class="mkt-al-rule">
                 <div>
                   <div>SNDS IP turns yellow or red</div>
                   <div class="mkt-al-rule-meta">Microsoft signal</div>
                 </div>
-                <span class="mkt-al-toggle on"></span>
+                <span class="mkt-al-status-pill">On</span>
               </div>
             </div>
 
@@ -1617,21 +1572,21 @@ html[data-theme="dark"] .mkt-topnav {
               <div class="mkt-al-item">
                 <span class="mkt-al-dot ok"></span>
                 <div>
-                  <div class="mkt-al-msg">All checks passed for mailercloud.com</div>
-                  <div class="mkt-al-meta">4 minutes ago · email sent to vinoop@mailercloud.com</div>
+                  <div class="mkt-al-msg">All checks passed for inboxscore.ai</div>
+                  <div class="mkt-al-meta">4 minutes ago · email sent to alerts@inboxscore.ai</div>
                 </div>
               </div>
               <div class="mkt-al-item">
                 <span class="mkt-al-dot warn"></span>
                 <div>
-                  <div class="mkt-al-msg">DMARC alignment dropped to 96% on redrail.redbus.com</div>
+                  <div class="mkt-al-msg">DMARC alignment dropped to 96% on transactional.inboxscore.ai</div>
                   <div class="mkt-al-meta">2 hours ago · email + Slack sent</div>
                 </div>
               </div>
               <div class="mkt-al-item">
                 <span class="mkt-al-dot ok"></span>
                 <div>
-                  <div class="mkt-al-msg">voicenotes.com cleared from PSBL after 12 minutes</div>
+                  <div class="mkt-al-msg">marketing.inboxscore.ai cleared from PSBL after 12 minutes</div>
                   <div class="mkt-al-meta">Yesterday · auto-resolved</div>
                 </div>
               </div>
