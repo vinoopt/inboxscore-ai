@@ -215,23 +215,23 @@ html[data-theme="dark"] .mkt-topnav {
 
 .mkt-nav-links { display: flex; gap: 4px; align-items: center; }
 .mkt-nav-link {
-  padding: 8px 14px;
-  font-size: 14px; font-weight: 500; color: var(--text-muted);
+  padding: 6px 12px;
+  font-size: 13.5px; font-weight: 500; color: var(--text-muted);
   border-radius: 6px;
   transition: color 150ms cubic-bezier(0.4,0,0.2,1), background 150ms cubic-bezier(0.4,0,0.2,1);
 }
 .mkt-nav-link:hover { color: var(--text-strong); background: var(--surface-2); }
 .mkt-nav-cta {
-  padding: 8px 16px;
-  font-size: 14px; font-weight: 500;
+  padding: 7px 14px;
+  font-size: 13.5px; font-weight: 500;
   background: var(--text-strong); color: var(--bg);
   border-radius: 6px;
   transition: opacity 150ms cubic-bezier(0.4,0,0.2,1);
 }
 .mkt-nav-cta:hover { opacity: 0.9; }
 .mkt-nav-secondary {
-  padding: 8px 16px;
-  font-size: 14px; font-weight: 500;
+  padding: 6px 13px;
+  font-size: 13.5px; font-weight: 500;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   color: var(--text-strong);
@@ -265,16 +265,21 @@ html[data-theme="dark"] .mkt-topnav {
   font-size: clamp(36px, 4.6vw, 64px);
   font-weight: 600;
   letter-spacing: -0.035em;
-  line-height: 1;
+  /* INBOX-202: bumped 1 → 1.06 — Attio uses ~1.05–1.08 to give two-line
+     titles air. Was visually cramped on lines 1+2 of "Is your email
+     reaching the inbox?". */
+  line-height: 1.06;
   max-width: 880px;
-  margin: 0 auto 24px;
+  margin: 0 auto 28px;
   color: var(--text-strong);
 }
 .mkt-hero-sub {
   font-size: clamp(17px, 1.4vw, 19px);
   color: var(--text-muted);
   max-width: 720px;
-  margin: 0 auto 32px;
+  /* +4px below to push the form down with more breathing room — matches
+     Attio's spacing rhythm between headline → sub → CTA. */
+  margin: 0 auto 36px;
   line-height: 1.5;
   font-weight: 500;
 }
