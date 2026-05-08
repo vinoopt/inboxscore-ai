@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InboxScore — Real-time email deliverability monitoring</title>
+<meta name="description" content="Monitor 20+ blacklists, Google Postmaster, and Microsoft SNDS in one place. Catch deliverability problems in minutes, not days.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light')
+      document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  /* Pure-neutral light palette (Attio-grounded) */
+  --bg: #ffffff;
+  --surface: #fbfbfb;
+  --surface-2: #f4f4f5;
+  --surface-tint: #f7f7f8;
+  --border: #e8e8e9;
+  --border-strong: #dadada;
+  --border-weak: #f1f1f1;
+  --text: #1c1c1e;
+  --text-strong: #0a0a0b;
+  --text-muted: #52525b;
+  --text-subtle: #71717a;
+  --text-faint: #a1a1aa;
+
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-soft: rgba(124,58,237,0.08);
+  --accent-glow: rgba(124,58,237,0.14);
+
+  --green: #16a34a;
+  --green-soft: rgba(22,163,74,0.10);
+  --red: #dc2626;
+  --red-soft: rgba(220,38,38,0.08);
+  --yellow: #ca8a04;
+  --yellow-soft: rgba(202,138,4,0.10);
+  --blue: #2563eb;
+  --blue-soft: rgba(37,99,235,0.08);
+
+  --shadow-1: 0px 1px 2px 0px oklch(0% 0 0 / .04);
+  --shadow-2: 0px 2px 4px -1px oklch(0% 0 0 / .04);
+  --shadow-3: 0px 4px 12px -2px oklch(0% 0 0 / .05);
+  --shadow-4: 0px 8px 24px -6px oklch(0% 0 0 / .06);
+  --shadow-cameo:
+    0 0 0 1px oklch(0% 0 0 / .04),
+    0 1px 2px 0 oklch(0% 0 0 / .04),
+    0 8px 24px -8px oklch(0% 0 0 / .06),
+    0 32px 64px -24px oklch(0% 0 0 / .08);
+}
+
+/* ──────────── DARK THEME OVERRIDES ──────────── */
+html[data-theme="dark"] {
+  --bg: #08090a;
+  --surface: #0e0f12;
+  --surface-2: #1c1c1f;
+  --surface-tint: #161618;
+  --border: #1f1f23;
+  --border-strong: #2a2a30;
+  --border-weak: #16161a;
+  --text: #f7f8f8;
+  --text-strong: #ffffff;
+  --text-muted: #a3a3a8;
+  --text-subtle: #70707a;
+  --text-faint: #4a4a52;
+
+  --accent: #a78bfa;
+  --accent-hover: #c4b5fd;
+  --accent-soft: rgba(167,139,250,0.12);
+  --accent-glow: rgba(167,139,250,0.22);
+
+  --green: #10b981;
+  --green-soft: rgba(16,185,129,0.14);
+  --red: #f87171;
+  --red-soft: rgba(248,113,113,0.14);
+  --yellow: #f59e0b;
+  --yellow-soft: rgba(245,158,11,0.14);
+  --blue: #60a5fa;
+  --blue-soft: rgba(96,165,250,0.14);
+
+  --shadow-cameo:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 24px 48px -16px rgba(0,0,0,0.6),
+    0 80px 120px -32px rgba(167,139,250,0.10);
+}
+
+/* Theme-aware SVG strokes (cameo gauge background, etc.) */
+.mkt-app-gauge-bg { stroke: var(--border-strong); }
+.mkt-app-gauge-fg { stroke: var(--green); }
+html[data-theme="dark"] .mkt-app-gauge-bg { stroke: #2a2a30; }
+
+/* Theme toggle button in topnav */
+.mkt-theme-toggle {
+  width: 32px; height: 32px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all 150ms cubic-bezier(0.4,0,0.2,1);
+  margin-right: 4px;
+}
+.mkt-theme-toggle:hover { color: var(--text-strong); border-color: var(--text-strong); }
+.mkt-theme-toggle .icon-sun, .mkt-theme-toggle .icon-moon { display: none; }
+html[data-theme="dark"] .mkt-theme-toggle .icon-sun { display: block; }
+html:not([data-theme="dark"]) .mkt-theme-toggle .icon-moon { display: block; }
+
+/* Topnav transitions on theme switch */
+.mkt-topnav,
+.mkt-hero, .mkt-section, .mkt-final, .mkt-footer,
+.mkt-feature, .mkt-step, .mkt-tier, .mkt-faq-item {
+  transition: background 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+
+html, body { background: var(--bg); color: var(--text); }
+body {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: "ss01","cv11","tnum","calt";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  min-height: 100vh;
+}
+
+/* Attio-grounded type tokens (per design-mockups/attio-tokens/DESIGN.md §4) */
+.mkt-window-url,
+.mkt-app-trend-domain,
+.mkt-step-num,
+.mkt-why-item-num,
+.mkt-app-gauge-out {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+a { color: inherit; text-decoration: none; }
+.mkt-shell { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+
+/* ──────────── TOPNAV ──────────── */
+.mkt-topnav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+}
+.mkt-topnav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 0;
+}
+.mkt-brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -0.025em; font-size: 16px; color: var(--text-strong); }
+.mkt-brand-mark {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-strong);
+}
+.mkt-brand-mark svg { width: 30px; height: 30px; display: block; }
+
+.mkt-nav-links { display: flex; gap: 4px; align-items: center; }
+.mkt-nav-link {
+  padding: 8px 14px;
+  font-size: 14px; font-weight: 500; color: var(--text-muted);
+  border-radius: 6px;
+  transition: color 150ms cubic-bezier(0.4,0,0.2,1), background 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-nav-link:hover { color: var(--text-strong); background: var(--surface-2); }
+.mkt-nav-cta {
+  padding: 8px 16px;
+  font-size: 14px; font-weight: 500;
+  background: var(--text-strong); color: #ffffff;
+  border-radius: 6px;
+  transition: opacity 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-nav-cta:hover { opacity: 0.9; }
+.mkt-nav-secondary {
+  padding: 8px 16px;
+  font-size: 14px; font-weight: 500;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text-strong);
+  transition: all 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-nav-secondary:hover { border-color: var(--text-strong); }
+
+/* ──────────── HERO (centred, scan-form) ──────────── */
+.mkt-hero {
+  position: relative;
+  padding: 80px 0 56px;
+  text-align: center;
+  background: var(--bg);
+}
+.mkt-hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 14px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  margin-bottom: 32px;
+  transition: all 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-hero-eyebrow:hover { border-color: var(--border-strong); color: var(--text-strong); }
+.mkt-hero-eyebrow svg { width: 12px; height: 12px; color: var(--text-faint); transition: transform 150ms; }
+.mkt-hero-eyebrow:hover svg { transform: translateX(2px); color: var(--text-strong); }
+
+.mkt-hero-title {
+  font-size: clamp(40px, 5.4vw, 76px);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  max-width: 980px;
+  margin: 0 auto 24px;
+  color: var(--text-strong);
+}
+.mkt-hero-sub {
+  font-size: clamp(17px, 1.4vw, 19px);
+  color: var(--text-muted);
+  max-width: 720px;
+  margin: 0 auto 32px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.mkt-hero-actions { display: inline-flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.mkt-btn-primary {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 12px 22px;
+  font-size: 14.5px; font-weight: 500;
+  background: var(--text-strong); color: #ffffff;
+  border-radius: 8px;
+  border: 1px solid var(--text-strong);
+  transition: opacity 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-btn-primary:hover { opacity: 0.92; }
+.mkt-btn-secondary {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 12px 22px;
+  font-size: 14.5px; font-weight: 500;
+  color: var(--text-strong); background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  transition: all 150ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-btn-secondary:hover { border-color: var(--text-strong); }
+
+/* Hero scan form (primary conversion lever) */
+.mkt-hero-scan {
+  display: flex; gap: 8px; padding: 6px;
+  margin: 32px auto 16px;
+  width: 100%; max-width: 540px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow-3);
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.mkt-hero-scan:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-3), 0 0 0 4px var(--accent-glow);
+}
+.mkt-hero-scan-input {
+  flex: 1;
+  padding: 12px 16px;
+  background: transparent; border: none; outline: none;
+  color: var(--text-strong); font-family: inherit;
+  font-size: 15px; font-weight: 500;
+  text-align: left;
+}
+.mkt-hero-scan-input::placeholder { color: var(--text-faint); }
+.mkt-hero-scan-btn {
+  padding: 12px 22px;
+  background: var(--accent); color: #ffffff;
+  border: none; border-radius: 8px;
+  font-size: 14.5px; font-weight: 500;
+  cursor: pointer; font-family: inherit;
+  transition: background 150ms, transform 150ms;
+  white-space: nowrap;
+}
+.mkt-hero-scan-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+
+.mkt-hero-trust {
+  display: inline-flex; gap: 24px; flex-wrap: wrap; justify-content: center;
+  margin: 8px auto 0;
+  font-size: 13px; color: var(--text-subtle);
+}
+.mkt-hero-trust-item { display: inline-flex; align-items: center; gap: 6px; }
+.mkt-hero-trust-item svg { color: var(--green); width: 14px; height: 14px; flex-shrink: 0; }
+
+/* ──────────── PRODUCT SHOWCASE (tabs + full-width cameo) ──────────── */
+.mkt-showcase {
+  background: var(--bg);
+  padding: 0 0 80px;
+  border-bottom: 1px solid var(--border);
+}
+.mkt-showcase-tabs {
+  display: flex; justify-content: center; gap: 0;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.mkt-showcase-tab {
+  padding: 14px 22px;
+  font-size: 14.5px; font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4,0,0.2,1);
+  font-family: inherit;
+  margin-bottom: -1px;
+  position: relative;
+}
+.mkt-showcase-tab + .mkt-showcase-tab::before {
+  content: '';
+  position: absolute; left: 0; top: 14px; bottom: 14px;
+  width: 1px; background: var(--border);
+}
+.mkt-showcase-tab:hover { color: var(--text-strong); }
+.mkt-showcase-tab.active {
+  color: var(--text-strong);
+  border-bottom-color: var(--text-strong);
+  font-weight: 600;
+}
+
+.mkt-showcase-frame {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.mkt-showcase-window {
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  box-shadow: var(--shadow-cameo);
+  overflow: hidden;
+}
+.mkt-window-bar {
+  display: flex; align-items: center; gap: 7px;
+  padding: 12px 16px;
+  background: var(--surface-tint);
+  border-bottom: 1px solid var(--border);
+}
+.mkt-window-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); }
+.mkt-window-url {
+  margin-left: auto; margin-right: auto;
+  font-size: 11.5px; color: var(--text-subtle);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  padding: 4px 14px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+/* DASHBOARD MIRROR — sidebar + main, full bleed */
+.mkt-app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 580px;
+}
+.mkt-app-side {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 18px 14px;
+  display: flex; flex-direction: column;
+}
+.mkt-app-brand {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-weight: 600; font-size: 14px; color: var(--text-strong);
+  padding: 6px 8px;
+  margin-bottom: 22px;
+}
+.mkt-app-brand-mark {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.mkt-app-brand-mark svg { width: 22px; height: 22px; display: block; }
+
+.mkt-app-nav { display: flex; flex-direction: column; gap: 1px; }
+.mkt-app-nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 9px;
+  font-size: 13px; color: var(--text-muted);
+  border-radius: 6px;
+  cursor: default;
+}
+.mkt-app-nav-item.active { background: var(--surface-2); color: var(--text-strong); font-weight: 500; }
+.mkt-app-nav-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.mkt-app-side-bottom { margin-top: auto; padding-top: 14px; }
+.mkt-app-plan {
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12.5px; font-weight: 600;
+  color: var(--text-strong);
+  background: var(--bg);
+}
+
+.mkt-app-main { padding: 22px 26px; background: var(--bg); }
+
+.mkt-app-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 6px;
+}
+.mkt-app-title {
+  font-size: 26px; font-weight: 700; letter-spacing: -0.025em;
+  color: var(--text-strong); margin-bottom: 2px;
+}
+.mkt-app-subtitle { font-size: 13px; color: var(--text-muted); }
+.mkt-app-header-right { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-muted); }
+.mkt-app-icon-btn {
+  width: 28px; height: 28px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.mkt-app-icon-btn svg { width: 13px; height: 13px; color: var(--text-muted); }
+.mkt-app-logout {
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  font-size: 12.5px; color: var(--text-strong);
+}
+
+.mkt-app-actions {
+  display: flex; gap: 8px; align-items: center;
+  margin: 18px 0 22px;
+  flex-wrap: wrap;
+}
+.mkt-app-domain-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  font-size: 13px; color: var(--text-strong);
+}
+.mkt-app-domain-pill::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+}
+.mkt-app-domain-pill svg { width: 11px; height: 11px; color: var(--text-subtle); margin-left: 4px; }
+
+.mkt-app-toggle {
+  display: inline-flex; gap: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px; overflow: hidden;
+}
+.mkt-app-toggle-btn {
+  padding: 7px 14px;
+  font-size: 13px; color: var(--text-muted);
+  background: transparent;
+  border: none; cursor: pointer;
+}
+.mkt-app-toggle-btn.active { background: var(--surface-2); color: var(--text-strong); font-weight: 500; }
+
+.mkt-app-action-spacer { flex: 1; }
+.mkt-app-action-btn {
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  font-size: 13px; color: var(--text-strong);
+  background: var(--bg);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.mkt-app-action-btn.primary { background: var(--text-strong); color: #fff; border-color: var(--text-strong); }
+.mkt-app-action-btn svg { width: 12px; height: 12px; }
+
+/* Score card */
+.mkt-app-score-card {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 26px;
+  align-items: center;
+  padding: 22px 26px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 22px;
+}
+.mkt-app-gauge { position: relative; width: 130px; height: 130px; }
+.mkt-app-gauge svg { display: block; transform: rotate(-90deg); }
+.mkt-app-gauge-num {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 38px; font-weight: 700; letter-spacing: -0.03em;
+  color: var(--text-strong); line-height: 1;
+  margin-top: -10px;
+}
+.mkt-app-gauge-out {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.1em;
+  color: var(--text-subtle);
+  margin-top: 30px;
+}
+
+.mkt-app-score-headline-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.mkt-app-score-headline {
+  font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  color: var(--text-strong);
+}
+.mkt-app-status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 500;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--green-soft); color: var(--green);
+}
+.mkt-app-score-meta {
+  font-size: 13px; color: var(--text-muted);
+  margin-bottom: 14px;
+}
+.mkt-app-score-pills {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.mkt-app-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  font-size: 11.5px; font-weight: 500;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mkt-app-pill::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor;
+}
+.mkt-app-pill.ok { color: var(--green); }
+.mkt-app-pill.warn { color: var(--yellow); }
+.mkt-app-pill.err { color: var(--red); }
+.mkt-app-pill.info { color: var(--blue); }
+
+/* Score trend */
+.mkt-app-trend {
+  padding: 18px 22px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 22px;
+}
+.mkt-app-trend-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.mkt-app-trend-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.mkt-app-trend-domain {
+  font-size: 12px; color: var(--text-subtle);
+  font-family: ui-monospace, monospace;
+}
+.mkt-app-bars {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  align-items: end;
+  height: 110px;
+  margin-bottom: 10px;
+}
+.mkt-app-bar-col {
+  display: flex; flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+.mkt-app-bar {
+  width: 100%;
+  background: rgba(22,163,74,0.20);
+  border-radius: 6px 6px 0 0;
+}
+.mkt-app-bar-col.today .mkt-app-bar {
+  background: var(--green);
+}
+.mkt-app-bar-col.today::before {
+  content: ''; position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+  width: 5px; height: 5px; border-radius: 50%; background: var(--green);
+}
+.mkt-app-bar-labels {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 8px; text-align: center;
+}
+.mkt-app-bar-day { font-size: 10px; color: var(--text-subtle); letter-spacing: 0.04em; font-weight: 500; }
+.mkt-app-bar-num { font-size: 13px; font-weight: 700; color: var(--text-strong); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.mkt-app-bar-col.today .mkt-app-bar-num { color: var(--green); }
+
+/* Provider status */
+.mkt-app-providers-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.mkt-app-providers-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.mkt-app-providers-meta { font-size: 11.5px; color: var(--text-subtle); }
+.mkt-app-providers {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.mkt-app-provider {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.mkt-app-provider-icon {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 7px;
+  font-size: 14px; font-weight: 700;
+  flex-shrink: 0;
+}
+.mkt-app-provider-icon.g { background: linear-gradient(135deg, #ea4335, #fbbc05); color: #fff; }
+.mkt-app-provider-icon.m { background: linear-gradient(135deg, #00a4ef, #f25022); color: #fff; }
+.mkt-app-provider-text { flex: 1; min-width: 0; }
+.mkt-app-provider-name { font-size: 13px; font-weight: 600; color: var(--text-strong); margin-bottom: 1px; }
+.mkt-app-provider-sub { font-size: 12px; color: var(--text-muted); }
+.mkt-app-provider-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; color: var(--green);
+}
+.mkt-app-provider-status::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+}
+
+/* ──────────── PANE SWITCHER ──────────── */
+.mkt-pane { display: none; }
+.mkt-pane.active { display: block; }
+
+.mkt-showcase-tab { -webkit-tap-highlight-color: transparent; }
+
+/* ── Postmaster pane ── */
+.mkt-pm-hero {
+  padding: 22px 26px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.mkt-pm-hero-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  margin-bottom: 8px;
+}
+.mkt-pm-hero-value {
+  font-size: 38px; font-weight: 700; letter-spacing: -0.03em;
+  color: var(--text-strong); line-height: 1; margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.mkt-pm-hero-trend { font-size: 12.5px; color: var(--green); margin-bottom: 14px; }
+.mkt-pm-chart { width: 100%; }
+.mkt-pm-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-bottom: 14px;
+}
+.mkt-pm-stat {
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.mkt-pm-stat-label {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle); margin-bottom: 6px;
+}
+.mkt-pm-stat-value { font-size: 20px; font-weight: 700; color: var(--text-strong); margin-bottom: 2px; letter-spacing: -0.02em; }
+.mkt-pm-stat-meta { font-size: 11.5px; color: var(--text-muted); }
+
+/* ── Microsoft SNDS pane ── */
+.mkt-ms-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  margin-bottom: 16px;
+}
+.mkt-ms-stat {
+  padding: 14px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.mkt-ms-stat-num {
+  font-size: 26px; font-weight: 700; letter-spacing: -0.025em;
+  color: var(--text-strong); margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.mkt-ms-stat.green .mkt-ms-stat-num { color: var(--green); }
+.mkt-ms-stat.yellow .mkt-ms-stat-num { color: var(--yellow); }
+.mkt-ms-stat.red .mkt-ms-stat-num { color: var(--red); }
+.mkt-ms-stat-label {
+  font-size: 10.5px; font-weight: 500;
+  color: var(--text-muted);
+}
+.mkt-ms-table {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.mkt-ms-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.7fr 0.7fr 0.9fr;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--border);
+}
+.mkt-ms-row:last-child { border-bottom: none; }
+.mkt-ms-row.mkt-ms-head {
+  background: var(--surface);
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+}
+.mkt-ms-row .mkt-mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11.5px; color: var(--text-strong); }
+.mkt-ms-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 500;
+  background: var(--green-soft); color: var(--green); width: fit-content;
+}
+.mkt-ms-pill::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+/* ── Blacklist pane ── */
+.mkt-bl-hero {
+  display: flex; align-items: center; gap: 18px;
+  padding: 22px 26px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.mkt-bl-hero-icon {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--green-soft); color: var(--green);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.mkt-bl-hero-icon svg { width: 28px; height: 28px; }
+.mkt-bl-hero-title { font-size: 24px; font-weight: 700; letter-spacing: -0.025em; color: var(--text-strong); margin-bottom: 4px; }
+.mkt-bl-hero-meta { font-size: 13px; color: var(--text-muted); }
+.mkt-bl-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+}
+.mkt-bl-cell {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11.5px; color: var(--text);
+  font-weight: 500;
+}
+.mkt-bl-cell svg { width: 11px; height: 11px; color: var(--green); flex-shrink: 0; }
+
+/* ── Alerts pane ── */
+.mkt-al-channels {
+  display: inline-flex; gap: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px; overflow: hidden;
+  margin-bottom: 16px;
+}
+.mkt-al-channel {
+  padding: 7px 16px;
+  font-size: 13px; color: var(--text-muted);
+  background: transparent;
+  border: none;
+  font-family: inherit; cursor: pointer;
+}
+.mkt-al-channel.active { background: var(--surface-2); color: var(--text-strong); font-weight: 500; }
+
+.mkt-al-rules {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+.mkt-al-rule {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px; color: var(--text);
+}
+.mkt-al-rule:last-child { border-bottom: none; }
+.mkt-al-rule-meta { font-size: 11.5px; color: var(--text-subtle); margin-top: 2px; }
+.mkt-al-toggle {
+  width: 32px; height: 18px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  position: relative;
+  flex-shrink: 0;
+  transition: background 200ms;
+}
+.mkt-al-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  transition: left 200ms;
+}
+.mkt-al-toggle.on { background: var(--text-strong); }
+.mkt-al-toggle.on::after { left: 16px; }
+
+.mkt-al-recent-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  margin-bottom: 10px;
+}
+.mkt-al-list {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.mkt-al-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.mkt-al-item:last-child { border-bottom: none; }
+.mkt-al-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.mkt-al-dot.ok { background: var(--green); box-shadow: 0 0 6px rgba(22,163,74,0.45); }
+.mkt-al-dot.warn { background: var(--yellow); box-shadow: 0 0 6px rgba(202,138,4,0.45); }
+.mkt-al-msg { font-size: 13px; color: var(--text-strong); }
+.mkt-al-meta { font-size: 11.5px; color: var(--text-subtle); margin-top: 2px; }
+
+/* ──────────── SECTION COMMON ──────────── */
+.mkt-section { padding: 96px 0; }
+.mkt-section-eyebrow {
+  display: inline-block;
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  margin-bottom: 16px;
+}
+.mkt-section-title {
+  font-size: clamp(32px, 4.4vw, 52px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  margin-bottom: 16px;
+  max-width: 760px;
+  color: var(--text-strong);
+}
+.mkt-section-sub {
+  font-size: 18px;
+  color: var(--text-muted);
+  max-width: 600px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* ──────────── LIVE SCAN ──────────── */
+.mkt-scan {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+.mkt-scan-form {
+  margin-top: 36px;
+  display: inline-flex; gap: 8px; padding: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  width: 100%; max-width: 540px;
+  box-shadow: var(--shadow-1);
+}
+.mkt-scan-form:focus-within {
+  border-color: var(--text-strong);
+  box-shadow: var(--shadow-2);
+}
+.mkt-scan-input {
+  flex: 1;
+  padding: 10px 14px;
+  background: transparent; border: none; outline: none;
+  color: var(--text-strong); font-family: inherit;
+  font-size: 14.5px; font-weight: 500;
+}
+.mkt-scan-input::placeholder { color: var(--text-faint); }
+.mkt-scan-btn {
+  padding: 10px 20px;
+  background: var(--text-strong); color: #ffffff;
+  border: none; border-radius: 6px;
+  font-size: 13.5px; font-weight: 500;
+  cursor: pointer; font-family: inherit;
+  transition: opacity 150ms;
+}
+.mkt-scan-btn:hover { opacity: 0.9; }
+.mkt-scan-hint { margin-top: 16px; font-size: 13px; color: var(--text-subtle); }
+
+/* ──────────── HOW IT WORKS ──────────── */
+.mkt-steps {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 56px;
+}
+.mkt-step {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px 28px;
+  transition: box-shadow 200ms cubic-bezier(0.4,0,0.2,1);
+}
+.mkt-step:hover { box-shadow: var(--shadow-2); }
+.mkt-step-num {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-2);
+  border-radius: 6px;
+  font-size: 12px; font-weight: 600; color: var(--text-strong);
+  margin-bottom: 18px;
+  font-family: ui-monospace, monospace;
+}
+.mkt-step-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.015em; color: var(--text-strong); }
+.mkt-step-desc { font-size: 14.5px; color: var(--text-muted); line-height: 1.55; }
+
+/* ──────────── FEATURES ──────────── */
+.mkt-features {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 56px;
+}
+.mkt-feature {
+  padding: 28px 24px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: box-shadow 200ms, border-color 200ms;
+}
+.mkt-feature:hover { border-color: var(--border-strong); box-shadow: var(--shadow-2); }
+.mkt-feature-icon {
+  width: 36px; height: 36px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+  color: var(--text-strong);
+}
+.mkt-feature-icon svg { width: 18px; height: 18px; }
+.mkt-feature-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em; color: var(--text-strong); }
+.mkt-feature-desc { font-size: 14px; color: var(--text-muted); line-height: 1.55; }
+
+/* ──────────── WHY ──────────── */
+.mkt-why { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.mkt-why-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  margin-top: 56px;
+}
+.mkt-why-item-num {
+  font-size: 44px; font-weight: 600; letter-spacing: -0.03em;
+  color: var(--text-strong); margin-bottom: 12px; line-height: 1;
+  font-family: ui-monospace, monospace;
+}
+.mkt-why-item-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; color: var(--text-strong); }
+.mkt-why-item-desc { font-size: 14.5px; color: var(--text-muted); line-height: 1.55; }
+
+/* ──────────── PRICING ──────────── */
+.mkt-pricing-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 56px;
+  align-items: stretch;
+}
+.mkt-tier {
+  padding: 32px 28px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex; flex-direction: column;
+  transition: box-shadow 200ms;
+}
+.mkt-tier:hover { box-shadow: var(--shadow-2); }
+.mkt-tier.featured {
+  border-color: var(--text-strong);
+  position: relative;
+}
+.mkt-tier.featured::before {
+  content: 'Most popular';
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  font-size: 11px; font-weight: 600; padding: 4px 12px;
+  background: var(--text-strong); color: #ffffff;
+  border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.mkt-tier-name { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+.mkt-tier-price { font-size: 48px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; margin-bottom: 4px; color: var(--text-strong); }
+.mkt-tier-price-suffix { font-size: 14px; color: var(--text-subtle); font-weight: 500; }
+.mkt-tier-desc { font-size: 13.5px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5; }
+.mkt-tier-features { list-style: none; padding: 0; margin: 0 0 28px; flex: 1; }
+.mkt-tier-features li {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 0;
+  font-size: 13.5px; color: var(--text);
+  border-bottom: 1px solid var(--border-weak);
+  font-weight: 500;
+}
+.mkt-tier-features li:last-child { border-bottom: none; }
+.mkt-tier-features li svg { width: 14px; height: 14px; color: var(--text-strong); flex-shrink: 0; margin-top: 3px; }
+.mkt-tier-cta {
+  display: block; text-align: center;
+  padding: 11px 18px;
+  border-radius: 8px;
+  font-size: 14px; font-weight: 500;
+  border: 1px solid var(--border-strong);
+  color: var(--text-strong); background: var(--bg);
+  transition: all 150ms;
+}
+.mkt-tier-cta:hover { border-color: var(--text-strong); }
+.mkt-tier.featured .mkt-tier-cta { background: var(--text-strong); color: #ffffff; border-color: var(--text-strong); }
+.mkt-tier.featured .mkt-tier-cta:hover { opacity: 0.9; background: var(--text-strong); }
+
+/* ──────────── FAQ ──────────── */
+.mkt-faq { max-width: 760px; margin: 56px auto 0; }
+.mkt-faq-item { border-bottom: 1px solid var(--border); }
+.mkt-faq-item:first-child { border-top: 1px solid var(--border); }
+.mkt-faq-q {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 22px 4px;
+  cursor: pointer;
+  font-size: 16px; font-weight: 500;
+  user-select: none;
+  list-style: none;
+  color: var(--text-strong);
+}
+.mkt-faq-q::-webkit-details-marker { display: none; }
+.mkt-faq-q-icon {
+  color: var(--text-subtle); font-size: 20px; line-height: 1;
+  transition: transform 200ms;
+}
+.mkt-faq-item[open] .mkt-faq-q-icon { transform: rotate(45deg); color: var(--text-strong); }
+.mkt-faq-a { padding: 0 4px 22px; font-size: 14.5px; color: var(--text-muted); line-height: 1.6; }
+
+/* ──────────── FINAL CTA ──────────── */
+.mkt-final {
+  text-align: center;
+  padding: 96px 28px;
+  margin: 0 32px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.mkt-final-title {
+  font-size: clamp(36px, 5vw, 64px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+  margin-bottom: 20px;
+  color: var(--text-strong);
+}
+.mkt-final-sub { font-size: 17px; color: var(--text-muted); margin-bottom: 32px; max-width: 540px; margin-inline: auto; font-weight: 500; }
+
+/* ──────────── FOOTER ──────────── */
+.mkt-footer {
+  border-top: 1px solid var(--border);
+  padding: 64px 0 32px;
+  margin-top: 96px;
+  background: var(--bg);
+}
+.mkt-footer-grid {
+  display: grid; grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 36px;
+  margin-bottom: 36px;
+}
+.mkt-footer-col-title {
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  margin-bottom: 14px;
+}
+.mkt-footer-col a {
+  display: block;
+  padding: 6px 0;
+  font-size: 13.5px; color: var(--text-muted);
+  transition: color 150ms;
+  font-weight: 500;
+}
+.mkt-footer-col a:hover { color: var(--text-strong); }
+.mkt-footer-tagline { font-size: 13.5px; color: var(--text-muted); margin-top: 12px; max-width: 280px; line-height: 1.55; }
+.mkt-footer-bottom {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12.5px; color: var(--text-subtle);
+  flex-wrap: wrap; gap: 12px;
+}
+
+/* ──────────── RESPONSIVE ──────────── */
+@media (max-width: 1100px) {
+  .mkt-app { grid-template-columns: 1fr; }
+  .mkt-app-side { display: none; }
+  .mkt-app-main { padding: 22px; }
+}
+@media (max-width: 980px) {
+  .mkt-showcase-tabs { gap: 0; overflow-x: auto; justify-content: flex-start; padding: 0 16px; }
+  .mkt-showcase-tab { white-space: nowrap; }
+  .mkt-app-providers { grid-template-columns: 1fr; }
+  .mkt-app-score-card { grid-template-columns: 100px 1fr; gap: 18px; padding: 18px; }
+  .mkt-app-gauge { width: 100px; height: 100px; }
+  .mkt-app-gauge-num { font-size: 30px; margin-top: -8px; }
+  .mkt-app-score-headline { font-size: 22px; }
+}
+@media (max-width: 768px) {
+  .mkt-shell { padding: 0 20px; }
+  .mkt-section { padding: 64px 0; }
+  .mkt-hero { padding: 64px 0 40px; }
+  .mkt-hero-title { font-size: clamp(36px, 9vw, 64px); }
+  .mkt-steps, .mkt-features, .mkt-pricing-grid, .mkt-why-grid { grid-template-columns: 1fr; }
+  .mkt-footer-grid { grid-template-columns: 1fr 1fr; }
+  .mkt-nav-links { gap: 0; }
+  .mkt-nav-link { padding: 6px 10px; font-size: 13px; }
+  .mkt-nav-secondary { display: none; }
+  .mkt-final { margin: 0 20px; padding: 64px 24px; }
+  .mkt-app-actions { flex-direction: column; align-items: stretch; }
+  .mkt-app-action-spacer { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════ TOPNAV ════════ -->
+<nav class="mkt-topnav">
+  <div class="mkt-shell mkt-topnav-inner">
+    <a href="/" class="mkt-brand">
+      <span class="mkt-brand-mark">
+        <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M5 9 L14 15 L23 9 L23 20 Q23 22 21 22 L7 22 Q5 22 5 20 Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+          <path d="M5 9 L14 15 L23 9" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+          <circle cx="22" cy="6" r="2.2" fill="#16a34a"/>
+        </svg>
+      </span>
+      InboxScore
+    </a>
+    <div class="mkt-nav-links">
+      <a href="#features" class="mkt-nav-link">Features</a>
+      <a href="#pricing" class="mkt-nav-link">Pricing</a>
+      <a href="#faq" class="mkt-nav-link">FAQ</a>
+      <button class="mkt-theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <a href="/login" class="mkt-nav-secondary">Log in</a>
+      <a href="/signup" class="mkt-nav-cta">Sign up free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ════════ HERO (centred, scan-form-as-action) ════════ -->
+<header class="mkt-hero">
+  <div class="mkt-shell">
+    <a href="#scan" class="mkt-hero-eyebrow">
+      Live · 1,247 sending domains monitored
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+    </a>
+    <h1 class="mkt-hero-title">Is your email reaching the inbox?</h1>
+    <p class="mkt-hero-sub">Check your domain's deliverability in 30 seconds. Get a clear score, see what's broken, and learn exactly how to fix it. Free, no signup needed.</p>
+
+    <form class="mkt-hero-scan" onsubmit="event.preventDefault(); var d=document.getElementById('mkt-hero-scan-input').value.trim(); if(d) window.location.href='/?domain='+encodeURIComponent(d);">
+      <input type="text" id="mkt-hero-scan-input" class="mkt-hero-scan-input" placeholder="Enter your domain (e.g. acme.com)" autocomplete="off" spellcheck="false" required>
+      <button type="submit" class="mkt-hero-scan-btn">Scan domain →</button>
+    </form>
+
+    <div class="mkt-hero-trust">
+      <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Free scan</span>
+      <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>No signup needed</span>
+      <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Results in 30 seconds</span>
+    </div>
+  </div>
+</header>
+
+<!-- ════════ PRODUCT SHOWCASE (tabs + full-width cameo) ════════ -->
+<section class="mkt-showcase">
+  <div class="mkt-showcase-tabs">
+    <button class="mkt-showcase-tab active" data-tab="dashboard">Dashboard</button>
+    <button class="mkt-showcase-tab" data-tab="postmaster">Postmaster</button>
+    <button class="mkt-showcase-tab" data-tab="microsoft">Microsoft SNDS</button>
+    <button class="mkt-showcase-tab" data-tab="blacklist">Blacklist Monitor</button>
+    <button class="mkt-showcase-tab" data-tab="alerts">Alerts</button>
+  </div>
+
+  <div class="mkt-showcase-frame">
+    <div class="mkt-showcase-window">
+      <div class="mkt-window-bar">
+        <span class="mkt-window-dot"></span>
+        <span class="mkt-window-dot"></span>
+        <span class="mkt-window-dot"></span>
+        <span class="mkt-window-url" id="mkt-window-url">inboxscore.ai/dashboard</span>
+      </div>
+
+      <div class="mkt-app">
+
+        <!-- Sidebar -->
+        <aside class="mkt-app-side">
+          <div class="mkt-app-brand">
+            <span class="mkt-app-brand-mark">
+              <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M5 9 L14 15 L23 9 L23 20 Q23 22 21 22 L7 22 Q5 22 5 20 Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+                <path d="M5 9 L14 15 L23 9" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+              </svg>
+            </span>
+            InboxScore
+          </div>
+          <nav class="mkt-app-nav">
+            <span class="mkt-app-nav-item active" data-nav="dashboard">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+              Dashboard
+            </span>
+            <span class="mkt-app-nav-item" data-nav="postmaster">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              Google Postmaster
+            </span>
+            <span class="mkt-app-nav-item" data-nav="microsoft">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/></svg>
+              Microsoft SNDS
+            </span>
+            <span class="mkt-app-nav-item" data-nav="blacklist">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Blacklist Monitor
+            </span>
+            <span class="mkt-app-nav-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a14.5 14.5 0 0 1 0 20"/></svg>
+              Domains
+            </span>
+            <span class="mkt-app-nav-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/></svg>
+              Sending IPs
+            </span>
+            <span class="mkt-app-nav-item" data-nav="alerts">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/></svg>
+              Alerts
+            </span>
+            <span class="mkt-app-nav-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Settings
+            </span>
+          </nav>
+          <div class="mkt-app-side-bottom">
+            <div class="mkt-app-plan">Pro Plan</div>
+          </div>
+        </aside>
+
+        <!-- Main -->
+        <main class="mkt-app-main">
+
+          <!-- ── PANE: DASHBOARD ── -->
+          <div class="mkt-pane active" id="pane-dashboard">
+          <div class="mkt-app-header">
+            <div>
+              <div class="mkt-app-title">Dashboard</div>
+              <div class="mkt-app-subtitle">Live deliverability snapshot for the selected domain.</div>
+            </div>
+            <div class="mkt-app-header-right">
+              <span>Vinoop Thayatt</span>
+              <span class="mkt-app-icon-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+              </span>
+              <span class="mkt-app-logout">Log Out</span>
+            </div>
+          </div>
+
+          <div class="mkt-app-actions">
+            <span class="mkt-app-domain-pill">
+              mailercloud.com
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+            <div class="mkt-app-toggle">
+              <button class="mkt-app-toggle-btn active">Single Domain</button>
+              <button class="mkt-app-toggle-btn">View All Domains</button>
+            </div>
+            <span class="mkt-app-action-spacer"></span>
+            <button class="mkt-app-action-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+              Refresh
+            </button>
+            <button class="mkt-app-action-btn primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Scan New Domain
+            </button>
+          </div>
+
+          <!-- Score card -->
+          <div class="mkt-app-score-card">
+            <div class="mkt-app-gauge">
+              <svg viewBox="0 0 100 100" width="130" height="130" xmlns="http://www.w3.org/2000/svg">
+                <circle class="mkt-app-gauge-bg" cx="50" cy="50" r="42" fill="none" stroke-width="7"/>
+                <circle class="mkt-app-gauge-fg" cx="50" cy="50" r="42" fill="none" stroke-width="7"
+                  stroke-dasharray="263.9" stroke-dashoffset="23.7"
+                  stroke-linecap="round"/>
+              </svg>
+              <div class="mkt-app-gauge-num">91</div>
+              <div class="mkt-app-gauge-out">OUT OF 100</div>
+            </div>
+            <div>
+              <div class="mkt-app-score-headline-row">
+                <div class="mkt-app-score-headline">Excellent</div>
+                <span class="mkt-app-status-pill">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  All clear
+                </span>
+              </div>
+              <div class="mkt-app-score-meta">mailercloud.com · Last scanned May 8, 2026, 10:11 AM</div>
+              <div class="mkt-app-score-pills">
+                <span class="mkt-app-pill ok">11 passed</span>
+                <span class="mkt-app-pill warn">0 warnings</span>
+                <span class="mkt-app-pill err">0 failed</span>
+                <span class="mkt-app-pill info">4 info</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Score trend -->
+          <div class="mkt-app-trend">
+            <div class="mkt-app-trend-header">
+              <div class="mkt-app-trend-label">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                SCORE TREND · LAST 7 DAYS
+              </div>
+              <div class="mkt-app-trend-domain">mailercloud.com</div>
+            </div>
+            <div class="mkt-app-bars">
+              <div class="mkt-app-bar-col"><div class="mkt-app-bar" style="height:78%"></div></div>
+              <div class="mkt-app-bar-col"><div class="mkt-app-bar" style="height:80%"></div></div>
+              <div class="mkt-app-bar-col"><div class="mkt-app-bar" style="height:80%"></div></div>
+              <div class="mkt-app-bar-col"><div class="mkt-app-bar" style="height:80%"></div></div>
+              <div class="mkt-app-bar-col"><div class="mkt-app-bar" style="height:80%"></div></div>
+              <div class="mkt-app-bar-col"><div class="mkt-app-bar" style="height:80%"></div></div>
+              <div class="mkt-app-bar-col today"><div class="mkt-app-bar" style="height:80%"></div></div>
+            </div>
+            <div class="mkt-app-bar-labels">
+              <div><div class="mkt-app-bar-day">SAT</div><div class="mkt-app-bar-num">90</div></div>
+              <div><div class="mkt-app-bar-day">SUN</div><div class="mkt-app-bar-num">91</div></div>
+              <div><div class="mkt-app-bar-day">MON</div><div class="mkt-app-bar-num">91</div></div>
+              <div><div class="mkt-app-bar-day">TUE</div><div class="mkt-app-bar-num">91</div></div>
+              <div><div class="mkt-app-bar-day">WED</div><div class="mkt-app-bar-num">91</div></div>
+              <div><div class="mkt-app-bar-day">THU</div><div class="mkt-app-bar-num">91</div></div>
+              <div><div class="mkt-app-bar-day">FRI (TODAY)</div><div class="mkt-app-bar-num">91</div></div>
+            </div>
+          </div>
+
+          <!-- Provider status -->
+          <div class="mkt-app-providers-header">
+            <div class="mkt-app-providers-label">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+              PROVIDER STATUS
+            </div>
+            <div class="mkt-app-providers-meta">Inbox-placement intelligence from mailbox providers</div>
+          </div>
+          <div class="mkt-app-providers">
+            <div class="mkt-app-provider">
+              <div class="mkt-app-provider-icon g">G</div>
+              <div class="mkt-app-provider-text">
+                <div class="mkt-app-provider-name">Google Postmaster</div>
+                <div class="mkt-app-provider-sub">Gmail deliverability data</div>
+              </div>
+              <span class="mkt-app-provider-status">Connected</span>
+            </div>
+            <div class="mkt-app-provider">
+              <div class="mkt-app-provider-icon m">M</div>
+              <div class="mkt-app-provider-text">
+                <div class="mkt-app-provider-name">Microsoft SNDS</div>
+                <div class="mkt-app-provider-sub">Outlook IP reputation</div>
+              </div>
+              <span class="mkt-app-provider-status">Connected</span>
+            </div>
+          </div>
+          </div><!-- /pane-dashboard -->
+
+          <!-- ── PANE: POSTMASTER ── -->
+          <div class="mkt-pane" id="pane-postmaster">
+            <div class="mkt-app-header">
+              <div>
+                <div class="mkt-app-title">Google Postmaster</div>
+                <div class="mkt-app-subtitle">Gmail spam, authentication, and reputation signals</div>
+              </div>
+              <div class="mkt-app-header-right">
+                <span>Vinoop Thayatt</span>
+                <span class="mkt-app-icon-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/></svg>
+                </span>
+                <span class="mkt-app-logout">Log Out</span>
+              </div>
+            </div>
+
+            <div class="mkt-pm-hero" style="margin-top:18px;">
+              <div class="mkt-pm-hero-label">SPAM RATE · LAST 30 DAYS</div>
+              <div class="mkt-pm-hero-value">0.04%</div>
+              <div class="mkt-pm-hero-trend">↓ 0.02% vs prior period · within Gmail safe range</div>
+              <div class="mkt-pm-chart">
+                <svg viewBox="0 0 800 100" preserveAspectRatio="none" style="width:100%; height:90px;">
+                  <defs>
+                    <linearGradient id="pmGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#16a34a" stop-opacity="0.18"/>
+                      <stop offset="100%" stop-color="#16a34a" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M0,30 L40,28 L80,32 L120,25 L160,28 L200,22 L240,28 L280,20 L320,18 L360,22 L400,16 L440,18 L480,15 L520,20 L560,17 L600,14 L640,18 L680,15 L720,12 L760,15 L800,18 L800,100 L0,100 Z" fill="url(#pmGrad)"/>
+                  <path d="M0,30 L40,28 L80,32 L120,25 L160,28 L200,22 L240,28 L280,20 L320,18 L360,22 L400,16 L440,18 L480,15 L520,20 L560,17 L600,14 L640,18 L680,15 L720,12 L760,15 L800,18" stroke="#16a34a" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="mkt-pm-stats">
+              <div class="mkt-pm-stat">
+                <div class="mkt-pm-stat-label">IP REPUTATION</div>
+                <div class="mkt-pm-stat-value">High</div>
+                <div class="mkt-pm-stat-meta">No Gmail complaints</div>
+              </div>
+              <div class="mkt-pm-stat">
+                <div class="mkt-pm-stat-label">DOMAIN REPUTATION</div>
+                <div class="mkt-pm-stat-value">High</div>
+                <div class="mkt-pm-stat-meta">Across all sending</div>
+              </div>
+              <div class="mkt-pm-stat">
+                <div class="mkt-pm-stat-label">AUTH PASS</div>
+                <div class="mkt-pm-stat-value">99.8%</div>
+                <div class="mkt-pm-stat-meta">SPF · DKIM · DMARC</div>
+              </div>
+            </div>
+          </div><!-- /pane-postmaster -->
+
+          <!-- ── PANE: MICROSOFT SNDS ── -->
+          <div class="mkt-pane" id="pane-microsoft">
+            <div class="mkt-app-header">
+              <div>
+                <div class="mkt-app-title">Microsoft SNDS</div>
+                <div class="mkt-app-subtitle">Outlook + Hotmail per-IP reputation</div>
+              </div>
+              <div class="mkt-app-header-right">
+                <span>Vinoop Thayatt</span>
+                <span class="mkt-app-icon-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>
+                </span>
+                <span class="mkt-app-logout">Log Out</span>
+              </div>
+            </div>
+
+            <div class="mkt-ms-strip" style="margin-top:18px;">
+              <div class="mkt-ms-stat green">
+                <div class="mkt-ms-stat-num">4</div>
+                <div class="mkt-ms-stat-label">Green IPs</div>
+              </div>
+              <div class="mkt-ms-stat yellow">
+                <div class="mkt-ms-stat-num">0</div>
+                <div class="mkt-ms-stat-label">Yellow IPs</div>
+              </div>
+              <div class="mkt-ms-stat red">
+                <div class="mkt-ms-stat-num">0</div>
+                <div class="mkt-ms-stat-label">Red IPs</div>
+              </div>
+              <div class="mkt-ms-stat">
+                <div class="mkt-ms-stat-num">0.01%</div>
+                <div class="mkt-ms-stat-label">Avg complaint rate</div>
+              </div>
+            </div>
+
+            <div class="mkt-ms-table">
+              <div class="mkt-ms-row mkt-ms-head">
+                <span>IP ADDRESS</span><span>STATUS</span><span>COMPLAINT</span><span>TRAP HITS</span><span>LAST SEEN</span>
+              </div>
+              <div class="mkt-ms-row">
+                <span class="mkt-mono">198.51.100.1</span>
+                <span class="mkt-ms-pill">Green</span>
+                <span>0.01%</span><span>0</span><span>2 min ago</span>
+              </div>
+              <div class="mkt-ms-row">
+                <span class="mkt-mono">198.51.100.2</span>
+                <span class="mkt-ms-pill">Green</span>
+                <span>0.02%</span><span>0</span><span>5 min ago</span>
+              </div>
+              <div class="mkt-ms-row">
+                <span class="mkt-mono">198.51.100.3</span>
+                <span class="mkt-ms-pill">Green</span>
+                <span>0.00%</span><span>0</span><span>1 min ago</span>
+              </div>
+              <div class="mkt-ms-row">
+                <span class="mkt-mono">198.51.100.4</span>
+                <span class="mkt-ms-pill">Green</span>
+                <span>0.03%</span><span>0</span><span>8 min ago</span>
+              </div>
+            </div>
+          </div><!-- /pane-microsoft -->
+
+          <!-- ── PANE: BLACKLIST MONITOR ── -->
+          <div class="mkt-pane" id="pane-blacklist">
+            <div class="mkt-app-header">
+              <div>
+                <div class="mkt-app-title">Blacklist Monitor</div>
+                <div class="mkt-app-subtitle">Real-time DNSBL checks across 25+ blocklists</div>
+              </div>
+              <div class="mkt-app-header-right">
+                <span>Vinoop Thayatt</span>
+                <span class="mkt-app-icon-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>
+                </span>
+                <span class="mkt-app-logout">Log Out</span>
+              </div>
+            </div>
+
+            <div class="mkt-bl-hero" style="margin-top:18px;">
+              <div class="mkt-bl-hero-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div>
+                <div class="mkt-bl-hero-title">All Clear</div>
+                <div class="mkt-bl-hero-meta">0 of 160 listings · Last checked 4 minutes ago · 6 IPs scanned</div>
+              </div>
+            </div>
+
+            <div class="mkt-bl-grid">
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Spamhaus ZEN</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Spamhaus DBL</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Barracuda</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SORBS</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SpamCop</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>UCEPROTECT 1</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>UCEPROTECT 2</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SURBL</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>URIBL</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Invaluement</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Mailspike</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>PSBL</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SpamRats</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>0Spam</div>
+              <div class="mkt-bl-cell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>+11 more</div>
+            </div>
+          </div><!-- /pane-blacklist -->
+
+          <!-- ── PANE: ALERTS ── -->
+          <div class="mkt-pane" id="pane-alerts">
+            <div class="mkt-app-header">
+              <div>
+                <div class="mkt-app-title">Alerts</div>
+                <div class="mkt-app-subtitle">Real-time notifications when deliverability drops</div>
+              </div>
+              <div class="mkt-app-header-right">
+                <span>Vinoop Thayatt</span>
+                <span class="mkt-app-icon-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/></svg>
+                </span>
+                <span class="mkt-app-logout">Log Out</span>
+              </div>
+            </div>
+
+            <div class="mkt-al-channels" style="margin-top:18px;">
+              <button class="mkt-al-channel active">Email</button>
+              <button class="mkt-al-channel">Slack</button>
+              <button class="mkt-al-channel">Webhook</button>
+            </div>
+
+            <div class="mkt-al-rules">
+              <div class="mkt-al-rule">
+                <div>
+                  <div>Spam rate above 0.3%</div>
+                  <div class="mkt-al-rule-meta">Gmail Postmaster signal</div>
+                </div>
+                <span class="mkt-al-toggle on"></span>
+              </div>
+              <div class="mkt-al-rule">
+                <div>
+                  <div>Blacklist listing detected</div>
+                  <div class="mkt-al-rule-meta">Any of 25+ DNSBLs</div>
+                </div>
+                <span class="mkt-al-toggle on"></span>
+              </div>
+              <div class="mkt-al-rule">
+                <div>
+                  <div>DKIM pass rate drops below 95%</div>
+                  <div class="mkt-al-rule-meta">Auth signal</div>
+                </div>
+                <span class="mkt-al-toggle on"></span>
+              </div>
+              <div class="mkt-al-rule">
+                <div>
+                  <div>SNDS IP turns yellow or red</div>
+                  <div class="mkt-al-rule-meta">Microsoft signal</div>
+                </div>
+                <span class="mkt-al-toggle on"></span>
+              </div>
+            </div>
+
+            <div class="mkt-al-recent-label">RECENT ALERTS</div>
+            <div class="mkt-al-list">
+              <div class="mkt-al-item">
+                <span class="mkt-al-dot ok"></span>
+                <div>
+                  <div class="mkt-al-msg">All checks passed for mailercloud.com</div>
+                  <div class="mkt-al-meta">4 minutes ago · email sent to vinoop@mailercloud.com</div>
+                </div>
+              </div>
+              <div class="mkt-al-item">
+                <span class="mkt-al-dot warn"></span>
+                <div>
+                  <div class="mkt-al-msg">DMARC alignment dropped to 96% on redrail.redbus.com</div>
+                  <div class="mkt-al-meta">2 hours ago · email + Slack sent</div>
+                </div>
+              </div>
+              <div class="mkt-al-item">
+                <span class="mkt-al-dot ok"></span>
+                <div>
+                  <div class="mkt-al-msg">voicenotes.com cleared from PSBL after 12 minutes</div>
+                  <div class="mkt-al-meta">Yesterday · auto-resolved</div>
+                </div>
+              </div>
+            </div>
+          </div><!-- /pane-alerts -->
+
+        </main>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ LIVE SCAN ════════ -->
+<section class="mkt-section mkt-scan" id="scan">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">No signup needed</span>
+    <h2 class="mkt-section-title" style="margin-inline:auto;">See your real status in 30 seconds.</h2>
+    <p class="mkt-section-sub" style="margin-inline:auto;">Drop in your sending domain. We'll check 20+ DNSBLs, SPF/DKIM/DMARC, MX records, and TLS configuration — all live.</p>
+    <form class="mkt-scan-form" onsubmit="event.preventDefault(); window.location.href='/?domain=' + encodeURIComponent(document.getElementById('scan-input').value);">
+      <input type="text" id="scan-input" class="mkt-scan-input" placeholder="example.com" autocomplete="off" spellcheck="false">
+      <button type="submit" class="mkt-scan-btn">Scan now →</button>
+    </form>
+    <p class="mkt-scan-hint">No credit card. No signup. Results in under 30 seconds.</p>
+  </div>
+</section>
+
+<!-- ════════ HOW IT WORKS ════════ -->
+<section class="mkt-section">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">How it works</span>
+    <h2 class="mkt-section-title">Three steps. That's it.</h2>
+    <p class="mkt-section-sub">From signup to your first alert in under five minutes.</p>
+    <div class="mkt-steps">
+      <div class="mkt-step">
+        <div class="mkt-step-num">01</div>
+        <h3 class="mkt-step-title">Add your domain</h3>
+        <p class="mkt-step-desc">Paste your sending domain. We auto-discover SPF includes, DKIM selectors, MX records, and your sending IPs.</p>
+      </div>
+      <div class="mkt-step">
+        <div class="mkt-step-num">02</div>
+        <h3 class="mkt-step-title">We monitor non-stop</h3>
+        <p class="mkt-step-desc">Connect Google Postmaster + Microsoft SNDS for ISP signals. We also poll 20+ DNSBLs every few hours.</p>
+      </div>
+      <div class="mkt-step">
+        <div class="mkt-step-num">03</div>
+        <h3 class="mkt-step-title">Get alerts that matter</h3>
+        <p class="mkt-step-desc">Real-time alerts on Slack, email, or webhook the moment something breaks — not in a daily digest.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ FEATURES ════════ -->
+<section class="mkt-section" id="features" style="background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">Features</span>
+    <h2 class="mkt-section-title">Everything you need in one place.</h2>
+    <p class="mkt-section-sub">Stop stitching together 5 tools to track deliverability. We replace all of them.</p>
+    <div class="mkt-features">
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></span>
+        <h3 class="mkt-feature-title">Blacklist Monitor</h3>
+        <p class="mkt-feature-desc">20+ DNSBLs covered including Spamhaus ZEN, Barracuda, SORBS, and SpamCop. Detection in minutes.</p>
+      </div>
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="m16 19 2 2 4-4"/></svg></span>
+        <h3 class="mkt-feature-title">Google Postmaster</h3>
+        <p class="mkt-feature-desc">Spam rate, IP reputation, domain reputation, and authentication pass-rates pulled directly from Gmail.</p>
+      </div>
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12.5V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7.5"/><path d="M22 7 12 13 2 7"/><path d="M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="m22 22-1.5-1.5"/></svg></span>
+        <h3 class="mkt-feature-title">Microsoft SNDS</h3>
+        <p class="mkt-feature-desc">Per-IP reputation, complaint rates, and trap hits straight from Outlook + Hotmail. The signal that's actually hard to get.</p>
+      </div>
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
+        <h3 class="mkt-feature-title">Real-time Alerts</h3>
+        <p class="mkt-feature-desc">Slack, email, or webhook delivery the moment a threshold is crossed. No daily digests. No noise.</p>
+      </div>
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg></span>
+        <h3 class="mkt-feature-title">Multi-domain Dashboard</h3>
+        <p class="mkt-feature-desc">Monitor 100s of sending domains and brands from one view. Sort by score. Filter by issue. Drill in fast.</p>
+      </div>
+      <div class="mkt-feature">
+        <span class="mkt-feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span>
+        <h3 class="mkt-feature-title">Sending IP Reputation</h3>
+        <p class="mkt-feature-desc">Track every IP that sends on your behalf. Map IPs to domains. See per-IP reputation across providers.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ WHY ════════ -->
+<section class="mkt-section mkt-why">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">Why InboxScore</span>
+    <h2 class="mkt-section-title">Built for senders who care about reaching the inbox.</h2>
+    <div class="mkt-why-grid">
+      <div>
+        <div class="mkt-why-item-num">20+</div>
+        <h3 class="mkt-why-item-title">DNSBLs covered</h3>
+        <p class="mkt-why-item-desc">Most competitors check 5. We check Spamhaus ZEN, Barracuda, SORBS, SpamCop, UCEPROTECT, and 15+ more.</p>
+      </div>
+      <div>
+        <div class="mkt-why-item-num">G+M</div>
+        <h3 class="mkt-why-item-title">Google + Microsoft, one tool</h3>
+        <p class="mkt-why-item-desc">Stop logging into two postmaster portals. We pull both Gmail and Outlook signals into a single dashboard.</p>
+      </div>
+      <div>
+        <div class="mkt-why-item-num">5m</div>
+        <h3 class="mkt-why-item-title">Time to first alert</h3>
+        <p class="mkt-why-item-desc">From signup to your first deliverability alert in under five minutes. No support call required.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ PRICING ════════ -->
+<section class="mkt-section" id="pricing">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">Pricing</span>
+    <h2 class="mkt-section-title">Simple, sender-friendly pricing.</h2>
+    <p class="mkt-section-sub">Start free. Upgrade when you outgrow it. No surprises.</p>
+    <div class="mkt-pricing-grid">
+      <div class="mkt-tier">
+        <div class="mkt-tier-name">Free</div>
+        <div class="mkt-tier-price">$0<span class="mkt-tier-price-suffix"> / forever</span></div>
+        <p class="mkt-tier-desc">Perfect for small senders or trying us out.</p>
+        <ul class="mkt-tier-features">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>1 domain monitored</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>20+ DNSBL checks</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Email alerts</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Daily scans</li>
+        </ul>
+        <a href="/signup" class="mkt-tier-cta">Start free</a>
+      </div>
+      <div class="mkt-tier featured">
+        <div class="mkt-tier-name">Pro</div>
+        <div class="mkt-tier-price">$49<span class="mkt-tier-price-suffix"> / month</span></div>
+        <p class="mkt-tier-desc">For teams managing real sending volume.</p>
+        <ul class="mkt-tier-features">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Up to 10 domains</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Google Postmaster + SNDS</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Slack + webhook alerts</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Hourly scans</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Sending IP reputation</li>
+        </ul>
+        <a href="/signup" class="mkt-tier-cta">Start free trial</a>
+      </div>
+      <div class="mkt-tier">
+        <div class="mkt-tier-name">Enterprise</div>
+        <div class="mkt-tier-price">Custom</div>
+        <p class="mkt-tier-desc">For ESPs and high-volume senders.</p>
+        <ul class="mkt-tier-features">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Unlimited domains</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>API access</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SSO + audit logs</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Dedicated support</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Custom integrations</li>
+        </ul>
+        <a href="mailto:hello@inboxscore.ai" class="mkt-tier-cta">Talk to sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ FAQ ════════ -->
+<section class="mkt-section" id="faq" style="background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="mkt-shell">
+    <span class="mkt-section-eyebrow">FAQ</span>
+    <h2 class="mkt-section-title" style="text-align:center; margin-inline:auto;">Common questions</h2>
+    <div class="mkt-faq">
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">How is this different from Postmark or Mailgun?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">Postmark and Mailgun are email service providers — they send your email. InboxScore monitors deliverability for whatever ESP you use. We work alongside them, not instead of them.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">Does it work with my email service?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">Yes — InboxScore is ESP-agnostic. Whether you're sending from SendGrid, Postmark, Amazon SES, your own SMTP, or any combination, we monitor your sending domains and IPs the same way.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">How fast are blacklist alerts?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">DNSBL scans run every few hours on free, every hour on Pro. The moment a listing is detected, we fire your configured alert channels. Most users get notified within 60 minutes of being listed.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">Do you support transactional and marketing email?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">Both. Whether you're sending password resets, receipts, newsletters, or campaigns — if it goes through SMTP, we monitor it.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">Can I monitor multiple domains?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">Yes. Free plan covers 1 domain, Pro covers up to 10, Enterprise is unlimited. Each domain has its own dashboard, alerts, and history.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">How do I cancel?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">One click in Settings → Plan & Billing. We don't make you call anyone. Your historical data stays accessible until your next billing cycle.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ FINAL CTA ════════ -->
+<section class="mkt-section" style="padding: 0;">
+  <div class="mkt-final">
+    <h2 class="mkt-final-title">Stop guessing about deliverability.</h2>
+    <p class="mkt-final-sub">Set up InboxScore in 2 minutes. Get your first alert before lunch.</p>
+    <a href="/signup" class="mkt-btn-primary">Start free</a>
+  </div>
+</section>
+
+<!-- ════════ FOOTER ════════ -->
+<footer class="mkt-footer">
+  <div class="mkt-shell">
+    <div class="mkt-footer-grid">
+      <div>
+        <a href="/" class="mkt-brand">
+          <span class="mkt-brand-mark">
+            <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M5 9 L14 15 L23 9 L23 20 Q23 22 21 22 L7 22 Q5 22 5 20 Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+              <path d="M5 9 L14 15 L23 9" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+            </svg>
+          </span>
+          InboxScore
+        </a>
+        <p class="mkt-footer-tagline">Real-time email deliverability monitoring for senders who care about reaching the inbox.</p>
+      </div>
+      <div class="mkt-footer-col">
+        <div class="mkt-footer-col-title">Product</div>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="#scan">Scan a domain</a>
+      </div>
+      <div class="mkt-footer-col">
+        <div class="mkt-footer-col-title">Company</div>
+        <a href="#">About</a>
+        <a href="#">Blog</a>
+        <a href="#">Customers</a>
+        <a href="mailto:hello@inboxscore.ai">Contact</a>
+      </div>
+      <div class="mkt-footer-col">
+        <div class="mkt-footer-col-title">Legal</div>
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Security</a>
+        <a href="#">DPA</a>
+      </div>
+    </div>
+    <div class="mkt-footer-bottom">
+      <span>© 2026 InboxScore.ai · All rights reserved.</span>
+      <span>Made with care for email senders.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+function toggleTheme() {
+  var current = document.documentElement.getAttribute('data-theme') || 'light';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
+}
+
+(function(){
+  var tabs = document.querySelectorAll('.mkt-showcase-tab');
+  var panes = document.querySelectorAll('.mkt-pane');
+  var navItems = document.querySelectorAll('.mkt-app-nav-item');
+  var urlEl = document.getElementById('mkt-window-url');
+  var urlMap = {
+    dashboard: 'inboxscore.ai/dashboard',
+    postmaster: 'inboxscore.ai/postmaster',
+    microsoft: 'inboxscore.ai/microsoft',
+    blacklist: 'inboxscore.ai/blacklist',
+    alerts: 'inboxscore.ai/alerts'
+  };
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){
+      var target = t.getAttribute('data-tab');
+      tabs.forEach(function(x){ x.classList.toggle('active', x === t); });
+      panes.forEach(function(p){ p.classList.toggle('active', p.id === 'pane-' + target); });
+      navItems.forEach(function(n){
+        var nav = n.getAttribute('data-nav');
+        if (nav) n.classList.toggle('active', nav === target);
+      });
+      if (urlEl && urlMap[target]) urlEl.textContent = urlMap[target];
+    });
+  });
+})();
+</script>
+</body>
+</html>
