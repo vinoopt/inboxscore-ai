@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InboxScore — Logo concepts</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #ffffff;
+  --surface: #fbfbfb;
+  --surface-2: #f4f4f5;
+  --border: #e8e8e9;
+  --text: #18181b;
+  --text-muted: #525258;
+  --text-subtle: #84848a;
+  --green: #00875a;
+  --shadow: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-3: 0 10px 30px rgba(0,0,0,0.08);
+}
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--surface-2);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01","cv11";
+  padding: 40px 20px 80px;
+}
+.shell { max-width: 1180px; margin: 0 auto; }
+.page-header { margin-bottom: 36px; }
+.page-eyebrow { font-size: 11px; letter-spacing: 0.12em; font-weight: 600; color: var(--text-subtle); text-transform: uppercase; margin-bottom: 8px; }
+.page-title { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
+.page-sub { font-size: 14px; color: var(--text-muted); }
+
+/* ─────── Section ─────── */
+.section { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 28px 28px 24px; margin-bottom: 20px; box-shadow: var(--shadow); }
+.section-eyebrow { font-size: 11px; letter-spacing: 0.12em; font-weight: 600; color: var(--text-subtle); text-transform: uppercase; margin-bottom: 4px; }
+.section-title { font-size: 18px; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 4px; }
+.section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 22px; line-height: 1.55; }
+.section-desc strong { color: var(--text); font-weight: 600; }
+
+.compare-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.concept-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg); }
+.concept-head { padding: 14px 16px 12px; border-bottom: 1px dashed var(--border); display: flex; justify-content: space-between; align-items: baseline; }
+.concept-name { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+.concept-tag { font-size: 11px; color: var(--text-subtle); font-family: ui-monospace, "JetBrains Mono", monospace; }
+
+/* Hero size demo */
+.demo-hero { padding: 36px 20px; display: flex; align-items: center; justify-content: center; gap: 12px; background: var(--bg); border-bottom: 1px solid var(--border); }
+.demo-hero.dark { background: #08090a; color: #fff; }
+.demo-hero-name { font-size: 22px; font-weight: 700; letter-spacing: -0.025em; }
+
+/* Size matrix */
+.size-row { display: flex; align-items: center; gap: 18px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.size-row:last-child { border-bottom: none; }
+.size-row.dark { background: #08090a; color: #fff; }
+.size-label { font-size: 11px; color: var(--text-subtle); font-family: ui-monospace, monospace; min-width: 60px; }
+.size-row.dark .size-label { color: #71717a; }
+.size-slot { display: flex; align-items: center; justify-content: center; }
+.size-16 { width: 16px; height: 16px; }
+.size-28 { width: 28px; height: 28px; }
+.size-44 { width: 44px; height: 44px; }
+
+/* Browser tab + topnav simulation */
+.context-row { display: flex; gap: 18px; flex-direction: column; padding: 16px; background: var(--surface-2); border-top: 1px solid var(--border); }
+.fake-tab { display: inline-flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px 8px 0 0; padding: 6px 10px 6px 8px; font-size: 12px; color: var(--text); width: max-content; max-width: 260px; }
+.fake-tab .x { font-size: 11px; color: var(--text-subtle); margin-left: 4px; }
+.fake-topnav { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+.fake-topnav-name { font-size: 14px; font-weight: 600; letter-spacing: -0.02em; }
+.fake-topnav.dark { background: #08090a; border-color: #1f1f23; color: #fafafa; }
+
+/* Current-state row */
+.current-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.current-tile { border: 1px solid var(--border); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--bg); }
+.current-tile.dark { background: #08090a; color: #fff; border-color: #1f1f23; }
+.current-tile-label { font-size: 11px; color: var(--text-subtle); font-family: ui-monospace, monospace; }
+.current-tile.dark .current-tile-label { color: #71717a; }
+
+/* Brand-mark display utility — current envelope-with-dot mark */
+.cur-envelope { width: 26px; height: 26px; }
+
+/* IS letter wordmark */
+.wm { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -0.025em; }
+
+/* Concept-3 inline mark uses currentColor; size via container width */
+.size-row .size-slot svg { display: block; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <div class="page-header">
+    <div class="page-eyebrow">Mockup · Logo concepts</div>
+    <div class="page-title">Three monogram directions for InboxScore</div>
+    <div class="page-sub">Pick one — I'll then sweep the favicon, app topnav, and marketing topnav across the whole site.</div>
+  </div>
+
+  <!-- ════════ Current state ════════ -->
+  <div class="section">
+    <div class="section-eyebrow">Reference · what's live now</div>
+    <div class="section-title">Current marks (3 different identities)</div>
+    <div class="section-desc">There are <strong>three different "logos"</strong> live today. The fragmentation is the problem we're solving. Picking one concept below replaces all of these.</div>
+    <div class="current-row">
+      <div class="current-tile">
+        <!-- Browser tab favicon (📨 emoji) -->
+        <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:24px;">📨</div>
+        <div class="current-tile-label">tab favicon</div>
+      </div>
+      <div class="current-tile">
+        <!-- App topnav "IS" square -->
+        <div style="width:32px;height:32px;background:#000;color:#fff;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;letter-spacing:-0.04em;font-family:Inter,sans-serif;">IS</div>
+        <div class="current-tile-label">app topnav</div>
+      </div>
+      <div class="current-tile">
+        <!-- Marketing envelope + green dot -->
+        <svg class="cur-envelope" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="7" width="26" height="18" rx="2"/>
+          <path d="M3 9 L16 19 L29 9"/>
+          <circle cx="22" cy="6" r="2.2" fill="#00875a" stroke="none"/>
+        </svg>
+        <div class="current-tile-label">marketing topnav (light)</div>
+      </div>
+      <div class="current-tile dark">
+        <!-- Marketing envelope dark -->
+        <svg class="cur-envelope" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="7" width="26" height="18" rx="2"/>
+          <path d="M3 9 L16 19 L29 9"/>
+          <circle cx="22" cy="6" r="2.2" fill="#26d978" stroke="none"/>
+        </svg>
+        <div class="current-tile-label">marketing topnav (dark)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ Concepts side-by-side ════════ -->
+  <div class="section">
+    <div class="section-eyebrow">Three concepts</div>
+    <div class="section-title">Each is a custom "IS" monogram — same letters, different geometry</div>
+    <div class="section-desc">Each concept is a single SVG that scales from <strong>16×16 favicon</strong> to <strong>hero topnav</strong> with no detail loss. Below each: hero rendering, the size matrix, and what it looks like in a browser tab + topnav.</div>
+
+    <div class="compare-grid">
+
+      <!-- ════════ Concept 1: SLAB ════════ -->
+      <div class="concept-card">
+        <div class="concept-head">
+          <span class="concept-name">Concept 1 · Slab</span>
+          <span class="concept-tag">heavy / modernist</span>
+        </div>
+
+        <!-- Hero (light) -->
+        <div class="demo-hero">
+          <span class="wm" style="font-size:22px;">
+            <svg width="36" height="36" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+              <rect width="64" height="64" rx="14" fill="#08090a"/>
+              <!-- I: thick stem with chunky serifs -->
+              <rect x="14" y="18" width="6" height="28" fill="#fff"/>
+              <rect x="10" y="18" width="14" height="4" fill="#fff"/>
+              <rect x="10" y="42" width="14" height="4" fill="#fff"/>
+              <!-- S: geometric Z-like, three slabs + two stems -->
+              <rect x="30" y="18" width="22" height="4" fill="#fff"/>
+              <rect x="30" y="18" width="4" height="13" fill="#fff"/>
+              <rect x="30" y="30" width="22" height="4" fill="#fff"/>
+              <rect x="48" y="33" width="4" height="13" fill="#fff"/>
+              <rect x="30" y="42" width="22" height="4" fill="#fff"/>
+            </svg>
+            InboxScore
+          </span>
+        </div>
+
+        <!-- Hero (dark) -->
+        <div class="demo-hero dark">
+          <span class="wm" style="font-size:22px;">
+            <svg width="36" height="36" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+              <rect width="64" height="64" rx="14" fill="#fff"/>
+              <rect x="14" y="18" width="6" height="28" fill="#08090a"/>
+              <rect x="10" y="18" width="14" height="4" fill="#08090a"/>
+              <rect x="10" y="42" width="14" height="4" fill="#08090a"/>
+              <rect x="30" y="18" width="22" height="4" fill="#08090a"/>
+              <rect x="30" y="18" width="4" height="13" fill="#08090a"/>
+              <rect x="30" y="30" width="22" height="4" fill="#08090a"/>
+              <rect x="48" y="33" width="4" height="13" fill="#08090a"/>
+              <rect x="30" y="42" width="22" height="4" fill="#08090a"/>
+            </svg>
+            InboxScore
+          </span>
+        </div>
+
+        <!-- Size matrix -->
+        <div class="size-row">
+          <span class="size-label">16px</span>
+          <div class="size-slot size-16">
+            <svg width="16" height="16" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#08090a"/><rect x="14" y="18" width="6" height="28" fill="#fff"/><rect x="10" y="18" width="14" height="4" fill="#fff"/><rect x="10" y="42" width="14" height="4" fill="#fff"/><rect x="30" y="18" width="22" height="4" fill="#fff"/><rect x="30" y="18" width="4" height="13" fill="#fff"/><rect x="30" y="30" width="22" height="4" fill="#fff"/><rect x="48" y="33" width="4" height="13" fill="#fff"/><rect x="30" y="42" width="22" height="4" fill="#fff"/></svg>
+          </div>
+          <span class="size-label">28px</span>
+          <div class="size-slot size-28">
+            <svg width="28" height="28" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#08090a"/><rect x="14" y="18" width="6" height="28" fill="#fff"/><rect x="10" y="18" width="14" height="4" fill="#fff"/><rect x="10" y="42" width="14" height="4" fill="#fff"/><rect x="30" y="18" width="22" height="4" fill="#fff"/><rect x="30" y="18" width="4" height="13" fill="#fff"/><rect x="30" y="30" width="22" height="4" fill="#fff"/><rect x="48" y="33" width="4" height="13" fill="#fff"/><rect x="30" y="42" width="22" height="4" fill="#fff"/></svg>
+          </div>
+          <span class="size-label">44px</span>
+          <div class="size-slot size-44">
+            <svg width="44" height="44" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#08090a"/><rect x="14" y="18" width="6" height="28" fill="#fff"/><rect x="10" y="18" width="14" height="4" fill="#fff"/><rect x="10" y="42" width="14" height="4" fill="#fff"/><rect x="30" y="18" width="22" height="4" fill="#fff"/><rect x="30" y="18" width="4" height="13" fill="#fff"/><rect x="30" y="30" width="22" height="4" fill="#fff"/><rect x="48" y="33" width="4" height="13" fill="#fff"/><rect x="30" y="42" width="22" height="4" fill="#fff"/></svg>
+          </div>
+        </div>
+
+        <!-- Context: browser tab + fake topnav -->
+        <div class="context-row">
+          <div class="fake-tab">
+            <svg width="14" height="14" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#08090a"/><rect x="14" y="18" width="6" height="28" fill="#fff"/><rect x="10" y="18" width="14" height="4" fill="#fff"/><rect x="10" y="42" width="14" height="4" fill="#fff"/><rect x="30" y="18" width="22" height="4" fill="#fff"/><rect x="30" y="18" width="4" height="13" fill="#fff"/><rect x="30" y="30" width="22" height="4" fill="#fff"/><rect x="48" y="33" width="4" height="13" fill="#fff"/><rect x="30" y="42" width="22" height="4" fill="#fff"/></svg>
+            <span>InboxScore — Email deliverability</span>
+            <span class="x">×</span>
+          </div>
+          <div class="fake-topnav">
+            <svg width="22" height="22" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#08090a"/><rect x="14" y="18" width="6" height="28" fill="#fff"/><rect x="10" y="18" width="14" height="4" fill="#fff"/><rect x="10" y="42" width="14" height="4" fill="#fff"/><rect x="30" y="18" width="22" height="4" fill="#fff"/><rect x="30" y="18" width="4" height="13" fill="#fff"/><rect x="30" y="30" width="22" height="4" fill="#fff"/><rect x="48" y="33" width="4" height="13" fill="#fff"/><rect x="30" y="42" width="22" height="4" fill="#fff"/></svg>
+            <span class="fake-topnav-name">InboxScore</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ Concept 2: MONO ════════ -->
+      <div class="concept-card">
+        <div class="concept-head">
+          <span class="concept-name">Concept 2 · Mono</span>
+          <span class="concept-tag">technical / dev-tool</span>
+        </div>
+
+        <div class="demo-hero">
+          <span class="wm" style="font-size:22px;">
+            <svg width="36" height="36" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+              <rect width="64" height="64" rx="12" fill="#08090a"/>
+              <!-- I: simple thin stem, no serifs -->
+              <rect x="16" y="16" width="4" height="32" fill="#fff"/>
+              <!-- S: thinner curves, drawn as path with rounded ends -->
+              <path d="M28 18 L48 18 L48 30 L28 30 L28 46 L48 46" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            InboxScore
+          </span>
+        </div>
+
+        <div class="demo-hero dark">
+          <span class="wm" style="font-size:22px;">
+            <svg width="36" height="36" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+              <rect width="64" height="64" rx="12" fill="#fff"/>
+              <rect x="16" y="16" width="4" height="32" fill="#08090a"/>
+              <path d="M28 18 L48 18 L48 30 L28 30 L28 46 L48 46" stroke="#08090a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            InboxScore
+          </span>
+        </div>
+
+        <div class="size-row">
+          <span class="size-label">16px</span>
+          <div class="size-slot size-16">
+            <svg width="16" height="16" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#08090a"/><rect x="16" y="16" width="4" height="32" fill="#fff"/><path d="M28 18 L48 18 L48 30 L28 30 L28 46 L48 46" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </div>
+          <span class="size-label">28px</span>
+          <div class="size-slot size-28">
+            <svg width="28" height="28" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#08090a"/><rect x="16" y="16" width="4" height="32" fill="#fff"/><path d="M28 18 L48 18 L48 30 L28 30 L28 46 L48 46" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </div>
+          <span class="size-label">44px</span>
+          <div class="size-slot size-44">
+            <svg width="44" height="44" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#08090a"/><rect x="16" y="16" width="4" height="32" fill="#fff"/><path d="M28 18 L48 18 L48 30 L28 30 L28 46 L48 46" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </div>
+        </div>
+
+        <div class="context-row">
+          <div class="fake-tab">
+            <svg width="14" height="14" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#08090a"/><rect x="16" y="16" width="4" height="32" fill="#fff"/><path d="M28 18 L48 18 L48 30 L28 30 L28 46 L48 46" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+            <span>InboxScore — Email deliverability</span>
+            <span class="x">×</span>
+          </div>
+          <div class="fake-topnav">
+            <svg width="22" height="22" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#08090a"/><rect x="16" y="16" width="4" height="32" fill="#fff"/><path d="M28 18 L48 18 L48 30 L28 30 L28 46 L48 46" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+            <span class="fake-topnav-name">InboxScore</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ Concept 3: SIGNAL ════════ -->
+      <div class="concept-card">
+        <div class="concept-head">
+          <span class="concept-name">Concept 3 · Signal</span>
+          <span class="concept-tag">conceptual nod to "score"</span>
+        </div>
+
+        <div class="demo-hero">
+          <span class="wm" style="font-size:22px;">
+            <svg width="36" height="36" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+              <rect width="64" height="64" rx="14" fill="#08090a"/>
+              <!-- I: solid bar -->
+              <rect x="13" y="16" width="6" height="32" fill="#fff"/>
+              <!-- S: signal-bar style — three bars of increasing height (suggests "score") -->
+              <rect x="29" y="38" width="6" height="10" fill="#fff" rx="1"/>
+              <rect x="40" y="30" width="6" height="18" fill="#fff" rx="1"/>
+              <rect x="51" y="20" width="6" height="28" fill="#fff" rx="1"/>
+              <!-- Green accent dot on tallest bar — matches dashboard --green token -->
+              <circle cx="54" cy="18" r="3" fill="#00875a"/>
+            </svg>
+            InboxScore
+          </span>
+        </div>
+
+        <div class="demo-hero dark">
+          <span class="wm" style="font-size:22px;">
+            <svg width="36" height="36" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+              <rect width="64" height="64" rx="14" fill="#fff"/>
+              <rect x="13" y="16" width="6" height="32" fill="#08090a"/>
+              <rect x="29" y="38" width="6" height="10" fill="#08090a" rx="1"/>
+              <rect x="40" y="30" width="6" height="18" fill="#08090a" rx="1"/>
+              <rect x="51" y="20" width="6" height="28" fill="#08090a" rx="1"/>
+              <circle cx="54" cy="18" r="3" fill="#00875a"/>
+            </svg>
+            InboxScore
+          </span>
+        </div>
+
+        <div class="size-row">
+          <span class="size-label">16px</span>
+          <div class="size-slot size-16">
+            <svg width="16" height="16" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#08090a"/><rect x="13" y="16" width="6" height="32" fill="#fff"/><rect x="29" y="38" width="6" height="10" fill="#fff" rx="1"/><rect x="40" y="30" width="6" height="18" fill="#fff" rx="1"/><rect x="51" y="20" width="6" height="28" fill="#fff" rx="1"/><circle cx="54" cy="18" r="3" fill="#00875a"/></svg>
+          </div>
+          <span class="size-label">28px</span>
+          <div class="size-slot size-28">
+            <svg width="28" height="28" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#08090a"/><rect x="13" y="16" width="6" height="32" fill="#fff"/><rect x="29" y="38" width="6" height="10" fill="#fff" rx="1"/><rect x="40" y="30" width="6" height="18" fill="#fff" rx="1"/><rect x="51" y="20" width="6" height="28" fill="#fff" rx="1"/><circle cx="54" cy="18" r="3" fill="#00875a"/></svg>
+          </div>
+          <span class="size-label">44px</span>
+          <div class="size-slot size-44">
+            <svg width="44" height="44" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#08090a"/><rect x="13" y="16" width="6" height="32" fill="#fff"/><rect x="29" y="38" width="6" height="10" fill="#fff" rx="1"/><rect x="40" y="30" width="6" height="18" fill="#fff" rx="1"/><rect x="51" y="20" width="6" height="28" fill="#fff" rx="1"/><circle cx="54" cy="18" r="3" fill="#00875a"/></svg>
+          </div>
+        </div>
+
+        <div class="context-row">
+          <div class="fake-tab">
+            <svg width="14" height="14" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#08090a"/><rect x="13" y="16" width="6" height="32" fill="#fff"/><rect x="29" y="38" width="6" height="10" fill="#fff" rx="1"/><rect x="40" y="30" width="6" height="18" fill="#fff" rx="1"/><rect x="51" y="20" width="6" height="28" fill="#fff" rx="1"/><circle cx="54" cy="18" r="3" fill="#00875a"/></svg>
+            <span>InboxScore — Email deliverability</span>
+            <span class="x">×</span>
+          </div>
+          <div class="fake-topnav">
+            <svg width="22" height="22" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#08090a"/><rect x="13" y="16" width="6" height="32" fill="#fff"/><rect x="29" y="38" width="6" height="10" fill="#fff" rx="1"/><rect x="40" y="30" width="6" height="18" fill="#fff" rx="1"/><rect x="51" y="20" width="6" height="28" fill="#fff" rx="1"/><circle cx="54" cy="18" r="3" fill="#00875a"/></svg>
+            <span class="fake-topnav-name">InboxScore</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════ My recommendation ════════ -->
+  <div class="section">
+    <div class="section-eyebrow">My recommendation</div>
+    <div class="section-title">Concept 3 · Signal — strongest brand story</div>
+    <div class="section-desc">
+      <strong>Concept 1 (Slab)</strong> is safe and modernist but reads as "letters in a box" — same trap as the current "IS". It's an upgrade in execution but not in identity.<br><br>
+      <strong>Concept 2 (Mono)</strong> is clean and dev-tool-y but the "I" is so thin it disappears at 16×16. It also leans technical when our buyer is more often a marketer or founder.<br><br>
+      <strong>Concept 3 (Signal)</strong> is the only one where the mark <em>says something</em>: I + ascending bars = "Inbox Score." The green dot on the tallest bar carries the dashboard's brand colour. Reads at favicon size, scales beautifully, and tells anyone who glances at the tab what we do.
+    </div>
+    <div class="section-desc" style="margin-bottom:0;">
+      <strong>If you go with Concept 3</strong>, sweep covers: favicon (replacing 📨 emoji), all 5 marketing/auth topnavs, all 8 app page topnavs, plus the <code>og-image.png</code> reference. Single SVG used everywhere via <code>data:image/svg+xml,&lt;svg…&gt;</code> — no extra HTTP request.
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
