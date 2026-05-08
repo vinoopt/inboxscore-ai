@@ -1257,12 +1257,28 @@ html[data-theme="dark"] .mkt-score-pill.err { color: #f87171; border-color: rgba
 .mkt-results-cta-btn { display: inline-flex; align-items: center; gap: 6px; padding: 11px 22px; font-size: 14.5px; font-weight: 500; color: var(--bg); background: var(--text-strong); border: none; border-radius: 8px; text-decoration: none; white-space: nowrap; }
 .mkt-results-cta-btn:hover { opacity: 0.92; }
 
-/* Per-check breakdown (compact list) */
-.mkt-checks-card { margin-top: 24px; padding: 24px 28px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; }
-.mkt-checks-title { font-size: 15px; font-weight: 600; color: var(--text-strong); margin-bottom: 14px; letter-spacing: -0.01em; }
-.mkt-check-row { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+/* Per-check breakdown — expandable rows. Click anywhere on the summary
+   row to reveal: what we found, why it matters, how to fix. INBOX-204
+   refactor: previously rendered status + title only, discarding the
+   `detail` + `fix_steps` data the API already returns. */
+.mkt-checks-card { margin-top: 24px; padding: 8px 0; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.mkt-checks-title { font-size: 15px; font-weight: 600; color: var(--text-strong); margin: 16px 28px 8px; letter-spacing: -0.01em; }
+.mkt-check-row { border-bottom: 1px solid var(--border); }
 .mkt-check-row:last-child { border-bottom: none; }
-.mkt-check-icon { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; margin-top: 2px; }
+.mkt-check-summary { display: grid; grid-template-columns: auto 1fr auto auto; gap: 14px; align-items: center; padding: 14px 28px; cursor: pointer; user-select: none; transition: background 120ms ease; font-size: 14px; }
+.mkt-check-summary:hover { background: var(--surface-2); }
+.mkt-check-chevron { width: 16px; height: 16px; color: var(--text-subtle); transition: transform 180ms ease; flex-shrink: 0; }
+.mkt-check-row.open .mkt-check-chevron { transform: rotate(90deg); }
+.mkt-check-detail { display: none; padding: 4px 28px 22px 64px; font-size: 13.5px; color: var(--text-muted); line-height: 1.6; }
+.mkt-check-row.open .mkt-check-detail { display: block; }
+.mkt-detail-section { margin-bottom: 14px; }
+.mkt-detail-section:last-child { margin-bottom: 0; }
+.mkt-detail-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-subtle); margin-bottom: 4px; }
+.mkt-detail-body { color: var(--text); font-size: 14px; line-height: 1.55; }
+.mkt-detail-body code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; word-break: break-all; }
+.mkt-detail-fix-list { margin: 6px 0 0 0; padding-left: 20px; }
+.mkt-detail-fix-list li { margin-bottom: 4px; }
+.mkt-check-icon { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
 .mkt-check-icon.pass { background: #00875a; }
 .mkt-check-icon.warn { background: #ca8a04; }
 .mkt-check-icon.fail { background: #dc2626; }
@@ -1305,15 +1321,42 @@ html[data-theme="dark"] .mkt-modal-icon { background: rgba(167,139,250,0.14); co
   .mkt-score-card { grid-template-columns: 1fr; gap: 18px; padding: 24px; text-align: center; }
   .mkt-score-gauge { width: 140px; height: 140px; }
   .mkt-results-header { flex-direction: column; align-items: stretch; }
-  .mkt-check-row { grid-template-columns: auto 1fr; }
-  .mkt-check-status { grid-column: 2; justify-self: start; }
+  .mkt-check-summary { grid-template-columns: auto 1fr auto; padding: 14px 18px; gap: 10px; }
+  .mkt-check-summary .mkt-check-chevron { display: none; }
+  .mkt-check-detail { padding: 4px 18px 22px 50px; }
+  .mkt-checks-title { margin: 16px 18px 8px; }
   .mkt-results-cta { flex-direction: column; align-items: stretch; text-align: center; }
 }
 </style>
 </head>
 <body>
 
-<!-- ════════ SCAN APP (overlay shown during scan + results) ════════ -->
+<!-- ════════ TOPNAV ════════ -->
+<nav class="mkt-topnav">
+  <div class="mkt-shell mkt-topnav-inner">
+    <a href="/" class="mkt-brand">
+      <span class="mkt-brand-mark"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="13" y="16" width="6" height="32" fill="currentColor"/><rect x="29" y="38" width="6" height="10" rx="1" fill="currentColor"/><rect x="40" y="30" width="6" height="18" rx="1" fill="currentColor"/><rect x="51" y="20" width="6" height="28" rx="1" fill="currentColor"/><circle cx="54" cy="18" r="3" fill="#00875a"/></svg></span>
+      InboxScore
+    </a>
+    <div class="mkt-nav-links">
+      <a href="#features" class="mkt-nav-link">Features</a>
+      <a href="#pricing" class="mkt-nav-link">Pricing</a>
+      <a href="#faq" class="mkt-nav-link">FAQ</a>
+      <button class="mkt-theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+      <a href="/login" class="mkt-nav-secondary">Log in</a>
+      <a href="/signup" class="mkt-nav-cta">Sign up free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ════════ SCAN APP (overlay shown during scan + results) ════════
+     Placed AFTER the topnav so when the scan is active, the topnav
+     stays at the top of the visual flow. With sticky topnav placed
+     before scan-app in DOM, the topnav was rendering below the
+     scan content (INBOX-203 bug). ═════════════════════════════════ -->
 <div id="mkt-scan-app" hidden>
   <!-- Loading state -->
   <section class="mkt-scan-pane" id="mkt-pane-loading">
@@ -1358,27 +1401,6 @@ html[data-theme="dark"] .mkt-modal-icon { background: rgba(167,139,250,0.14); co
     </div>
   </div>
 </div>
-
-<!-- ════════ TOPNAV ════════ -->
-<nav class="mkt-topnav">
-  <div class="mkt-shell mkt-topnav-inner">
-    <a href="/" class="mkt-brand">
-      <span class="mkt-brand-mark"><svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="13" y="16" width="6" height="32" fill="currentColor"/><rect x="29" y="38" width="6" height="10" rx="1" fill="currentColor"/><rect x="40" y="30" width="6" height="18" rx="1" fill="currentColor"/><rect x="51" y="20" width="6" height="28" rx="1" fill="currentColor"/><circle cx="54" cy="18" r="3" fill="#00875a"/></svg></span>
-      InboxScore
-    </a>
-    <div class="mkt-nav-links">
-      <a href="#features" class="mkt-nav-link">Features</a>
-      <a href="#pricing" class="mkt-nav-link">Pricing</a>
-      <a href="#faq" class="mkt-nav-link">FAQ</a>
-      <button class="mkt-theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
-        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-      </button>
-      <a href="/login" class="mkt-nav-secondary">Log in</a>
-      <a href="/signup" class="mkt-nav-cta">Sign up free</a>
-    </div>
-  </div>
-</nav>
 
 <!-- ════════ HERO (centred, scan-form-as-action) ════════ -->
 <header class="mkt-hero">
@@ -2163,20 +2185,19 @@ function closeRateLimitModal() {
 
 function showScanApp(paneId) {
   /* Hide marketing chrome + reveal the scan-app overlay. Topnav stays
-     visible so users can navigate back via the logo (which links to /). */
+     visible so users can navigate back via the logo (which links to /).
+     INBOX-203: scan-app + modal moved to AFTER topnav in DOM, so the
+     topnav now stays at the top of the visual flow as expected. */
   document.body.classList.add('mkt-scanning');
   document.getElementById('mkt-scan-app').hidden = false;
   document.querySelectorAll('.mkt-scan-pane').forEach(function (p) {
     p.classList.toggle('active', p.id === paneId);
   });
-  /* Hide marketing sections during scan — restored on "Scan another". */
-  ['mkt-hero', 'mkt-showcase', 'mkt-why', 'mkt-faq', 'mkt-pricing', 'mkt-final', 'mkt-footer']
-    .forEach(function (cls) {
-      document.querySelectorAll('.' + cls).forEach(function (el) { el.style.display = 'none'; });
-    });
-  /* Generic fallback — hide every direct child of body except the topnav,
-     scan-app, and modal. Some sections have unique class names; this
-     guarantees they're hidden during scan. */
+  /* Hide every direct body child except topnav, scan-app, modal, and
+     the head-script blocks. The footer was leaking through before
+     because the previous allowlist relied on class names that don't
+     all exist (e.g. "mkt-footer" is the footer's class but the body
+     also has unnamed <section> wrappers around the marketing blocks). */
   Array.prototype.slice.call(document.body.children).forEach(function (el) {
     if (el.id === 'mkt-scan-app' || el.id === 'mkt-rate-modal') return;
     if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
@@ -2184,6 +2205,14 @@ function showScanApp(paneId) {
     el.style.display = 'none';
   });
   window.scrollTo(0, 0);
+}
+
+/* Click handler for expandable per-check rows. Each row's outer .mkt-check-row
+   gets `.open` class which CSS uses to reveal the .mkt-check-detail body
+   and rotate the chevron 90°. Sibling rows can stay open simultaneously. */
+function toggleCheckRow(summaryEl) {
+  var row = summaryEl.closest('.mkt-check-row');
+  if (row) row.classList.toggle('open');
 }
 
 function returnToMarketing() {
@@ -2258,22 +2287,96 @@ function renderResults(data) {
   var circumference = 263.9;
   var offset = circumference * (1 - Math.max(0, Math.min(100, score)) / 100);
 
-  /* Group checks by basic status. Anonymous scans see a teaser of the
-     first 6 checks; full breakdown lives behind the signup CTA. */
+  /* Plain-English "why this matters" copy keyed off the API's
+     `name` field. Educational layer for users who don't know what
+     SPF/DKIM/DMARC actually do. Falls back to category-level copy
+     for any name we haven't authored yet. */
+  var WHY_IT_MATTERS = {
+    mx_records: "MX records tell other mail servers which servers are allowed to receive email for your domain. Without them, no email can reach you and outbound systems can't establish trust either — many providers will hard-bounce mail from a domain that can't receive replies.",
+    spf: "SPF tells receiving servers which IPs are allowed to send email on your behalf. A missing or broken SPF record means Gmail, Outlook and Yahoo can't verify that the sender is you — so they downgrade your reputation or drop you straight into spam.",
+    dkim: "DKIM cryptographically signs every outbound email so receivers can prove the message wasn't tampered with in transit and that it really came from your domain. Without DKIM, modern inbox providers treat your mail as unauthenticated.",
+    dmarc: "DMARC tells receivers what to do when SPF or DKIM fail — quarantine, reject, or report. It also gives you visibility into who's spoofing your domain. Gmail and Yahoo now require DMARC for any sender doing >5,000 messages/day.",
+    blacklists: "Blacklists are real-time lists of IPs flagged for spam or compromise. If your sending IP is on Spamhaus, Barracuda, or SORBS, mailbox providers either reject your mail outright or send it to spam — even if everything else is configured perfectly.",
+    domain_blacklists: "Domain-level blacklists (DBL, SURBL, URIBL) catch domains used in spam content. Even if your sending IP is clean, a listed domain in your From or links will get filtered.",
+    tls: "TLS encrypts email between your servers and the recipient's. Modern inbox providers (Gmail, Outlook, Yahoo) penalise unencrypted mail and may reject it entirely. Strong TLS is also a basic privacy + compliance baseline.",
+    ip_reputation: "Mailbox providers maintain reputation scores for every sending IP. Low reputation → spam folder or rejection. This check looks at known reputation feeds for your IPs.",
+    bimi: "BIMI displays your verified brand logo next to authenticated emails in Gmail, Yahoo, and Apple Mail. Optional but a strong trust signal — only available once SPF, DKIM, and DMARC are all correctly configured.",
+    domain_age: "Newly-registered domains get extra scrutiny from inbox providers — many flag them as spam-suspect for the first 30–90 days. Older, established domains build sender reputation more easily.",
+    google_safe_browsing: "Google's Safe Browsing service flags domains hosting malware, phishing, or unwanted software. Anything caught here will trigger warnings in Chrome, Firefox, and Gmail's spam filter.",
+  };
+  /* Category fallback when there's no name-specific copy. */
+  var WHY_BY_CATEGORY = {
+    authentication: "Email authentication signals (SPF/DKIM/DMARC) prove the sender is who they claim to be. Modern inbox providers require these to deliver to inbox.",
+    reputation: "Sender reputation determines how much trust mailbox providers extend to your mail. Bad reputation = spam folder, regardless of content.",
+    infrastructure: "The underlying DNS + mail server setup that makes deliverability possible. Misconfigurations here cascade into authentication failures and bounces.",
+    safety: "Trust + safety signals from mailbox providers and reputation services. A flag here typically blocks delivery entirely.",
+  };
+
   var checks = Array.isArray(data.checks) ? data.checks : [];
-  var checkRowsHtml = checks.slice(0, 6).map(function (c) {
+  /* Show top 6 sorted by deficit (biggest gap between actual and max
+     points first) so failed/warn checks bubble to the top. */
+  var sortedChecks = checks.slice().sort(function (a, b) {
+    var deficitA = (a.max_points || 0) - (a.points || 0);
+    var deficitB = (b.max_points || 0) - (b.points || 0);
+    return deficitB - deficitA;
+  });
+
+  var checkRowsHtml = sortedChecks.slice(0, 6).map(function (c, i) {
     var st = (c.status || '').toLowerCase();
     var iconCls = st === 'pass' ? 'pass' : st === 'fail' ? 'fail' : st === 'warn' ? 'warn' : 'info';
     var iconChar = st === 'pass' ? '✓' : st === 'fail' ? '✕' : st === 'warn' ? '!' : 'i';
     var label = c.title || c.name || 'Check';
-    var msg = c.message || '';
+    var detail = c.detail || '';
+    var fixSteps = Array.isArray(c.fix_steps) ? c.fix_steps : [];
+    var why = WHY_IT_MATTERS[c.name] || WHY_BY_CATEGORY[c.category] || '';
+    var rawData = c.raw_data;
+
+    /* "Current state" — try to surface the most useful raw-data field
+       (e.g., the actual DMARC record string, the SPF record found, the
+       blacklists hit). Falls back to the detail text. */
+    var currentBody = '';
+    if (rawData && typeof rawData === 'object') {
+      if (rawData.record) currentBody = '<code>' + escapeHtml(String(rawData.record)) + '</code>';
+      else if (rawData.records && Array.isArray(rawData.records) && rawData.records.length) {
+        currentBody = rawData.records.slice(0, 3).map(function (r) {
+          return '<code>' + escapeHtml(String(r)) + '</code>';
+        }).join('<br>');
+      }
+    }
+    if (!currentBody) currentBody = escapeHtml(detail);
+
+    var fixHtml = '';
+    if (fixSteps.length) {
+      fixHtml = (
+        '<div class="mkt-detail-section">' +
+          '<div class="mkt-detail-label">' + (st === 'pass' ? 'Recommended next step' : 'How to fix') + '</div>' +
+          '<ol class="mkt-detail-fix-list mkt-detail-body">' +
+            fixSteps.map(function (s) { return '<li>' + escapeHtml(s) + '</li>'; }).join('') +
+          '</ol>' +
+        '</div>'
+      );
+    }
+
     return (
-      '<div class="mkt-check-row">' +
-      '<span class="mkt-check-icon ' + iconCls + '">' + iconChar + '</span>' +
-      '<div><div class="mkt-check-name">' + escapeHtml(label) + '</div>' +
-      (msg ? '<div class="mkt-check-msg">' + escapeHtml(msg) + '</div>' : '') +
-      '</div>' +
-      '<span class="mkt-check-status ' + iconCls + '">' + escapeHtml(st || 'info') + '</span>' +
+      '<div class="mkt-check-row" data-row-idx="' + i + '">' +
+        '<div class="mkt-check-summary" onclick="toggleCheckRow(this)">' +
+          '<span class="mkt-check-icon ' + iconCls + '">' + iconChar + '</span>' +
+          '<span class="mkt-check-name">' + escapeHtml(label) + '</span>' +
+          '<span class="mkt-check-status ' + iconCls + '">' + escapeHtml(st || 'info') + '</span>' +
+          '<svg class="mkt-check-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
+        '</div>' +
+        '<div class="mkt-check-detail">' +
+          '<div class="mkt-detail-section">' +
+            '<div class="mkt-detail-label">' + (st === 'pass' ? 'What we found' : 'What\'s wrong') + '</div>' +
+            '<div class="mkt-detail-body">' + currentBody + '</div>' +
+          '</div>' +
+          (why ?
+            '<div class="mkt-detail-section">' +
+              '<div class="mkt-detail-label">Why this matters</div>' +
+              '<div class="mkt-detail-body">' + escapeHtml(why) + '</div>' +
+            '</div>' : '') +
+          fixHtml +
+        '</div>' +
       '</div>'
     );
   }).join('');
