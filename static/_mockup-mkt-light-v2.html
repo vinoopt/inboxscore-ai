@@ -15,42 +15,44 @@
 :root {
   /* Attio-grounded light palette */
   --bg: #ffffff;
-  --bg-secondary: #fbfbfb;       /* secondary surface, very light */
-  --surface: #ffffff;            /* card surface */
-  --surface-2: #f1f1f1;          /* hover bg, light surface */
-  --surface-tint: #f7f7f8;       /* subtle tinted band */
-  --border: #e8e8e9;             /* subtle stroke */
-  --border-strong: #dadada;      /* default stroke */
-  --border-weak: #f1f1f1;        /* very light divider */
-  --text: #1c1c1e;               /* black-100, primary */
-  --text-strong: #0e0e10;        /* extra-strong, hero / display */
-  --text-muted: #414147;         /* black-500, body muted */
-  --text-subtle: #606067;        /* black-600, captions */
-  --text-faint: #b0b0b4;         /* caption foreground */
+  --bg-secondary: #fbfbfb;
+  --surface: #ffffff;
+  --surface-2: #f1f1f1;
+  --surface-tint: #f7f7f8;
+  --border: #e8e8e9;
+  --border-strong: #dadada;
+  --border-weak: #f1f1f1;
+  --text: #1c1c1e;
+  --text-strong: #0e0e10;
+  --text-muted: #414147;
+  --text-subtle: #606067;
+  --text-faint: #b0b0b4;
 
-  /* InboxScore brand accent — kept across app + marketing */
-  --accent: #7c3aed;             /* light-theme variant */
+  --accent: #7c3aed;
   --accent-hover: #6d28d9;
   --accent-soft: rgba(124,58,237,0.08);
   --accent-glow: rgba(124,58,237,0.14);
 
   --green: #16a34a;
-  --red: #ff4444;
-  --yellow: #ffb200;
+  --green-soft: rgba(22,163,74,0.10);
+  --red: #dc2626;
+  --red-soft: rgba(220,38,38,0.08);
+  --yellow: #ca8a04;
+  --yellow-soft: rgba(202,138,4,0.10);
+  --blue: #2563eb;
+  --blue-soft: rgba(37,99,235,0.08);
 
-  /* Attio oklch shadow scale */
   --shadow-1: 0px 1px 3px 0px oklch(0% 0 0 / .03);
   --shadow-2: 0px 2px 4px -1px oklch(0% 0 0 / .04);
   --shadow-3: 0px 4px 8px -2px oklch(0% 0 0 / .05);
   --shadow-4: 0px 8px 16px -4px oklch(0% 0 0 / .06);
-  --shadow-5: 0px 16px 32px -8px oklch(0% 0 0 / .07);
   --shadow-cameo: 0px 32px 64px -16px oklch(0% 0 0 / .08), 0px 4px 8px -2px oklch(0% 0 0 / .04);
 }
 
 html, body { background: var(--bg); color: var(--text); }
 body {
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-feature-settings: "ss01","cv11";
+  font-feature-settings: "ss01","cv11","tnum";
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
   font-size: 15px;
@@ -58,7 +60,7 @@ body {
 }
 
 a { color: inherit; text-decoration: none; }
-.mkt-shell { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+.mkt-shell { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
 
 /* ──────────── TOPNAV ──────────── */
 .mkt-topnav {
@@ -74,12 +76,17 @@ a { color: inherit; text-decoration: none; }
 }
 .mkt-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.025em; font-size: 15px; color: var(--text-strong); }
 .mkt-brand-mark {
-  width: 26px; height: 26px;
-  background: var(--text-strong); color: var(--bg);
-  border-radius: 6px;
+  width: 28px; height: 28px;
   display: inline-flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 11px; letter-spacing: -0.04em;
+  flex-shrink: 0;
 }
+.mkt-brand-mark svg { width: 28px; height: 28px; display: block; }
+@keyframes brandLivePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.7); }
+}
+.brand-live-dot { transform-origin: 22px 6px; animation: brandLivePulse 2.2s ease-in-out infinite; }
+
 .mkt-nav-links { display: flex; gap: 4px; align-items: center; }
 .mkt-nav-link {
   padding: 8px 14px;
@@ -97,22 +104,30 @@ a { color: inherit; text-decoration: none; }
 }
 .mkt-nav-cta:hover { opacity: 0.9; }
 
-/* ──────────── HERO ──────────── */
+/* ──────────── HERO (asymmetric) ──────────── */
 .mkt-hero {
   position: relative;
-  padding: 96px 0 80px;
+  padding: 72px 0 56px;
   overflow: hidden;
-  text-align: center;
 }
 .mkt-hero::before {
   content: '';
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(124,58,237,0.06), transparent 70%),
-    radial-gradient(ellipse 60% 40% at 80% 30%, rgba(124,58,237,0.04), transparent 65%);
+    radial-gradient(ellipse 70% 50% at 25% 30%, rgba(124,58,237,0.08), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 60%, rgba(124,58,237,0.04), transparent 65%);
   pointer-events: none;
 }
 .mkt-hero > * { position: relative; }
+
+.mkt-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 64px;
+  align-items: center;
+}
+.mkt-hero-copy { max-width: 540px; }
+
 .mkt-hero-eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 6px 14px;
@@ -121,33 +136,32 @@ a { color: inherit; text-decoration: none; }
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: 999px;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   box-shadow: var(--shadow-1);
 }
 .mkt-hero-eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px rgba(22,163,74,0.4); }
 .mkt-hero-title {
-  font-size: clamp(40px, 6vw, 72px);
-  font-weight: 600;                 /* Attio uses 600 for headings */
+  font-size: clamp(38px, 4.6vw, 58px);
+  font-weight: 600;
   letter-spacing: -0.025em;
-  line-height: 1.05;
-  max-width: 880px;
-  margin: 0 auto 24px;
+  line-height: 1.06;
+  margin-bottom: 20px;
   color: var(--text-strong);
 }
 .mkt-hero-title em {
   font-style: normal;
-  background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 60%, #1c1c1e 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 60%, #4c1d95 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 .mkt-hero-sub {
-  font-size: 18px; color: var(--text-muted);
-  max-width: 620px; margin: 0 auto 36px;
+  font-size: 17px; color: var(--text-muted);
+  max-width: 480px; margin-bottom: 32px;
   line-height: 1.55;
   font-weight: 500;
 }
-.mkt-hero-actions { display: inline-flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.mkt-hero-actions { display: inline-flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .mkt-btn-primary {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 11px 22px;
@@ -168,73 +182,194 @@ a { color: inherit; text-decoration: none; }
 }
 .mkt-btn-secondary:hover { border-color: var(--text); background: var(--surface-2); }
 .mkt-hero-trust {
-  display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
+  display: flex; gap: 20px; flex-wrap: wrap;
   margin-top: 28px;
   font-size: 12.5px; color: var(--text-subtle);
 }
 .mkt-hero-trust-item { display: inline-flex; align-items: center; gap: 6px; }
 .mkt-hero-trust-item svg { color: var(--green); width: 14px; height: 14px; }
 
+/* ──────────── DASHBOARD CAMEO ──────────── */
 .mkt-hero-cameo {
-  margin: 72px auto 0;
-  max-width: 1080px;
-  padding: 0 12px;
+  width: 100%;
+  position: relative;
 }
 .mkt-hero-cameo-frame {
   position: relative;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid var(--border-strong);
   background: var(--bg);
   box-shadow: var(--shadow-cameo);
   overflow: hidden;
 }
-.mkt-hero-cameo-bar {
-  display: flex; align-items: center; gap: 8px;
-  padding: 12px 16px;
+.mkt-cameo-bar {
+  display: flex; align-items: center; gap: 7px;
+  padding: 11px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--surface-tint);
 }
-.mkt-hero-cameo-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border-strong); }
-.mkt-hero-cameo-url {
+.mkt-cameo-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border-strong); }
+.mkt-cameo-url {
   margin-left: auto; margin-right: auto;
-  font-size: 11px; color: var(--text-subtle); font-family: "JetBrains Mono", ui-monospace, monospace;
-  padding: 3px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+  font-size: 11px; color: var(--text-subtle);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  padding: 3px 12px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px;
 }
-.mkt-hero-cameo-body {
-  padding: 36px 28px;
+.mkt-cameo-body {
+  padding: 22px 22px 22px;
   background: linear-gradient(180deg, rgba(124,58,237,0.025) 0%, transparent 100%);
 }
-.mkt-hero-cameo-stat-row {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
-  margin-bottom: 24px;
-}
-.mkt-hero-cameo-stat {
-  padding: 14px 16px;
+
+/* Score row */
+.mkt-cameo-score {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 16px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-1);
 }
-.mkt-hero-cameo-stat-label { font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-weight: 500; }
-.mkt-hero-cameo-stat-value { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-strong); }
-.mkt-hero-cameo-stat-trend { font-size: 11px; color: var(--green); margin-top: 4px; font-weight: 500; }
-.mkt-hero-cameo-domain-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 14px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+.mkt-cameo-gauge {
+  position: relative;
+  width: 92px; height: 92px;
+}
+.mkt-cameo-gauge svg { display: block; transform: rotate(-90deg); }
+.mkt-cameo-gauge-num {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 700; letter-spacing: -0.03em;
+  color: var(--text-strong); line-height: 1;
+  margin-top: -6px;
+}
+.mkt-cameo-gauge-out {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 600; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  margin-top: 22px;
+}
+.mkt-cameo-score-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.mkt-cameo-score-headline {
+  font-size: 19px; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--text-strong);
+}
+.mkt-cameo-status-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; font-weight: 500;
+  padding: 3px 8px; border-radius: 999px;
+  background: var(--green-soft); color: var(--green);
+}
+.mkt-cameo-score-meta-line {
+  font-size: 11.5px; color: var(--text-subtle);
   margin-bottom: 8px;
-  font-size: 13px;
 }
-.mkt-hero-cameo-domain-row:last-child { margin-bottom: 0; }
-.mkt-hero-cameo-status-pill {
-  font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
-  background: rgba(22,163,74,0.10); color: var(--green);
-  text-transform: uppercase; letter-spacing: 0.04em;
+.mkt-cameo-status-pills {
+  display: flex; gap: 6px; flex-wrap: wrap;
 }
-.mkt-hero-cameo-status-pill.warn { background: rgba(255,178,0,0.14); color: #b97700; }
-.mkt-hero-cameo-domain-name { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; color: var(--text-strong); }
-.mkt-hero-cameo-meta { margin-left: auto; font-size: 11px; color: var(--text-subtle); }
+.mkt-cameo-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px;
+  font-size: 10.5px; font-weight: 500;
+  background: var(--surface-2);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mkt-cameo-pill::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor;
+}
+.mkt-cameo-pill.ok { color: var(--green); }
+.mkt-cameo-pill.warn { color: var(--yellow); }
+.mkt-cameo-pill.err { color: var(--red); }
+.mkt-cameo-pill.info { color: var(--blue); }
+
+/* Score trend */
+.mkt-cameo-trend {
+  margin-bottom: 16px;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-1);
+}
+.mkt-cameo-trend-label {
+  font-size: 9.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-subtle);
+  margin-bottom: 12px;
+}
+.mkt-cameo-bars {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  align-items: end;
+  height: 70px;
+}
+.mkt-cameo-bar-col {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+.mkt-cameo-bar {
+  width: 100%;
+  background: rgba(22,163,74,0.22);
+  border-radius: 4px 4px 0 0;
+  transition: background 200ms ease;
+}
+.mkt-cameo-bar-col.today .mkt-cameo-bar {
+  background: var(--green);
+}
+.mkt-cameo-bar-col.today::before {
+  content: ''; position: absolute; top: -4px;
+  width: 4px; height: 4px; border-radius: 50%;
+  background: var(--green);
+}
+.mkt-cameo-bar-day {
+  font-size: 8.5px; color: var(--text-subtle);
+  margin-top: 6px; letter-spacing: 0.04em; font-weight: 500;
+}
+
+/* Provider status */
+.mkt-cameo-providers {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.mkt-cameo-provider {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-1);
+}
+.mkt-cameo-provider-icon {
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 5px;
+  font-size: 11px; font-weight: 700;
+  flex-shrink: 0;
+}
+.mkt-cameo-provider-icon.g { background: linear-gradient(135deg, #ea4335, #fbbc05); color: #fff; }
+.mkt-cameo-provider-icon.m { background: linear-gradient(135deg, #00a4ef, #f25022); color: #fff; }
+.mkt-cameo-provider-text { flex: 1; min-width: 0; }
+.mkt-cameo-provider-name { font-size: 11.5px; font-weight: 600; color: var(--text-strong); margin-bottom: 1px; }
+.mkt-cameo-provider-sub { font-size: 10.5px; color: var(--green); }
+.mkt-cameo-status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(22,163,74,0.4);
+  flex-shrink: 0;
+}
 
 /* ──────────── SECTION COMMON ──────────── */
 .mkt-section { padding: 96px 0; }
@@ -325,7 +460,7 @@ a { color: inherit; text-decoration: none; }
   border-radius: 6px;
   font-size: 13px; font-weight: 600; color: var(--accent);
   margin-bottom: 18px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, monospace;
 }
 .mkt-step-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.015em; color: var(--text-strong); }
 .mkt-step-desc { font-size: 14.5px; color: var(--text-muted); line-height: 1.55; }
@@ -366,7 +501,7 @@ a { color: inherit; text-decoration: none; }
 .mkt-why-item-num {
   font-size: 40px; font-weight: 600; letter-spacing: -0.03em;
   color: var(--accent); margin-bottom: 12px; line-height: 1;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: ui-monospace, monospace;
 }
 .mkt-why-item-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; color: var(--text-strong); }
 .mkt-why-item-desc { font-size: 14.5px; color: var(--text-muted); line-height: 1.55; }
@@ -429,9 +564,7 @@ a { color: inherit; text-decoration: none; }
 
 /* ──────────── FAQ ──────────── */
 .mkt-faq { max-width: 760px; margin: 56px auto 0; }
-.mkt-faq-item {
-  border-bottom: 1px solid var(--border);
-}
+.mkt-faq-item { border-bottom: 1px solid var(--border); }
 .mkt-faq-item:first-child { border-top: 1px solid var(--border); }
 .mkt-faq-q {
   display: flex; justify-content: space-between; align-items: center;
@@ -448,10 +581,7 @@ a { color: inherit; text-decoration: none; }
   transition: transform 200ms cubic-bezier(0.65,0,0.35,1);
 }
 .mkt-faq-item[open] .mkt-faq-q-icon { transform: rotate(45deg); color: var(--accent); }
-.mkt-faq-a {
-  padding: 0 4px 22px;
-  font-size: 14.5px; color: var(--text-muted); line-height: 1.6;
-}
+.mkt-faq-a { padding: 0 4px 22px; font-size: 14.5px; color: var(--text-muted); line-height: 1.6; }
 
 /* ──────────── FINAL CTA ──────────── */
 .mkt-final {
@@ -511,15 +641,25 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ──────────── RESPONSIVE ──────────── */
+@media (max-width: 980px) {
+  .mkt-hero-grid { grid-template-columns: 1fr; gap: 56px; }
+  .mkt-hero-copy { max-width: 600px; margin: 0 auto; text-align: center; }
+  .mkt-hero-title { font-size: clamp(36px, 6vw, 56px); }
+  .mkt-hero-sub { margin-inline: auto; max-width: 540px; }
+  .mkt-hero-actions { justify-content: center; }
+  .mkt-hero-trust { justify-content: center; }
+  .mkt-hero-cameo { max-width: 600px; margin: 0 auto; }
+}
 @media (max-width: 768px) {
   .mkt-shell { padding: 0 20px; }
   .mkt-section { padding: 64px 0; }
-  .mkt-hero { padding: 64px 0 48px; }
-  .mkt-hero-cameo-stat-row { grid-template-columns: repeat(2, 1fr); }
+  .mkt-hero { padding: 56px 0 40px; }
+  .mkt-cameo-providers { grid-template-columns: 1fr; }
   .mkt-steps, .mkt-features, .mkt-pricing-grid, .mkt-why-grid { grid-template-columns: 1fr; }
   .mkt-footer-grid { grid-template-columns: 1fr 1fr; }
   .mkt-nav-links { gap: 0; }
   .mkt-nav-link { padding: 6px 10px; font-size: 13px; }
+  .mkt-cameo-score { grid-template-columns: 80px 1fr; gap: 14px; }
   .mkt-final { margin: 0 20px; padding: 64px 24px; }
 }
 </style>
@@ -530,7 +670,15 @@ a { color: inherit; text-decoration: none; }
 <nav class="mkt-topnav">
   <div class="mkt-shell mkt-topnav-inner">
     <a href="/" class="mkt-brand">
-      <span class="mkt-brand-mark">IS</span>
+      <span class="mkt-brand-mark">
+        <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="1" y="1" width="26" height="26" rx="7" fill="#7c3aed"/>
+          <path d="M7 19 A 7 7 0 0 1 21 19" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.9"/>
+          <path d="M14 19 L18.5 11.5" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="14" cy="19" r="1.8" fill="#ffffff"/>
+          <circle cx="22" cy="6" r="2.4" fill="#10b981" class="brand-live-dot"/>
+        </svg>
+      </span>
       InboxScore
     </a>
     <div class="mkt-nav-links">
@@ -545,76 +693,106 @@ a { color: inherit; text-decoration: none; }
 
 <!-- ════════ HERO ════════ -->
 <header class="mkt-hero">
-  <div class="mkt-shell">
-    <div class="mkt-hero-eyebrow">
-      <span class="mkt-hero-eyebrow-dot"></span>
-      Real-time monitoring across 20+ DNSBLs · GPM · SNDS
-    </div>
-    <h1 class="mkt-hero-title">Know your <em>inbox placement</em><br>before your customers do.</h1>
-    <p class="mkt-hero-sub">InboxScore monitors 20+ blacklists, Google Postmaster, and Microsoft SNDS in one place — so you catch deliverability problems in minutes, not days.</p>
-    <div class="mkt-hero-actions">
-      <a href="/signup" class="mkt-btn-primary">
-        Start free
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-      </a>
-      <a href="#scan" class="mkt-btn-secondary">Scan a domain →</a>
-    </div>
-    <div class="mkt-hero-trust">
-      <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Free forever · 1 domain</span>
-      <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>No credit card</span>
-      <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Setup in 2 minutes</span>
+  <div class="mkt-shell mkt-hero-grid">
+
+    <!-- LEFT: copy -->
+    <div class="mkt-hero-copy">
+      <div class="mkt-hero-eyebrow">
+        <span class="mkt-hero-eyebrow-dot"></span>
+        Live · 1,247 domains monitored
+      </div>
+      <h1 class="mkt-hero-title">Know your <em>inbox placement</em> before customers do.</h1>
+      <p class="mkt-hero-sub">InboxScore monitors 20+ blacklists, Google Postmaster, and Microsoft SNDS in one place — so you catch deliverability problems in minutes, not days.</p>
+      <div class="mkt-hero-actions">
+        <a href="/signup" class="mkt-btn-primary">
+          Start free
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+        <a href="#scan" class="mkt-btn-secondary">Scan a domain →</a>
+      </div>
+      <div class="mkt-hero-trust">
+        <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Free forever · 1 domain</span>
+        <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>No credit card</span>
+        <span class="mkt-hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Setup in 2 minutes</span>
+      </div>
     </div>
 
-    <!-- Dashboard cameo -->
+    <!-- RIGHT: dashboard cameo -->
     <div class="mkt-hero-cameo">
       <div class="mkt-hero-cameo-frame">
-        <div class="mkt-hero-cameo-bar">
-          <span class="mkt-hero-cameo-dot"></span>
-          <span class="mkt-hero-cameo-dot"></span>
-          <span class="mkt-hero-cameo-dot"></span>
-          <span class="mkt-hero-cameo-url">inboxscore.ai/dashboard</span>
+        <div class="mkt-cameo-bar">
+          <span class="mkt-cameo-dot"></span>
+          <span class="mkt-cameo-dot"></span>
+          <span class="mkt-cameo-dot"></span>
+          <span class="mkt-cameo-url">inboxscore.ai/dashboard</span>
         </div>
-        <div class="mkt-hero-cameo-body">
-          <div class="mkt-hero-cameo-stat-row">
-            <div class="mkt-hero-cameo-stat">
-              <div class="mkt-hero-cameo-stat-label">Score</div>
-              <div class="mkt-hero-cameo-stat-value">94</div>
-              <div class="mkt-hero-cameo-stat-trend">+3 this week</div>
+        <div class="mkt-cameo-body">
+
+          <div class="mkt-cameo-score">
+            <div class="mkt-cameo-gauge">
+              <svg viewBox="0 0 100 100" width="92" height="92" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#e8e8e9" stroke-width="7"/>
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#16a34a" stroke-width="7"
+                  stroke-dasharray="263.9" stroke-dashoffset="23.7"
+                  stroke-linecap="round"/>
+              </svg>
+              <div class="mkt-cameo-gauge-num">91</div>
+              <div class="mkt-cameo-gauge-out">OUT OF 100</div>
             </div>
-            <div class="mkt-hero-cameo-stat">
-              <div class="mkt-hero-cameo-stat-label">Blacklists</div>
-              <div class="mkt-hero-cameo-stat-value">0 / 160</div>
-              <div class="mkt-hero-cameo-stat-trend">All clear</div>
-            </div>
-            <div class="mkt-hero-cameo-stat">
-              <div class="mkt-hero-cameo-stat-label">Spam rate</div>
-              <div class="mkt-hero-cameo-stat-value">0.04%</div>
-              <div class="mkt-hero-cameo-stat-trend">−0.02%</div>
-            </div>
-            <div class="mkt-hero-cameo-stat">
-              <div class="mkt-hero-cameo-stat-label">DKIM pass</div>
-              <div class="mkt-hero-cameo-stat-value">99.8%</div>
-              <div class="mkt-hero-cameo-stat-trend">Healthy</div>
+            <div>
+              <div class="mkt-cameo-score-row">
+                <div class="mkt-cameo-score-headline">Excellent</div>
+                <span class="mkt-cameo-status-pill">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  All clear
+                </span>
+              </div>
+              <div class="mkt-cameo-score-meta-line">mailercloud.com · Last scanned today</div>
+              <div class="mkt-cameo-status-pills">
+                <span class="mkt-cameo-pill ok">11 passed</span>
+                <span class="mkt-cameo-pill warn">0 warnings</span>
+                <span class="mkt-cameo-pill err">0 failed</span>
+                <span class="mkt-cameo-pill info">4 info</span>
+              </div>
             </div>
           </div>
-          <div class="mkt-hero-cameo-domain-row">
-            <span class="mkt-hero-cameo-status-pill">Clean</span>
-            <span class="mkt-hero-cameo-domain-name">mailercloud.com</span>
-            <span class="mkt-hero-cameo-meta">Last scan · 4 min ago</span>
+
+          <div class="mkt-cameo-trend">
+            <div class="mkt-cameo-trend-label">SCORE TREND · LAST 7 DAYS</div>
+            <div class="mkt-cameo-bars">
+              <div class="mkt-cameo-bar-col"><div class="mkt-cameo-bar" style="height:78%"></div><div class="mkt-cameo-bar-day">SAT</div></div>
+              <div class="mkt-cameo-bar-col"><div class="mkt-cameo-bar" style="height:80%"></div><div class="mkt-cameo-bar-day">SUN</div></div>
+              <div class="mkt-cameo-bar-col"><div class="mkt-cameo-bar" style="height:80%"></div><div class="mkt-cameo-bar-day">MON</div></div>
+              <div class="mkt-cameo-bar-col"><div class="mkt-cameo-bar" style="height:80%"></div><div class="mkt-cameo-bar-day">TUE</div></div>
+              <div class="mkt-cameo-bar-col"><div class="mkt-cameo-bar" style="height:80%"></div><div class="mkt-cameo-bar-day">WED</div></div>
+              <div class="mkt-cameo-bar-col"><div class="mkt-cameo-bar" style="height:80%"></div><div class="mkt-cameo-bar-day">THU</div></div>
+              <div class="mkt-cameo-bar-col today"><div class="mkt-cameo-bar" style="height:80%"></div><div class="mkt-cameo-bar-day">TODAY</div></div>
+            </div>
           </div>
-          <div class="mkt-hero-cameo-domain-row">
-            <span class="mkt-hero-cameo-status-pill">Clean</span>
-            <span class="mkt-hero-cameo-domain-name">voicenotes.com</span>
-            <span class="mkt-hero-cameo-meta">Last scan · 2 min ago</span>
+
+          <div class="mkt-cameo-providers">
+            <div class="mkt-cameo-provider">
+              <div class="mkt-cameo-provider-icon g">G</div>
+              <div class="mkt-cameo-provider-text">
+                <div class="mkt-cameo-provider-name">Google Postmaster</div>
+                <div class="mkt-cameo-provider-sub">Connected</div>
+              </div>
+              <span class="mkt-cameo-status-dot"></span>
+            </div>
+            <div class="mkt-cameo-provider">
+              <div class="mkt-cameo-provider-icon m">M</div>
+              <div class="mkt-cameo-provider-text">
+                <div class="mkt-cameo-provider-name">Microsoft SNDS</div>
+                <div class="mkt-cameo-provider-sub">Connected</div>
+              </div>
+              <span class="mkt-cameo-status-dot"></span>
+            </div>
           </div>
-          <div class="mkt-hero-cameo-domain-row">
-            <span class="mkt-hero-cameo-status-pill warn">Warning</span>
-            <span class="mkt-hero-cameo-domain-name">redrail.redbus.com</span>
-            <span class="mkt-hero-cameo-meta">DMARC alignment 96%</span>
-          </div>
+
         </div>
       </div>
     </div>
+
   </div>
 </header>
 
@@ -736,7 +914,7 @@ a { color: inherit; text-decoration: none; }
   </div>
 </section>
 
-<!-- ════════ PRICING TEASE ════════ -->
+<!-- ════════ PRICING ════════ -->
 <section class="mkt-section" id="pricing">
   <div class="mkt-shell">
     <span class="mkt-section-eyebrow">Pricing</span>
@@ -837,7 +1015,15 @@ a { color: inherit; text-decoration: none; }
     <div class="mkt-footer-grid">
       <div>
         <a href="/" class="mkt-brand">
-          <span class="mkt-brand-mark">IS</span>
+          <span class="mkt-brand-mark">
+            <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="1" y="1" width="26" height="26" rx="7" fill="#7c3aed"/>
+              <path d="M7 19 A 7 7 0 0 1 21 19" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" opacity="0.9"/>
+              <path d="M14 19 L18.5 11.5" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round"/>
+              <circle cx="14" cy="19" r="1.8" fill="#ffffff"/>
+              <circle cx="22" cy="6" r="2.4" fill="#10b981"/>
+            </svg>
+          </span>
           InboxScore
         </a>
         <p class="mkt-footer-tagline">Real-time email deliverability monitoring for senders who care about reaching the inbox.</p>
