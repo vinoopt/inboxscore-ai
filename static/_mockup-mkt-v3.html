@@ -289,14 +289,14 @@ html[data-theme="dark"] .mkt-topnav {
 .mkt-hero-scan-input::placeholder { color: var(--text-faint); }
 .mkt-hero-scan-btn {
   padding: 12px 22px;
-  background: var(--accent); color: #ffffff;
+  background: var(--text-strong); color: var(--bg);
   border: none; border-radius: 8px;
   font-size: 14.5px; font-weight: 500;
   cursor: pointer; font-family: inherit;
-  transition: background 150ms, transform 150ms;
+  transition: opacity 150ms, transform 150ms;
   white-space: nowrap;
 }
-.mkt-hero-scan-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.mkt-hero-scan-btn:hover { opacity: 0.92; transform: translateY(-1px); }
 
 .mkt-hero-trust {
   display: inline-flex; gap: 24px; flex-wrap: wrap; justify-content: center;
