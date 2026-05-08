@@ -285,6 +285,7 @@ html[data-theme="dark"] .mkt-topnav {
   color: var(--text-strong); font-family: inherit;
   font-size: 15px; font-weight: 500;
   text-align: left;
+  caret-color: var(--text-strong);
 }
 .mkt-hero-scan-input::placeholder { color: var(--text-faint); }
 .mkt-hero-scan-btn {
@@ -1835,6 +1836,18 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', next);
   try { localStorage.setItem('inboxscore-theme', next); } catch (e) {}
 }
+
+/* Defensive autofocus — some browsers skip the autofocus attribute when
+   the page renders with data-theme stored from localStorage (FOUC script
+   triggers a layout recalc that can cancel autofocus). Explicit focus
+   call on DOMContentLoaded ensures cursor lands in the scan input on
+   every page load, both light and dark themes. */
+document.addEventListener('DOMContentLoaded', function(){
+  var input = document.getElementById('mkt-hero-scan-input');
+  if (input) {
+    try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+  }
+});
 
 (function(){
   var tabs = document.querySelectorAll('.mkt-showcase-tab');
