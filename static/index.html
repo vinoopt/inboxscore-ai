@@ -1185,9 +1185,174 @@ html[data-theme="dark"] .mkt-app-provider-icon.m { background: #ffffff; border-c
   .mkt-app-actions { flex-direction: column; align-items: stretch; }
   .mkt-app-action-spacer { display: none; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCAN APP — live scan flow that overlays the marketing page when active.
+   Tokens + visual language ported from _mockup-mkt-v3-scan-results.html.
+   States: loading (7-step checklist) · results (gauge + summary + check
+   list) · error (inline banner) · ratelimit (modal). Shown by toggling
+   #mkt-scan-app[hidden] + the inner state-pane visibility.
+   ════════════════════════════════════════════════════════════════════════ */
+#mkt-scan-app[hidden] { display: none; }
+#mkt-scan-app .mkt-shell { padding: 64px 32px 80px; }
+.mkt-scan-pane { display: none; }
+.mkt-scan-pane.active { display: block; }
+
+/* Loading — checklist matches /dashboard scan cadence (400ms) */
+.mkt-loading-card { max-width: 560px; margin: 24px auto; text-align: center; padding: 24px 32px; }
+.mkt-loading-domain { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; color: var(--text-muted); margin-bottom: 6px; }
+.mkt-loading-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-strong); margin-bottom: 4px; }
+.mkt-loading-meta { font-size: 13px; color: var(--text-subtle); margin-bottom: 28px; }
+.mkt-check-list { max-width: 360px; margin: 0 auto; text-align: left; }
+.mkt-check-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; margin-bottom: 4px; color: var(--text-muted); font-size: 14px; transition: all 220ms ease; }
+.mkt-check-item.active { background: var(--surface-2); color: var(--text-strong); }
+.mkt-check-item.done { color: var(--green-text, #00603f); }
+html[data-theme="dark"] .mkt-check-item.done { color: #4ade80; }
+.mkt-check-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; transition: all 220ms ease; }
+.mkt-check-item.active .mkt-check-dot { border-color: var(--text-strong); border-top-color: transparent; animation: mkt-spin 0.8s linear infinite; }
+.mkt-check-item.done .mkt-check-dot { background: #00875a; border-color: #00875a; animation: none; }
+html[data-theme="dark"] .mkt-check-item.done .mkt-check-dot { background: #26d978; border-color: #26d978; }
+@keyframes mkt-spin { to { transform: rotate(360deg); } }
+
+/* Results card */
+.mkt-results { max-width: 880px; margin: 0 auto; }
+.mkt-results-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; gap: 16px; flex-wrap: wrap; }
+.mkt-results-domain { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 15px; color: var(--text-strong); font-weight: 500; }
+.mkt-results-meta { font-size: 13px; color: var(--text-subtle); margin-top: 4px; }
+.mkt-scan-again { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 13.5px; font-weight: 500; color: var(--text); background: var(--bg); border: 1px solid var(--border-strong); border-radius: 8px; cursor: pointer; font-family: inherit; }
+.mkt-scan-again:hover { border-color: var(--text-strong); }
+.mkt-scan-again svg { width: 14px; height: 14px; }
+.mkt-score-card { display: grid; grid-template-columns: 200px 1fr; gap: 32px; padding: 32px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-3); margin-bottom: 24px; align-items: center; }
+.mkt-score-gauge { position: relative; width: 160px; height: 160px; margin: 0 auto; }
+.mkt-score-gauge-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 700; letter-spacing: -0.04em; color: var(--text-strong); }
+.mkt-score-gauge-out { position: absolute; left: 0; right: 0; bottom: 26px; text-align: center; font-size: 10px; font-weight: 600; color: var(--text-subtle); letter-spacing: 0.1em; }
+.mkt-score-headline-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.mkt-score-headline { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-strong); }
+.mkt-score-status-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
+.mkt-score-status-pill.ok { background: #e6f7ee; color: #00603f; }
+.mkt-score-status-pill.warn { background: rgba(202,138,4,0.12); color: #a16207; }
+.mkt-score-status-pill.err { background: rgba(220,38,38,0.10); color: #b91c1c; }
+html[data-theme="dark"] .mkt-score-status-pill.ok { background: rgba(38,217,120,0.10); color: #4ade80; }
+html[data-theme="dark"] .mkt-score-status-pill.warn { background: rgba(245,158,11,0.14); color: #f59e0b; }
+html[data-theme="dark"] .mkt-score-status-pill.err { background: rgba(248,113,113,0.14); color: #f87171; }
+.mkt-score-summary { font-size: 14.5px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.55; max-width: 540px; }
+.mkt-score-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.mkt-score-pill { font-size: 12.5px; font-weight: 500; color: var(--text-subtle); padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; }
+.mkt-score-pill.ok { color: #00603f; border-color: rgba(0,135,90,0.30); }
+.mkt-score-pill.warn { color: #a16207; border-color: rgba(202,138,4,0.30); }
+.mkt-score-pill.err { color: #b91c1c; border-color: rgba(220,38,38,0.30); }
+html[data-theme="dark"] .mkt-score-pill.ok { color: #4ade80; border-color: rgba(38,217,120,0.30); }
+html[data-theme="dark"] .mkt-score-pill.warn { color: #f59e0b; border-color: rgba(245,158,11,0.30); }
+html[data-theme="dark"] .mkt-score-pill.err { color: #f87171; border-color: rgba(248,113,113,0.30); }
+
+/* Sign-up CTA after results (anonymous scan funnel) */
+.mkt-results-cta { padding: 24px 28px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap; }
+.mkt-results-cta-text { font-size: 14.5px; color: var(--text-muted); flex: 1; min-width: 240px; line-height: 1.5; }
+.mkt-results-cta-text strong { color: var(--text-strong); font-weight: 600; }
+.mkt-results-cta-btn { display: inline-flex; align-items: center; gap: 6px; padding: 11px 22px; font-size: 14.5px; font-weight: 500; color: var(--bg); background: var(--text-strong); border: none; border-radius: 8px; text-decoration: none; white-space: nowrap; }
+.mkt-results-cta-btn:hover { opacity: 0.92; }
+
+/* Per-check breakdown (compact list) */
+.mkt-checks-card { margin-top: 24px; padding: 24px 28px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; }
+.mkt-checks-title { font-size: 15px; font-weight: 600; color: var(--text-strong); margin-bottom: 14px; letter-spacing: -0.01em; }
+.mkt-check-row { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.mkt-check-row:last-child { border-bottom: none; }
+.mkt-check-icon { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; margin-top: 2px; }
+.mkt-check-icon.pass { background: #00875a; }
+.mkt-check-icon.warn { background: #ca8a04; }
+.mkt-check-icon.fail { background: #dc2626; }
+.mkt-check-icon.info { background: var(--text-muted); }
+html[data-theme="dark"] .mkt-check-icon.pass { background: #26d978; color: #08090a; }
+html[data-theme="dark"] .mkt-check-icon.warn { background: #f59e0b; color: #08090a; }
+html[data-theme="dark"] .mkt-check-icon.fail { background: #f87171; color: #08090a; }
+.mkt-check-name { font-weight: 500; color: var(--text-strong); }
+.mkt-check-msg { font-size: 13px; color: var(--text-muted); margin-top: 2px; line-height: 1.5; }
+.mkt-check-status { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; align-self: start; margin-top: 2px; }
+.mkt-check-status.pass { background: #e6f7ee; color: #00603f; }
+.mkt-check-status.warn { background: rgba(202,138,4,0.12); color: #a16207; }
+.mkt-check-status.fail { background: rgba(220,38,38,0.12); color: #b91c1c; }
+.mkt-check-status.info { background: var(--surface-2); color: var(--text-muted); }
+html[data-theme="dark"] .mkt-check-status.pass { background: rgba(38,217,120,0.12); color: #4ade80; }
+html[data-theme="dark"] .mkt-check-status.warn { background: rgba(245,158,11,0.14); color: #f59e0b; }
+html[data-theme="dark"] .mkt-check-status.fail { background: rgba(248,113,113,0.14); color: #f87171; }
+
+/* Inline error banner under hero form */
+.mkt-error-banner { max-width: 540px; margin: 16px auto 0; padding: 12px 16px; background: rgba(220,38,38,0.10); border: 1px solid #dc2626; border-radius: 8px; color: #b91c1c; font-size: 13.5px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+.mkt-error-banner svg { width: 16px; height: 16px; flex-shrink: 0; }
+html[data-theme="dark"] .mkt-error-banner { color: #f87171; background: rgba(248,113,113,0.10); }
+
+/* Rate-limit modal (full-screen overlay) */
+.mkt-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+.mkt-modal-backdrop.show { display: flex; }
+.mkt-modal { max-width: 460px; width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 32px; text-align: center; box-shadow: var(--shadow-3); }
+.mkt-modal-icon { width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; background: rgba(124,58,237,0.10); color: #7c3aed; display: flex; align-items: center; justify-content: center; }
+.mkt-modal-icon svg { width: 28px; height: 28px; }
+html[data-theme="dark"] .mkt-modal-icon { background: rgba(167,139,250,0.14); color: #a78bfa; }
+.mkt-modal-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-strong); margin-bottom: 8px; }
+.mkt-modal-msg { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.55; }
+.mkt-modal-actions { display: flex; gap: 8px; justify-content: center; }
+.mkt-modal-btn-primary { display: inline-flex; align-items: center; padding: 11px 22px; background: var(--text-strong); color: var(--bg); border: 1px solid var(--text-strong); border-radius: 8px; font-size: 14px; font-weight: 500; text-decoration: none; cursor: pointer; font-family: inherit; }
+.mkt-modal-btn-primary:hover { opacity: 0.92; }
+.mkt-modal-btn-secondary { display: inline-flex; align-items: center; padding: 11px 22px; background: transparent; color: var(--text); border: 1px solid var(--border-strong); border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; }
+.mkt-modal-btn-secondary:hover { border-color: var(--text-strong); }
+
+@media (max-width: 720px) {
+  .mkt-score-card { grid-template-columns: 1fr; gap: 18px; padding: 24px; text-align: center; }
+  .mkt-score-gauge { width: 140px; height: 140px; }
+  .mkt-results-header { flex-direction: column; align-items: stretch; }
+  .mkt-check-row { grid-template-columns: auto 1fr; }
+  .mkt-check-status { grid-column: 2; justify-self: start; }
+  .mkt-results-cta { flex-direction: column; align-items: stretch; text-align: center; }
+}
 </style>
 </head>
 <body>
+
+<!-- ════════ SCAN APP (overlay shown during scan + results) ════════ -->
+<div id="mkt-scan-app" hidden>
+  <!-- Loading state -->
+  <section class="mkt-scan-pane" id="mkt-pane-loading">
+    <div class="mkt-shell">
+      <div class="mkt-loading-card">
+        <div class="mkt-loading-domain" id="mkt-loading-domain">acme.com</div>
+        <div class="mkt-loading-title">Running deliverability checks…</div>
+        <div class="mkt-loading-meta">Usually takes 15–25 seconds</div>
+        <div class="mkt-check-list" id="mkt-check-list">
+          <div class="mkt-check-item" data-check="mx"><div class="mkt-check-dot"></div>MX Records</div>
+          <div class="mkt-check-item" data-check="spf"><div class="mkt-check-dot"></div>SPF Validation</div>
+          <div class="mkt-check-item" data-check="dkim"><div class="mkt-check-dot"></div>DKIM Configuration</div>
+          <div class="mkt-check-item" data-check="dmarc"><div class="mkt-check-dot"></div>DMARC Policy</div>
+          <div class="mkt-check-item" data-check="blacklists"><div class="mkt-check-dot"></div>Blacklist Scan (40+ lists)</div>
+          <div class="mkt-check-item" data-check="tls"><div class="mkt-check-dot"></div>TLS &amp; Encryption</div>
+          <div class="mkt-check-item" data-check="ip_reputation"><div class="mkt-check-dot"></div>IP Reputation Analysis</div>
+          <div class="mkt-check-item" data-check="score"><div class="mkt-check-dot"></div>Calculating Score</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results state — populated by renderResults() -->
+  <section class="mkt-scan-pane" id="mkt-pane-results">
+    <div class="mkt-shell">
+      <div id="mkt-results-container"></div>
+    </div>
+  </section>
+</div>
+
+<!-- Rate-limit modal overlay -->
+<div class="mkt-modal-backdrop" id="mkt-rate-modal" role="dialog" aria-modal="true">
+  <div class="mkt-modal">
+    <div class="mkt-modal-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div>
+    <div class="mkt-modal-title" id="mkt-rate-modal-title">Daily limit reached</div>
+    <div class="mkt-modal-msg" id="mkt-rate-modal-msg">You've used your free scans today.</div>
+    <div class="mkt-modal-actions">
+      <button class="mkt-modal-btn-secondary" onclick="closeRateLimitModal()">Maybe later</button>
+      <a class="mkt-modal-btn-primary" id="mkt-rate-modal-cta" href="/signup">Create free account</a>
+    </div>
+  </div>
+</div>
 
 <!-- ════════ TOPNAV ════════ -->
 <nav class="mkt-topnav">
@@ -1951,21 +2116,307 @@ function normalizeDomain(input) {
 function isValidDomain(d) {
   return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(d);
 }
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function showScanError(msg) {
+  /* Render an inline banner just under the hero form, matching the
+     mockup error state. Removes any previous banner so repeated bad
+     submits don't stack. */
+  var existing = document.querySelector('.mkt-error-banner');
+  if (existing) existing.remove();
+  var form = document.querySelector('.mkt-hero-scan');
+  if (!form) return;
+  var banner = document.createElement('div');
+  banner.className = 'mkt-error-banner';
+  banner.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>' + escapeHtml(msg) + '</span>';
+  form.parentNode.insertBefore(banner, form.nextSibling);
+}
+
+function showRateLimitModal(detail) {
+  var msg = (detail && detail.message) || "You've used your free scans for today.";
+  var plan = (detail && detail.plan) || 'anonymous';
+  document.getElementById('mkt-rate-modal-msg').textContent = msg;
+  var cta = document.getElementById('mkt-rate-modal-cta');
+  if (plan === 'anonymous') {
+    cta.textContent = 'Create free account';
+    cta.href = '/signup';
+  } else if (plan === 'free') {
+    cta.textContent = 'Upgrade to Pro';
+    cta.href = '/pricing';
+  } else {
+    cta.textContent = 'View pricing';
+    cta.href = '/pricing';
+  }
+  document.getElementById('mkt-rate-modal').classList.add('show');
+}
+function closeRateLimitModal() {
+  document.getElementById('mkt-rate-modal').classList.remove('show');
+}
+
+function showScanApp(paneId) {
+  /* Hide marketing chrome + reveal the scan-app overlay. Topnav stays
+     visible so users can navigate back via the logo (which links to /). */
+  document.body.classList.add('mkt-scanning');
+  document.getElementById('mkt-scan-app').hidden = false;
+  document.querySelectorAll('.mkt-scan-pane').forEach(function (p) {
+    p.classList.toggle('active', p.id === paneId);
+  });
+  /* Hide marketing sections during scan — restored on "Scan another". */
+  ['mkt-hero', 'mkt-showcase', 'mkt-why', 'mkt-faq', 'mkt-pricing', 'mkt-final', 'mkt-footer']
+    .forEach(function (cls) {
+      document.querySelectorAll('.' + cls).forEach(function (el) { el.style.display = 'none'; });
+    });
+  /* Generic fallback — hide every direct child of body except the topnav,
+     scan-app, and modal. Some sections have unique class names; this
+     guarantees they're hidden during scan. */
+  Array.prototype.slice.call(document.body.children).forEach(function (el) {
+    if (el.id === 'mkt-scan-app' || el.id === 'mkt-rate-modal') return;
+    if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+    if (el.classList && el.classList.contains('mkt-topnav')) return;
+    el.style.display = 'none';
+  });
+  window.scrollTo(0, 0);
+}
+
+function returnToMarketing() {
+  document.body.classList.remove('mkt-scanning');
+  document.getElementById('mkt-scan-app').hidden = true;
+  /* Restore every previously-hidden child. */
+  Array.prototype.slice.call(document.body.children).forEach(function (el) {
+    if (el.style && el.style.display === 'none') {
+      if (el.id !== 'mkt-rate-modal') el.style.display = '';
+    }
+  });
+  /* Clear the URL ?domain= param so a refresh doesn't auto-rescan. */
+  if (window.location.search) {
+    history.replaceState(null, '', window.location.pathname);
+  }
+  var input = document.getElementById('mkt-hero-scan-input');
+  if (input) { input.value = ''; setTimeout(function () { input.focus(); }, 50); }
+}
+
+/* Animate the 7-step checklist while the real /api/scan request is in
+   flight. Matches the live /dashboard cadence (400ms per step) and parks
+   on "Calculating Score" until the API returns — at which point the
+   render snaps everything to done before swapping to the results pane. */
+var _mktChecklistInterval = null;
+function startChecklist() {
+  var items = document.querySelectorAll('#mkt-check-list .mkt-check-item');
+  if (!items.length) return;
+  items.forEach(function (i) {
+    i.classList.remove('active', 'done');
+    i.querySelector('.mkt-check-dot').textContent = '';
+  });
+  var idx = 0;
+  if (_mktChecklistInterval) clearInterval(_mktChecklistInterval);
+  _mktChecklistInterval = setInterval(function () {
+    if (idx > 0) {
+      items[idx - 1].classList.remove('active');
+      items[idx - 1].classList.add('done');
+      items[idx - 1].querySelector('.mkt-check-dot').textContent = '✓';
+    }
+    if (idx < items.length) {
+      items[idx].classList.add('active');
+      idx += 1;
+      if (idx === items.length) clearInterval(_mktChecklistInterval);
+    }
+  }, 400);
+}
+function finishChecklist() {
+  if (_mktChecklistInterval) { clearInterval(_mktChecklistInterval); _mktChecklistInterval = null; }
+  document.querySelectorAll('#mkt-check-list .mkt-check-item').forEach(function (i) {
+    i.classList.remove('active');
+    i.classList.add('done');
+    i.querySelector('.mkt-check-dot').textContent = '✓';
+  });
+}
+
+function renderResults(data) {
+  /* Maps the /api/scan response onto the v3 results layout. Three
+     verdict tiers based on score: 85+ Excellent, 65-84 Issues, <65
+     Critical. Colour comes from data.summary.color when present;
+     otherwise inferred from score. */
+  var score = Number(data.score) || 0;
+  var color = (data.summary && data.summary.color) || (score >= 85 ? 'good' : score >= 65 ? 'moderate' : 'danger');
+  var verdict = (data.summary && data.summary.verdict) || (score >= 85 ? 'Excellent' : score >= 65 ? 'Has issues' : 'Critical');
+  var summary = (data.summary && data.summary.summary) || '';
+  var stats = (data.summary && data.summary.stats) || { passed: 0, warnings: 0, failed: 0, info: 0 };
+
+  var pillClass = color === 'good' ? 'ok' : color === 'danger' ? 'err' : 'warn';
+  var statusLabel = color === 'good' ? 'All clear' : color === 'danger' ? 'Needs urgent fixes' : 'Action recommended';
+  var strokeColor = color === 'good' ? '#00875a' : color === 'danger' ? '#dc2626' : '#ca8a04';
+
+  /* Score arc — circumference 2πr where r=42 → ~263.9. Offset = (1 - score/100) * 263.9 */
+  var circumference = 263.9;
+  var offset = circumference * (1 - Math.max(0, Math.min(100, score)) / 100);
+
+  /* Group checks by basic status. Anonymous scans see a teaser of the
+     first 6 checks; full breakdown lives behind the signup CTA. */
+  var checks = Array.isArray(data.checks) ? data.checks : [];
+  var checkRowsHtml = checks.slice(0, 6).map(function (c) {
+    var st = (c.status || '').toLowerCase();
+    var iconCls = st === 'pass' ? 'pass' : st === 'fail' ? 'fail' : st === 'warn' ? 'warn' : 'info';
+    var iconChar = st === 'pass' ? '✓' : st === 'fail' ? '✕' : st === 'warn' ? '!' : 'i';
+    var label = c.title || c.name || 'Check';
+    var msg = c.message || '';
+    return (
+      '<div class="mkt-check-row">' +
+      '<span class="mkt-check-icon ' + iconCls + '">' + iconChar + '</span>' +
+      '<div><div class="mkt-check-name">' + escapeHtml(label) + '</div>' +
+      (msg ? '<div class="mkt-check-msg">' + escapeHtml(msg) + '</div>' : '') +
+      '</div>' +
+      '<span class="mkt-check-status ' + iconCls + '">' + escapeHtml(st || 'info') + '</span>' +
+      '</div>'
+    );
+  }).join('');
+  var moreCount = Math.max(0, checks.length - 6);
+
+  var domain = data.domain || '';
+  var html = (
+    '<div class="mkt-results">' +
+      '<div class="mkt-results-header">' +
+        '<div>' +
+          '<div class="mkt-results-domain">' + escapeHtml(domain) + '</div>' +
+          '<div class="mkt-results-meta">' + checks.length + ' of ' + checks.length + ' checks complete · scanned just now</div>' +
+        '</div>' +
+        '<button class="mkt-scan-again" onclick="returnToMarketing()" type="button">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>' +
+          'Scan another' +
+        '</button>' +
+      '</div>' +
+
+      '<div class="mkt-score-card">' +
+        '<div class="mkt-score-gauge">' +
+          '<svg viewBox="0 0 100 100" width="160" height="160">' +
+            '<circle cx="50" cy="50" r="42" fill="none" stroke-width="7" stroke="var(--border)"/>' +
+            '<circle cx="50" cy="50" r="42" fill="none" stroke-width="7" stroke="' + strokeColor + '" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + offset.toFixed(1) + '" stroke-linecap="round" transform="rotate(-90 50 50)"/>' +
+          '</svg>' +
+          '<div class="mkt-score-gauge-num">' + score + '</div>' +
+          '<div class="mkt-score-gauge-out">OUT OF 100</div>' +
+        '</div>' +
+        '<div>' +
+          '<div class="mkt-score-headline-row">' +
+            '<h2 class="mkt-score-headline">' + escapeHtml(verdict) + '</h2>' +
+            '<span class="mkt-score-status-pill ' + pillClass + '">' + statusLabel + '</span>' +
+          '</div>' +
+          (summary ? '<p class="mkt-score-summary">' + escapeHtml(summary) + '</p>' : '') +
+          '<div class="mkt-score-pills">' +
+            '<span class="mkt-score-pill ok">' + (stats.passed || 0) + ' passed</span>' +
+            '<span class="mkt-score-pill warn">' + (stats.warnings || 0) + ' warnings</span>' +
+            '<span class="mkt-score-pill err">' + (stats.failed || 0) + ' failed</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      (checkRowsHtml ?
+        '<div class="mkt-checks-card">' +
+          '<div class="mkt-checks-title">Top findings</div>' +
+          checkRowsHtml +
+        '</div>' : '') +
+
+      '<div class="mkt-results-cta" style="margin-top:24px;">' +
+        '<div class="mkt-results-cta-text">' +
+          (moreCount > 0
+            ? '<strong>' + moreCount + ' more checks + full fix guide</strong> available with a free account — set up monitoring, alerts, and PDF reports for ' + escapeHtml(domain) + '.'
+            : '<strong>Want monitoring + alerts for ' + escapeHtml(domain) + '?</strong> Create a free account to track this score over time, get alerts when it drops, and download PDF reports.') +
+        '</div>' +
+        '<a class="mkt-results-cta-btn" href="/signup?domain=' + encodeURIComponent(domain) + '">Create free account →</a>' +
+      '</div>' +
+    '</div>'
+  );
+
+  document.getElementById('mkt-results-container').innerHTML = html;
+  document.querySelectorAll('.mkt-scan-pane').forEach(function (p) {
+    p.classList.toggle('active', p.id === 'mkt-pane-results');
+  });
+  if (window.gtag) gtag('event', 'scan_complete', { domain: domain, score: score });
+}
+
+async function runScan(domain) {
+  showScanApp('mkt-pane-loading');
+  document.getElementById('mkt-loading-domain').textContent = domain;
+  startChecklist();
+
+  var headers = { 'Content-Type': 'application/json' };
+  /* Forward auth token if user is logged-in (raises their rate limit). */
+  try {
+    var token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+  } catch (e) {}
+
+  try {
+    var res = await fetch('/api/scan', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ domain: domain })
+    });
+    var body = null;
+    try { body = await res.json(); } catch (_) {}
+
+    if (res.status === 429) {
+      finishChecklist();
+      returnToMarketing();
+      var detail = body && body.detail;
+      if (typeof detail === 'string') detail = { message: detail };
+      showRateLimitModal(detail || {});
+      return;
+    }
+    if (!res.ok) {
+      finishChecklist();
+      returnToMarketing();
+      var msg = (body && (typeof body.detail === 'string' ? body.detail : body.detail && body.detail.message))
+        || 'Scan failed. Please try again in a moment.';
+      showScanError(msg);
+      return;
+    }
+
+    finishChecklist();
+    /* Brief pause so the user sees all 8 ticks done before the result swap. */
+    setTimeout(function () { renderResults(body); }, 350);
+  } catch (err) {
+    finishChecklist();
+    returnToMarketing();
+    showScanError('Network error — please check your connection and try again.');
+  }
+}
+
 function handleHeroScan(e) {
   e.preventDefault();
   var raw = document.getElementById('mkt-hero-scan-input').value;
   var d = normalizeDomain(raw);
+  /* Clear any previous error banner on each submit. */
+  var existing = document.querySelector('.mkt-error-banner');
+  if (existing) existing.remove();
   if (!d) return;
   if (!isValidDomain(d)) {
-    /* Once the live scan flow lands, this is where the error state
-       renders inline. For the temporarily-broken hero (pre-INBOX-200
-       migration), keep the existing behaviour: navigate to /?domain=
-       so the URL still reflects what they tried. */
-    window.location.href = '/?domain=' + encodeURIComponent(d);
+    showScanError("That doesn't look like a valid domain. Try something like acme.com.");
     return;
   }
-  window.location.href = '/?domain=' + encodeURIComponent(d);
+  runScan(d);
 }
+
+/* If the page loads with ?domain=acme.com, kick off a scan immediately
+   (used by old "share this scan" links + the legacy form action). */
+(function autoScanFromQuery() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var dq = params.get('domain');
+    if (!dq) return;
+    var d = normalizeDomain(dq);
+    if (!d || !isValidDomain(d)) return;
+    var input = document.getElementById('mkt-hero-scan-input');
+    if (input) input.value = d;
+    /* Defer until DOM ready so showScanApp can find the panes. */
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { runScan(d); });
+    } else {
+      runScan(d);
+    }
+  } catch (e) {}
+})();
 
 /* Defensive autofocus — some browsers skip the autofocus attribute when
    the page renders with data-theme stored from localStorage (FOUC script
