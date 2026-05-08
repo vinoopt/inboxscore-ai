@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InboxScore — Scan results flow mockup</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📨</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function () {
+  try {
+    var saved = localStorage.getItem('inboxscore-theme');
+    if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) {}
+})();
+</script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #ffffff;
+  --surface: #fbfbfb;
+  --surface-2: #f4f4f5;
+  --surface-tint: #f7f7f8;
+  --border: #e8e8e9;
+  --border-strong: #dadada;
+  --border-weak: #f1f1f1;
+  --text: #1c1c1e;
+  --text-strong: #0a0a0b;
+  --text-muted: #52525b;
+  --text-subtle: #71717a;
+  --text-faint: #a1a1aa;
+  --accent: #7c3aed;
+  --accent-soft: rgba(124,58,237,0.08);
+  --green: #16a34a;
+  --green-soft: rgba(22,163,74,0.10);
+  --red: #dc2626;
+  --red-soft: rgba(220,38,38,0.08);
+  --yellow: #ca8a04;
+  --yellow-soft: rgba(202,138,4,0.10);
+  --blue: #2563eb;
+  --blue-soft: rgba(37,99,235,0.08);
+  --shadow-1: 0px 1px 2px 0px oklch(0% 0 0 / .04);
+  --shadow-2: 0px 2px 4px -1px oklch(0% 0 0 / .04);
+  --shadow-3: 0px 4px 12px -2px oklch(0% 0 0 / .05);
+  --shadow-4: 0px 8px 24px -6px oklch(0% 0 0 / .06);
+}
+html[data-theme="dark"] {
+  --bg: #08090a;
+  --surface: #0e0f12;
+  --surface-2: #1c1c1f;
+  --surface-tint: #161618;
+  --border: #1f1f23;
+  --border-strong: #2a2a30;
+  --border-weak: #16161a;
+  --text: #f7f8f8;
+  --text-strong: #ffffff;
+  --text-muted: #a3a3a8;
+  --text-subtle: #70707a;
+  --text-faint: #4a4a52;
+  --accent: #a78bfa;
+  --accent-soft: rgba(167,139,250,0.12);
+  --green: #10b981;
+  --green-soft: rgba(16,185,129,0.14);
+  --red: #f87171;
+  --red-soft: rgba(248,113,113,0.14);
+  --yellow: #f59e0b;
+  --yellow-soft: rgba(245,158,11,0.14);
+  --blue: #60a5fa;
+  --blue-soft: rgba(96,165,250,0.14);
+}
+
+html, body { background: var(--bg); color: var(--text); }
+body {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-feature-settings: "ss01","cv11","tnum","calt";
+  -webkit-font-smoothing: antialiased;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+a { color: inherit; text-decoration: none; }
+.shell { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+
+/* ─────── TOPNAV ─────── */
+.topnav { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,0.78); backdrop-filter: blur(12px) saturate(180%); border-bottom: 1px solid var(--border); }
+html[data-theme="dark"] .topnav { background: rgba(8,9,10,0.78); }
+.topnav-inner { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; }
+.brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; font-size: 16px; letter-spacing: -0.025em; color: var(--text-strong); }
+.brand-mark { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; }
+.brand-mark svg { width: 30px; height: 30px; display: block; }
+.nav-links { display: flex; gap: 4px; align-items: center; }
+.nav-link { padding: 8px 14px; font-size: 14px; font-weight: 500; color: var(--text-muted); border-radius: 6px; }
+.theme-toggle { width: 32px; height: 32px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-muted); border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-right: 4px; }
+.theme-toggle .icon-sun, .theme-toggle .icon-moon { display: none; }
+html[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+html:not([data-theme="dark"]) .theme-toggle .icon-moon { display: block; }
+
+/* ─────── STATE SWITCHER (mockup-only chrome) ─────── */
+.state-switcher { background: var(--surface-tint); border-bottom: 1px solid var(--border); padding: 14px 0; }
+.state-switcher-inner { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.state-label { font-size: 12px; font-weight: 600; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.08em; }
+.state-buttons { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.state-btn { padding: 6px 12px; border: 1px solid var(--border-strong); background: var(--bg); color: var(--text); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 150ms; }
+.state-btn:hover { border-color: var(--text-strong); }
+.state-btn.active { background: var(--text-strong); color: var(--bg); border-color: var(--text-strong); }
+
+/* ─────── HERO + STATES ─────── */
+.state-pane { display: none; padding: 64px 0 80px; }
+.state-pane.active { display: block; }
+
+/* Default hero */
+.hero { text-align: center; }
+.hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 5px 14px; font-size: 13px; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 999px; margin-bottom: 24px; }
+.hero-eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px rgba(22,163,74,0.4); }
+.hero-title { font-size: clamp(36px, 4.6vw, 64px); font-weight: 600; letter-spacing: -0.035em; line-height: 1; max-width: 880px; margin: 0 auto 24px; color: var(--text-strong); }
+.hero-sub { font-size: clamp(17px, 1.4vw, 19px); color: var(--text-muted); max-width: 720px; margin: 0 auto 32px; font-weight: 500; }
+.hero-form { display: flex; gap: 8px; padding: 6px; margin: 0 auto 16px; max-width: 540px; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-3); }
+.hero-form-input { flex: 1; padding: 12px 16px; background: transparent; border: none; outline: none; color: var(--text-strong); font-family: inherit; font-size: 15px; font-weight: 500; caret-color: var(--text-strong); }
+.hero-form-input::placeholder { color: var(--text-faint); }
+.hero-form-btn { padding: 12px 22px; background: var(--text-strong); color: var(--bg); border: none; border-radius: 8px; font-size: 14.5px; font-weight: 500; cursor: pointer; font-family: inherit; }
+.hero-trust { display: inline-flex; gap: 24px; flex-wrap: wrap; justify-content: center; font-size: 13px; color: var(--text-subtle); margin-top: 8px; }
+.hero-trust-item { display: inline-flex; align-items: center; gap: 6px; }
+.hero-trust-item svg { color: var(--green); width: 14px; height: 14px; }
+
+/* Loading state */
+.loading-card { max-width: 540px; margin: 80px auto; text-align: center; padding: 48px 32px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-3); }
+.loading-spinner { width: 48px; height: 48px; margin: 0 auto 24px; border: 3px solid var(--border); border-top-color: var(--text-strong); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-strong); margin-bottom: 6px; }
+.loading-domain { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; color: var(--text-muted); margin-bottom: 20px; }
+.loading-progress { height: 4px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin-bottom: 14px; }
+.loading-progress-bar { height: 100%; background: var(--text-strong); border-radius: 999px; animation: progress 25s linear infinite; }
+@keyframes progress { 0% { width: 0%; } 80% { width: 85%; } 100% { width: 95%; } }
+.loading-meta { font-size: 12.5px; color: var(--text-subtle); }
+
+/* Error inline banner */
+.error-banner { max-width: 540px; margin: 16px auto 0; padding: 12px 16px; background: var(--red-soft); border: 1px solid var(--red); border-radius: 8px; color: var(--red); font-size: 13.5px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+.error-banner svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* ─────── SCAN RESULTS CARD ─────── */
+.results { max-width: 880px; margin: 0 auto; }
+.results-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+.results-domain { font-size: 18px; font-weight: 600; color: var(--text-strong); letter-spacing: -0.01em; margin-bottom: 4px; font-family: "JetBrains Mono", ui-monospace, monospace; }
+.results-meta { font-size: 13px; color: var(--text-muted); }
+.scan-again { display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px; font-size: 13.5px; font-weight: 500; color: var(--text-strong); background: var(--bg); border: 1px solid var(--border-strong); border-radius: 8px; cursor: pointer; }
+.scan-again:hover { border-color: var(--text-strong); }
+.scan-again svg { width: 13px; height: 13px; }
+
+/* Score card */
+.score-card { display: grid; grid-template-columns: 160px 1fr; gap: 32px; align-items: center; padding: 28px 32px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 16px; box-shadow: var(--shadow-2); }
+.score-gauge { position: relative; width: 160px; height: 160px; }
+.score-gauge svg { display: block; transform: rotate(-90deg); }
+.score-gauge-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 700; letter-spacing: -0.04em; color: var(--text-strong); line-height: 1; margin-top: -10px; font-variant-numeric: tabular-nums; }
+.score-gauge-out { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; color: var(--text-subtle); margin-top: 36px; }
+.score-headline-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.score-headline { font-size: 32px; font-weight: 700; letter-spacing: -0.025em; color: var(--text-strong); }
+.score-status-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--green-soft); color: var(--green); text-transform: uppercase; letter-spacing: 0.05em; }
+.score-status-pill.warn { background: var(--yellow-soft); color: var(--yellow); }
+.score-status-pill.err { background: var(--red-soft); color: var(--red); }
+.score-summary { font-size: 14.5px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.55; max-width: 540px; }
+.score-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.score-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; font-size: 12px; font-weight: 500; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.score-pill::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.score-pill.ok { color: var(--green); }
+.score-pill.warn { color: var(--yellow); }
+.score-pill.err { color: var(--red); }
+.score-pill.info { color: var(--blue); }
+
+/* Sign-up CTA card */
+.cta-card { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; padding: 22px 26px; background: linear-gradient(135deg, var(--accent-soft), transparent), var(--bg); border: 1px solid var(--accent); border-radius: 14px; margin-bottom: 16px; box-shadow: var(--shadow-2); }
+.cta-title { font-size: 18px; font-weight: 700; letter-spacing: -0.015em; color: var(--text-strong); margin-bottom: 4px; }
+.cta-sub { font-size: 13.5px; color: var(--text-muted); }
+.cta-button { display: inline-flex; align-items: center; gap: 6px; padding: 11px 22px; background: var(--text-strong); color: var(--bg); border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.cta-secondary-link { display: block; margin-top: 8px; font-size: 12.5px; color: var(--text-subtle); }
+.cta-secondary-link a { color: var(--accent); font-weight: 500; }
+
+/* Checks list */
+.checks-card { padding: 22px 28px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-2); }
+.checks-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.checks-title { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-strong); }
+.checks-meta { font-size: 12.5px; color: var(--text-subtle); }
+.checks-list { display: flex; flex-direction: column; }
+.check { display: grid; grid-template-columns: 24px 1fr auto; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-weak); }
+.check:last-child { border-bottom: none; }
+.check-icon { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 13px; font-weight: 700; }
+.check.ok .check-icon { background: var(--green-soft); color: var(--green); }
+.check.warn .check-icon { background: var(--yellow-soft); color: var(--yellow); }
+.check.err .check-icon { background: var(--red-soft); color: var(--red); }
+.check.info .check-icon { background: var(--blue-soft); color: var(--blue); }
+.check-name { font-size: 14px; font-weight: 600; color: var(--text-strong); margin-bottom: 2px; }
+.check-msg { font-size: 12.5px; color: var(--text-muted); line-height: 1.45; }
+.check-status { font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0; }
+.check.ok .check-status { background: var(--green-soft); color: var(--green); }
+.check.warn .check-status { background: var(--yellow-soft); color: var(--yellow); }
+.check.err .check-status { background: var(--red-soft); color: var(--red); }
+.check.info .check-status { background: var(--blue-soft); color: var(--blue); }
+
+/* Rate limit card */
+.ratelimit-card { max-width: 540px; margin: 80px auto; text-align: center; padding: 48px 36px; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-3); }
+.ratelimit-icon { width: 56px; height: 56px; margin: 0 auto 20px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; }
+.ratelimit-icon svg { width: 28px; height: 28px; }
+.ratelimit-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-strong); margin-bottom: 8px; }
+.ratelimit-msg { font-size: 14.5px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.55; }
+.ratelimit-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.btn-primary { padding: 11px 22px; background: var(--text-strong); color: var(--bg); border: 1px solid var(--text-strong); border-radius: 8px; font-size: 14px; font-weight: 500; }
+.btn-secondary { padding: 11px 22px; background: var(--bg); color: var(--text-strong); border: 1px solid var(--border-strong); border-radius: 8px; font-size: 14px; font-weight: 500; }
+
+/* Bottom action under results */
+.scan-another-row { text-align: center; margin: 24px 0 0; }
+.scan-another-link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: var(--text-muted); }
+.scan-another-link:hover { color: var(--text-strong); }
+.scan-another-link svg { width: 14px; height: 14px; }
+
+@media (max-width: 768px) {
+  .score-card { grid-template-columns: 1fr; gap: 20px; padding: 24px; text-align: center; }
+  .score-gauge { margin: 0 auto; }
+  .cta-card { grid-template-columns: 1fr; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="shell topnav-inner">
+    <a href="/" class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M5 9 L14 15 L23 9 L23 20 Q23 22 21 22 L7 22 Q5 22 5 20 Z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+          <path d="M5 9 L14 15 L23 9" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+          <circle cx="22" cy="6" r="2.2" fill="#16a34a"/>
+        </svg>
+      </span>
+      InboxScore
+    </a>
+    <div class="nav-links">
+      <a href="#" class="nav-link">Features</a>
+      <a href="#" class="nav-link">Pricing</a>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ════════ MOCKUP STATE SWITCHER ════════ -->
+<section class="state-switcher">
+  <div class="shell state-switcher-inner">
+    <span class="state-label">Mockup · Scan flow</span>
+    <div class="state-buttons">
+      <button class="state-btn" data-state="hero">Default hero</button>
+      <button class="state-btn" data-state="loading">Loading</button>
+      <button class="state-btn active" data-state="excellent">Excellent (94)</button>
+      <button class="state-btn" data-state="issues">Issues (67)</button>
+      <button class="state-btn" data-state="critical">Critical (32)</button>
+      <button class="state-btn" data-state="ratelimit">Rate limit</button>
+      <button class="state-btn" data-state="error">Error</button>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ STATE: DEFAULT HERO ════════ -->
+<section class="state-pane" id="state-hero">
+  <div class="shell hero">
+    <span class="hero-eyebrow"><span class="hero-eyebrow-dot"></span>Live · 1,247 sending domains monitored</span>
+    <h1 class="hero-title">Is your email reaching the inbox?</h1>
+    <p class="hero-sub">Check your domain's deliverability in 30 seconds. Get a clear score, see what's broken, and learn exactly how to fix it. Free, no signup needed.</p>
+    <form class="hero-form">
+      <input type="text" class="hero-form-input" placeholder="Enter your domain (e.g. acme.com)" autofocus>
+      <button type="submit" class="hero-form-btn">Scan domain →</button>
+    </form>
+    <div class="hero-trust">
+      <span class="hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Free scan</span>
+      <span class="hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>No signup needed</span>
+      <span class="hero-trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Results in 30 seconds</span>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ STATE: LOADING ════════ -->
+<section class="state-pane" id="state-loading">
+  <div class="shell">
+    <div class="loading-card">
+      <div class="loading-spinner"></div>
+      <div class="loading-title">Scanning your domain</div>
+      <div class="loading-domain">acme.com</div>
+      <div class="loading-progress"><div class="loading-progress-bar"></div></div>
+      <div class="loading-meta">Checking 14 deliverability signals · usually takes 15–25 seconds</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ STATE: EXCELLENT (94) ════════ -->
+<section class="state-pane active" id="state-excellent">
+  <div class="shell">
+    <div class="results">
+
+      <div class="results-header">
+        <div>
+          <div class="results-domain">acme.com</div>
+          <div class="results-meta">14 of 14 checks complete · scanned just now</div>
+        </div>
+        <button class="scan-again">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+          Scan another
+        </button>
+      </div>
+
+      <div class="score-card">
+        <div class="score-gauge">
+          <svg viewBox="0 0 100 100" width="160" height="160">
+            <circle cx="50" cy="50" r="42" fill="none" stroke-width="7" stroke="var(--border)"/>
+            <circle cx="50" cy="50" r="42" fill="none" stroke-width="7" stroke="var(--green)" stroke-dasharray="263.9" stroke-dashoffset="15.8" stroke-linecap="round"/>
+          </svg>
+          <div class="score-gauge-num">94</div>
+          <div class="score-gauge-out">OUT OF 100</div>
+        </div>
+        <div>
+          <div class="score-headline-row">
+            <h2 class="score-headline">Excellent</h2>
+            <span class="score-status-pill">All clear</span>
+          </div>
+          <p class="score-summary">Strong email deliverability. Major checks pass; emails should reliably reach the inbox. Two minor improvements recommended below.</p>
+          <div class="score-pills">
+            <span class="score-pill ok">11 passed</span>
+            <span class="score-pill warn">2 warnings</span>
+            <span class="score-pill err">0 failed</span>
+            <span class="score-pill info">1 info</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cta-card">
+        <div>
+          <div class="cta-title">Get this domain monitored ongoing</div>
+          <div class="cta-sub">We'll alert you the moment something breaks. Free, no credit card.</div>
+        </div>
+        <a href="/signup?domain=acme.com" class="cta-button">Sign up free →</a>
+      </div>
+
+      <div class="checks-card">
+        <div class="checks-header">
+          <div class="checks-title">All checks</div>
+          <div class="checks-meta">14 of 14 complete</div>
+        </div>
+        <div class="checks-list">
+          <div class="check warn">
+            <div class="check-icon">!</div>
+            <div><div class="check-name">DMARC alignment</div><div class="check-msg">96% alignment — improving aggregate reports recommended</div></div>
+            <span class="check-status">Warning</span>
+          </div>
+          <div class="check warn">
+            <div class="check-icon">!</div>
+            <div><div class="check-name">DKIM key length</div><div class="check-msg">Selector mc1 uses 1024-bit key — upgrade to 2048-bit for stronger signing</div></div>
+            <span class="check-status">Warning</span>
+          </div>
+          <div class="check info">
+            <div class="check-icon">i</div>
+            <div><div class="check-name">BIMI record</div><div class="check-msg">No BIMI record found — optional, improves brand recognition in Gmail</div></div>
+            <span class="check-status">Info</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">SPF record</div><div class="check-msg">Found and aligned correctly</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">DKIM signing</div><div class="check-msg">All selectors found and verified</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">DMARC policy</div><div class="check-msg">p=quarantine, sp=reject — strong policy</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">MX records</div><div class="check-msg">3 MX hosts configured, all reachable</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">Reverse DNS (PTR)</div><div class="check-msg">All sending IPs have matching PTR records</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">TLS configuration</div><div class="check-msg">All MX hosts support TLS 1.2+ with valid certificates</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">Blacklist check (20 DNSBLs)</div><div class="check-msg">Clean across Spamhaus, Barracuda, SORBS, SpamCop, +16 more</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">Open relay</div><div class="check-msg">No open relay detected</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">SPF includes</div><div class="check-msg">5 includes resolved within 10-lookup limit</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">Domain age</div><div class="check-msg">Registered 8 years ago · low spam risk</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">Google Safe Browsing</div><div class="check-msg">No threats reported</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scan-another-row">
+        <a href="#" class="scan-another-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+          Scan another domain
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ STATE: ISSUES (67) ════════ -->
+<section class="state-pane" id="state-issues">
+  <div class="shell">
+    <div class="results">
+      <div class="results-header">
+        <div>
+          <div class="results-domain">acme.com</div>
+          <div class="results-meta">14 of 14 checks complete · scanned just now</div>
+        </div>
+        <button class="scan-again">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+          Scan another
+        </button>
+      </div>
+
+      <div class="score-card">
+        <div class="score-gauge">
+          <svg viewBox="0 0 100 100" width="160" height="160">
+            <circle cx="50" cy="50" r="42" fill="none" stroke-width="7" stroke="var(--border)"/>
+            <circle cx="50" cy="50" r="42" fill="none" stroke-width="7" stroke="var(--yellow)" stroke-dasharray="263.9" stroke-dashoffset="87.1" stroke-linecap="round"/>
+          </svg>
+          <div class="score-gauge-num">67</div>
+          <div class="score-gauge-out">OUT OF 100</div>
+        </div>
+        <div>
+          <div class="score-headline-row">
+            <h2 class="score-headline">Needs attention</h2>
+            <span class="score-status-pill warn">2 issues</span>
+          </div>
+          <p class="score-summary">Several deliverability issues detected. Most emails will reach the inbox, but some risk going to spam. Two failed checks need immediate attention.</p>
+          <div class="score-pills">
+            <span class="score-pill ok">8 passed</span>
+            <span class="score-pill warn">3 warnings</span>
+            <span class="score-pill err">2 failed</span>
+            <span class="score-pill info">1 info</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cta-card">
+        <div>
+          <div class="cta-title">Fix these issues — and stay protected</div>
+          <div class="cta-sub">Sign up free to get a step-by-step fix guide for every issue + ongoing alerts.</div>
+        </div>
+        <a href="/signup?domain=acme.com" class="cta-button">Sign up free →</a>
+      </div>
+
+      <div class="checks-card">
+        <div class="checks-header">
+          <div class="checks-title">All checks</div>
+          <div class="checks-meta">2 failed · 3 warnings · 8 passed · 1 info</div>
+        </div>
+        <div class="checks-list">
+          <div class="check err">
+            <div class="check-icon">✗</div>
+            <div><div class="check-name">DMARC policy</div><div class="check-msg">p=none — policy is monitor-only, providing no spoofing protection</div></div>
+            <span class="check-status">Failed</span>
+          </div>
+          <div class="check err">
+            <div class="check-icon">✗</div>
+            <div><div class="check-name">SPF record</div><div class="check-msg">Soft-fail (~all) configured — should be hard-fail (-all) for stronger protection</div></div>
+            <span class="check-status">Failed</span>
+          </div>
+          <div class="check warn">
+            <div class="check-icon">!</div>
+            <div><div class="check-name">DKIM key length</div><div class="check-msg">Selector default uses 1024-bit key — upgrade to 2048-bit recommended</div></div>
+            <span class="check-status">Warning</span>
+          </div>
+          <div class="check warn">
+            <div class="check-icon">!</div>
+            <div><div class="check-name">SPF includes</div><div class="check-msg">8 includes resolved · close to 10-lookup limit, consolidate where possible</div></div>
+            <span class="check-status">Warning</span>
+          </div>
+          <div class="check warn">
+            <div class="check-icon">!</div>
+            <div><div class="check-name">TLS configuration</div><div class="check-msg">1 of 3 MX hosts uses TLS 1.0 — upgrade to TLS 1.2+ recommended</div></div>
+            <span class="check-status">Warning</span>
+          </div>
+          <div class="check info">
+            <div class="check-icon">i</div>
+            <div><div class="check-name">BIMI record</div><div class="check-msg">No BIMI record found — optional, improves brand recognition in Gmail</div></div>
+            <span class="check-status">Info</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">DKIM signing</div><div class="check-msg">Selector found and signature verifies correctly</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">DMARC record</div><div class="check-msg">DMARC record exists at _dmarc.acme.com</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">MX records</div><div class="check-msg">3 MX hosts configured, all reachable</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">Reverse DNS (PTR)</div><div class="check-msg">All sending IPs have matching PTR records</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">Blacklist check (20 DNSBLs)</div><div class="check-msg">Clean across Spamhaus, Barracuda, SORBS, +17 more</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">Open relay</div><div class="check-msg">No open relay detected</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">Domain age</div><div class="check-msg">Registered 4 years ago · low spam risk</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+          <div class="check ok">
+            <div class="check-icon">✓</div>
+            <div><div class="check-name">Google Safe Browsing</div><div class="check-msg">No threats reported</div></div>
+            <span class="check-status">Pass</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scan-another-row"><a href="#" class="scan-another-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Scan another domain</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ STATE: CRITICAL (32) ════════ -->
+<section class="state-pane" id="state-critical">
+  <div class="shell">
+    <div class="results">
+      <div class="results-header">
+        <div>
+          <div class="results-domain">broken-domain.com</div>
+          <div class="results-meta">14 of 14 checks complete · scanned just now</div>
+        </div>
+        <button class="scan-again"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Scan another</button>
+      </div>
+
+      <div class="score-card">
+        <div class="score-gauge">
+          <svg viewBox="0 0 100 100" width="160" height="160">
+            <circle cx="50" cy="50" r="42" fill="none" stroke-width="7" stroke="var(--border)"/>
+            <circle cx="50" cy="50" r="42" fill="none" stroke-width="7" stroke="var(--red)" stroke-dasharray="263.9" stroke-dashoffset="179.5" stroke-linecap="round"/>
+          </svg>
+          <div class="score-gauge-num">32</div>
+          <div class="score-gauge-out">OUT OF 100</div>
+        </div>
+        <div>
+          <div class="score-headline-row">
+            <h2 class="score-headline">Critical</h2>
+            <span class="score-status-pill err">5 failures</span>
+          </div>
+          <p class="score-summary">Major deliverability issues detected. Many emails are likely going to spam or being rejected. Five critical failures need immediate fixes.</p>
+          <div class="score-pills">
+            <span class="score-pill ok">5 passed</span>
+            <span class="score-pill warn">3 warnings</span>
+            <span class="score-pill err">5 failed</span>
+            <span class="score-pill info">1 info</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cta-card">
+        <div>
+          <div class="cta-title">Your emails are likely going to spam</div>
+          <div class="cta-sub">Sign up free to get fix instructions for every failed check + real-time monitoring.</div>
+        </div>
+        <a href="/signup?domain=broken-domain.com" class="cta-button">Sign up free →</a>
+      </div>
+
+      <div class="checks-card">
+        <div class="checks-header">
+          <div class="checks-title">All checks</div>
+          <div class="checks-meta">5 failed · 3 warnings · 5 passed · 1 info</div>
+        </div>
+        <div class="checks-list">
+          <div class="check err"><div class="check-icon">✗</div><div><div class="check-name">SPF record</div><div class="check-msg">No SPF record found — emails are unsigned and easily spoofable</div></div><span class="check-status">Failed</span></div>
+          <div class="check err"><div class="check-icon">✗</div><div><div class="check-name">DMARC record</div><div class="check-msg">No DMARC record at _dmarc.broken-domain.com</div></div><span class="check-status">Failed</span></div>
+          <div class="check err"><div class="check-icon">✗</div><div><div class="check-name">DKIM signing</div><div class="check-msg">No DKIM selectors found — outgoing mail is unsigned</div></div><span class="check-status">Failed</span></div>
+          <div class="check err"><div class="check-icon">✗</div><div><div class="check-name">Blacklist (Spamhaus ZEN)</div><div class="check-msg">Listed on Spamhaus PBL · IP 198.51.100.5 flagged</div></div><span class="check-status">Failed</span></div>
+          <div class="check err"><div class="check-icon">✗</div><div><div class="check-name">TLS configuration</div><div class="check-msg">2 of 2 MX hosts use expired or self-signed certificates</div></div><span class="check-status">Failed</span></div>
+          <div class="check warn"><div class="check-icon">!</div><div><div class="check-name">Reverse DNS (PTR)</div><div class="check-msg">1 of 2 sending IPs missing PTR record</div></div><span class="check-status">Warning</span></div>
+          <div class="check warn"><div class="check-icon">!</div><div><div class="check-name">Open relay test</div><div class="check-msg">Connection refused — could not complete test, retry recommended</div></div><span class="check-status">Warning</span></div>
+          <div class="check warn"><div class="check-icon">!</div><div><div class="check-name">Domain age</div><div class="check-msg">Registered 22 days ago — new domains have limited reputation</div></div><span class="check-status">Warning</span></div>
+          <div class="check info"><div class="check-icon">i</div><div><div class="check-name">BIMI record</div><div class="check-msg">No BIMI record — requires p=quarantine or p=reject DMARC first</div></div><span class="check-status">Info</span></div>
+          <div class="check ok"><div class="check-icon">✓</div><div><div class="check-name">MX records</div><div class="check-msg">2 MX hosts configured, both reachable</div></div><span class="check-status">Pass</span></div>
+          <div class="check ok"><div class="check-icon">✓</div><div><div class="check-name">Google Safe Browsing</div><div class="check-msg">No threats reported</div></div><span class="check-status">Pass</span></div>
+          <div class="check ok"><div class="check-icon">✓</div><div><div class="check-name">DNSSEC</div><div class="check-msg">DNSSEC enabled and validated</div></div><span class="check-status">Pass</span></div>
+          <div class="check ok"><div class="check-icon">✓</div><div><div class="check-name">A record</div><div class="check-msg">A record present and resolves correctly</div></div><span class="check-status">Pass</span></div>
+          <div class="check ok"><div class="check-icon">✓</div><div><div class="check-name">Mail server reachability</div><div class="check-msg">Both MX hosts accept connections on port 25</div></div><span class="check-status">Pass</span></div>
+        </div>
+      </div>
+
+      <div class="scan-another-row"><a href="#" class="scan-another-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>Scan another domain</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ STATE: RATE LIMIT ════════ -->
+<section class="state-pane" id="state-ratelimit">
+  <div class="shell">
+    <div class="ratelimit-card">
+      <div class="ratelimit-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div class="ratelimit-title">3 free scans used</div>
+      <div class="ratelimit-msg">Sign up free to get unlimited scans, ongoing monitoring across 20+ blacklists, and real-time alerts when something breaks.</div>
+      <div class="ratelimit-actions">
+        <a href="/signup" class="btn-primary">Sign up free</a>
+        <a href="/login" class="btn-secondary">Log in</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ STATE: ERROR ════════ -->
+<section class="state-pane" id="state-error">
+  <div class="shell hero">
+    <span class="hero-eyebrow"><span class="hero-eyebrow-dot"></span>Live · 1,247 sending domains monitored</span>
+    <h1 class="hero-title">Is your email reaching the inbox?</h1>
+    <p class="hero-sub">Check your domain's deliverability in 30 seconds. Get a clear score, see what's broken, and learn exactly how to fix it. Free, no signup needed.</p>
+    <form class="hero-form">
+      <input type="text" class="hero-form-input" value="not-a-domain" autofocus>
+      <button type="submit" class="hero-form-btn">Scan domain →</button>
+    </form>
+    <div class="error-banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Please enter a valid domain (e.g. acme.com) — without https:// or paths.
+    </div>
+  </div>
+</section>
+
+<script>
+function toggleTheme() {
+  var c = document.documentElement.getAttribute('data-theme') || 'light';
+  var n = c === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', n);
+  try { localStorage.setItem('inboxscore-theme', n); } catch (e) {}
+}
+
+document.querySelectorAll('.state-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var target = btn.getAttribute('data-state');
+    document.querySelectorAll('.state-btn').forEach(function(b){ b.classList.toggle('active', b === btn); });
+    document.querySelectorAll('.state-pane').forEach(function(p){
+      p.classList.toggle('active', p.id === 'state-' + target);
+    });
+    history.replaceState(null, '', '#' + target);
+  });
+});
+
+// Restore from URL hash
+(function(){
+  var h = location.hash.replace('#','');
+  if (h) {
+    var btn = document.querySelector('.state-btn[data-state="' + h + '"]');
+    if (btn) btn.click();
+  }
+})();
+</script>
+
+</body>
+</html>
