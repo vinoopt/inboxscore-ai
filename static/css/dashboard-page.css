@@ -653,10 +653,17 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-light { display: block; }
   gap: 12px; margin-top: 16px; padding-top: 16px;
   border-top: 1px solid var(--border);
 }
-.pm-status-cell { display: flex; flex-direction: column; gap: 8px; }
+.pm-status-cell { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .pm-status-label {
   font-size: 11px; color: var(--fg-2);
   text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;
+  /* INBOX-211 followup: prevent "SPAM RATE" from wrapping onto two lines
+     in the disconnected state. Grid 1fr tracks size to widest cell
+     content — when pills are full ("Compliant" green) the column is
+     wide enough; when they collapse to em-dash, the track shrinks and
+     the multi-word label breaks. white-space:nowrap pins all 3 labels
+     on a single line regardless of pill content width. */
+  white-space: nowrap;
 }
 .pm-status-pill {
   display: inline-flex; align-items: center; gap: 6px;
