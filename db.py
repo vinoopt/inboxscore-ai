@@ -1205,6 +1205,38 @@ def upsert_postmaster_metrics(user_id: str, domain: str, metric_date: str, metri
         return None
 
 
+def _normalize_postmaster_row(row: dict) -> dict:
+    """INBOX-211 (read-path defense): null out rate fields on zero-traffic
+    rows that pre-date the ingest fix.
+
+    The ingest fix in upsert_postmaster_metrics catches new rows, but the
+    DB still has weeks of older rows stored with 0s on quiet days. Rather
+    than make the backfill SQL a hard dependency for the UI fix, we
+    normalize at read-time: any row matching the zero-traffic signature
+    (auth_dmarc==0 AND tls==0 — impossible on real traffic) gets its rate
+    fields blanked to null on the way out.
+
+    Behavioural notes:
+      • Idempotent — already-null rows pass through unchanged.
+      • Doesn't touch raw_data / delivery_errors — readers handle nulls
+        already, and we leave the on-disk row alone for audit.
+      • Mutates a copy (not the supabase response object).
+    """
+    if not row:
+        return row
+    auth_dmarc = row.get("auth_success_dmarc")
+    tls = row.get("encrypted_traffic_tls")
+    if auth_dmarc in (0, 0.0) and tls in (0, 0.0):
+        out = dict(row)
+        out["spam_rate"] = None
+        out["auth_success_spf"] = None
+        out["auth_success_dkim"] = None
+        out["auth_success_dmarc"] = None
+        out["encrypted_traffic_tls"] = None
+        return out
+    return row
+
+
 def get_postmaster_metrics(user_id: str, domain: str, days: int = 30) -> list:
     """Get Postmaster metrics for a domain (last N days)"""
     sb = get_supabase()
@@ -1216,7 +1248,10 @@ def get_postmaster_metrics(user_id: str, domain: str, days: int = 30) -> list:
         result = sb.table("postmaster_metrics").select("*").eq(
             "user_id", user_id
         ).eq("domain", domain).gte("date", cutoff).order("date", desc=False).execute()
-        return result.data if result.data else []
+        rows = result.data if result.data else []
+        # INBOX-211: read-path normalize so the UI never sees pre-fix
+        # zero-traffic rows that still carry 0s in the DB.
+        return [_normalize_postmaster_row(r) for r in rows]
     except Exception as e:
         print(f"Error getting postmaster metrics: {e}")
         return []
@@ -1249,13 +1284,15 @@ def get_postmaster_metrics_all_domains(user_id: str, days: int = 7) -> dict:
 
         rows = result.data or []
         # Group by domain, keep first row per domain (already sorted desc).
+        # INBOX-211: read-path normalize each row so dashboard cards never
+        # see a pre-fix zero-traffic row with 0s.
         latest_by_domain: dict[str, dict] = {}
         for r in rows:
             d = r.get("domain")
             if not d:
                 continue
             if d not in latest_by_domain:
-                latest_by_domain[d] = r
+                latest_by_domain[d] = _normalize_postmaster_row(r)
         return latest_by_domain
     except Exception as e:
         print(f"Error getting postmaster metrics bulk: {e}")
