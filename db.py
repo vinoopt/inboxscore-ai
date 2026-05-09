@@ -1216,25 +1216,46 @@ def _normalize_postmaster_row(row: dict) -> dict:
     (auth_dmarc==0 AND tls==0 — impossible on real traffic) gets its rate
     fields blanked to null on the way out.
 
+    INBOX-211 followup-2: also clean raw_data._tls_outbound on zero-
+    traffic days — that field lives in a JSON blob (no dedicated column)
+    so the frontend's getOutbound() reads it directly. Without this,
+    outbound TLS averages drag down because 0-value rows count toward
+    the denominator (Vinoop caught this on redrail.redbus.com — outbound
+    avg showed 40.9% when most days had no Gmail-to-domain traffic).
+
     Behavioural notes:
       • Idempotent — already-null rows pass through unchanged.
-      • Doesn't touch raw_data / delivery_errors — readers handle nulls
-        already, and we leave the on-disk row alone for audit.
       • Mutates a copy (not the supabase response object).
+      • delivery_errors JSON is untouched — readers already skip
+        underscore-prefixed metadata keys.
     """
     if not row:
         return row
     auth_dmarc = row.get("auth_success_dmarc")
     tls = row.get("encrypted_traffic_tls")
-    if auth_dmarc in (0, 0.0) and tls in (0, 0.0):
-        out = dict(row)
-        out["spam_rate"] = None
-        out["auth_success_spf"] = None
-        out["auth_success_dkim"] = None
-        out["auth_success_dmarc"] = None
-        out["encrypted_traffic_tls"] = None
-        return out
-    return row
+    if not (auth_dmarc in (0, 0.0) and tls in (0, 0.0)):
+        return row
+
+    out = dict(row)
+    out["spam_rate"] = None
+    out["auth_success_spf"] = None
+    out["auth_success_dkim"] = None
+    out["auth_success_dmarc"] = None
+    out["encrypted_traffic_tls"] = None
+
+    # raw_data is stored as a JSON string in Supabase. Parse, null the
+    # _tls_outbound key (without dropping unrelated keys), re-serialize.
+    raw_val = row.get("raw_data")
+    if raw_val:
+        try:
+            raw = json.loads(raw_val) if isinstance(raw_val, str) else dict(raw_val)
+            if "_tls_outbound" in raw:
+                raw["_tls_outbound"] = None
+            out["raw_data"] = json.dumps(raw)
+        except (json.JSONDecodeError, TypeError):
+            # Malformed raw_data — leave it alone rather than corrupt it.
+            pass
+    return out
 
 
 def get_postmaster_metrics(user_id: str, domain: str, days: int = 30) -> list:

@@ -1302,6 +1302,13 @@ function animateGpmAuth() {
   if (!canvas || typeof Chart === 'undefined') return;
 
   // Auto-scale y-axis floor based on the worst dip across all 3 series.
+  // INBOX-211 followup-2: when a real low value exists, drop yMin to 0
+  // (NOT 40) so the dip renders honestly. Vinoop caught the previous
+  // behaviour — DMARC=0% on a mixed-failure day was clipping the chart
+  // line to yMin=40, making it look like a V-dip to 40% when the real
+  // value was 0%. Honest rendering: line drops cleanly to 0 if that's
+  // the truth. Zero-traffic days are nulled by the read-path normalizer
+  // and skipped via spanGaps:true, so they don't enter allVals.
   const allVals = [];
   metrics.forEach(m => {
     [m.auth_success_dmarc, m.auth_success_dkim, m.auth_success_spf].forEach(v => {
@@ -1309,10 +1316,12 @@ function animateGpmAuth() {
     });
   });
   const minObserved = allVals.length ? Math.min(...allVals) : 100;
-  let yMin = 40;
+  let yMin = 0;   // honest default — 0% means 0%, not "clipped to 40"
   if (minObserved >= 95) yMin = 95;
   else if (minObserved >= 90) yMin = 90;
   else if (minObserved >= 80) yMin = 80;
+  else if (minObserved >= 50) yMin = 40;
+  // else: minObserved < 50 → keep yMin = 0 so the real low value shows
 
   const labels = metrics.map(m => ehFormatDateShortMD(m.date));
   const seriesValues = (key) => metrics.map(m => m[key] != null ? m[key] * 100 : null);
@@ -1443,24 +1452,28 @@ function populateGpmEncryption() {
   }
   const tlsOutVal = document.getElementById('gpm-enc-tls-outbound-val');
   const tlsOutSub = document.getElementById('gpm-enc-tls-outbound-sub');
-  const outRates = metrics.filter(m => getOutbound(m) != null).map(m => getOutbound(m) * 100);
+  // INBOX-211 followup-2: outbound TLS aggregation must EXCLUDE 0-value
+  // days from the denominator. A 0% outbound rate almost always means
+  // Gmail had no mail to send to the domain that day (real TLS failures
+  // are essentially impossible — TLS is universal). Including 0s in the
+  // avg drags it down (Vinoop saw 40.9% on redrail when most days were
+  // no-traffic). Filter null AND 0 → only real Gmail-to-domain days
+  // count toward the average.
+  const outRates = metrics
+    .map(m => getOutbound(m))
+    .filter(v => v != null && v > 0)
+    .map(v => v * 100);
   if (tlsOutVal && tlsOutSub) {
     tlsOutVal.classList.remove('pm-success', 'pm-warn', 'pm-danger', 'pm-muted');
     if (outRates.length > 0) {
       const oavg = outRates.reduce((a, b) => a + b, 0) / outRates.length;
-      const allZero = outRates.every(r => r === 0);
       tlsOutVal.textContent = oavg.toFixed(1) + '%';
-      if (allZero) {
-        // INBOX-112 followup-2: empty state ≠ failure. 0% outbound = no
-        // Gmail-to-domain traffic. Render muted, not red.
-        tlsOutVal.classList.add('pm-muted');
-        tlsOutSub.textContent = 'No Gmail-to-domain traffic in this period.';
-      } else {
-        if (oavg >= 95)      tlsOutVal.classList.add('pm-success');
-        else if (oavg >= 80) tlsOutVal.classList.add('pm-warn');
-        else                 tlsOutVal.classList.add('pm-danger');
-        tlsOutSub.textContent = outRates.every(r => r >= 99.9) ? 'All days at 100%.' : 'Avg over ' + outRates.length + ' days.';
-      }
+      if (oavg >= 95)      tlsOutVal.classList.add('pm-success');
+      else if (oavg >= 80) tlsOutVal.classList.add('pm-warn');
+      else                 tlsOutVal.classList.add('pm-danger');
+      tlsOutSub.textContent = outRates.every(r => r >= 99.9)
+        ? 'All ' + outRates.length + ' Gmail-to-domain days at 100%.'
+        : 'Avg over ' + outRates.length + ' Gmail-to-domain days.';
     } else {
       tlsOutVal.textContent = '—';
       tlsOutVal.classList.add('pm-muted');
