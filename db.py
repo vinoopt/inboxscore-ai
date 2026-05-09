@@ -1101,39 +1101,99 @@ def delete_postmaster_connection(user_id: str) -> bool:
         return False
 
 
+def _is_zero_traffic_postmaster_day(metrics: dict) -> bool:
+    """INBOX-211: detect zero-traffic days from a parsed Postmaster v2 row.
+
+    Google's v2 API returns ``floatValue: 0`` for auth/TLS/spam rates on
+    days where the domain had no Gmail traffic — mathematically meaningless
+    values that the UI was rendering as red "0.00%" failure pills (see
+    redrail.redbus.com Apr 25–26 2026).
+
+    Detection signature: if BOTH the DMARC auth-rate and the inbound TLS
+    rate are exactly 0 (or null), there was no measurable traffic. Healthy
+    senders never report 0% on both at once on real volume — DMARC and TLS
+    are negotiated per-message and run >95% under normal sending. Spam
+    rate alone is unreliable (a real 0% spam rate is healthy), so we anchor
+    on auth+TLS as the load-bearing signal.
+
+    Google's own Postmaster UI hides these days from charts entirely; we
+    store ``null`` instead of ``0`` so charts/tables/aggregations all
+    correctly render "No data" rather than a misleading 0%.
+    """
+    auth_dmarc = metrics.get("auth_success_dmarc")
+    tls = metrics.get("encrypted_traffic_tls")
+    auth_zero = auth_dmarc in (0, 0.0, None)
+    tls_zero = tls in (0, 0.0, None)
+    return auth_zero and tls_zero
+
+
 def upsert_postmaster_metrics(user_id: str, domain: str, metric_date: str, metrics: dict) -> dict:
     """Insert or update daily Postmaster metrics for a domain"""
     sb = get_supabase()
     if not sb:
         return None
     try:
+        # INBOX-211: zero-traffic-day handling. On days where Gmail received
+        # no mail from the domain, Google's v2 API returns 0 for every rate
+        # field — meaningless values that the UI rendered as red "0.00%"
+        # failure pills. We null them all out at ingest so the UI's
+        # ``!= null`` guards correctly route to "No data" everywhere
+        # (charts skip the point, tables show "No data" muted, averages
+        # exclude the day from the denominator).
+        zero_traffic = _is_zero_traffic_postmaster_day(metrics)
+        if zero_traffic:
+            spam_rate = None
+            auth_spf = None
+            auth_dkim = None
+            auth_dmarc = None
+            tls_inbound = None
+            tls_outbound = None
+            delivery_error_rate = None
+            delivery_error_count = None
+            delivery_errors_categories = {}
+        else:
+            spam_rate = metrics.get("spam_rate")
+            auth_spf = metrics.get("auth_success_spf")
+            auth_dkim = metrics.get("auth_success_dkim")
+            auth_dmarc = metrics.get("auth_success_dmarc")
+            tls_inbound = metrics.get("encrypted_traffic_tls")
+            tls_outbound = metrics.get("encrypted_traffic_tls_outbound")
+            delivery_error_rate = metrics.get("delivery_error_rate")
+            delivery_error_count = metrics.get("delivery_error_count")
+            delivery_errors_categories = dict(metrics.get("delivery_errors", {}))
+
         # Build delivery_errors JSON — include v2 rate/count alongside categories
-        delivery_err = dict(metrics.get("delivery_errors", {}))
-        if metrics.get("delivery_error_rate") is not None:
-            delivery_err["_rate"] = metrics["delivery_error_rate"]
-        if metrics.get("delivery_error_count") is not None:
-            delivery_err["_count"] = metrics["delivery_error_count"]
+        delivery_err = dict(delivery_errors_categories)
+        if delivery_error_rate is not None:
+            delivery_err["_rate"] = delivery_error_rate
+        if delivery_error_count is not None:
+            delivery_err["_count"] = delivery_error_count
+        if zero_traffic:
+            # Tag the JSON so downstream queries / debugging can identify
+            # backfilled zero-traffic rows even after the rate fields are
+            # null (we lose the signature once we null auth+tls).
+            delivery_err["_zero_traffic"] = True
 
         # INBOX-112: stash outbound TLS into raw_data JSON since the
         # postmaster_metrics table doesn't have a dedicated column for it
         # (and adding one needs migration 010, separate ticket). The UI
         # reads it from raw_data._tls_outbound.
         raw = dict(metrics.get("raw_data", {}))
-        if metrics.get("encrypted_traffic_tls_outbound") is not None:
-            raw["_tls_outbound"] = metrics["encrypted_traffic_tls_outbound"]
+        if tls_outbound is not None:
+            raw["_tls_outbound"] = tls_outbound
 
         data = {
             "user_id": user_id,
             "domain": domain,
             "date": metric_date,
             "domain_reputation": metrics.get("domain_reputation"),
-            "spam_rate": metrics.get("spam_rate"),
+            "spam_rate": spam_rate,
             "ip_reputation": json.dumps(metrics.get("ip_reputation", [])),
-            "auth_success_spf": metrics.get("auth_success_spf"),
-            "auth_success_dkim": metrics.get("auth_success_dkim"),
-            "auth_success_dmarc": metrics.get("auth_success_dmarc"),
+            "auth_success_spf": auth_spf,
+            "auth_success_dkim": auth_dkim,
+            "auth_success_dmarc": auth_dmarc,
             "delivery_errors": json.dumps(delivery_err),
-            "encrypted_traffic_tls": metrics.get("encrypted_traffic_tls"),
+            "encrypted_traffic_tls": tls_inbound,
             "raw_data": json.dumps(raw),
         }
         result = sb.table("postmaster_metrics").upsert(

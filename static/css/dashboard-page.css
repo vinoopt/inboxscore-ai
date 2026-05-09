@@ -644,6 +644,45 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-light { display: block; }
 .provider-source { font-size: 11px; color: var(--fg-3); font-family: 'Geist Mono', monospace; }
 .provider-explainer { font-size: 12px; color: var(--fg-2); line-height: 1.5; padding: 6px 0; }
 
+/* ─── INBOX-211: Status-pill row for the Postmaster card ─────────────
+   Replaces the 3-row .provider-metrics grid with compliance verdict
+   pills (Authentication / Spam rate / Encryption). Lives on the
+   dashboard only — the Postmaster details page keeps showing rates. */
+.pm-status-row {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 12px; margin-top: 16px; padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.pm-status-cell { display: flex; flex-direction: column; gap: 8px; }
+.pm-status-label {
+  font-size: 11px; color: var(--fg-2);
+  text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;
+}
+.pm-status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 500;
+  width: fit-content;
+}
+.pm-status-pill .pm-status-dot { width: 6px; height: 6px; border-radius: 50%; }
+.pm-status-pill.compliant   { background: var(--success-soft); color: var(--success-text); }
+.pm-status-pill.compliant .pm-status-dot { background: var(--success); }
+.pm-status-pill.needs-work  { background: var(--danger-soft); color: var(--danger); }
+.pm-status-pill.needs-work .pm-status-dot { background: var(--danger); }
+.pm-status-pill.awaiting    { background: var(--bg-2); color: var(--fg-3); }
+.pm-status-pill.awaiting .pm-status-dot { background: var(--fg-4); }
+
+/* Option C: when EVERY row is unevaluated, render one muted banner
+   instead of three identical "Awaiting verdict" pills. Honest about
+   the state without three rows of grey noise. */
+.pm-status-banner {
+  margin-top: 16px; padding: 14px 16px;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px; color: var(--fg-2); line-height: 1.5;
+}
+.pm-status-banner strong { color: var(--fg-1); font-weight: 600; }
+
 
 /* ═══════════════════ 10. DNS & AUTH DIAGNOSTICS (12-col grid) ═══════════════════ */
 

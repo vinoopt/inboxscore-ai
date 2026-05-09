@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Mockup — Dashboard Postmaster card (status-based) · INBOX-211</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  /* ─────────────────────────────────────────────────────────────────
+     Self-contained mockup. CSS inlined (no external links) so the
+     file works when opened directly via file:// — no dev server needed.
+     Tokens copied from static/css/design-system-v2.css, classes copied
+     from static/css/dashboard-page.css. If those change in production
+     and this drifts, that's fine — this file is a one-time review tool
+     for INBOX-211, not a long-lived asset.
+     ───────────────────────────────────────────────────────────────── */
+
+  /* LIGHT theme tokens (default) */
+  :root, body[data-theme="light"] {
+    --bg:           #fafafa;
+    --bg-1:         #ffffff;
+    --bg-2:         #f4f4f5;
+    --bg-3:         #eaeaea;
+    --fg:           #000000;
+    --fg-1:         #171717;
+    --fg-2:         #404040;
+    --fg-3:         #666666;
+    --fg-4:         #888888;
+    --fg-5:         #a1a1a1;
+    --border:        #eaeaea;
+    --border-strong: #d4d4d8;
+    --accent:       #0070f3;
+    --accent-soft:  #e6f0ff;
+    --success:        #00875a;
+    --success-soft:   #e6f7ee;
+    --success-text:   #00603f;
+    --warn:           #b87100;
+    --warn-soft:      #fef7e8;
+    --warn-text:      #8a5500;
+    --danger:         #e5484d;
+    --danger-soft:    #ffe7e7;
+  }
+
+  /* DARK theme tokens */
+  body[data-theme="dark"] {
+    --bg:           #000000;
+    --bg-1:         #0f0f0f;
+    --bg-2:         #1a1a1a;
+    --bg-3:         #262626;
+    --fg:           #ffffff;
+    --fg-1:         #ededed;
+    --fg-2:         #a1a1a1;
+    --fg-3:         #888888;
+    --fg-4:         #666666;
+    --fg-5:         #525252;
+    --border:        rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --accent:        #3291ff;
+    --accent-soft:   rgba(50, 145, 255, 0.10);
+    --success:        #26d978;
+    --success-soft:   rgba(38, 217, 120, 0.10);
+    --success-text:   #4ade80;
+    --warn:           #f5a623;
+    --warn-soft:      rgba(245, 166, 35, 0.10);
+    --warn-text:      #f5b342;
+    --danger:         #e5484d;
+    --danger-soft:    rgba(229, 72, 77, 0.12);
+  }
+
+  /* ─── Page chrome ────────────────────────────────────────────── */
+  body {
+    background: var(--bg);
+    color: var(--fg-1);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    margin: 0;
+    padding: 32px 32px 60px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mock-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mock-title { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: var(--fg); }
+  .mock-sub   { font-size: 12px; color: var(--fg-3); margin-top: 4px; }
+  .mock-theme-toggle {
+    background: var(--bg-1); border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 6px;
+    font-size: 12px; cursor: pointer; color: var(--fg-1);
+    font-family: inherit;
+  }
+  .mock-theme-toggle:hover { border-color: var(--border-strong); }
+  .mock-section-label {
+    font-size: 11px; color: var(--fg-3); margin: 32px 0 10px;
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+  }
+  .mock-row {
+    display: grid; grid-template-columns: minmax(380px, 480px) 1fr;
+    gap: 20px; max-width: 1100px;
+  }
+  .mock-cell { display: flex; flex-direction: column; gap: 8px; }
+  .mock-cell-label {
+    font-size: 11px; color: var(--fg-2);
+    text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+  }
+  .mock-cell-note {
+    font-size: 13px; color: var(--fg-2); line-height: 1.55;
+    background: var(--bg-1); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .mock-cell-note strong { color: var(--fg); font-weight: 600; }
+  .mock-cell-note code {
+    font-family: 'SF Mono', Monaco, monospace; font-size: 11.5px;
+    background: var(--bg-2); padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* ─── Provider card (lifted from dashboard-page.css) ─────────── */
+  .provider-card {
+    background: var(--bg-1); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+    display: flex; flex-direction: column; gap: 14px;
+    transition: border-color 150ms ease;
+  }
+  .provider-card:hover { border-color: var(--border-strong); }
+  .provider-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 12px;
+  }
+  .provider-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .provider-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--bg-2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .provider-name { font-size: 14px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
+  .provider-sub  { font-size: 12px; color: var(--fg-3); margin-top: 1px; }
+  .provider-status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 12px; font-weight: 500;
+    flex-shrink: 0;
+  }
+  .provider-status-pill::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+  }
+  .provider-status-pill.connected    { background: var(--success-soft); color: var(--success-text); }
+  .provider-status-pill.connected::before    { background: var(--success); }
+  .provider-status-pill.disconnected { background: var(--bg-2); color: var(--fg-3); }
+  .provider-status-pill.disconnected::before { background: var(--fg-4); }
+
+  .provider-cta {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-top: 12px; border-top: 1px solid var(--border);
+    font-size: 13px; gap: 8px; flex-wrap: wrap;
+  }
+  .provider-link {
+    font-size: 13px; color: var(--accent); font-weight: 500;
+    text-decoration: none; cursor: pointer;
+  }
+  .provider-link:hover { text-decoration: underline; }
+  .provider-source { font-size: 11px; color: var(--fg-3); font-family: 'SF Mono', Monaco, monospace; }
+
+  /* ─── Legacy rate metrics (for the "today" comparison only) ──── */
+  .provider-metrics {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px; margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .provider-metric { display: flex; flex-direction: column; gap: 6px; }
+  .provider-metric-label {
+    font-size: 11px; color: var(--fg-2);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+  .provider-metric-value {
+    font-size: 16px; font-weight: 600; color: var(--fg);
+    letter-spacing: -0.02em;
+  }
+  .provider-metric-value.good { color: var(--success-text); }
+  .provider-metric-value.fail { color: var(--danger); }
+
+  /* ─── Compliance status row — the new pattern ────────────────── */
+  .pm-status-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px; margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .pm-status-cell { display: flex; flex-direction: column; gap: 8px; }
+  .pm-status-label {
+    font-size: 11px; color: var(--fg-2);
+    text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;
+  }
+  .pm-status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 500;
+    width: fit-content;
+  }
+  .pm-status-pill .pm-status-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .pm-status-pill.compliant   { background: var(--success-soft); color: var(--success-text); }
+  .pm-status-pill.compliant .pm-status-dot { background: var(--success); }
+  .pm-status-pill.needs-work  { background: var(--danger-soft); color: var(--danger); }
+  .pm-status-pill.needs-work .pm-status-dot { background: var(--danger); }
+  .pm-status-pill.awaiting    { background: var(--bg-2); color: var(--fg-3); }
+  .pm-status-pill.awaiting .pm-status-dot { background: var(--fg-4); }
+</style>
+</head>
+<body data-theme="light">
+
+<div class="mock-toolbar">
+  <div>
+    <div class="mock-title">Dashboard · Google Postmaster card mockup</div>
+    <div class="mock-sub">INBOX-211 · status-based replacement for the 3-row rate metrics. Same width as the existing card grid (50% of <code>.provider-grid</code>).</div>
+  </div>
+  <button class="mock-theme-toggle" onclick="toggleTheme()">Toggle theme</button>
+</div>
+
+<!-- ═══════════════════ STATE A — All compliant ═══════════════════ -->
+<div class="mock-section-label">State A · Connected · All compliant (most common)</div>
+<div class="mock-row">
+  <div class="mock-cell">
+    <div class="mock-cell-label">Card</div>
+    <div class="provider-card">
+      <div class="provider-header">
+        <div class="provider-brand">
+          <div class="provider-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="provider-name">Google Postmaster</div>
+            <div class="provider-sub">Gmail deliverability data</div>
+          </div>
+        </div>
+        <span class="provider-status-pill connected">Connected</span>
+      </div>
+      <div class="pm-status-row">
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Authentication</span>
+          <span class="pm-status-pill compliant"><span class="pm-status-dot"></span>Compliant</span>
+        </div>
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Spam rate</span>
+          <span class="pm-status-pill compliant"><span class="pm-status-dot"></span>Compliant</span>
+        </div>
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Encryption</span>
+          <span class="pm-status-pill compliant"><span class="pm-status-dot"></span>Compliant</span>
+        </div>
+      </div>
+      <div class="provider-cta">
+        <a href="#" class="provider-link">View details →</a>
+        <span class="provider-source">Postmaster Tools</span>
+      </div>
+    </div>
+  </div>
+  <div class="mock-cell">
+    <div class="mock-cell-label">Notes</div>
+    <div class="mock-cell-note">
+      <strong>Goal:</strong> match what Google's own Compliance Status page says (your screenshot). Status pills don't break on zero-traffic days because Google's verdict is rolling, not daily.
+      <br><br>
+      <strong>Source:</strong> existing <code>/api/postmaster/compliance/&lt;domain&gt;</code> endpoint (already cached on the Postmaster page Compliance tab).
+      <br><br>
+      <strong>3 chosen rows:</strong> Authentication folds SPF + DKIM + DMARC + From-header alignment + DNS records into one verdict. Spam rate and Encryption stay separate because they're independent failure modes.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ STATE B — Auth needs work ═══════════════════ -->
+<div class="mock-section-label">State B · Connected · Authentication needs work</div>
+<div class="mock-row">
+  <div class="mock-cell">
+    <div class="mock-cell-label">Card</div>
+    <div class="provider-card">
+      <div class="provider-header">
+        <div class="provider-brand">
+          <div class="provider-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="provider-name">Google Postmaster</div>
+            <div class="provider-sub">Gmail deliverability data</div>
+          </div>
+        </div>
+        <span class="provider-status-pill connected">Connected</span>
+      </div>
+      <div class="pm-status-row">
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Authentication</span>
+          <span class="pm-status-pill needs-work"><span class="pm-status-dot"></span>Needs work</span>
+        </div>
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Spam rate</span>
+          <span class="pm-status-pill compliant"><span class="pm-status-dot"></span>Compliant</span>
+        </div>
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Encryption</span>
+          <span class="pm-status-pill compliant"><span class="pm-status-dot"></span>Compliant</span>
+        </div>
+      </div>
+      <div class="provider-cta">
+        <a href="#" class="provider-link">View details →</a>
+        <span class="provider-source">Postmaster Tools</span>
+      </div>
+    </div>
+  </div>
+  <div class="mock-cell">
+    <div class="mock-cell-label">Notes</div>
+    <div class="mock-cell-note">
+      Red pill = "Needs work" — Google's exact wording from their own UI. Click "View details →" to see which sub-check failed (SPF / DKIM / DMARC / DNS / From-header alignment).
+      <br><br>
+      The pill <em>only</em> goes red when Google itself has issued a non-compliant verdict — it never goes red because of zero-traffic days.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ STATE C — Awaiting verdict ═══════════════════ -->
+<div class="mock-section-label">State C · Connected · Awaiting Google verdict (new domain or low volume)</div>
+<div class="mock-row">
+  <div class="mock-cell">
+    <div class="mock-cell-label">Card</div>
+    <div class="provider-card">
+      <div class="provider-header">
+        <div class="provider-brand">
+          <div class="provider-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="provider-name">Google Postmaster</div>
+            <div class="provider-sub">Gmail deliverability data</div>
+          </div>
+        </div>
+        <span class="provider-status-pill connected">Connected</span>
+      </div>
+      <div class="pm-status-row">
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Authentication</span>
+          <span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>Awaiting verdict</span>
+        </div>
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Spam rate</span>
+          <span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>Awaiting verdict</span>
+        </div>
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Encryption</span>
+          <span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>Awaiting verdict</span>
+        </div>
+      </div>
+      <div class="provider-cta">
+        <a href="#" class="provider-link">View details →</a>
+        <span class="provider-source">Verdicts appear after meaningful volume</span>
+      </div>
+    </div>
+  </div>
+  <div class="mock-cell">
+    <div class="mock-cell-label">Notes</div>
+    <div class="mock-cell-note">
+      Brand-new domains and very-low-volume domains (typical: under ~100 mails/day) won't get verdicts from Google for a few days. Today the same condition would render <strong>three red 0% pills</strong> — that's the bug.
+      <br><br>
+      Muted "Awaiting verdict" pill is honest about the state without alarming the user.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ STATE D — Not connected ═══════════════════ -->
+<div class="mock-section-label">State D · Not connected (Set up CTA)</div>
+<div class="mock-row">
+  <div class="mock-cell">
+    <div class="mock-cell-label">Card</div>
+    <div class="provider-card">
+      <div class="provider-header">
+        <div class="provider-brand">
+          <div class="provider-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="provider-name">Google Postmaster</div>
+            <div class="provider-sub">Gmail deliverability data</div>
+          </div>
+        </div>
+        <span class="provider-status-pill disconnected">Not connected</span>
+      </div>
+      <div class="pm-status-row">
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Authentication</span>
+          <span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>—</span>
+        </div>
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Spam rate</span>
+          <span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>—</span>
+        </div>
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Encryption</span>
+          <span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>—</span>
+        </div>
+      </div>
+      <div class="provider-cta">
+        <a href="#" class="provider-link">Set up →</a>
+        <span class="provider-source">Optional · Free</span>
+      </div>
+    </div>
+  </div>
+  <div class="mock-cell">
+    <div class="mock-cell-label">Notes</div>
+    <div class="mock-cell-note">
+      Same skeleton as connected — keeps row heights identical across all 4 states so the dashboard grid never reflows. Just em-dashes in the pills, plus the "Not connected" header pill and a "Set up →" CTA.
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ Side-by-side comparison ═══════════════════ -->
+<div class="mock-section-label">Bonus · Today vs. proposed (side-by-side)</div>
+<div class="mock-row">
+  <div class="mock-cell">
+    <div class="mock-cell-label">Today (rates) — buggy on zero-traffic days</div>
+    <div class="provider-card">
+      <div class="provider-header">
+        <div class="provider-brand">
+          <div class="provider-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="provider-name">Google Postmaster</div>
+            <div class="provider-sub">Gmail deliverability data</div>
+          </div>
+        </div>
+        <span class="provider-status-pill connected">Connected</span>
+      </div>
+      <div class="provider-metrics">
+        <div class="provider-metric">
+          <span class="provider-metric-label">Spam rate</span>
+          <span class="provider-metric-value good">0.00%</span>
+        </div>
+        <div class="provider-metric">
+          <span class="provider-metric-label">Auth pass</span>
+          <span class="provider-metric-value fail">0.0%</span>
+        </div>
+        <div class="provider-metric">
+          <span class="provider-metric-label">Delivery errors</span>
+          <span class="provider-metric-value good">0.00%</span>
+        </div>
+      </div>
+      <div class="provider-cta">
+        <a href="#" class="provider-link">View details →</a>
+        <span class="provider-source">Postmaster Tools</span>
+      </div>
+    </div>
+  </div>
+  <div class="mock-cell">
+    <div class="mock-cell-label">Proposed (status)</div>
+    <div class="provider-card">
+      <div class="provider-header">
+        <div class="provider-brand">
+          <div class="provider-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="provider-name">Google Postmaster</div>
+            <div class="provider-sub">Gmail deliverability data</div>
+          </div>
+        </div>
+        <span class="provider-status-pill connected">Connected</span>
+      </div>
+      <div class="pm-status-row">
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Authentication</span>
+          <span class="pm-status-pill compliant"><span class="pm-status-dot"></span>Compliant</span>
+        </div>
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Spam rate</span>
+          <span class="pm-status-pill compliant"><span class="pm-status-dot"></span>Compliant</span>
+        </div>
+        <div class="pm-status-cell">
+          <span class="pm-status-label">Encryption</span>
+          <span class="pm-status-pill compliant"><span class="pm-status-dot"></span>Compliant</span>
+        </div>
+      </div>
+      <div class="provider-cta">
+        <a href="#" class="provider-link">View details →</a>
+        <span class="provider-source">Postmaster Tools</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleTheme() {
+    const body = document.body;
+    const next = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    body.setAttribute('data-theme', next);
+  }
+</script>
+</body>
+</html>

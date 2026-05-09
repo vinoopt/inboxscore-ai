@@ -1275,8 +1275,10 @@ function animateGpmSpam() {
       else if (rate < 0.3) { rateCls = 'pm-warn';   pillHtml = '<span class="pm-pill pm-pill-warn"><span class="pm-ind"></span>Above recommended</span>'; }
       else                 { rateCls = 'pm-danger'; pillHtml = '<span class="pm-pill pm-pill-danger"><span class="pm-ind"></span>Over policy</span>'; }
     }
+    // INBOX-211: null rate → "No data" muted. The pill column already
+    // renders pm-pill-empty "No data" for null, so the row reads cleanly.
     tr.innerHTML = '<td>' + escapeHtml(m.date || '—') + '</td>'
-      + '<td class="pm-td-right ' + rateCls + '">' + (rate != null ? rate.toFixed(2) + '%' : 'N/A') + '</td>'
+      + '<td class="pm-td-right ' + rateCls + '">' + (rate != null ? rate.toFixed(2) + '%' : 'No data') + '</td>'
       + '<td class="pm-td-right">' + pillHtml + '</td>';
     tbody.appendChild(tr);
   });
@@ -1383,10 +1385,14 @@ function animateGpmAuth() {
     const spf   = m.auth_success_spf   != null ? (m.auth_success_spf   * 100) : null;
     const dmarc = m.auth_success_dmarc != null ? (m.auth_success_dmarc * 100) : null;
     const tr = document.createElement('tr');
+    // INBOX-211: null cells render "No data" muted (zero-traffic days).
+    // Previously rendered as "N/A" — same intent, but "No data" is the
+    // approved label (matches Google's UX, plus it's cause-agnostic so
+    // it covers sync gaps + low volume + deliberate pauses uniformly).
     tr.innerHTML = '<td>' + escapeHtml(m.date || '—') + '</td>'
-      + '<td class="pm-td-right ' + authCls(dkim) + '">'  + (dkim  != null ? dkim.toFixed(2)  + '%' : 'N/A') + '</td>'
-      + '<td class="pm-td-right ' + authCls(spf) + '">'   + (spf   != null ? spf.toFixed(2)   + '%' : 'N/A') + '</td>'
-      + '<td class="pm-td-right ' + authCls(dmarc) + '">' + (dmarc != null ? dmarc.toFixed(2) + '%' : 'N/A') + '</td>';
+      + '<td class="pm-td-right ' + authCls(dkim) + '">'  + (dkim  != null ? dkim.toFixed(2)  + '%' : 'No data') + '</td>'
+      + '<td class="pm-td-right ' + authCls(spf) + '">'   + (spf   != null ? spf.toFixed(2)   + '%' : 'No data') + '</td>'
+      + '<td class="pm-td-right ' + authCls(dmarc) + '">' + (dmarc != null ? dmarc.toFixed(2) + '%' : 'No data') + '</td>';
     tbody.appendChild(tr);
   });
 }
@@ -1477,19 +1483,21 @@ function populateGpmEncryption() {
     const pct = m.encrypted_traffic_tls != null ? (m.encrypted_traffic_tls * 100) : null;
     const outVal = getOutbound(m);
     const outPct = outVal != null ? outVal * 100 : null;
-    // INBOX-112 followup-2: 0% outbound = no Gmail-to-domain traffic
-    // that day, not a failure. Render as muted "—" instead of red 0%.
+    // INBOX-112 followup-2 + INBOX-211: zero-traffic / 0% outbound rows
+    // render "No data" muted instead of red 0%. Inbound TLS now also
+    // routes nulls (zero-traffic ingest fix) to "No data" rather than
+    // the legacy "N/A" placeholder.
     let outCls, outText;
     if (outPct == null || outPct === 0) {
       outCls = 'pm-muted';
-      outText = '—';
+      outText = 'No data';
     } else {
       outCls = tlsCls(outPct);
       outText = outPct.toFixed(2) + '%';
     }
     const tr = document.createElement('tr');
     tr.innerHTML = '<td>' + escapeHtml(m.date || '—') + '</td>'
-      + '<td class="pm-td-right ' + tlsCls(pct) + '">' + (pct != null ? pct.toFixed(2) + '%' : 'N/A') + '</td>'
+      + '<td class="pm-td-right ' + tlsCls(pct) + '">' + (pct != null ? pct.toFixed(2) + '%' : 'No data') + '</td>'
       + '<td class="pm-td-right ' + outCls + '">' + outText + '</td>';
     tlsBody.appendChild(tr);
   });
@@ -1504,18 +1512,35 @@ function populateGpmEncryption() {
   const ICON_BIG_OK   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
   const ICON_BIG_WARN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>';
 
-  // Collect all error entries across all days.
+  // Collect all error entries across all days. Underscore-prefixed keys
+  // are metadata (_rate, _count, _zero_traffic) — INBOX-211 stores those
+  // in the same JSON column. Skip them so the metadata never registers
+  // as a phantom error category.
   const allErrors = [];
   metrics.forEach(m => {
     if (m.delivery_errors && typeof m.delivery_errors === 'object') {
       Object.entries(m.delivery_errors).forEach(([type, pct]) => {
+        if (type.startsWith('_')) return;        // metadata, not an error category
         if (Number(pct) > 0) allErrors.push({ date: m.date, type, pct: Number(pct) });
       });
     }
   });
 
   if (errCard) errCard.classList.remove('pm-state-success', 'pm-state-warn', 'pm-state-danger');
-  if (allErrors.length === 0) {
+  // INBOX-211: if EVERY day in the period is zero-traffic, we can't
+  // honestly say "no rejections" — we have no measurement. Detect by
+  // checking whether any day has a real rate value (auth/spam/tls all
+  // nulled-out by the ingest fix on zero-traffic days).
+  const anyTraffic = metrics.some(m =>
+    m.spam_rate != null || m.auth_success_dmarc != null || m.encrypted_traffic_tls != null
+  );
+  if (!anyTraffic) {
+    errVal.textContent = 'No data';
+    errVal.classList && errVal.classList.add('pm-muted');
+    errSub.textContent = 'No Gmail traffic in this period — Google reports nothing to evaluate.';
+    if (errCard) errCard.classList.add('pm-state-success');  // muted, not danger
+    if (errIcon) errIcon.innerHTML = ICON_BIG_OK;
+  } else if (allErrors.length === 0) {
     errVal.textContent = '0%';
     errSub.textContent = 'No rejections or temporary failures detected. Gmail accepted every message you sent.';
     if (errCard) errCard.classList.add('pm-state-success');

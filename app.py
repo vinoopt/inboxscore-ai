@@ -1995,6 +1995,135 @@ async def api_postmaster_compliance(domain: str, req: Request):
         return {"connected": True, "domain": domain, "compliance": None, "error": str(e)}
 
 
+@app.get("/api/postmaster/compliance-bulk")
+async def api_postmaster_compliance_bulk(req: Request):
+    """INBOX-211: bulk Postmaster compliance fetch for the Dashboard.
+
+    The Dashboard's new status-based Postmaster card needs compliance
+    verdicts for every connected domain. The single-domain endpoint
+    above is fine for the Postmaster details page (one domain at a
+    time), but firing N parallel HTTP calls from the browser at every
+    dashboard load is wasteful — and Google's compliance API doesn't
+    publish a true bulk variant, so we fan out in parallel server-side
+    and return a single map.
+
+    Response shape:
+        {
+          "connected": true,
+          "compliance": {
+            "<domain>": {
+              "auth": "COMPLIANT" | "NEEDS_WORK" | null,
+              "spam": "COMPLIANT" | "NEEDS_WORK" | null,
+              "encryption": "COMPLIANT" | "NEEDS_WORK" | null,
+              "has_any_verdict": bool
+            },
+            ...
+          }
+        }
+
+    The 3 dashboard rows fold the 8 underlying compliance requirements:
+      • auth        ← SPF_AND_DKIM, DMARC_ALIGNMENT, DMARC_POLICY, DNS_RECORDS
+                       (worst sub-verdict wins — if any is NEEDS_WORK, auth is)
+      • spam        ← USER_REPORTED_SPAM_RATE
+      • encryption  ← ENCRYPTION
+
+    Per-domain failures are isolated — one bad token or 4xx for one
+    domain doesn't break the whole response (the row just gets
+    ``compliance=null`` and the frontend renders the "still evaluating"
+    banner per Option C).
+    """
+    import asyncio
+
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    _require_pro_plan(user_id)
+
+    connection = get_postmaster_connection(user_id)
+    if not connection:
+        return {"connected": False, "compliance": {}}
+
+    from postmaster import (
+        ensure_valid_token, get_compliance_status, get_postmaster_domains
+    )
+
+    try:
+        access_token = await ensure_valid_token(user_id, connection)
+        domain_resources = await get_postmaster_domains(access_token)
+    except Exception as e:
+        print(f"[Postmaster] compliance-bulk: token/domains error: {e}")
+        return {"connected": True, "compliance": {}, "error": str(e)}
+
+    domain_names = [r.replace("domains/", "") for r in domain_resources]
+
+    # Fan out compliance fetches in parallel, capped to keep us well
+    # under any per-IP burst limit. 200 domains × parallel-of-20 = 10
+    # waves at ~300ms each = ~3s worst case, which still beats the
+    # browser doing N sequential calls.
+    SEM_LIMIT = 20
+    sem = asyncio.Semaphore(SEM_LIMIT)
+
+    async def fetch_one(domain: str):
+        async with sem:
+            try:
+                comp = await get_compliance_status(access_token, domain)
+                return domain, comp
+            except Exception as exc:
+                # Log but don't fail the whole request — the row will
+                # render as "still evaluating" on the frontend.
+                print(f"[Postmaster] compliance-bulk: {domain} failed: {exc}")
+                return domain, None
+
+    raw = await asyncio.gather(*[fetch_one(d) for d in domain_names])
+
+    def _summarise(api_response: dict | None) -> dict:
+        """Collapse Google's 8-requirement response into the 3 dashboard
+        rows. Worst-of-set wins: any NEEDS_WORK in the auth bucket flips
+        the auth row to NEEDS_WORK."""
+        if not api_response:
+            return {"auth": None, "spam": None, "encryption": None,
+                    "has_any_verdict": False}
+        comp_data = (api_response.get("subdomainComplianceData")
+                     or api_response.get("complianceData") or {})
+        rows = comp_data.get("rowData") or []
+        verdicts = {}
+        for r in rows:
+            req = r.get("requirement")
+            status = (r.get("status") or {}).get("status")
+            if req and status:
+                verdicts[req] = status
+
+        AUTH_KEYS = ("SPF_AND_DKIM", "DMARC_ALIGNMENT",
+                     "DMARC_POLICY", "DNS_RECORDS")
+
+        def _worst(*keys):
+            seen = [verdicts[k] for k in keys if k in verdicts]
+            if not seen:
+                return None
+            if any(v == "NEEDS_WORK" for v in seen):
+                return "NEEDS_WORK"
+            return "COMPLIANT"
+
+        out = {
+            "auth":       _worst(*AUTH_KEYS),
+            "spam":       verdicts.get("USER_REPORTED_SPAM_RATE"),
+            "encryption": verdicts.get("ENCRYPTION"),
+        }
+        out["has_any_verdict"] = any(v is not None for v in
+                                     (out["auth"], out["spam"], out["encryption"]))
+        return out
+
+    summary = {d: _summarise(comp) for d, comp in raw}
+    return {"connected": True, "compliance": summary}
+
+
 @app.post("/api/postmaster/sync")
 async def api_postmaster_sync(req: Request):
     """Manually trigger a Postmaster data sync for the current user"""
