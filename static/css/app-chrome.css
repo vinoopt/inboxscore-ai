@@ -1,0 +1,89 @@
+/* ════════════════════════════════════════════════════════════════════════
+   APP CHROME — shared sidebar plan-card + page-header divider.
+   INBOX-206 (2026-05-09): every app page was built from its own mockup
+   so chrome had drifted. This file standardises the two pieces Vinoop
+   called out:
+     1. Plan card at the bottom of the sidebar — shows plan name +
+        domains-used progress bar + Manage plan link. Same on every
+        page. Ports the working pattern from postmaster.html / microsoft
+        .html (`.pm-plan-card` family) into a neutral `.app-plan-card`
+        so all pages can share one source of truth.
+     2. Page header horizontal divider — the line under the title on
+        Settings was per-page CSS. Now applied to every page-header
+        prefix (`.page-header`, `.pm-page-header`, `.dom-page-header`)
+        so all pages get the same anchor.
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* ─── PLAN CARD ─── */
+.app-plan-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  margin: auto 16px 16px;
+}
+.app-plan-card .app-plan-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 4px;
+  text-transform: capitalize;
+  letter-spacing: -0.01em;
+}
+.app-plan-card .app-plan-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.app-plan-card .app-plan-bar {
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.app-plan-card .app-plan-bar-fill {
+  height: 100%;
+  background: var(--text);
+  border-radius: 2px;
+  transition: width 200ms ease;
+  width: 0%;
+}
+/* Free plan → soft amber bar so users notice they're on the entry tier
+   and the bar fill is a clear "you're maxed out" signal. Pro/Growth/
+   Enterprise stay neutral (text colour). */
+.app-plan-card.is-free .app-plan-bar-fill {
+  background: #ca8a04;
+}
+html[data-theme="dark"] .app-plan-card.is-free .app-plan-bar-fill {
+  background: #f59e0b;
+}
+.app-plan-card .app-plan-link {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+.app-plan-card .app-plan-link:hover { text-decoration: underline; }
+.app-plan-card .app-plan-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ─── PAGE HEADER DIVIDER ─── */
+/* Apply the horizontal divider to every page header variant — the three
+   prefixes are leftover from per-page CSS migrations. New pages can
+   adopt `.app-page-header` directly. */
+.page-header,
+.pm-page-header,
+.dom-page-header,
+.app-page-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 20px;
+  margin-bottom: 24px;
+}
+
+/* Older page CSS files set their own bottom-margin on the header — make
+   sure those don't double-up. Specificity wins via this stylesheet
+   loading AFTER the per-page sheet (see <link> order in the HTML). */

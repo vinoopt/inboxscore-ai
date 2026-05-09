@@ -154,6 +154,8 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 }
 
 </style>
+
+<link rel="stylesheet" href="/static/css/app-chrome.css">
 </head>
 <body>
 
@@ -211,6 +213,13 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
     <!-- Plan-badge stays here until INBOX-180 ships the full plan card.
          Keeps #plan-badge + #plan-name IDs intact for updateUsageFooter(). -->
     <div class="dom-sidebar-footer">
+      <div class="app-plan-card" id="plan-badge">
+        <div class="app-plan-title" id="plan-name">Free plan</div>
+        <div class="app-plan-meta" id="plan-usage-text">—</div>
+        <div class="app-plan-bar"><div class="app-plan-bar-fill" id="plan-usage-fill"></div></div>
+        <a href="/settings" class="app-plan-link">Manage plan →</a>
+      </div>
+
       <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
     </div>
   </aside>
@@ -679,5 +688,53 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+<script>
+/* INBOX-206: shared plan-card hydrator. Same logic on every page so the
+   sidebar plan card always renders identically (Pro plan + N of M domains
+   + bar fill + Manage plan link). Tries /api/user/plan first; falls back
+   silently if unauthenticated. */
+(function () {
+  function hydrate() {
+    var card = document.getElementById('plan-badge');
+    if (!card || !card.classList.contains('app-plan-card')) return;
+    var token = null;
+    try { token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token'); } catch (e) {}
+    if (!token) return;
+    fetch('/api/user/plan', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (data) {
+        var plan = (data.plan || 'free').toLowerCase();
+        var used = data.domains_used != null ? data.domains_used : null;
+        var cap = data.domains_limit != null ? data.domains_limit : null;
+        if (cap == null) cap = (plan === 'free' ? 1 : (plan === 'pro' ? 10 : (plan === 'growth' ? 50 : null)));
+
+        var nameEl = document.getElementById('plan-name');
+        var usageTextEl = document.getElementById('plan-usage-text');
+        var fillEl = document.getElementById('plan-usage-fill');
+        if (nameEl) nameEl.textContent = plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
+
+        /* Free-plan styling tweak — amber bar so users notice they're capped. */
+        card.classList.toggle('is-free', plan === 'free');
+
+        if (used != null && cap) {
+          if (usageTextEl) usageTextEl.innerHTML = '<span class="app-plan-num">' + used + '</span> of <span class="app-plan-num">' + cap + '</span> domain' + (cap === 1 ? '' : 's');
+          if (fillEl) fillEl.style.width = Math.min(100, Math.round((used / cap) * 100)) + '%';
+        } else if (cap) {
+          if (usageTextEl) usageTextEl.innerHTML = '<span class="app-plan-num">' + cap + '</span> domain' + (cap === 1 ? '' : 's') + ' included';
+          if (fillEl) fillEl.style.width = '0%';
+        } else {
+          if (usageTextEl) usageTextEl.textContent = 'Unlimited domains';
+          if (fillEl) fillEl.style.width = '100%';
+        }
+      })
+      .catch(function () {});
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hydrate);
+  } else {
+    hydrate();
+  }
+})();
+</script>
 </body>
 </html>

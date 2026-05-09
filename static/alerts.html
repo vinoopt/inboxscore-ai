@@ -410,6 +410,8 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   .al-domain-select { width: 100%; }
 }
 </style>
+
+<link rel="stylesheet" href="/static/css/app-chrome.css">
 </head>
 <body>
 
@@ -433,8 +435,11 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
       <li><a href="/settings"><span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/><circle cx="12" cy="12" r="3"/></svg></span> Settings</a></li>
     </ul>
     <div class="sidebar-footer">
-      <div class="plan-pill">
-        <span class="plan-pill-tier"><span id="plan-name">Free</span> plan</span>
+      <div class="app-plan-card" id="plan-badge">
+        <div class="app-plan-title" id="plan-name">Free plan</div>
+        <div class="app-plan-meta" id="plan-usage-text">—</div>
+        <div class="app-plan-bar"><div class="app-plan-bar-fill" id="plan-usage-fill"></div></div>
+        <a href="/settings" class="app-plan-link">Manage plan →</a>
       </div>
     </div>
   </aside>
@@ -1008,5 +1013,53 @@ window.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
+<script>
+/* INBOX-206: shared plan-card hydrator. Same logic on every page so the
+   sidebar plan card always renders identically (Pro plan + N of M domains
+   + bar fill + Manage plan link). Tries /api/user/plan first; falls back
+   silently if unauthenticated. */
+(function () {
+  function hydrate() {
+    var card = document.getElementById('plan-badge');
+    if (!card || !card.classList.contains('app-plan-card')) return;
+    var token = null;
+    try { token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token'); } catch (e) {}
+    if (!token) return;
+    fetch('/api/user/plan', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (data) {
+        var plan = (data.plan || 'free').toLowerCase();
+        var used = data.domains_used != null ? data.domains_used : null;
+        var cap = data.domains_limit != null ? data.domains_limit : null;
+        if (cap == null) cap = (plan === 'free' ? 1 : (plan === 'pro' ? 10 : (plan === 'growth' ? 50 : null)));
+
+        var nameEl = document.getElementById('plan-name');
+        var usageTextEl = document.getElementById('plan-usage-text');
+        var fillEl = document.getElementById('plan-usage-fill');
+        if (nameEl) nameEl.textContent = plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
+
+        /* Free-plan styling tweak — amber bar so users notice they're capped. */
+        card.classList.toggle('is-free', plan === 'free');
+
+        if (used != null && cap) {
+          if (usageTextEl) usageTextEl.innerHTML = '<span class="app-plan-num">' + used + '</span> of <span class="app-plan-num">' + cap + '</span> domain' + (cap === 1 ? '' : 's');
+          if (fillEl) fillEl.style.width = Math.min(100, Math.round((used / cap) * 100)) + '%';
+        } else if (cap) {
+          if (usageTextEl) usageTextEl.innerHTML = '<span class="app-plan-num">' + cap + '</span> domain' + (cap === 1 ? '' : 's') + ' included';
+          if (fillEl) fillEl.style.width = '0%';
+        } else {
+          if (usageTextEl) usageTextEl.textContent = 'Unlimited domains';
+          if (fillEl) fillEl.style.width = '100%';
+        }
+      })
+      .catch(function () {});
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hydrate);
+  } else {
+    hydrate();
+  }
+})();
+</script>
 </body>
 </html>
