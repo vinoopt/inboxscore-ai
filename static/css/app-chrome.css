@@ -129,6 +129,22 @@ html[data-theme="dark"] .app-domain-select-dot { background: #26d978; }
   flex-shrink: 0;
 }
 
+/* Custom div-dropdown override — apply the same pill styling to the
+   legacy class names (.domain-select, .bl-domain-select, .al-domain-select)
+   without requiring page edits. Same shape as .app-domain-select. */
+.domain-select,
+.bl-domain-select,
+.al-domain-select {
+  border-radius: 999px !important;
+  padding: 7px 14px !important;
+  border: 1px solid var(--border) !important;
+}
+.domain-select:hover,
+.bl-domain-select:hover,
+.al-domain-select:hover {
+  border-color: var(--text) !important;
+}
+
 /* Native <select> override — matches the custom .app-domain-select look.
    Targets the existing `.eh-select` class on Postmaster/Microsoft so we
    don't have to rewire their JS. Strips browser default chrome and
