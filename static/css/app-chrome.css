@@ -1,26 +1,26 @@
 /* ════════════════════════════════════════════════════════════════════════
-   APP CHROME — shared sidebar plan-card + page-header divider.
-   INBOX-206 (2026-05-09): every app page was built from its own mockup
-   so chrome had drifted. This file standardises the two pieces Vinoop
-   called out:
-     1. Plan card at the bottom of the sidebar — shows plan name +
-        domains-used progress bar + Manage plan link. Same on every
-        page. Ports the working pattern from postmaster.html / microsoft
-        .html (`.pm-plan-card` family) into a neutral `.app-plan-card`
-        so all pages can share one source of truth.
-     2. Page header horizontal divider — the line under the title on
-        Settings was per-page CSS. Now applied to every page-header
-        prefix (`.page-header`, `.pm-page-header`, `.dom-page-header`)
-        so all pages get the same anchor.
+   APP CHROME — shared sidebar plan-card + page-header divider + domain
+   dropdown. INBOX-206 / 207 (2026-05-09).
+
+   IMPORTANT — specificity escalation:
+   This file uses `!important` on the page-header divider rule because
+   most pages declare their own `.page-header { margin-bottom: 16/24px; }`
+   inline in <style>, which loads BEFORE this file and wins by document
+   order at equal specificity. We need the divider + spacing to be
+   identical on every page; !important here is intentional, not lazy.
    ═════════════════════════════════════════════════════════════════════ */
 
-/* ─── PLAN CARD ─── */
+/* ─── PLAN CARD ─────────────────────────────────────────────────────── */
 .app-plan-card {
+  /* Sit at the bottom of the sidebar with consistent breathing room.
+     Different sidebars have padding 16-24px; using 16px on left/right
+     keeps the card aligned with nav items above. */
+  margin: auto 16px 16px;
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
-  margin: auto 16px 16px;
+  box-sizing: border-box;
 }
 .app-plan-card .app-plan-title {
   font-size: 13px;
@@ -29,11 +29,13 @@
   margin: 0 0 4px;
   text-transform: capitalize;
   letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 .app-plan-card .app-plan-meta {
   font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 12px;
+  line-height: 1.4;
 }
 .app-plan-card .app-plan-bar {
   height: 4px;
@@ -49,9 +51,6 @@
   transition: width 200ms ease;
   width: 0%;
 }
-/* Free plan → soft amber bar so users notice they're on the entry tier
-   and the bar fill is a clear "you're maxed out" signal. Pro/Growth/
-   Enterprise stay neutral (text colour). */
 .app-plan-card.is-free .app-plan-bar-fill {
   background: #ca8a04;
 }
@@ -64,6 +63,7 @@ html[data-theme="dark"] .app-plan-card.is-free .app-plan-bar-fill {
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
+  display: inline-block;
 }
 .app-plan-card .app-plan-link:hover { text-decoration: underline; }
 .app-plan-card .app-plan-num {
@@ -71,19 +71,97 @@ html[data-theme="dark"] .app-plan-card.is-free .app-plan-bar-fill {
   font-feature-settings: 'tnum' 1;
 }
 
-/* ─── PAGE HEADER DIVIDER ─── */
-/* Apply the horizontal divider to every page header variant — the three
-   prefixes are leftover from per-page CSS migrations. New pages can
-   adopt `.app-page-header` directly. */
+/* ─── PAGE HEADER DIVIDER ──────────────────────────────────────────── */
+/* !important needed — every per-page <style> sets its own
+   margin-bottom and loads after this file in document order. */
 .page-header,
 .pm-page-header,
 .dom-page-header,
 .app-page-header {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 20px;
-  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border) !important;
+  padding-bottom: 20px !important;
+  margin-bottom: 28px !important;
 }
 
-/* Older page CSS files set their own bottom-margin on the header — make
-   sure those don't double-up. Specificity wins via this stylesheet
-   loading AFTER the per-page sheet (see <link> order in the HTML). */
+/* ─── UNIFIED DOMAIN DROPDOWN ──────────────────────────────────────── */
+/* The "pill with chevron" pattern from Blacklist Monitor — adopt as
+   the canonical app-wide domain picker. Apply via class to existing
+   markup; native <select> elements on Postmaster/Microsoft will be
+   converted in a follow-up commit (requires JS rewire). */
+.app-domain-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  background: var(--bg, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  transition: all 100ms ease;
+  font-family: inherit;
+  user-select: none;
+}
+.app-domain-select:hover {
+  border-color: var(--text);
+  background: var(--surface, var(--bg));
+}
+.app-domain-select-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00875a;
+  flex-shrink: 0;
+}
+html[data-theme="dark"] .app-domain-select-dot { background: #26d978; }
+.app-domain-select-name {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.app-domain-select-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Native <select> override — matches the custom .app-domain-select look.
+   Targets the existing `.eh-select` class on Postmaster/Microsoft so we
+   don't have to rewire their JS. Strips browser default chrome and
+   draws our own chevron via background-image. */
+select.eh-select,
+select.app-domain-select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 36px 7px 14px !important;
+  background: var(--bg, var(--surface)) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 999px !important;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: var(--text) !important;
+  font-family: inherit !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  transition: all 100ms ease;
+  min-height: 32px;
+}
+select.eh-select:hover,
+select.app-domain-select:hover {
+  border-color: var(--text) !important;
+}
+select.eh-select:focus,
+select.app-domain-select:focus {
+  outline: none;
+  border-color: var(--text) !important;
+}
+

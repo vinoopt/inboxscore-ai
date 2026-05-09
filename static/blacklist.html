@@ -397,12 +397,12 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   <main class="main">
     <div style="max-width: 1280px; margin: 0 auto;">
 
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
-        <div>
+      <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div class="page-header-left">
           <h1 class="page-title">Blacklist Monitor</h1>
           <p class="page-subtitle">Real-time blacklist status for your sending domain and IPs across <span style="font-family: 'Geist Mono', monospace;">20</span> major DNSBL lists.</p>
         </div>
-        <div style="display: flex; gap: 12px; align-items: center;">
+        <div class="page-header-actions" style="display: flex; gap: 12px; align-items: center;">
           <span class="user-name" id="user-name">Loading...</span>
           <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
             <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
