@@ -16,7 +16,13 @@ from datetime import datetime
 from db import (
     is_db_available, get_domains_due_for_scan, save_scan,
     update_domain_after_monitor_scan, save_monitoring_log,
-    create_alert, get_scan_detail
+    create_alert, get_scan_detail,
+    # INBOX-205: scheduled scans now refresh the blacklist_results table
+    # so /blacklist Monitor page stays current. Previously only manual
+    # scans (/api/blacklist/check) populated this table — meaning the
+    # cron silently improved scan history but the standalone Blacklist
+    # Monitor page kept showing whatever timestamp the user last clicked.
+    get_ips_for_domain, save_blacklist_results,
 )
 from scan_service import run_full_scan
 
@@ -178,6 +184,24 @@ def monitor_single_domain(domain_data: dict):
         # Update domain record
         if scan_id:
             update_domain_after_monitor_scan(domain_id, new_score, scan_id)
+
+        # INBOX-205: refresh the dedicated blacklist_results table so the
+        # /blacklist Monitor page reflects fresh data on every scheduled
+        # cycle. Wrapped in its own try/except so a DNSBL hiccup doesn't
+        # poison the rest of the monitoring step.
+        try:
+            from dnsbl import full_blacklist_check
+            user_domain_ips = get_ips_for_domain(user_id, domain) or []
+            ips = sorted(set(user_domain_ips))
+            bl_result = full_blacklist_check(domain, ips)
+            for ip_result in bl_result.get("ip_results", []):
+                ip_result["source"] = "Sending IPs"
+            save_blacklist_results(user_id, domain, bl_result)
+        except Exception:
+            logger.exception("monitor.blacklist_results_save_failed", extra={
+                "domain": domain,
+                "user_id_prefix": user_id[:8] if user_id else None,
+            })
 
         # Log the monitoring run
         save_monitoring_log(

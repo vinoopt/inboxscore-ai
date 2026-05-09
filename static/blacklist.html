@@ -888,9 +888,12 @@ function renderBlacklistResults(data) {
       else                     { const d = Math.round(diffMin / 1440); rel = d + ' day'   + (d === 1 ? '' : 's') + ' ago'; }
       heroCheckedRel.textContent = rel;
     }
-    // Next scan = checked + 4h (auto-refresh window) — see Architecture doc.
+    // INBOX-205: Next scan = checked + 6h (matches the actual cron cadence).
+    // Scheduled scans run at SCHEDULED_SCAN_SLOTS_UTC = (3, 9, 15, 21) — every
+    // 6 hours. The previous "+4h" math + "Auto-refresh every 4h" copy were
+    // both lies; the actual cadence is 6h.
     if (heroNext) {
-      const nextDate = new Date(checkedDate.getTime() + 4 * 60 * 60 * 1000);
+      const nextDate = new Date(checkedDate.getTime() + 6 * 60 * 60 * 1000);
       const diffNextMs = nextDate.getTime() - Date.now();
       const diffNextMin = Math.round(diffNextMs / 60000);
       let nextLabel;
@@ -899,7 +902,7 @@ function renderBlacklistResults(data) {
       else                         nextLabel = 'In ~' + Math.round(diffNextMin / 60) + 'h';
       heroNext.textContent = nextLabel;
     }
-    if (heroNextSub) heroNextSub.textContent = 'Auto-refresh every 4h';
+    if (heroNextSub) heroNextSub.textContent = 'Auto-refresh every 6h';
   }
 
   // --- Sending domain row ---
