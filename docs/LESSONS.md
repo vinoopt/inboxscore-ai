@@ -208,6 +208,61 @@ The label `id="gpm-last-sync"` promises the first one. Code was using the third 
 
 ---
 
+---
+
+## Frontend chrome migrations
+
+### F1. After renaming markup classes, grep every page's inline `<style>` for selectors that match the new class
+
+**The trap:** when you rename HTML classes (e.g. `pm-sidebar` → `sidebar`, or `dom-sidebar` → `sidebar`), don't only update the canonical CSS file — grep every affected page's inline `<style>` block for selectors that match the **new** class. Dead rules from a previous rename can re-activate and silently override the canonical styling, because the inline `<style>` block has higher source-order precedence than the external stylesheet at equal specificity.
+
+**What bit us (INBOX-220):** `postmaster.html` had ~10 lines of `.sidebar-nav li a { ... border-left: 3px solid transparent; }` and `.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); ... }` from BEFORE INBOX-184 (when the page used `.sidebar` markup). The page had since switched to `.pm-sidebar` (rules became dead, no element matched). When INBOX-219 renamed back to `.sidebar`, the dead selectors matched the new markup and re-activated. `app-chrome.css`'s canonical grey active state couldn't win — the inline `<style>` block came later in source order. Vinoop saw a purple-active sidebar on Postmaster while Dashboard's was grey. Same exact bug repeated on Domains in INBOX-221.
+
+**How to apply:** when you do a markup rename, the cleanup checklist is:
+
+1. Update the canonical CSS file (`app-chrome.css`, `design-system-v2.css`, etc.).
+2. For every page that ships the renamed markup, grep its inline `<style>` block for the **new** class name's selectors:
+   ```bash
+   grep -nE "^\.<new-class>|<new-class> li|<new-class>-foo" static/<page>.html
+   ```
+3. Delete any rules that target the new class name. They are EITHER:
+   - Dead rules from before a previous rename — pure dead code, delete with confidence
+   - Page-specific overrides someone added — verify intent before deletion, but usually delete in favour of the canonical
+4. Run a paint diff (manual screenshot or `inboxscore-frontend-qa` skill) after deploy to catch any styling drift.
+5. Leave a one-line comment where you deleted the rules so the next migrator doesn't add them back.
+
+**Don't trust** "this rule used to apply to a different element so it's safe to leave alone." If the selector matches the new markup, it WILL apply. CSS doesn't know about your migration intent.
+
+**Pair this with:** when you replace markup, also clean up the OLD CSS that targets the same selectors — otherwise specificity wars and you ship a half-fix. (Lesson originally codified in INBOX-178 retro.)
+
+---
+
+### F2. When you delete chrome (markup or class), audit the page for orphan duplicate IDs
+
+**The trap (INBOX-221, Domains):** the page had two elements with `id="plan-badge"` AND two with `id="plan-name"` — leftover from when INBOX-180 introduced `<div class="app-plan-card" id="plan-badge">` but didn't delete the previous `<div class="plan-badge" id="plan-badge">📋 ... plan</div>`. Both rendered. The legacy element appeared as a tiny pill below the new card. JS hydrators that called `getElementById('plan-badge')` got the **first** match (the canonical card) and worked fine — which is exactly why the bug went undetected for weeks: it was visually broken but functionally silent.
+
+**How to spot:** during any chrome migration, run:
+```bash
+grep -oE 'id="[^"]+"' static/<page>.html | sort | uniq -d
+```
+Any output means duplicate IDs in the same page. Triage each:
+- Real duplicate (both render at runtime) → delete one
+- False positive (inside a comment, inside mutually-exclusive JS branches, or inside a JS template literal) → leave it but note WHY in a comment
+
+**Going forward:** worth adding a CI grep check that fails the build on duplicate IDs in any HTML file. ~10-line script, catches this class of bug at PR time.
+
+---
+
+### F3. Chrome that should be consistent across pages lives in ONE external CSS file
+
+**Pattern that drifted (INBOX-178 → INBOX-219):** every page started life with a copy of "canonical" CSS in its inline `<style>` block. Over time each page's copy diverged independently, producing 3 different sidebar implementations (`.sidebar`, `.pm-sidebar`, `.dom-sidebar`) with 8 visually distinct results across pages. Class collisions between files don't surface until you grep across the codebase or migrate markup — and by then the inconsistency is already shipped.
+
+**Rule:** chrome that should be consistent across pages lives in **one** external CSS file (`app-chrome.css`). Anything in a page's inline `<style>` should be **page-specific** — and use a page-prefix class (`.pm-tab`, `.bl-domain-pill`) to make scope obvious. If the inline rule needs the canonical class name (`.sidebar`, `.brand`, `.sidebar-footer`), you've made the wrong call — promote the rule to the shared file instead.
+
+**Going forward:** for shared chrome (sidebar, plan card, page header, domain dropdown), prefer one canonical CSS file + one shared JS helper (e.g., `static/js/app-domain-select.js`) over 8 page-prefixed copies. Smaller surface area, drift is impossible.
+
+---
+
 ## How to use this doc
 
 Read on:
@@ -215,8 +270,10 @@ Read on:
 - Adding a new provider integration (Yahoo CFL, AOL, etc.)
 - Designing a new dashboard for a deliverability product
 - When you're about to assume per-client mapping is solvable from public DNS
+- **Before any UI migration that renames a CSS class** (sections F1-F3)
 
 Add to it:
 - When a deliverability-specific incident teaches you something
 - When an ESP / DNS / SMTP edge case bites you
 - When you make an architectural decision worth memorialising
+- **When a chrome / migration / front-end pattern bites you** — duplicate of the auto-memory note is intentional; this file is the project's own learning log that survives if auto-memory is wiped or another collaborator joins.
