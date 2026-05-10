@@ -644,39 +644,38 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-light { display: block; }
 .provider-source { font-size: 11px; color: var(--fg-3); font-family: 'Geist Mono', monospace; }
 .provider-explainer { font-size: 12px; color: var(--fg-2); line-height: 1.5; padding: 6px 0; }
 
-/* ─── INBOX-211: Status-pill row for the Postmaster card ─────────────
-   Replaces the 3-row .provider-metrics grid with compliance verdict
-   pills (Authentication / Spam rate / Encryption). Lives on the
-   dashboard only — the Postmaster details page keeps showing rates. */
+/* ─── INBOX-211: Status row for the Postmaster card ─────────────────
+   Mirrors the 3-cell .provider-metrics grid used by Microsoft SNDS so
+   both cards share visual rhythm: small uppercase label + bigger
+   coloured value below. Originally rendered status as background pills
+   (followup-1/2/3); Vinoop pushed back — pills with their min-width
+   and coloured backgrounds left the divider above looking orphaned and
+   the 3 metrics felt clustered next to Microsoft's spacious GREEN /
+   <0.1% / 0 values. Followup-4 drops the pill chrome (background,
+   padding, dot, min-width) in favour of stat-style coloured text that
+   matches Microsoft exactly. */
 .pm-status-row {
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 12px; margin-top: 16px; padding-top: 16px;
   border-top: 1px solid var(--border);
 }
-.pm-status-cell { display: flex; flex-direction: column; gap: 8px; }
+.pm-status-cell { display: flex; flex-direction: column; gap: 6px; }
 .pm-status-label {
   font-size: 11px; color: var(--fg-2);
   text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;
 }
+/* Stat-style colored value — same visual weight as .provider-metric-value
+   so the Google + Microsoft cards align row-by-row. The class name
+   keeps "pill" for backward-compat with dashboard.html render code. */
 .pm-status-pill {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px; border-radius: 999px;
-  font-size: 12px; font-weight: 500;
-  width: fit-content;
-  /* INBOX-211 followup-3: floor the pill width so a column with just
-     an em-dash awaiting pill doesn't squeeze the grid track narrower
-     than the columns that hold a wider "Compliant"/"Needs work" pill.
-     78px ≈ width of "Needs work" pill; em-dash pill expands to match. */
-  min-width: 78px;
-  justify-content: center;
+  display: inline-flex; align-items: baseline;
+  font-size: 16px; font-weight: 600;
+  letter-spacing: -0.02em;
 }
-.pm-status-pill .pm-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.pm-status-pill.compliant   { background: var(--success-soft); color: var(--success-text); }
-.pm-status-pill.compliant .pm-status-dot { background: var(--success); }
-.pm-status-pill.needs-work  { background: var(--danger-soft); color: var(--danger); }
-.pm-status-pill.needs-work .pm-status-dot { background: var(--danger); }
-.pm-status-pill.awaiting    { background: var(--bg-2); color: var(--fg-3); }
-.pm-status-pill.awaiting .pm-status-dot { background: var(--fg-4); }
+.pm-status-pill .pm-status-dot { display: none; }   /* legacy artifact, hide */
+.pm-status-pill.compliant   { color: var(--success-text); }
+.pm-status-pill.needs-work  { color: var(--danger); }
+.pm-status-pill.awaiting    { color: var(--fg-4); font-weight: 500; }
 
 /* Option C: when EVERY row is unevaluated, render one muted banner
    instead of three identical "Awaiting verdict" pills. Honest about
