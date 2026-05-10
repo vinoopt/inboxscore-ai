@@ -43,49 +43,9 @@ html[data-theme="dark"] {
 body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-serif; font-feature-settings: "ss01","cv11"; -webkit-font-smoothing: antialiased; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; transition: background 200ms ease, color 200ms ease; }
 .layout { display: flex; flex: 1; }
 
-/* ══════ SIDEBAR (canonical) ══════ */
-.sidebar { width: 240px; background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; flex-shrink: 0; display: flex; flex-direction: column; }
-.sidebar-nav { list-style: none; }
-.sidebar-nav li a {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 10px; color: var(--text-muted); text-decoration: none;
-  font-size: 13px; font-weight: 500;
-  border-radius: 7px;
-  transition: background 100ms ease, color 100ms ease;
-  margin-bottom: 1px;
-}
-.sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
-.sidebar-nav li a.active { color: var(--text); background: var(--surface-2); font-weight: 500; border-left: none; }
-.sidebar-nav li a svg { color: currentColor; flex-shrink: 0; }
-.alert-badge {
-  margin-left: auto; font-size: 11px; color: var(--text);
-  background: var(--red-bg); padding: 1px 6px; border-radius: 4px;
-  font-weight: 600; min-width: 18px; text-align: center;
-}
-.brand {
-  display: flex; align-items: center; gap: 10px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
-  text-decoration: none; color: var(--text);
-  transition: all 100ms ease;
-}
-.brand:hover { color: var(--accent); }
-.brand-mark {
-  width: 26px; height: 26px;
-  background: var(--text); color: var(--surface);
-  border-radius: 7px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; letter-spacing: -0.04em; flex-shrink: 0;
-}
-.brand-name { font-size: 15px; font-weight: 600; letter-spacing: -0.025em; }
-.sidebar-footer { margin-top: auto; padding: 16px 20px; border-top: 1px solid var(--border); }
-.plan-pill {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px;
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 8px; font-size: 12px; color: var(--text-muted);
-}
-.plan-pill-tier { font-weight: 500; color: var(--text); text-transform: capitalize; }
+/* INBOX-219: sidebar CSS removed — canonical rules now live in
+   static/css/app-chrome.css. Removes the divergent border-bottom on
+   .brand and border-top on .sidebar-footer that didn't match Dashboard. */
 
 /* ══════ MAIN ══════ */
 .main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: 100vh; }
@@ -399,7 +359,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .al-btn-primary { background: var(--text); color: var(--surface); border-color: var(--text); }
 .al-btn-primary:hover { opacity: 0.9; }
 
-.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+/* INBOX-219: .mobile-toggle moved to app-chrome.css. */
 @media (max-width: 768px) {
   .sidebar { position: fixed; left: -260px; top: 0; bottom: 0; z-index: 20; transition: left 0.3s; width: 260px; }
   .sidebar.open { left: 0; }

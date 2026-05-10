@@ -100,66 +100,11 @@
 html[data-theme="dark"] .pm-theme-toggle .icon-moon { display: none; }
 html[data-theme="dark"] .pm-theme-toggle .icon-sun  { display: block; }
 
-/* ─── SIDEBAR (V2 — replaces legacy .sidebar) ────────────────────── */
-.pm-sidebar {
-  width: 240px;
-  flex-shrink: 0;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  padding: 16px 12px;
-}
-.pm-sidebar-brand {
-  display: flex; align-items: center; gap: 10px;
-  padding: 4px 10px 22px;
-}
-.pm-sidebar-mark {
-  width: 24px; height: 24px;
-  background: var(--text); color: var(--surface);
-  border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 11px; letter-spacing: -0.04em;
-}
-.pm-sidebar-name {
-  font-weight: 600; font-size: 15px;
-  color: var(--text); letter-spacing: -0.025em;
-}
-
-.pm-nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 10px; border-radius: 6px;
-  color: var(--pm-fg-2); font-size: 13px;
-  cursor: pointer;
-  transition: background 100ms ease, color 100ms ease;
-  font-weight: 500; letter-spacing: -0.011em;
-  margin-bottom: 1px;
-  text-decoration: none;
-  border-left: none;
-}
-.pm-nav-item:hover { background: var(--surface-2); color: var(--text); }
-.pm-nav-item.active { background: var(--surface-2); color: var(--text); }
-.pm-nav-item svg {
-  color: currentColor; flex-shrink: 0;
-  width: 16px; height: 16px;
-}
-
-.pm-nav-item .pm-nav-badge {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--pm-fg-3);
-  background: var(--surface-2);
-  padding: 1px 6px; border-radius: 4px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-}
-.pm-nav-item.active .pm-nav-badge { background: var(--surface); }
-
-.pm-sidebar-footer {
-  margin-top: auto;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
+/* INBOX-219: .pm-sidebar / .pm-sidebar-brand / .pm-nav-item /
+   .pm-sidebar-footer rules removed — Postmaster + Microsoft markup
+   migrated to canonical .sidebar / .brand / .sidebar-nav (rules now
+   in static/css/app-chrome.css). All 8 app pages share one sidebar
+   implementation. */
 
 /* ─── DARK MODE — token overrides ─────────────────────────────────
    Use html[data-theme="dark"] (specificity 0,0,1,1) to beat the

@@ -246,3 +246,102 @@ html[data-theme="dark"] .domain-select-dot { background: #26d978; }
   color: var(--fg, var(--text));
   font-weight: 500;
 }
+
+
+/* ─── INBOX-219: CANONICAL SIDEBAR ──────────────────────────────────
+   Migrated from dashboard-page.css's .sidebar / .brand / .sidebar-nav /
+   .sidebar-footer rules. The Dashboard look is now the source of truth
+   for every page. Three things were INTENTIONALLY left out vs. the
+   per-page inline copies that drifted (Sending IPs, Settings, etc.):
+
+     • NO border-bottom on .brand
+       — the plan card has its own border, and active nav items have
+         their own background highlight; an extra hairline below the
+         logo is redundant chrome.
+
+     • NO border-top on .sidebar-footer
+       — same reason: the plan card's own top border already separates
+         the footer region. Stacking two borders 14px apart is noise.
+
+     • NO border-right on the sidebar
+       — Dashboard ships without one and the design reads cleaner;
+         keep the option below as a comment in case we revisit.
+
+   Pages with .pm-sidebar / .dom-sidebar (Postmaster / Microsoft /
+   Domains) get migrated to .sidebar markup in a follow-up commit so
+   one set of rules governs everything.
+   ────────────────────────────────────────────────────────────────── */
+.sidebar {
+  /* width + flex-shrink keep the sidebar at 240px on flex-layout pages
+     (Sending IPs / Settings / etc.); Dashboard uses grid layout where
+     the column is sized by `.layout { grid-template-columns: 240px 1fr }`,
+     so the explicit width here is harmless and ensures consistency. */
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg, var(--surface));
+  /* border-right: 1px solid var(--border);  -- intentionally off, see header */
+  padding: 16px 12px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 20px;
+  text-decoration: none;
+  color: var(--fg, var(--text));
+}
+.sidebar .brand-mark {
+  width: 24px; height: 24px; border-radius: 6px;
+  background: var(--fg, var(--text)); color: var(--bg, var(--surface));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: -0.04em;
+}
+.sidebar .brand-name {
+  font-size: 15px; font-weight: 600; letter-spacing: -0.025em;
+  color: var(--fg, var(--text));
+}
+.sidebar .mobile-toggle {
+  display: none;
+  background: none; border: none; color: var(--fg-2, var(--text-muted));
+  font-size: 20px; cursor: pointer; padding: 4px;
+  position: absolute; top: 16px; right: 16px;
+}
+
+.sidebar-nav { list-style: none; flex: 1; padding: 0; margin: 0; }
+.sidebar-nav li { list-style: none; }
+.sidebar-nav li a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  color: var(--fg-2, var(--text-muted)); text-decoration: none;
+  font-size: 13px; font-weight: 500;
+  border-radius: 6px;
+  margin-bottom: 1px;
+  transition: background 100ms ease, color 100ms ease;
+}
+.sidebar-nav li a:hover { background: var(--bg-2, var(--surface-2)); color: var(--fg, var(--text)); }
+.sidebar-nav li a.active { background: var(--bg-2, var(--surface-2)); color: var(--fg, var(--text)); }
+.sidebar-nav li a .nav-icon {
+  width: 16px; height: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: var(--fg-3, var(--text-muted));
+}
+.sidebar-nav li a.active .nav-icon,
+.sidebar-nav li a:hover .nav-icon { color: var(--fg, var(--text)); }
+.sidebar-nav li a .nav-icon svg { display: block; }
+
+.sidebar .alert-badge {
+  background: var(--danger, #e5484d); color: #fff;
+  font-size: 10px; font-weight: 600;
+  padding: 1px 6px; border-radius: 10px;
+  margin-left: auto; min-width: 18px; text-align: center;
+}
+
+/* Footer holds the plan card. NO border-top — the plan card has its
+   own border and we don't want stacked hairlines. */
+.sidebar-footer { padding: 14px 8px 6px; margin-top: auto; }
