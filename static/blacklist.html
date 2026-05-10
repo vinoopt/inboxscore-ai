@@ -359,6 +359,10 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 </style>
 
 <link rel="stylesheet" href="/static/css/app-chrome.css">
+<!-- INBOX-218: shared domain-select component (canonical pattern from
+     Dashboard, also used by Postmaster + Microsoft). Replaces the
+     page-prefixed bl-* dropdown to keep the widget consistent. -->
+<script src="/static/js/app-domain-select.js"></script>
 </head>
 <body>
 
@@ -412,15 +416,24 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
         </div>
       </div>
 
-      <!-- Domain selector pill (between page header + detail card,
-           matches the mockup approved on 2026-05-01). -->
-      <div class="bl-domain-select-wrap" style="position: relative; display: inline-block; margin-bottom: 24px;">
-        <div class="domain-pill" id="bl-domain-pill" onclick="blToggleDomainDropdown(event)" style="display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 999px; font-size: 13px; font-weight: 500; cursor: pointer;">
-          <span style="width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0;"></span>
-          <span id="bl-domain-pill-name">mailercloud.com</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color: var(--text-muted);"><polyline points="6 9 12 15 18 9"/></svg>
+      <!-- INBOX-218: shared .domain-select component. Replaces the
+           page-prefixed .bl-domain-select-wrap + .bl-domain-pill +
+           .bl-domain-dropdown markup so this page renders the EXACT
+           same widget as Dashboard / Postmaster / Microsoft. State
+           management (_bl.selectedDomain, refreshBlacklistForDomain)
+           is unchanged — only the dropdown chrome is unified. -->
+      <div style="margin-bottom: 24px;">
+        <div class="domain-select" id="bl-domain-select"
+             onclick="AppDomainSelect.toggle('bl-domain-dropdown', event)">
+          <span class="domain-select-dot"></span>
+          <div style="flex:1;min-width:0;">
+            <div id="bl-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">mailercloud.com</div>
+          </div>
+          <span class="domain-select-arrow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+          <div class="domain-dropdown" id="bl-domain-dropdown"></div>
         </div>
-        <div class="bl-domain-dropdown" id="bl-domain-dropdown"></div>
       </div>
 
       <div class="detail-card">
@@ -666,45 +679,42 @@ async function blFetchDomains() {
   }
 }
 
-// Render domain dropdown menu
-function blRenderDomainDropdown() {
-  const dd = document.getElementById('bl-domain-dropdown');
-  if (!dd) return;
-  if (_bl.domains.length === 0) { dd.innerHTML = ''; return; }
-  let html = '';
-  _bl.domains.forEach(d => {
-    const sel = (d.domain === _bl.selectedDomain) ? ' selected' : '';
-    html += `<div class="bl-domain-dropdown-item${sel}" onclick="blSelectDomain('${escapeHtml(d.domain).replace(/'/g, "\\'")}', event)">${escapeHtml(d.domain)}</div>`;
+// INBOX-218: dropdown chrome (render menu items, toggle open, outside-
+// click close, Esc close) is now owned by the shared AppDomainSelect
+// helper. The page-side code below is a thin façade — it pushes domain
+// list + selection into the controller and exposes the same function
+// names blRenderDomainDropdown / blSelectDomain that the rest of this
+// file calls, so we don't have to chase down every internal caller.
+let _blDomainSelectCtl = null;
+function _blGetDomainSelectCtl() {
+  if (_blDomainSelectCtl) return _blDomainSelectCtl;
+  if (!window.AppDomainSelect) return null;
+  _blDomainSelectCtl = window.AppDomainSelect.create({
+    dropdownId: 'bl-domain-dropdown',
+    nameElId:   'bl-selected-domain',
+    onSelect:   function (domain) { blSelectDomain(domain); },
   });
-  dd.innerHTML = html;
-  // Update pill display
-  const pillName = document.getElementById('bl-domain-pill-name');
-  if (pillName) pillName.textContent = _bl.selectedDomain;
+  return _blDomainSelectCtl;
 }
 
-// Toggle domain dropdown visibility
-function blToggleDomainDropdown(e) {
-  if (e) e.stopPropagation();
-  const dd = document.getElementById('bl-domain-dropdown');
-  if (!dd) return;
-  dd.classList.toggle('open');
+// Push current state into the shared controller. Safe to call repeatedly.
+function blRenderDomainDropdown() {
+  const ctl = _blGetDomainSelectCtl();
+  if (!ctl) return;
+  ctl.setDomains(_bl.domains);
+  ctl.setSelected(_bl.selectedDomain);
 }
 
-// Select domain and refresh results
-function blSelectDomain(domain, e) {
-  if (e) e.stopPropagation();
+// User picked a domain (called either from AppDomainSelect.onSelect or
+// from any internal code that wants to programmatically switch).
+function blSelectDomain(domain) {
   _bl.selectedDomain = domain;
-  const dd = document.getElementById('bl-domain-dropdown');
-  if (dd) dd.classList.remove('open');
   blRenderDomainDropdown();
   refreshBlacklistForDomain(domain);
 }
 
-// Close dropdown on document click
-document.addEventListener('click', () => {
-  const dd = document.getElementById('bl-domain-dropdown');
-  if (dd) dd.classList.remove('open');
-});
+// Outside-click + toggle handling are owned by AppDomainSelect; no
+// page-level listeners needed any more.
 
 // Session-level blacklist cache (5 min TTL)
 const _blCache = {};
