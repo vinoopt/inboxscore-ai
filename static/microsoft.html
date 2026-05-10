@@ -253,6 +253,9 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
      ehInit() can hydrate from localStorage before the network call
      resolves, eliminating the "Loading…" cold-start spinner. -->
 <script src="/static/cache.js"></script>
+<!-- INBOX-218: shared domain-select component (same as Dashboard +
+     Postmaster). Loaded synchronously so inline init can rely on it. -->
+<script src="/static/js/app-domain-select.js"></script>
 
 <!-- 2026-04-27: Chart.js for Postmaster line charts. Replaces the
      hand-rolled SVG which had broken hover, axis-label misalignment,
@@ -354,10 +357,22 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
          lives inside those tab headers now. Tabs without a chart (Compliance
          Status, Unsubscribe Compliance, Encryption, Delivery Error Rate)
          use a fixed 30-day window via getActivePeriodDays() default. -->
+    <!-- INBOX-218: native <select> replaced with shared .domain-select
+         component (see /static/js/app-domain-select.js). Mirrors the
+         Postmaster page change exactly. ehCurrentDomain remains the
+         source of truth, onEhDomainChange() still fires on selection. -->
     <div class="eh-toolbar">
-      <select class="eh-select" id="eh-domain-select" onchange="onEhDomainChange(this.value)">
-        <option value="">Loading domains...</option>
-      </select>
+      <div class="domain-select" id="eh-domain-select"
+           onclick="AppDomainSelect.toggle('eh-domain-dropdown', event)">
+        <span class="domain-select-dot"></span>
+        <div style="flex:1;min-width:0;">
+          <div id="eh-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Loading domains…</div>
+        </div>
+        <span class="domain-select-arrow">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+        <div class="domain-dropdown" id="eh-domain-dropdown"></div>
+      </div>
     </div>
 
     <!-- Submenu Layout -->
@@ -2102,12 +2117,12 @@ window.addEventListener('DOMContentLoaded', () => {
    ================================================================ */
 
 function getBlacklistDomain() {
-  // Use main EH domain (always up-to-date), fallback to select value
+  // INBOX-218: native <select> .options/.selectedIndex fallback removed
+  // (markup is no longer a select). Read the displayed-name <div> as
+  // last-resort fallback if ehCurrentDomain hasn't hydrated yet.
   if (ehCurrentDomain) return ehCurrentDomain;
-  const sel = document.getElementById('eh-domain-select');
-  if (!sel) return 'mailercloud.com';
-  const txt = sel.options[sel.selectedIndex]?.text || 'mailercloud.com';
-  return txt.trim();
+  const nameEl = document.getElementById('eh-selected-domain');
+  return (nameEl && nameEl.textContent.trim()) || 'mailercloud.com';
 }
 
 // Session-level blacklist cache (5 min TTL)
@@ -3534,15 +3549,32 @@ async function msSyncNow() {
 
 let ehCurrentDomain = null;
 let ehLatestScan = null;
+// INBOX-218: shared dropdown controller (lazy-mounted to survive
+// script-load ordering). Same pattern as Postmaster.
+let _ehDomainSelectCtl = null;
+function _ehGetDomainSelectCtl() {
+  if (_ehDomainSelectCtl) return _ehDomainSelectCtl;
+  if (!window.AppDomainSelect) return null;
+  _ehDomainSelectCtl = window.AppDomainSelect.create({
+    dropdownId: 'eh-domain-dropdown',
+    nameElId:   'eh-selected-domain',
+    onSelect:   function (domain) { onEhDomainChange(domain); },
+  });
+  return _ehDomainSelectCtl;
+}
+function _ehSetDropdownPlaceholder(message) {
+  const nameEl = document.getElementById('eh-selected-domain');
+  if (nameEl) nameEl.textContent = message;
+  const dd = document.getElementById('eh-domain-dropdown');
+  if (dd) dd.innerHTML = '';
+}
 
 async function loadEhDomains() {
-  // INBOX-101: now a small sub-step inside ehInit(), with a timeout-
-  // protected fetch. Returns the array of domain names so the caller can
-  // decide what to do with no-domains case.
+  // INBOX-101 / INBOX-218: timeout-protected fetch + drives the shared
+  // .domain-select component. ehCurrentDomain remains the source of truth.
   const token = getToken();
-  const select = document.getElementById('eh-domain-select');
   if (!token) {
-    if (select) select.innerHTML = '<option value="">Not logged in</option>';
+    _ehSetDropdownPlaceholder('Not logged in');
     return [];
   }
 
@@ -3555,32 +3587,22 @@ async function loadEhDomains() {
     const msg = e.name === 'AbortError'
       ? 'Couldn’t load domains — request timed out'
       : 'Couldn’t load domains — try again';
-    if (select) select.innerHTML = `<option value="">${msg}</option>`;
+    _ehSetDropdownPlaceholder(msg);
     return [];
   }
 
   if (!resp.ok) {
-    if (select) select.innerHTML = '<option value="">Couldn’t load domains — try again</option>';
+    _ehSetDropdownPlaceholder('Couldn’t load domains — try again');
     return [];
   }
 
   const data = await resp.json();
   const domains = data.domains || [];
 
-  if (select) select.innerHTML = '';
-
   if (domains.length === 0) {
-    if (select) select.innerHTML = '<option value="">No domains added — go to Domains page</option>';
+    _ehSetDropdownPlaceholder('No domains added — go to Domains page');
     return [];
   }
-
-  domains.forEach(d => {
-    const opt = document.createElement('option');
-    const name = d.domain || d.name || d;
-    opt.value = name;
-    opt.textContent = name;
-    select.appendChild(opt);
-  });
 
   // INBOX-89: honour the ?domain=X URL param if it points to a monitored
   // domain. The Dashboard's "View its health page →" link uses this to
@@ -3588,10 +3610,15 @@ async function loadEhDomains() {
   // monitored domain if the param is missing or unknown.
   const urlDomain = new URLSearchParams(window.location.search).get('domain');
   const nameSet = new Set(domains.map(d => d.domain || d.name || d));
-  if (urlDomain && nameSet.has(urlDomain)) {
-    select.value = urlDomain;
+  const initial = (urlDomain && nameSet.has(urlDomain)) ? urlDomain
+                : (domains[0].domain || domains[0].name || domains[0]);
+  ehCurrentDomain = initial;
+
+  const ctl = _ehGetDomainSelectCtl();
+  if (ctl) {
+    ctl.setDomains(domains);
+    ctl.setSelected(initial);
   }
-  ehCurrentDomain = select.value;
 
   // SWR: persist domain list so the cold-start hydrator can populate
   // the dropdown from cache before /api/user/domains resolves.
@@ -3629,23 +3656,17 @@ function ehHydrateFromCache() {
   const domains = window.cacheGet('eh.domains', EH_DOMAINS_CACHE_TTL_MS);
   if (!Array.isArray(domains) || domains.length === 0) return false;
 
-  // Populate the dropdown from cache.
-  const sel = document.getElementById('eh-domain-select');
-  if (sel) {
-    sel.innerHTML = '';
-    domains.forEach(d => {
-      const opt = document.createElement('option');
-      const name = d.domain || d.name || d;
-      opt.value = name;
-      opt.textContent = name;
-      sel.appendChild(opt);
-    });
-    // Honour ?domain= deep-link if it points at a known domain.
-    const urlDomain = new URLSearchParams(window.location.search).get('domain');
-    const nameSet = new Set(domains.map(d => d.domain || d.name || d));
-    if (urlDomain && nameSet.has(urlDomain)) sel.value = urlDomain;
-    ehCurrentDomain = sel.value;
-    gpmCurrentDomain = sel.value;
+  // Populate the shared dropdown from cache (INBOX-218).
+  const urlDomain = new URLSearchParams(window.location.search).get('domain');
+  const nameSet = new Set(domains.map(d => d.domain || d.name || d));
+  const initial = (urlDomain && nameSet.has(urlDomain)) ? urlDomain
+                : (domains[0].domain || domains[0].name || domains[0]);
+  ehCurrentDomain = initial;
+  gpmCurrentDomain = initial;
+  const ctl = _ehGetDomainSelectCtl();
+  if (ctl) {
+    ctl.setDomains(domains);
+    ctl.setSelected(initial);
   }
 
   // Pull this domain's metrics out of cache and paint them.
