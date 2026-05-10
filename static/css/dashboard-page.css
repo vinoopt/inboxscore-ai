@@ -645,28 +645,20 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-light { display: block; }
 .provider-explainer { font-size: 12px; color: var(--fg-2); line-height: 1.5; padding: 6px 0; }
 
 /* ─── INBOX-211: Status row for the Postmaster card ─────────────────
-   Mirrors the 3-cell .provider-metrics grid used by Microsoft SNDS so
-   both cards share visual rhythm: small uppercase label + bigger
-   coloured value below. Originally rendered status as background pills
-   (followup-1/2/3); Vinoop pushed back — pills with their min-width
-   and coloured backgrounds left the divider above looking orphaned and
-   the 3 metrics felt clustered next to Microsoft's spacious GREEN /
-   <0.1% / 0 values. Followup-4 drops the pill chrome (background,
-   padding, dot, min-width) in favour of stat-style coloured text that
-   matches Microsoft exactly. */
-.pm-status-row {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 12px; margin-top: 16px; padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
+   The Postmaster card now reuses the existing .provider-metrics wrapper
+   (same as Microsoft SNDS), with .pm-status-cell as direct grid children.
+   This guarantees both cards share an identical visual structure: same
+   single divider, same padding, same column rhythm. Earlier revs nested
+   a .pm-status-row inside .provider-metrics which doubled the divider
+   and padding (Vinoop's "extra horizontal line" feedback). */
 .pm-status-cell { display: flex; flex-direction: column; gap: 6px; }
 .pm-status-label {
   font-size: 11px; color: var(--fg-2);
   text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;
 }
-/* Stat-style colored value — same visual weight as .provider-metric-value
-   so the Google + Microsoft cards align row-by-row. The class name
-   keeps "pill" for backward-compat with dashboard.html render code. */
+/* Stat-style coloured value — same visual weight as .provider-metric-value
+   so Google + Microsoft cards align row-by-row. Class name keeps "pill"
+   for backward-compat with dashboard.html render code. */
 .pm-status-pill {
   display: inline-flex; align-items: baseline;
   font-size: 16px; font-weight: 600;
@@ -677,11 +669,13 @@ body[data-theme="dark"]  .theme-toggle .theme-icon-light { display: block; }
 .pm-status-pill.needs-work  { color: var(--danger); }
 .pm-status-pill.awaiting    { color: var(--fg-4); font-weight: 500; }
 
-/* Option C: when EVERY row is unevaluated, render one muted banner
-   instead of three identical "Awaiting verdict" pills. Honest about
-   the state without three rows of grey noise. */
+/* Option C: when Google has issued no verdicts yet, render one muted
+   banner instead of three identical "Awaiting verdict" cells. The
+   banner sits inside .provider-metrics (which is a 3-col grid), so
+   grid-column:1/-1 stretches it to fill the row. */
 .pm-status-banner {
-  margin-top: 16px; padding: 14px 16px;
+  grid-column: 1 / -1;
+  padding: 12px 14px;
   background: var(--bg-2); border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 13px; color: var(--fg-2); line-height: 1.5;

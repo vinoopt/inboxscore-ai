@@ -688,30 +688,32 @@ function dhRenderProviderGrid(domain) {
   }
 
   let googleHtml;
+  // INBOX-211 followup-5: render cells DIRECTLY inside .provider-metrics
+  // (the parent wrapper in the template). Earlier revs nested a redundant
+  // .pm-status-row inside, which produced two stacked border-tops + double
+  // padding, leaving the divider line and a 30px+ empty gap between header
+  // and content (Vinoop caught this — Google card looked weird vs MS SNDS).
+  // Now both cards share the same single-wrapper structure.
   if (!googleConnected) {
     // Disconnected — em-dash placeholders, "Set up →" CTA below.
     googleHtml = `
-      <div class="pm-status-row">
-        <div class="pm-status-cell"><span class="pm-status-label">Authentication</span><span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>—</span></div>
-        <div class="pm-status-cell"><span class="pm-status-label">Spam rate</span><span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>—</span></div>
-        <div class="pm-status-cell"><span class="pm-status-label">Encryption</span><span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>—</span></div>
-      </div>
+      <div class="pm-status-cell"><span class="pm-status-label">Authentication</span><span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>—</span></div>
+      <div class="pm-status-cell"><span class="pm-status-label">Spam rate</span><span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>—</span></div>
+      <div class="pm-status-cell"><span class="pm-status-label">Encryption</span><span class="pm-status-pill awaiting"><span class="pm-status-dot"></span>—</span></div>
     `;
   } else if (pmCompliance && pmCompliance.has_any_verdict) {
-    // Connected with at least one verdict — render the 3 status pills.
+    // Connected with at least one verdict — render the 3 status values.
     // Each row's verdict is independent: a single NEEDS_WORK doesn't
     // pull the others red.
     googleHtml = `
-      <div class="pm-status-row">
-        <div class="pm-status-cell"><span class="pm-status-label">Authentication</span>${_statusPill(pmCompliance.auth)}</div>
-        <div class="pm-status-cell"><span class="pm-status-label">Spam rate</span>${_statusPill(pmCompliance.spam)}</div>
-        <div class="pm-status-cell"><span class="pm-status-label">Encryption</span>${_statusPill(pmCompliance.encryption)}</div>
-      </div>
+      <div class="pm-status-cell"><span class="pm-status-label">Authentication</span>${_statusPill(pmCompliance.auth)}</div>
+      <div class="pm-status-cell"><span class="pm-status-label">Spam rate</span>${_statusPill(pmCompliance.spam)}</div>
+      <div class="pm-status-cell"><span class="pm-status-label">Encryption</span>${_statusPill(pmCompliance.encryption)}</div>
     `;
   } else {
     // Option C: connected, but Google has issued no verdicts yet.
     // Single muted banner instead of 3 identical "Awaiting verdict" pills.
-    // Hits for: brand-new domains, very-low-volume domains, paused senders.
+    // grid-column:1/-1 makes it span all 3 columns of .provider-metrics.
     googleHtml = `
       <div class="pm-status-banner">
         <strong>Google is still evaluating this domain.</strong>
