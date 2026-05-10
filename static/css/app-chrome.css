@@ -281,7 +281,9 @@ html[data-theme="dark"] .domain-select-dot { background: #26d978; }
   display: flex;
   flex-direction: column;
   background: var(--bg, var(--surface));
-  /* border-right: 1px solid var(--border);  -- intentionally off, see header */
+  /* INBOX-220 confirmed-on-Dashboard look: vertical line on right edge.
+     Visually separates sidebar from main content area on every page. */
+  border-right: 1px solid var(--border);
   padding: 16px 12px;
   position: sticky;
   top: 0;
@@ -293,6 +295,10 @@ html[data-theme="dark"] .domain-select-dot { background: #26d978; }
   align-items: center;
   gap: 10px;
   padding: 6px 8px 20px;
+  /* INBOX-220 confirmed: hairline below the logo. Visually separates
+     brand from nav list. */
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
   text-decoration: none;
   color: var(--fg, var(--text));
 }
@@ -342,6 +348,14 @@ html[data-theme="dark"] .domain-select-dot { background: #26d978; }
   margin-left: auto; min-width: 18px; text-align: center;
 }
 
-/* Footer holds the plan card. NO border-top — the plan card has its
-   own border and we don't want stacked hairlines. */
-.sidebar-footer { padding: 14px 8px 6px; margin-top: auto; }
+/* INBOX-220 confirmed: hairline above the plan card. Visually
+   separates the nav list from the plan-management region. Vinoop's
+   confirmed Dashboard look. */
+.sidebar-footer {
+  padding: 14px 8px 6px;
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  /* margin-top above the line so the line itself sits flush with the
+     bottom of the nav list, then 14px of breathing room below before
+     the plan card. */
+}
