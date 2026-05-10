@@ -181,3 +181,68 @@ select.app-domain-select:focus {
   border-color: var(--text) !important;
 }
 
+
+/* ─── INBOX-218: Canonical domain-select component ──────────────────
+   Migrated from dashboard-page.css so every app page has access to
+   the same component (previously dashboard-only). The pattern is:
+
+       <div class="domain-select" onclick="...toggle...">
+         <span class="domain-select-dot"></span>
+         <div style="flex:1;...">
+           <div id="..-selected-domain">domain.com</div>
+         </div>
+         <span class="domain-select-arrow">▾</span>
+         <div class="domain-dropdown" id="...">
+           <div class="domain-dropdown-item">domain1.com</div>
+           ...
+         </div>
+       </div>
+
+   See static/js/app-domain-select.js for the JS helper that wires
+   render/toggle/select for any page using this markup.
+   ────────────────────────────────────────────────────────────────── */
+.domain-select {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px;
+  background: var(--bg-1, var(--surface)); border: 1px solid var(--border-strong, var(--border));
+  border-radius: 999px;
+  font-size: 13px; font-weight: 500; color: var(--fg, var(--text));
+  cursor: pointer; position: relative;
+  transition: border-color 100ms ease;
+  font-family: inherit;
+}
+.domain-select:hover { border-color: var(--fg, var(--text)); }
+.domain-select-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success, #00875a);
+  flex-shrink: 0;
+}
+html[data-theme="dark"] .domain-select-dot { background: #26d978; }
+.domain-select-meta { font-size: 11px; color: var(--fg-3, var(--text-muted)); font-family: 'Geist Mono', ui-monospace, monospace; }
+.domain-select-arrow {
+  color: var(--fg-3, var(--text-muted));
+  display: inline-flex; align-items: center;
+  margin-left: 4px;
+}
+.domain-dropdown {
+  display: none; position: absolute;
+  top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--bg-1, var(--surface)); border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-dropdown, 0 4px 12px rgba(0,0,0,0.08));
+  z-index: 50; max-height: 320px; overflow-y: auto;
+  min-width: 220px;
+}
+.domain-dropdown.open { display: block; }
+.domain-dropdown-item {
+  padding: 10px 14px; font-size: 13px; color: var(--fg, var(--text));
+  cursor: pointer; border-bottom: 1px solid var(--border);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.domain-dropdown-item:last-child { border-bottom: none; }
+.domain-dropdown-item:hover { background: var(--bg-2, var(--surface-2)); }
+.domain-dropdown-item.selected {
+  background: var(--bg-2, var(--surface-2));
+  color: var(--fg, var(--text));
+  font-weight: 500;
+}
