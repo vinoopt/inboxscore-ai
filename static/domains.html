@@ -47,22 +47,15 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .user-name { font-size: 13px; color: var(--text-muted); }
 .logout-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
 .logout-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-2); }
-.mobile-toggle { display: none; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px; }
+/* INBOX-221: legacy .mobile-toggle / .sidebar / .sidebar-nav / .sidebar-bottom
+   / .plan-badge / .plan-pill rules removed. These were dead pre-INBOX-179
+   chrome (purple accent + 3px border-left active state, separate plan-pill
+   pill) that re-activated when INBOX-219 renamed dom-sidebar back to
+   sidebar — same trap as Postmaster + Microsoft. Canonical rules now live
+   in app-chrome.css and apply uniformly across all 8 pages. */
 
 /* Layout */
 .layout { display: flex; flex: 1; }
-
-/* Sidebar */
-.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; }
-.sidebar-nav { list-style: none; }
-.sidebar-nav li a { display: flex; align-items: center; gap: 10px; padding: 10px 24px; color: var(--text-muted); text-decoration: none; font-size: 14px; transition: all 0.2s; border-left: 3px solid transparent; }
-.sidebar-nav li a:hover { color: var(--text); background: var(--surface-2); }
-.sidebar-nav li a.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); }
-.sidebar-nav li a .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-.sidebar-section { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); padding: 20px 24px 8px; font-weight: 600; }
-.sidebar-bottom { margin-top: auto; padding: 16px 24px; border-top: 1px solid var(--border); }
-.plan-badge { margin: auto 24px 0; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
-.plan-badge .plan-name { font-weight: 600; color: var(--accent); text-transform: capitalize; }
 
 /* Main */
 .main { flex: 1; padding: 32px 40px; overflow-y: auto; max-height: calc(100vh - 53px); }
@@ -197,8 +190,10 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
         <div class="app-plan-bar"><div class="app-plan-bar-fill" id="plan-usage-fill"></div></div>
         <a href="/settings" class="app-plan-link">Manage plan →</a>
       </div>
-
-      <div class="plan-badge" id="plan-badge">📋 <span class="plan-name" id="plan-name">Free</span> plan</div>
+      <!-- INBOX-221: removed duplicate <div class="plan-badge"> with the
+           same id="plan-badge" + id="plan-name" — invalid HTML, and
+           rendered as a small pill below the new card. Was leftover
+           from before INBOX-180 introduced .app-plan-card. -->
     </div>
   </aside>
 
