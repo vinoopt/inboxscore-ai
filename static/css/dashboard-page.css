@@ -192,6 +192,11 @@ html, body {
   align-items: center;
   gap: 10px;
   padding: 6px 8px 20px;
+  /* INBOX-220: hairline below the logo. Vinoop's gold-standard Dashboard
+     look — visually separates the brand from the nav list. Will roll
+     to all 8 pages once Dashboard is confirmed. */
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
   text-decoration: none;
   color: var(--fg);
 }
@@ -240,7 +245,14 @@ html, body {
   margin-left: auto; min-width: 18px; text-align: center;
 }
 
-.sidebar-footer { padding: 14px 8px 6px; }
+/* INBOX-220: hairline above the plan card. Visually separates the
+   nav list from the plan-management region. Will roll to all 8 pages
+   once Dashboard is confirmed. */
+.sidebar-footer {
+  padding: 14px 8px 6px;
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+}
 .plan-pill, .plan-badge {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 12px;
