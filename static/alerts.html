@@ -412,6 +412,8 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 </style>
 
 <link rel="stylesheet" href="/static/css/app-chrome.css">
+<!-- INBOX-218: shared domain-select component. -->
+<script src="/static/js/app-domain-select.js"></script>
 </head>
 <body>
 
@@ -463,14 +465,25 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
         </div>
       </div>
 
-      <!-- Domain dropdown -->
-      <div class="al-domain-select-wrap">
-        <button class="al-domain-select" onclick="toggleDomainDropdown(event)">
-          <span class="al-domain-select-dot"></span>
-          <span id="selected-domain-label">All domains</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="al-domain-dropdown" id="domain-dropdown"></div>
+      <!-- INBOX-218: shared .domain-select component. The page-prefixed
+           .al-domain-select-wrap / .al-domain-select / .al-domain-dropdown
+           markup is replaced with the canonical pattern. The dropdown
+           still includes "All domains" as the first item (via JS); the
+           previous version had a visual divider between "All domains"
+           and the per-domain entries — that divider is dropped here in
+           favour of a clean, consistent menu shape across all 5 pages. -->
+      <div style="margin-bottom: 24px; display: inline-block;">
+        <div class="domain-select" id="al-domain-select"
+             onclick="AppDomainSelect.toggle('al-domain-dropdown', event)">
+          <span class="domain-select-dot"></span>
+          <div style="flex:1;min-width:0;">
+            <div id="al-selected-domain" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">All domains</div>
+          </div>
+          <span class="domain-select-arrow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+          <div class="domain-dropdown" id="al-domain-dropdown"></div>
+        </div>
       </div>
 
       <!-- Tabs -->
@@ -666,38 +679,47 @@ function setTab(tab) {
   if ((tab === 'rules' || tab === 'channels') && !window._prefsLoaded) loadPrefs();
 }
 
-/* ═══════════ DOMAIN DROPDOWN ═══════════ */
-function toggleDomainDropdown(e) {
-  e.stopPropagation();
-  document.getElementById('domain-dropdown').classList.toggle('open');
+/* ═══════════ DOMAIN DROPDOWN ═══════════
+   INBOX-218: dropdown chrome (toggle, render-items, outside-click, Esc)
+   is owned by the shared AppDomainSelect helper. The Alerts-specific
+   wrinkle is the "All domains" pseudo-entry pinned at the top — we
+   inject it as the first item in the list passed to setDomains(),
+   then check for it inside selectDomain() so the rest of the page's
+   filter logic (which compares against currentDomain) works unchanged. */
+var _alDomainSelectCtl = null;
+function _alGetDomainSelectCtl() {
+  if (_alDomainSelectCtl) return _alDomainSelectCtl;
+  if (!window.AppDomainSelect) return null;
+  _alDomainSelectCtl = window.AppDomainSelect.create({
+    dropdownId: 'al-domain-dropdown',
+    nameElId:   'al-selected-domain',
+    onSelect:   function (domain) { selectDomain(domain); },
+  });
+  return _alDomainSelectCtl;
 }
 function selectDomain(name) {
   currentDomain = name;
-  document.getElementById('selected-domain-label').textContent = name;
+  // INBOX-218 retains a separate label id for back-compat with any code
+  // that may still target the old #selected-domain-label element. The
+  // shared controller already updates #al-selected-domain via setSelected.
+  var legacyLabel = document.getElementById('selected-domain-label');
+  if (legacyLabel) legacyLabel.textContent = name;
   renderDomainDropdown();
-  document.getElementById('domain-dropdown').classList.remove('open');
   renderAlerts();
 }
 function renderDomainDropdown() {
-  var dd = document.getElementById('domain-dropdown');
-  /* Compute unique domains from loaded alerts */
+  /* Compute unique domains from loaded alerts. "All domains" is always
+     pinned to the top of the menu so the user can clear the filter. */
   var seen = {};
   allAlerts.forEach(function (a) { if (a.domain) seen[a.domain] = true; });
   var domains = Object.keys(seen).sort();
+  var items = [{ domain: 'All domains' }].concat(domains.map(function (d) { return { domain: d }; }));
 
-  var html = '<div class="al-domain-dropdown-item' + (currentDomain === 'All domains' ? ' selected' : '') + '" onclick="selectDomain(\'All domains\')">All domains</div>';
-  if (domains.length > 0) html += '<div class="al-domain-dropdown-divider"></div>';
-  domains.forEach(function (d) {
-    var sel = currentDomain === d ? ' selected' : '';
-    html += '<div class="al-domain-dropdown-item' + sel + '" onclick="selectDomain(\'' + escapeHtml(d).replace(/'/g, "\\'") + '\')">' + escapeHtml(d) + '</div>';
-  });
-  dd.innerHTML = html;
+  var ctl = _alGetDomainSelectCtl();
+  if (!ctl) return;
+  ctl.setDomains(items);
+  ctl.setSelected(currentDomain);
 }
-document.addEventListener('click', function (e) {
-  if (!e.target.closest('.al-domain-select-wrap')) {
-    document.getElementById('domain-dropdown').classList.remove('open');
-  }
-});
 
 /* ═══════════ FEED ═══════════ */
 function setFilter(el, sev) {
