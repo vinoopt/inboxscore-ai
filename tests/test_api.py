@@ -90,24 +90,46 @@ class TestScanEndpoint:
             assert check["status"] in ["pass", "warn", "fail", "info"]
             assert check["category"] in ["authentication", "reputation", "infrastructure"]
 
-    def test_scan_all_checks_present(self, client, mock_db):
-        """All 15 check types should be in the response.
-           INBOX-42 added domain_blacklists; INBOX-95 added google_safe_browsing."""
+    def test_anonymous_scan_omits_ip_level_checks(self, client, mock_db):
+        """INBOX-199 (2026-05-11): anonymous /api/scan uses depth='public',
+        which skips check_blacklists (IP-based) and check_ip_reputation.
+        SPF-derived sending IPs for anonymous users are mostly shared ESP
+        space — assessing them as if they were "the user's IPs" produces
+        misleading data. Logged-in users get the full 15-check scan
+        because they explicitly map their real sending IPs in Domains."""
         response = client.post("/api/scan", json={"domain": "google.com"})
         data = response.json()
 
+        # 13 checks for anonymous (15 minus blacklists + ip_reputation).
         # Note: check_sender_detection's CheckResult uses name="senders"
         # (legacy, pre-dates INBOX-42). Keep as-is — renaming would be a
         # separate breaking change across clients.
         expected_checks = {
-            "mx_records", "spf", "dkim", "dmarc", "blacklists",
-            "domain_blacklists",  # INBOX-42
+            "mx_records", "spf", "dkim", "dmarc",
+            "domain_blacklists",  # INBOX-42 — domain-level, kept on public
             "tls", "reverse_dns", "bimi", "mta_sts", "tls_rpt",
-            "senders", "domain_age", "ip_reputation",
-            "google_safe_browsing",  # INBOX-95
+            "senders", "domain_age",
+            "google_safe_browsing",  # INBOX-95 — domain-level, kept on public
         }
         actual_checks = {c["name"] for c in data["checks"]}
-        assert expected_checks == actual_checks
+        assert expected_checks == actual_checks, (
+            f"Anonymous scan should return exactly these 13 checks. "
+            f"Got: {actual_checks - expected_checks} extra, "
+            f"{expected_checks - actual_checks} missing."
+        )
+
+        # Stronger guarantees about the skipped IP-level checks.
+        assert "blacklists" not in actual_checks, (
+            "INBOX-199: anonymous scan must NOT include the IP-based "
+            "blacklist check."
+        )
+        assert "ip_reputation" not in actual_checks, (
+            "INBOX-199: anonymous scan must NOT include IP reputation."
+        )
+
+        # The response surfaces depth so the frontend can render an
+        # upsell CTA ("Sign up to scan your sending IPs").
+        assert data.get("depth") == "public"
 
 
 # ─── STATIC PAGES ───────────────────────────────────────────────

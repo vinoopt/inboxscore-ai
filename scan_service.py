@@ -107,28 +107,52 @@ def _safe_result(future, name, title, category, timeout_sec, domain):
         )
 
 
-def run_full_scan(domain: str, source: str = "api") -> dict:
-    """Run all 13 deliverability checks for `domain` and return a result dict.
+# INBOX-199 (2026-05-11): depth selector for the public vs full scan
+# split. Anonymous marketing-page scans skip the IP-based checks
+# (check_blacklists, check_ip_reputation) because SPF-derived sending
+# IPs for anonymous users are mostly shared ESP space (SendGrid, SES,
+# Google Workspace, etc.) — listings there reflect noisy neighbours,
+# not the user. Trying to assess "their" IP reputation when we don't
+# know what their actual sending IPs are produces misleading data.
+#
+# Logged-in dashboard users keep the full check set because they can
+# explicitly map their real sending IPs in the Domains page.
+#
+# Side benefits of the split:
+#   - Anonymous scan time drops from ~30s to ~10s (1 hetrix call vs 6)
+#   - Anonymous credit burn drops from 6 to 1 per scan
+#   - Clean upsell narrative: "Sign up to scan your sending IPs"
+_IP_LEVEL_CHECKS = frozenset({"blacklists", "ip_reputation"})
+
+
+def run_full_scan(domain: str, source: str = "api",
+                  depth: str = "full") -> dict:
+    """Run domain deliverability checks for `domain` and return a result dict.
 
     Args:
         domain: normalised domain (caller strips scheme / path / www).
         source: "api" (website scan) or "monitor" (scheduler). Purely a
                 tag for logs/telemetry today; will become a column in
                 INBOX-23.
+        depth: "full" (default, 15 checks) or "public" (13 checks —
+                drops IP-based blacklist + IP reputation). Public is
+                meant for anonymous marketing scans; full for logged-in
+                users + monitor cycles. See INBOX-199.
 
     Returns:
         dict shaped as the existing response contract consumed by
         `app.py` and persisted by `save_scan`:
-            { domain, score, summary, checks, scan_time, scanned_at }
+            { domain, score, summary, checks, scan_time, scanned_at, depth }
     """
     start_time = time.time()
+    include_ip_checks = (depth == "full")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=13) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+        # Submit all the checks that run regardless of depth.
         future_mx = executor.submit(check_mx_records, domain)
         future_spf = executor.submit(check_spf, domain)
         future_dkim = executor.submit(check_dkim, domain)
         future_dmarc = executor.submit(check_dmarc, domain)
-        future_blacklists = executor.submit(check_blacklists, domain)
         future_domain_bl = executor.submit(check_domain_blacklists, domain)
         future_tls = executor.submit(check_tls, domain)
         future_rdns = executor.submit(check_reverse_dns, domain)
@@ -137,8 +161,15 @@ def run_full_scan(domain: str, source: str = "api") -> dict:
         future_tls_rpt = executor.submit(check_tls_rpt, domain)
         future_senders = executor.submit(check_sender_detection, domain)
         future_age = executor.submit(check_domain_age, domain)
-        future_ip_rep = executor.submit(check_ip_reputation, domain)
         future_gsb = executor.submit(check_google_safe_browsing, domain)  # INBOX-95
+
+        # INBOX-199: IP-level checks only run when caller explicitly
+        # asked for full depth (logged-in user + monitor path).
+        future_blacklists = None
+        future_ip_rep = None
+        if include_ip_checks:
+            future_blacklists = executor.submit(check_blacklists, domain)
+            future_ip_rep = executor.submit(check_ip_reputation, domain)
 
         # Timeouts: DNS-only checks get 8s, network-heavy checks get 12s.
         # INBOX-229 (2026-05-11): blacklists + domain_blacklists now route
@@ -151,7 +182,11 @@ def run_full_scan(domain: str, source: str = "api") -> dict:
             _safe_result(future_spf, "spf", "SPF Record", "authentication", 8, domain),
             _safe_result(future_dkim, "dkim", "DKIM", "authentication", 8, domain),
             _safe_result(future_dmarc, "dmarc", "DMARC Policy", "authentication", 8, domain),
-            _safe_result(future_blacklists, "blacklists", "Blacklist Check", "reputation", 40, domain),
+        ]
+        if include_ip_checks:
+            checks.append(_safe_result(future_blacklists, "blacklists",
+                                       "Blacklist Check", "reputation", 40, domain))
+        checks.extend([
             _safe_result(future_domain_bl, "domain_blacklists", "Domain Blacklists", "reputation", 35, domain),
             _safe_result(future_tls, "tls", "TLS Encryption", "infrastructure", 10, domain),
             _safe_result(future_rdns, "reverse_dns", "Reverse DNS", "infrastructure", 8, domain),
@@ -160,11 +195,18 @@ def run_full_scan(domain: str, source: str = "api") -> dict:
             _safe_result(future_tls_rpt, "tls_rpt", "TLS Reporting", "infrastructure", 8, domain),
             _safe_result(future_senders, "sender_detection", "Email Provider", "infrastructure", 8, domain),
             _safe_result(future_age, "domain_age", "Domain Age", "reputation", 10, domain),
-            _safe_result(future_ip_rep, "ip_reputation", "IP Reputation", "reputation", 10, domain),
-            _safe_result(future_gsb, "google_safe_browsing", "Google Safe Browsing", "reputation", 10, domain),
-        ]
+        ])
+        if include_ip_checks:
+            checks.append(_safe_result(future_ip_rep, "ip_reputation",
+                                       "IP Reputation", "reputation", 10, domain))
+        checks.append(
+            _safe_result(future_gsb, "google_safe_browsing", "Google Safe Browsing", "reputation", 10, domain)
+        )
 
     # Calculate total score — capped at 100.
+    # INBOX-199: omitted IP-level checks drop from BOTH numerator and
+    # denominator, so the percentage stays honest. Public scan still
+    # produces a meaningful 0-100 score.
     total_points = sum(c.points for c in checks)
     max_points = sum(c.max_points for c in checks if c.max_points > 0)
     score = min(100, round((total_points / max_points * 100))) if max_points > 0 else 0
@@ -181,6 +223,10 @@ def run_full_scan(domain: str, source: str = "api") -> dict:
         "checks": [c.dict() for c in checks],
         "scan_time": scan_time,
         "scanned_at": datetime.now(timezone.utc).isoformat(),
+        # INBOX-199: surface depth so the frontend can render an upsell
+        # CTA ("Sign up to scan your sending IPs") next to the result
+        # when depth == "public".
+        "depth": depth,
     }
 
 

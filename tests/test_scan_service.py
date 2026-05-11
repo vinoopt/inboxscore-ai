@@ -141,6 +141,116 @@ class TestRunFullScan:
         assert out["score"] == 0
 
 
+class TestDepthSelector:
+    """INBOX-199: depth='public' skips the IP-level checks (check_blacklists
+    + check_ip_reputation) so anonymous marketing scans don't try to assess
+    IPs we cannot accurately attribute to the user. depth='full' keeps every
+    check (the path used by logged-in scans + the monitor cycle)."""
+
+    def test_default_depth_is_full(self):
+        """No depth arg → 15 checks (current behaviour preserved)."""
+        patchers = _patch_all_checks()
+        for p in patchers:
+            p.start()
+        try:
+            out = run_full_scan("example.com")
+        finally:
+            for p in patchers:
+                p.stop()
+
+        assert len(out["checks"]) == 15
+        names = {c["name"] for c in out["checks"]}
+        assert "blacklists" in names
+        assert "ip_reputation" in names
+        assert out["depth"] == "full"
+
+    def test_public_depth_omits_ip_level_checks(self):
+        """depth='public' must return 13 checks — no blacklists, no ip_reputation."""
+        patchers = _patch_all_checks()
+        for p in patchers:
+            p.start()
+        try:
+            out = run_full_scan("anon.example", depth="public")
+        finally:
+            for p in patchers:
+                p.stop()
+
+        assert len(out["checks"]) == 13
+        names = {c["name"] for c in out["checks"]}
+        assert "blacklists" not in names, (
+            "INBOX-199: anonymous scan must NOT include IP-based blacklist "
+            "check — SPF-derived IPs are mostly shared ESP space and would "
+            "show misleading 'your IP is blacklisted' results."
+        )
+        assert "ip_reputation" not in names, (
+            "INBOX-199: same reason — IP reputation needs IPs we can't "
+            "accurately attribute to an anonymous user."
+        )
+        # Domain-level checks MUST still be present.
+        assert "domain_blacklists" in names
+        assert "spf" in names
+        assert "dmarc" in names
+        assert out["depth"] == "public"
+
+    def test_public_depth_does_not_call_skipped_check_functions(self):
+        """Stronger guarantee: the skipped functions must not be called at
+        all on the public path. This protects against accidentally burning
+        HetrixTools credits or doing extra DNS work for anonymous scans."""
+        patchers = _patch_all_checks()
+        for p in patchers:
+            p.start()
+
+        # Spy on the two skipped functions to make sure they are NOT called.
+        from unittest.mock import patch as _patch
+        with _patch("scan_service.check_blacklists") as spy_bl, \
+             _patch("scan_service.check_ip_reputation") as spy_ip:
+            try:
+                run_full_scan("anon.example", depth="public")
+            finally:
+                for p in patchers:
+                    p.stop()
+
+            spy_bl.assert_not_called()
+            spy_ip.assert_not_called()
+
+    def test_public_depth_score_is_meaningful(self):
+        """With 13 perfect checks (no blacklists/ip_rep), score still maxes
+        at 100. The denominator drops along with the numerator so the
+        percentage stays honest."""
+        patchers = _patch_all_checks()
+        for p in patchers:
+            p.start()
+        try:
+            out = run_full_scan("perfect.example", depth="public")
+        finally:
+            for p in patchers:
+                p.stop()
+
+        assert out["score"] == 100, (
+            "public depth with all checks max-out must still score 100"
+        )
+
+    def test_full_depth_produces_same_checks_as_pre_inbox_199(self):
+        """Behavioural lock: depth='full' (explicit) is byte-for-byte the
+        same set of checks as the pre-INBOX-199 default."""
+        patchers = _patch_all_checks()
+        for p in patchers:
+            p.start()
+        try:
+            out = run_full_scan("full.example", depth="full")
+        finally:
+            for p in patchers:
+                p.stop()
+
+        names = sorted(c["name"] for c in out["checks"])
+        assert names == sorted([
+            "mx_records", "spf", "dkim", "dmarc", "blacklists",
+            "domain_blacklists", "tls", "reverse_dns", "bimi",
+            "mta_sts", "tls_rpt", "sender_detection", "domain_age",
+            "ip_reputation", "google_safe_browsing",
+        ])
+
+
 class TestSafeResult:
     def test_timeout_returns_warn_unknown_name_defaults_to_zero(self):
         class _FakeFuture:

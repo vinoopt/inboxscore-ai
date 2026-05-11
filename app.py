@@ -451,8 +451,18 @@ async def _run_scan(request: ScanRequest, req: Request):
     # Delegate the actual scan composition to scan_service (INBOX-21).
     # app.py owns HTTP concerns (SSRF, auth, rate-limit, Sentry, persistence);
     # scan_service owns check orchestration, timeouts, score, and summary.
+    #
+    # INBOX-199 (2026-05-11): depth selector. Anonymous marketing scans
+    # use depth="public" — skips check_blacklists + check_ip_reputation
+    # because SPF-derived sending IPs for anonymous users are mostly
+    # shared ESP space and produce misleading "your IP is blacklisted"
+    # results. Logged-in users get depth="full" because they can map
+    # their actual sending IPs in the Domains page. Side benefit:
+    # anonymous scan time drops from ~30s to ~10s and credit cost
+    # from 6 to 1 per scan.
     from scan_service import run_full_scan
-    response_data = run_full_scan(domain, source="api")
+    scan_depth = "full" if scan_user_id else "public"
+    response_data = run_full_scan(domain, source="api", depth=scan_depth)
     score = response_data["score"]
 
     # Store scan in database (async-safe, non-blocking to the response)
