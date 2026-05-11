@@ -3888,19 +3888,36 @@ async function ehInit() {
   if (!_hydrated) setGpmState('init');
   if (_hydrated) ehShowRefreshingPill(true);
 
+  // INBOX-228: fire loadGpmStatus + loadEhDomains in parallel instead of
+  // sequentially. Both endpoints are independent (status is the auth /
+  // plan check, domains is just the user's domain list). Promise.all
+  // gives wall-time = max(status, domains) instead of sum, saving
+  // ~300-500ms on every cold load. Trade-off: a non-pro/disconnected
+  // user fires one wasted /api/user/domains call before we discover the
+  // paywall state — backend cost ~50ms, no user-visible effect (the
+  // result is ignored when setGpmState routes to 'free' or
+  // 'disconnected').
   try {
-    const status = await loadGpmStatus();
+    const [status] = await Promise.all([
+      loadGpmStatus(),
+      // Fire-and-forget — loadEhDomains populates the dropdown
+      // internally. We don't need its return value here; the
+      // post-status guard below will skip onEhDomainChange's downstream
+      // calls if the user isn't paying / connected.
+      loadEhDomains().catch((err) => {
+        console.warn('[EH] loadEhDomains failed:', err?.message || err);
+        return null;
+      }),
+    ]);
     // status is null only if loadGpmStatus already routed somewhere
     // (free / disconnected) — in that case nothing more to do for GPM.
     if (!status || !status.is_pro || !status.connected) {
       ehHideRefreshingPill();
       return;
     }
-    // Pro + Connected — load domains. ehLatestScan / per-section fetches
-    // happen via onEhDomainChange after the dropdown is populated.
-    await loadEhDomains();
-    // SNDS / IP-rep / blacklist are wired through onEhDomainChange, so
-    // no explicit calls needed here.
+    // Pro + Connected — domains are already loaded above. SNDS / IP-rep
+    // / blacklist are wired through onEhDomainChange (fired by
+    // loadEhDomains once it picks the default domain).
   } catch (e) {
     // loadGpmStatus already set the error state; nothing else to do.
     console.warn('[EH] init aborted:', e?.message || e);

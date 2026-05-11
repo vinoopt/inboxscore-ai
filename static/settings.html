@@ -1003,11 +1003,17 @@ window.addEventListener('DOMContentLoaded', function () {
     if (!token) return;
 
     try {
-      var planResp = await fetch('/api/user/plan', { headers: { 'Authorization': 'Bearer ' + token } });
-      var domsResp = await fetch('/api/user/domains?per_page=200', { headers: { 'Authorization': 'Bearer ' + token } });
+      // INBOX-228: fire plan + domains in parallel — independent endpoints.
+      var headers = { 'Authorization': 'Bearer ' + token };
+      var [planResp, domsResp] = await Promise.all([
+        fetch('/api/user/plan', { headers }),
+        fetch('/api/user/domains?per_page=200', { headers }),
+      ]);
       if (!planResp.ok || !domsResp.ok) return;
-      var planData = await planResp.json();
-      var domsData = await domsResp.json();
+      var [planData, domsData] = await Promise.all([
+        planResp.json(),
+        domsResp.json(),
+      ]);
 
       var plan = (planData.plan || 'free').toLowerCase();
       var cap = (planData.domains_limit != null) ? planData.domains_limit : (PLAN_DOMAIN_LIMITS[plan] != null ? PLAN_DOMAIN_LIMITS[plan] : 1);

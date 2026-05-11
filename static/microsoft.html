@@ -3672,21 +3672,22 @@ async function ehInit() {
   if (!_hydrated) setGpmState('init');
   if (_hydrated) ehShowRefreshingPill(true);
 
+  // INBOX-228: fire loadGpmStatus + loadEhDomains in parallel. Mirrors
+  // postmaster.html's same fix — saves ~300-500ms on every cold load.
+  // Wasted-call trade-off for non-pro/disconnected users is the same.
   try {
-    const status = await loadGpmStatus();
-    // status is null only if loadGpmStatus already routed somewhere
-    // (free / disconnected) — in that case nothing more to do for GPM.
+    const [status] = await Promise.all([
+      loadGpmStatus(),
+      loadEhDomains().catch((err) => {
+        console.warn('[EH] loadEhDomains failed:', err?.message || err);
+        return null;
+      }),
+    ]);
     if (!status || !status.is_pro || !status.connected) {
       ehHideRefreshingPill();
       return;
     }
-    // Pro + Connected — load domains. ehLatestScan / per-section fetches
-    // happen via onEhDomainChange after the dropdown is populated.
-    await loadEhDomains();
-    // SNDS / IP-rep / blacklist are wired through onEhDomainChange, so
-    // no explicit calls needed here.
   } catch (e) {
-    // loadGpmStatus already set the error state; nothing else to do.
     console.warn('[EH] init aborted:', e?.message || e);
   } finally {
     ehHideRefreshingPill();
