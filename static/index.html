@@ -1208,15 +1208,26 @@ html[data-theme="dark"] .mkt-app-provider-icon.m { background: #ffffff; border-c
 .mkt-loading-domain { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 14px; color: var(--text-muted); margin-bottom: 6px; }
 .mkt-loading-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-strong); margin-bottom: 4px; }
 .mkt-loading-meta { font-size: 13px; color: var(--text-subtle); margin-bottom: 28px; }
-.mkt-check-list { max-width: 360px; margin: 0 auto; text-align: left; }
-.mkt-check-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 8px; margin-bottom: 4px; color: var(--text-muted); font-size: 14px; transition: all 220ms ease; }
-.mkt-check-item.active { background: var(--surface-2); color: var(--text-strong); }
-.mkt-check-item.done { color: var(--green-text, #00603f); }
-html[data-theme="dark"] .mkt-check-item.done { color: #4ade80; }
-.mkt-check-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; transition: all 220ms ease; }
-.mkt-check-item.active .mkt-check-dot { border-color: var(--text-strong); border-top-color: transparent; animation: mkt-spin 0.8s linear infinite; }
-.mkt-check-item.done .mkt-check-dot { background: #00875a; border-color: #00875a; animation: none; }
-html[data-theme="dark"] .mkt-check-item.done .mkt-check-dot { background: #26d978; border-color: #26d978; }
+/* INBOX-204 (2026-05-11) — 5-phase loader. Replaces the legacy
+   8-step .mkt-check-list. The old .mkt-check-* classes are retained
+   as dead-code-safe (no markup references them anymore) so any
+   stale cached HTML still renders without errors. */
+.mkt-phase-list { max-width: 380px; margin: 0 auto; text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.mkt-phase { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: 8px; font-size: 14px; color: var(--text-muted); transition: all 220ms ease; }
+.mkt-phase.active { background: var(--surface-2); color: var(--text-strong); }
+.mkt-phase.done { color: var(--green-text, #00603f); }
+html[data-theme="dark"] .mkt-phase.done { color: #4ade80; }
+.mkt-phase-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mkt-phase-icon svg { width: 18px; height: 18px; }
+.mkt-phase-pending { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); }
+.mkt-phase-spinning { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--text-strong); border-top-color: transparent; animation: mkt-spin 0.8s linear infinite; }
+.mkt-phase-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.mkt-phase-title { font-weight: 500; }
+.mkt-phase-sub { font-size: 12px; color: var(--text-subtle); }
+.mkt-phase.active .mkt-phase-sub { color: var(--text-muted); }
+.mkt-progress-track { max-width: 380px; margin: 20px auto 0; height: 4px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.mkt-progress-fill { height: 100%; background: var(--text-strong); width: 0%; border-radius: 999px; transition: width 0.3s ease-out; }
+.mkt-progress-meta { max-width: 380px; margin: 8px auto 0; display: flex; justify-content: space-between; font-size: 12px; color: var(--text-subtle); }
 @keyframes mkt-spin { to { transform: rotate(360deg); } }
 
 /* Results card */
@@ -1363,17 +1374,54 @@ html[data-theme="dark"] .mkt-modal-icon { background: rgba(167,139,250,0.14); co
     <div class="mkt-shell">
       <div class="mkt-loading-card">
         <div class="mkt-loading-domain" id="mkt-loading-domain">acme.com</div>
-        <div class="mkt-loading-title">Running deliverability checks…</div>
-        <div class="mkt-loading-meta">Usually takes 15–25 seconds</div>
-        <div class="mkt-check-list" id="mkt-check-list">
-          <div class="mkt-check-item" data-check="mx"><div class="mkt-check-dot"></div>MX Records</div>
-          <div class="mkt-check-item" data-check="spf"><div class="mkt-check-dot"></div>SPF Validation</div>
-          <div class="mkt-check-item" data-check="dkim"><div class="mkt-check-dot"></div>DKIM Configuration</div>
-          <div class="mkt-check-item" data-check="dmarc"><div class="mkt-check-dot"></div>DMARC Policy</div>
-          <div class="mkt-check-item" data-check="blacklists"><div class="mkt-check-dot"></div>Blacklist Scan (40+ lists)</div>
-          <div class="mkt-check-item" data-check="tls"><div class="mkt-check-dot"></div>TLS &amp; Encryption</div>
-          <div class="mkt-check-item" data-check="ip_reputation"><div class="mkt-check-dot"></div>IP Reputation Analysis</div>
-          <div class="mkt-check-item" data-check="score"><div class="mkt-check-dot"></div>Calculating Score</div>
+        <div class="mkt-loading-title">Scanning your domain…</div>
+        <div class="mkt-loading-meta">Checking authentication, infrastructure, reputation</div>
+        <!-- INBOX-204 (2026-05-11): 5-phase loader replaces the legacy
+             8-step checklist. Phases map to real scan timing (auth →
+             infra → reputation → blacklists → finalise). The blacklist
+             phase is the long one (~7s) so the loader honestly shows
+             where the time goes, instead of parking on a fake step. -->
+        <div class="mkt-phase-list" id="mkt-phase-list">
+          <div class="mkt-phase" data-phase="0">
+            <div class="mkt-phase-icon"><span class="mkt-phase-pending"></span></div>
+            <div class="mkt-phase-text">
+              <div class="mkt-phase-title">Authentication records</div>
+              <div class="mkt-phase-sub">SPF, DKIM, DMARC</div>
+            </div>
+          </div>
+          <div class="mkt-phase" data-phase="1">
+            <div class="mkt-phase-icon"><span class="mkt-phase-pending"></span></div>
+            <div class="mkt-phase-text">
+              <div class="mkt-phase-title">Mail server + TLS</div>
+              <div class="mkt-phase-sub">MX, reverse DNS, encryption</div>
+            </div>
+          </div>
+          <div class="mkt-phase" data-phase="2">
+            <div class="mkt-phase-icon"><span class="mkt-phase-pending"></span></div>
+            <div class="mkt-phase-text">
+              <div class="mkt-phase-title">Domain age + reputation</div>
+              <div class="mkt-phase-sub">WHOIS, Google Safe Browsing</div>
+            </div>
+          </div>
+          <div class="mkt-phase" data-phase="3">
+            <div class="mkt-phase-icon"><span class="mkt-phase-pending"></span></div>
+            <div class="mkt-phase-text">
+              <div class="mkt-phase-title">Domain blacklists</div>
+              <div class="mkt-phase-sub">Scanning 23 lists via HetrixTools</div>
+            </div>
+          </div>
+          <div class="mkt-phase" data-phase="4">
+            <div class="mkt-phase-icon"><span class="mkt-phase-pending"></span></div>
+            <div class="mkt-phase-text">
+              <div class="mkt-phase-title">Finalising your score</div>
+              <div class="mkt-phase-sub">Compiling results</div>
+            </div>
+          </div>
+        </div>
+        <div class="mkt-progress-track"><div class="mkt-progress-fill" id="mkt-progress-fill"></div></div>
+        <div class="mkt-progress-meta">
+          <span id="mkt-progress-percent">0%</span>
+          <span id="mkt-progress-elapsed">0.0s</span>
         </div>
       </div>
     </div>
@@ -2232,40 +2280,83 @@ function returnToMarketing() {
   if (input) { input.value = ''; setTimeout(function () { input.focus(); }, 50); }
 }
 
-/* Animate the 7-step checklist while the real /api/scan request is in
-   flight. Matches the live /dashboard cadence (400ms per step) and parks
-   on "Calculating Score" until the API returns — at which point the
-   render snaps everything to done before swapping to the results pane. */
-var _mktChecklistInterval = null;
+/* INBOX-204 (2026-05-11): 5-phase loader animation. Each phase has a
+   target completion time matching real scan cadence (auth checks ~1s,
+   infra ~2.2s, reputation ~3.6s, blacklists ~9.5s, finalising 10s).
+   Driven by requestAnimationFrame for smooth progress bar + elapsed
+   counter. When the real /api/scan returns, finishChecklist() snaps
+   everything to done before swapping to the results pane. */
+var _MKT_PHASES = [
+  { title: 'Authentication records',     sub: 'SPF, DKIM, DMARC',                  end:  1000 },
+  { title: 'Mail server + TLS',          sub: 'MX, reverse DNS, encryption',       end:  2200 },
+  { title: 'Domain age + reputation',    sub: 'WHOIS, Google Safe Browsing',       end:  3600 },
+  { title: 'Domain blacklists',          sub: 'Scanning 23 lists via HetrixTools', end:  9500 },
+  { title: 'Finalising your score',      sub: 'Compiling results',                 end: 10000 }
+];
+var _MKT_TOTAL_MS = 10000;
+var _mktAnimStart = 0;
+var _mktRafId = null;
+
+function _mktSetPhase(idx, state) {
+  var row = document.querySelector('#mkt-phase-list .mkt-phase[data-phase="' + idx + '"]');
+  if (!row) return;
+  row.classList.remove('active', 'done');
+  var iconEl = row.querySelector('.mkt-phase-icon');
+  if (state === 'done') {
+    row.classList.add('done');
+    iconEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  } else if (state === 'active') {
+    row.classList.add('active');
+    iconEl.innerHTML = '<span class="mkt-phase-spinning"></span>';
+  } else {
+    iconEl.innerHTML = '<span class="mkt-phase-pending"></span>';
+  }
+}
+
+function _mktTick() {
+  var elapsed = performance.now() - _mktAnimStart;
+  var pct = Math.min(100, (elapsed / _MKT_TOTAL_MS) * 100);
+  for (var i = 0; i < _MKT_PHASES.length; i++) {
+    var startMs = i === 0 ? 0 : _MKT_PHASES[i - 1].end;
+    var endMs = _MKT_PHASES[i].end;
+    if (elapsed >= endMs) _mktSetPhase(i, 'done');
+    else if (elapsed >= startMs) _mktSetPhase(i, 'active');
+    else _mktSetPhase(i, 'pending');
+  }
+  var pf = document.getElementById('mkt-progress-fill');
+  var pn = document.getElementById('mkt-progress-percent');
+  var pe = document.getElementById('mkt-progress-elapsed');
+  if (pf) pf.style.width = pct.toFixed(0) + '%';
+  if (pn) pn.textContent = pct.toFixed(0) + '%';
+  if (pe) pe.textContent = (elapsed / 1000).toFixed(1) + 's';
+  if (elapsed < _MKT_TOTAL_MS) {
+    _mktRafId = requestAnimationFrame(_mktTick);
+  } else {
+    _mktRafId = null;
+  }
+}
+
 function startChecklist() {
-  var items = document.querySelectorAll('#mkt-check-list .mkt-check-item');
-  if (!items.length) return;
-  items.forEach(function (i) {
-    i.classList.remove('active', 'done');
-    i.querySelector('.mkt-check-dot').textContent = '';
-  });
-  var idx = 0;
-  if (_mktChecklistInterval) clearInterval(_mktChecklistInterval);
-  _mktChecklistInterval = setInterval(function () {
-    if (idx > 0) {
-      items[idx - 1].classList.remove('active');
-      items[idx - 1].classList.add('done');
-      items[idx - 1].querySelector('.mkt-check-dot').textContent = '✓';
-    }
-    if (idx < items.length) {
-      items[idx].classList.add('active');
-      idx += 1;
-      if (idx === items.length) clearInterval(_mktChecklistInterval);
-    }
-  }, 400);
+  var phases = document.querySelectorAll('#mkt-phase-list .mkt-phase');
+  if (!phases.length) return;
+  phases.forEach(function (_, i) { _mktSetPhase(i, 'pending'); });
+  var pf = document.getElementById('mkt-progress-fill');
+  var pn = document.getElementById('mkt-progress-percent');
+  var pe = document.getElementById('mkt-progress-elapsed');
+  if (pf) pf.style.width = '0%';
+  if (pn) pn.textContent = '0%';
+  if (pe) pe.textContent = '0.0s';
+  if (_mktRafId) cancelAnimationFrame(_mktRafId);
+  _mktAnimStart = performance.now();
+  _mktRafId = requestAnimationFrame(_mktTick);
 }
 function finishChecklist() {
-  if (_mktChecklistInterval) { clearInterval(_mktChecklistInterval); _mktChecklistInterval = null; }
-  document.querySelectorAll('#mkt-check-list .mkt-check-item').forEach(function (i) {
-    i.classList.remove('active');
-    i.classList.add('done');
-    i.querySelector('.mkt-check-dot').textContent = '✓';
-  });
+  if (_mktRafId) { cancelAnimationFrame(_mktRafId); _mktRafId = null; }
+  for (var i = 0; i < _MKT_PHASES.length; i++) _mktSetPhase(i, 'done');
+  var pf = document.getElementById('mkt-progress-fill');
+  var pn = document.getElementById('mkt-progress-percent');
+  if (pf) pf.style.width = '100%';
+  if (pn) pn.textContent = '100%';
 }
 
 function renderResults(data) {

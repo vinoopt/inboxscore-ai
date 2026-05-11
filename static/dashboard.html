@@ -251,16 +251,52 @@
         <button class="back-to-dash" onclick="dashShowView('dashboard')">← Back to Dashboard</button>
         <div class="scan-loading">
           <div class="scan-loading-title" id="scanning-domain">example.com</div>
-          <div class="scan-loading-subtitle">Running deliverability checks...</div>
-          <div class="check-list" id="dash-check-list">
-            <div class="check-item" data-check="mx"><div class="check-dot"></div>MX Records</div>
-            <div class="check-item" data-check="spf"><div class="check-dot"></div>SPF Validation</div>
-            <div class="check-item" data-check="dkim"><div class="check-dot"></div>DKIM Configuration</div>
-            <div class="check-item" data-check="dmarc"><div class="check-dot"></div>DMARC Policy</div>
-            <div class="check-item" data-check="blacklists"><div class="check-dot"></div>Blacklist Scan (40+ lists)</div>
-            <div class="check-item" data-check="tls"><div class="check-dot"></div>TLS &amp; Encryption</div>
-            <div class="check-item" data-check="ip_reputation"><div class="check-dot"></div>IP Reputation Analysis</div>
-            <div class="check-item" data-check="score"><div class="check-dot"></div>Calculating Score</div>
+          <div class="scan-loading-subtitle">Checking authentication, infrastructure, reputation</div>
+          <!-- INBOX-204 (2026-05-11): 5-phase loader. Logged-in scans
+               (depth=full) check 23 domain DBLs + ~122 IP RBLs via
+               HetrixTools, so this includes the IP reputation phase
+               that anonymous scans skip. -->
+          <div class="phase-list" id="dash-phase-list">
+            <div class="phase" data-phase="0">
+              <div class="phase-icon"><span class="phase-pending"></span></div>
+              <div class="phase-text">
+                <div class="phase-title">Authentication records</div>
+                <div class="phase-sub">SPF, DKIM, DMARC</div>
+              </div>
+            </div>
+            <div class="phase" data-phase="1">
+              <div class="phase-icon"><span class="phase-pending"></span></div>
+              <div class="phase-text">
+                <div class="phase-title">Mail server + TLS</div>
+                <div class="phase-sub">MX, reverse DNS, encryption</div>
+              </div>
+            </div>
+            <div class="phase" data-phase="2">
+              <div class="phase-icon"><span class="phase-pending"></span></div>
+              <div class="phase-text">
+                <div class="phase-title">Domain age + reputation</div>
+                <div class="phase-sub">WHOIS, Google Safe Browsing</div>
+              </div>
+            </div>
+            <div class="phase" data-phase="3">
+              <div class="phase-icon"><span class="phase-pending"></span></div>
+              <div class="phase-text">
+                <div class="phase-title">Blacklists + IP reputation</div>
+                <div class="phase-sub">23 domain + ~122 IP lists via HetrixTools</div>
+              </div>
+            </div>
+            <div class="phase" data-phase="4">
+              <div class="phase-icon"><span class="phase-pending"></span></div>
+              <div class="phase-text">
+                <div class="phase-title">Finalising your score</div>
+                <div class="phase-sub">Compiling results</div>
+              </div>
+            </div>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="dash-progress-fill"></div></div>
+          <div class="progress-meta">
+            <span id="dash-progress-percent">0%</span>
+            <span id="dash-progress-elapsed">0.0s</span>
           </div>
         </div>
       </div>
@@ -1587,30 +1623,80 @@ async function dashStartScan() {
   document.getElementById('scanning-domain').textContent = domain;
   dashShowView('scanning');
 
-  // INBOX-34: advance ticks 0..N-2 at a steady 400ms pace. When we reach
-  // the LAST item ("Calculating Score"), activate it and then STOP the
-  // interval — leave it spinning until the real API response arrives.
-  // The previous implementation ran all 8 items to done in 4s regardless
-  // of scan duration, so any scan >4s produced dead air where the user
-  // saw all green ticks but no result. Now the spinner keeps indicating
-  // progress until there's an actual result to show.
-  const items = document.querySelectorAll('#dash-check-list .check-item');
-  items.forEach(i => { i.classList.remove('done','active'); i.querySelector('.check-dot').textContent = ''; });
-  let idx = 0;
-  const interval = setInterval(() => {
-    if (idx > 0) {
-      items[idx-1].classList.remove('active');
-      items[idx-1].classList.add('done');
-      items[idx-1].querySelector('.check-dot').textContent = '✓';
+  // INBOX-204 (2026-05-11): 5-phase loader replaces the legacy 8-step
+  // checklist. Phases map to real scan timing (auth → infra → reputation
+  // → blacklists → finalise). The blacklist phase is the long one
+  // (~7s) on a cold scan, so the loader honestly shows where the time
+  // goes instead of parking on a fake "Calculating Score" step.
+  const _DASH_PHASES = [
+    { end:  1000 },  // 0: Authentication records
+    { end:  2200 },  // 1: Mail server + TLS
+    { end:  3600 },  // 2: Domain age + reputation
+    { end: 16000 },  // 3: Blacklists + IP reputation (long — full scan ~16-30s)
+    { end: 18000 },  // 4: Finalising
+  ];
+  const _DASH_TOTAL_MS = 18000;
+  function _dashSetPhase(i, state) {
+    const row = document.querySelector('#dash-phase-list .phase[data-phase="' + i + '"]');
+    if (!row) return;
+    row.classList.remove('active', 'done');
+    const iconEl = row.querySelector('.phase-icon');
+    if (state === 'done') {
+      row.classList.add('done');
+      iconEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    } else if (state === 'active') {
+      row.classList.add('active');
+      iconEl.innerHTML = '<span class="phase-spinning"></span>';
+    } else {
+      iconEl.innerHTML = '<span class="phase-pending"></span>';
     }
-    if (idx < items.length) {
-      items[idx].classList.add('active');
-      idx++;
-      // Hold on the last item — don't auto-mark it done. It stays in the
-      // spinner state until dashStartScan snaps everything to done below.
-      if (idx === items.length) clearInterval(interval);
+  }
+  // Reset
+  _DASH_PHASES.forEach((_, i) => _dashSetPhase(i, 'pending'));
+  const pf0 = document.getElementById('dash-progress-fill');
+  const pn0 = document.getElementById('dash-progress-percent');
+  const pe0 = document.getElementById('dash-progress-elapsed');
+  if (pf0) pf0.style.width = '0%';
+  if (pn0) pn0.textContent = '0%';
+  if (pe0) pe0.textContent = '0.0s';
+  let _dashRafId = null;
+  const _dashStart = performance.now();
+  function _dashTick() {
+    const elapsed = performance.now() - _dashStart;
+    const pct = Math.min(100, (elapsed / _DASH_TOTAL_MS) * 100);
+    for (let i = 0; i < _DASH_PHASES.length; i++) {
+      const startMs = i === 0 ? 0 : _DASH_PHASES[i - 1].end;
+      const endMs = _DASH_PHASES[i].end;
+      // INBOX-204: don't auto-mark the final phase done — the real API
+      // response triggers finishDashChecklist() to snap everything to done.
+      if (i === _DASH_PHASES.length - 1) {
+        if (elapsed >= startMs) _dashSetPhase(i, 'active');
+        else _dashSetPhase(i, 'pending');
+      } else {
+        if (elapsed >= endMs) _dashSetPhase(i, 'done');
+        else if (elapsed >= startMs) _dashSetPhase(i, 'active');
+        else _dashSetPhase(i, 'pending');
+      }
     }
-  }, 400);
+    const pf = document.getElementById('dash-progress-fill');
+    const pn = document.getElementById('dash-progress-percent');
+    const pe = document.getElementById('dash-progress-elapsed');
+    if (pf) pf.style.width = pct.toFixed(0) + '%';
+    if (pn) pn.textContent = pct.toFixed(0) + '%';
+    if (pe) pe.textContent = (elapsed / 1000).toFixed(1) + 's';
+    if (elapsed < _DASH_TOTAL_MS) {
+      _dashRafId = requestAnimationFrame(_dashTick);
+    } else {
+      _dashRafId = null;
+    }
+  }
+  _dashRafId = requestAnimationFrame(_dashTick);
+  // Provide a fake `interval` handle so existing clearInterval(interval)
+  // call-sites below keep working without refactoring the whole flow.
+  const interval = { _isRaf: true, cancel: function() { if (_dashRafId) cancelAnimationFrame(_dashRafId); _dashRafId = null; } };
+  const _origClearInterval = window.clearInterval;
+  // Override only within this scope so the rest of the page is untouched.
+  function clearInterval(h) { if (h && h._isRaf) { h.cancel(); } else { _origClearInterval(h); } }
 
   // Client-side timeout (25s) — Render has a 30s request limit
   const controller = new AbortController();
@@ -1674,9 +1760,14 @@ async function dashStartScan() {
       }
     }
 
-    // Finish the loading animation before showing results
+    // INBOX-204: snap all 5 phases to done + progress to 100% before
+    // swapping to the results pane.
     clearInterval(interval);
-    items.forEach(i => { i.classList.remove('active'); i.classList.add('done'); i.querySelector('.check-dot').textContent = '✓'; });
+    _DASH_PHASES.forEach((_, i) => _dashSetPhase(i, 'done'));
+    const pf2 = document.getElementById('dash-progress-fill');
+    const pn2 = document.getElementById('dash-progress-percent');
+    if (pf2) pf2.style.width = '100%';
+    if (pn2) pn2.textContent = '100%';
 
     setTimeout(() => dashRenderResults(data), 600);
   } catch (err) {

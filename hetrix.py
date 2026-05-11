@@ -351,10 +351,14 @@ def full_blacklist_check(domain: str, ips: Optional[list[str]] = None) -> dict:
         "high_severity_count": high_count,
         "overall_status": overall,
         "checked_at": datetime.now(timezone.utc).isoformat(),
-        # HetrixTools aggregates 1000+ lists per call internally. We
-        # surface that as the count rather than the per-DNSBL
-        # granularity dnsbl.py used.
-        "lists_checked": 1000,
+        # INBOX-229 (2026-05-11) correction: HetrixTools' marketing
+        # says "1000+" but the actual per-call coverage (verified from
+        # their docs + live UI on 2026-05-11) is:
+        #   - Domain check: 23 DBLs
+        #   - IPv4 check:   ~122 RBLs
+        # We expose the larger of the two so the surfaced "lists_checked"
+        # is the headline coverage when both were queried.
+        "lists_checked": 122 if ips else 23,
     }
 
 

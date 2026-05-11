@@ -1456,11 +1456,11 @@ def check_blacklists(domain: str) -> CheckResult:
 
     listings = len(listed_on)
 
-    # HetrixTools reports they consult 1000+ lists. We expose that
-    # number so the UI's "checked N blacklists" string stays accurate.
-    # Fall back to the static BLACKLISTS count if hetrix didn't return
-    # a checked_count (shouldn't happen in practice).
-    total_lists = 1000
+    # INBOX-229 correction (2026-05-11): HetrixTools' actual IPv4 RBL
+    # coverage is ~122 lists (verified from their public docs
+    # https://docs.hetrixtools.com/monitored-blacklists/). The earlier
+    # "1000+" copy was their marketing claim, not the per-call reality.
+    total_lists = 122
 
     # INBOX-25: display the SAME IPs we actually checked.
     ip_summary = []
@@ -1480,7 +1480,7 @@ def check_blacklists(domain: str) -> CheckResult:
     if listings == 0:
         detail = (
             f"Your sending IPs are clean — not listed on any of "
-            f"{total_lists}+ blacklists checked via HetrixTools"
+            f"~{total_lists} blacklists checked via HetrixTools"
         )
         if len(ips) == 1:
             detail += f" (checked IP: {ips[0]} via {ip_sources[ips[0]][0]})"
@@ -1660,10 +1660,12 @@ def check_domain_blacklists(domain: str) -> CheckResult:
         })
 
     listings = len(listed_on)
-    # HetrixTools reports they check 1000+ lists internally. We expose
-    # that number for the UI "checked N" string. Empty error_listings
-    # and fully_errored_blacklists for backward-compat with the UI.
-    total_bls = 1000
+    # INBOX-229 correction (2026-05-11): HetrixTools' domain blacklist
+    # check covers 23 DBLs per their UI on a live check (verified
+    # 2026-05-11 — google.com result page explicitly says "1 out of 23
+    # checked blacklists"). Their public docs list ~45 historic domain
+    # RBLs, but the live check uses 23. We trust the live number.
+    total_bls = 23
 
     if listings == 0:
         return CheckResult(
@@ -1671,7 +1673,7 @@ def check_domain_blacklists(domain: str) -> CheckResult:
             category="reputation",
             status="pass",
             title="Domain Blacklists",
-            detail=f"{domain} not listed on any of {total_bls}+ domain blacklists checked via HetrixTools",
+            detail=f"{domain} not listed on any of {total_bls} domain blacklists checked via HetrixTools",
             raw_data={
                 "checked": total_bls,
                 "effectively_checked": total_bls,
