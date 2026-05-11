@@ -1338,6 +1338,16 @@ window.addEventListener('DOMContentLoaded', () => {
   const _hydrated = _dhHydrateFromCache();
 
   // SWR step 2: revalidate in parallel.
+  // INBOX-225: fire ALL 9 calls in parallel instead of two sequential
+  // waves. Wave 2 (postmaster + SNDS bulk) doesn't actually depend on
+  // wave 1's data — both bulk endpoints work off user_id from the
+  // bearer token. Splitting them into two waves cost 2-4s of skeleton
+  // time on cold loads (the second wave only fired AFTER the first
+  // resolved). Single Promise.all means wall-time = max(slowest call)
+  // instead of sum(waves). Auth failures still throw 'auth' from the
+  // first call so the .catch() below redirects to /login as before;
+  // the postmaster/SNDS calls that fire concurrently are wasted in
+  // that path but auth-rejected cheaply server-side.
   Promise.all([
     fetch('/api/auth/me', { headers }).then(r => { if (!r.ok) throw new Error('auth'); return r.json(); }),
     fetch('/api/user/stats', { headers }).then(r => r.ok ? r.json() : null),
@@ -1348,7 +1358,18 @@ window.addEventListener('DOMContentLoaded', () => {
     fetch('/api/user/scans?since_days=7', { headers }).then(r => r.ok ? r.json() : null),
     fetch('/api/user/alerts', { headers }).then(r => r.ok ? r.json() : null),
     fetch('/api/user/alerts/count', { headers }).then(r => r.ok ? r.json() : null),
-  ]).then(async ([userData, stats, domainsData, scansData, alertsData, alertCount]) => {
+    // INBOX-225: previously a second Promise.all inside .then() — now
+    // fired in parallel with wave 1. Failures stay non-fatal via .catch.
+    fetch('/api/postmaster/metrics-bulk?days=7', { headers })
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null),
+    fetch('/api/postmaster/compliance-bulk', { headers })
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null),
+    fetch('/api/snds/dashboard-summary-bulk', { headers })
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null),
+  ]).then(([userData, stats, domainsData, scansData, alertsData, alertCount, pmBulk, pmComplianceBulk, sndsBulk]) => {
     // User info
     const name = userData.user.name || userData.user.email.split('@')[0];
     document.getElementById('user-name').textContent = name;
@@ -1383,28 +1404,17 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // INBOX-161 (F2): the Dashboard previously fired 2 × N parallel
     // fetches per page load (postmaster + SNDS, one per domain). The
-    // bulk endpoints below collapse this into 2 round trips total,
+    // bulk endpoints collapse this into 3 round trips total,
     // independent of domain count. Old per-domain endpoints stay live
     // for the Email Health page (which still needs per-domain history).
+    // INBOX-225: those 3 bulk fetches are now part of the outer
+    // Promise.all (fired in parallel with wave 1), so by the time we
+    // reach this block their results (pmBulk / pmComplianceBulk /
+    // sndsBulk) are already destructured above. Nothing to await here.
     const domains = (domainsData && domainsData.domains) ? domainsData.domains : [];
     const pmByDomain = {};
     const pmComplianceByDomain = {};
     const sndsByDomain = {};
-
-    // INBOX-211: 3rd bulk call — Google Postmaster compliance verdicts.
-    // Powers the new status-pill Postmaster card. Failures are non-fatal
-    // (the card just falls back to the "still evaluating" banner).
-    const [pmBulk, pmComplianceBulk, sndsBulk] = await Promise.all([
-      fetch('/api/postmaster/metrics-bulk?days=7', { headers })
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null),
-      fetch('/api/postmaster/compliance-bulk', { headers })
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null),
-      fetch('/api/snds/dashboard-summary-bulk', { headers })
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null),
-    ]);
 
     // pmBulk shape: { connected, google_email, metrics: { "<domain>": <row> } }
     if (pmBulk && pmBulk.connected && pmBulk.metrics) {
