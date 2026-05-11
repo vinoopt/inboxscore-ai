@@ -23,6 +23,14 @@ from db import (
     # cron silently improved scan history but the standalone Blacklist
     # Monitor page kept showing whatever timestamp the user last clicked.
     get_ips_for_domain, save_blacklist_results,
+    # INBOX-229 phase 2: freshness check reads the cached row's
+    # checked_at timestamp before deciding to spend a HetrixTools
+    # credit. dnsbl path bypasses the gate (always refreshes).
+    get_blacklist_results,
+)
+from blacklist_provider import (
+    get_full_blacklist_check_fn,
+    should_skip_blacklist_refresh,
 )
 from scan_service import run_full_scan
 
@@ -189,14 +197,35 @@ def monitor_single_domain(domain_data: dict):
         # /blacklist Monitor page reflects fresh data on every scheduled
         # cycle. Wrapped in its own try/except so a DNSBL hiccup doesn't
         # poison the rest of the monitoring step.
+        # INBOX-229 phase 2: provider selection (dnsbl vs hetrix) is now
+        # delegated to blacklist_provider.get_full_blacklist_check_fn()
+        # which reads USE_HETRIX_BL + HETRIX_CANARY_USER_IDS at call time.
+        # When hetrix is selected, we also gate the call on a 23h
+        # freshness window so we don't burn a credit every 6h.
         try:
-            from dnsbl import full_blacklist_check
-            user_domain_ips = get_ips_for_domain(user_id, domain) or []
-            ips = sorted(set(user_domain_ips))
-            bl_result = full_blacklist_check(domain, ips)
-            for ip_result in bl_result.get("ip_results", []):
-                ip_result["source"] = "Sending IPs"
-            save_blacklist_results(user_id, domain, bl_result)
+            # Freshness gate — only applies on the hetrix path (always
+            # False for dnsbl). Reads the existing cached row's
+            # checked_at; if recent, skip the API call and keep the
+            # current cached data (it's already < 23h old).
+            existing = get_blacklist_results(user_id, domain) or {}
+            existing_checked_at = (
+                existing.get("checked_at")
+                if isinstance(existing, dict) else None
+            )
+            if should_skip_blacklist_refresh(user_id, domain, existing_checked_at):
+                logger.info("monitor.blacklist_skip_fresh", extra={
+                    "domain": domain,
+                    "user_id_prefix": user_id[:8] if user_id else None,
+                    "last_checked_at": existing_checked_at,
+                })
+            else:
+                full_blacklist_check = get_full_blacklist_check_fn(user_id)
+                user_domain_ips = get_ips_for_domain(user_id, domain) or []
+                ips = sorted(set(user_domain_ips))
+                bl_result = full_blacklist_check(domain, ips)
+                for ip_result in bl_result.get("ip_results", []):
+                    ip_result["source"] = "Sending IPs"
+                save_blacklist_results(user_id, domain, bl_result)
         except Exception:
             logger.exception("monitor.blacklist_results_save_failed", extra={
                 "domain": domain,

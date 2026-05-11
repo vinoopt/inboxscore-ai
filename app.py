@@ -1697,15 +1697,21 @@ async def api_blacklist_check(domain: str, req: Request):
     if not user_result["success"]:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    from dnsbl import full_blacklist_check
-
+    # INBOX-229 phase 2: pick the provider (dnsbl or hetrix) at call
+    # time via blacklist_provider.get_full_blacklist_check_fn(). The
+    # freshness gate intentionally is NOT applied here — manual
+    # "Scan now" clicks should always hit live data, even on the
+    # hetrix path (1 extra credit per click is acceptable).
     user_id = user_result["user"]["id"]
+    from blacklist_provider import get_full_blacklist_check_fn
+    full_blacklist_check = get_full_blacklist_check_fn(user_id)
 
     # IPs = strictly user-mapped IPs for this domain. No DNS fallback.
     user_domain_ips = get_ips_for_domain(user_id, domain) or []
     ips = sorted(set(user_domain_ips))
 
-    # Run the check (synchronous DNS but fast — sub-second).
+    # Run the check. dnsbl is sub-second; hetrix is 10-22s (slow but
+    # called only when the user explicitly clicked Scan now).
     result = full_blacklist_check(domain, ips)
 
     # Attach a "source" tag per IP for UI consistency with the prior
