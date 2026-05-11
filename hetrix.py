@@ -30,6 +30,7 @@ Architecture decisions (from migration plan):
 """
 
 import os
+import concurrent.futures
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -47,6 +48,11 @@ HX_BASE = "https://api.hetrixtools.com/v2"
 # they fan out to 1000+ lists per request. 30s gives headroom without
 # hanging the scheduler if their API stalls.
 HX_TIMEOUT = 30.0
+
+# INBOX-229 (2026-05-11): HetrixTools' API rejects requests without a
+# User-Agent header — Python's default `python-urllib/x.x` triggers a
+# 403 from their Cloudflare front. Confirmed by direct curl test.
+HX_USER_AGENT = "InboxScore/1.0 (+https://inboxscore.ai)"
 
 
 # ─── Severity classification ──────────────────────────────────────
@@ -155,7 +161,10 @@ def _hx_get(path: str) -> dict:
     DB result, never break the page).
     """
     url = f"{HX_BASE}/{_get_token()}/{path.lstrip('/')}"
-    with httpx.Client(timeout=HX_TIMEOUT) as client:
+    # User-Agent is REQUIRED — HetrixTools' Cloudflare front returns 403
+    # to Python's default urllib UA. See HX_USER_AGENT comment.
+    headers = {"User-Agent": HX_USER_AGENT, "Accept": "application/json"}
+    with httpx.Client(timeout=HX_TIMEOUT, headers=headers) as client:
         resp = client.get(url)
         resp.raise_for_status()
         return _strip_key_from_payload(resp.json())
@@ -263,22 +272,58 @@ def _parse_listings(raw: dict) -> list[dict]:
 
 def full_blacklist_check(domain: str, ips: Optional[list[str]] = None) -> dict:
     """Run a complete blacklist check via HetrixTools: domain + all
-    sending IPs.
+    sending IPs, in parallel.
 
     Same signature + return shape as dnsbl.full_blacklist_check.
-    Calls are sequential (the API is slow enough that parallelism
-    doesn't help — each call already fans out internally over 1000+
-    lists). Cap IPs at 50 to match dnsbl's behaviour and bound the
-    credit burn per scan.
-    """
-    domain_result = check_domain(domain)
 
+    INBOX-229 (2026-05-11): all calls (domain + each IP) run in
+    parallel via ThreadPoolExecutor. Each individual call still takes
+    10-22s on a cold target, but the wall-clock for the whole batch is
+    ~max(individual_times) instead of sum — so a 1-domain + 5-IP scan
+    drops from 60-120s to ~20s. This is what makes hetrix viable on
+    the user-facing scan path.
+
+    Cap IPs at 50 to bound the credit burn per scan (matches
+    dnsbl.py's behaviour).
+    """
     ip_results: list[dict] = []
     if ips:
         # INBOX-26: sort for deterministic output; cap at 50.
         unique_ips = sorted(set(ips))[:50]
-        for ip in unique_ips:
-            ip_results.append(check_ip(ip))
+    else:
+        unique_ips = []
+
+    # Parallelise domain call + per-IP calls. max_workers caps concurrent
+    # HetrixTools requests; their API tolerates this fine and our network
+    # I/O is async-friendly via httpx. 6 = 1 domain + 5 IPs (the typical
+    # IP_CHECK_CAP from checks.py). For larger batches we cap at 10 so
+    # we don't open too many sockets at once.
+    max_workers = min(1 + len(unique_ips), 10) or 1
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
+        future_domain = ex.submit(check_domain, domain)
+        future_to_ip = {ex.submit(check_ip, ip): ip for ip in unique_ips}
+
+        domain_result = future_domain.result()
+        # Preserve input order for the IPs in the output (sorted), so the
+        # response shape is deterministic across runs.
+        ip_to_result = {}
+        for fut in concurrent.futures.as_completed(future_to_ip):
+            ip = future_to_ip[fut]
+            try:
+                ip_to_result[ip] = fut.result()
+            except Exception as e:
+                logger.exception("hetrix.full_check_ip_failed",
+                                 extra={"ip": ip, "domain": domain})
+                # Build the same error-shape check_ip emits so callers
+                # don't have to special-case a None.
+                ip_to_result[ip] = {
+                    "ip": ip,
+                    "blacklisted_count": 0,
+                    "blacklisted_on": [],
+                    "checked_count": 0,
+                    "error": f"HetrixTools error: {e}",
+                }
+        ip_results = [ip_to_result[ip] for ip in unique_ips]
 
     # Aggregate
     total_listings = domain_result["blacklisted_count"]

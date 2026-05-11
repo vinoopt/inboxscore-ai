@@ -141,13 +141,18 @@ def run_full_scan(domain: str, source: str = "api") -> dict:
         future_gsb = executor.submit(check_google_safe_browsing, domain)  # INBOX-95
 
         # Timeouts: DNS-only checks get 8s, network-heavy checks get 12s.
+        # INBOX-229 (2026-05-11): blacklists + domain_blacklists now route
+        # through HetrixTools (10-22s per call cold, 0.2s warm). Bumped to
+        # 40s so cold scans complete instead of falling through to the
+        # _safe_result error path. The scan is bounded by these two — every
+        # other check completes in well under 10s.
         checks = [
             _safe_result(future_mx, "mx_records", "MX Records", "infrastructure", 8, domain),
             _safe_result(future_spf, "spf", "SPF Record", "authentication", 8, domain),
             _safe_result(future_dkim, "dkim", "DKIM", "authentication", 8, domain),
             _safe_result(future_dmarc, "dmarc", "DMARC Policy", "authentication", 8, domain),
-            _safe_result(future_blacklists, "blacklists", "Blacklist Check", "reputation", 12, domain),
-            _safe_result(future_domain_bl, "domain_blacklists", "Domain Blacklists", "reputation", 6, domain),
+            _safe_result(future_blacklists, "blacklists", "Blacklist Check", "reputation", 40, domain),
+            _safe_result(future_domain_bl, "domain_blacklists", "Domain Blacklists", "reputation", 35, domain),
             _safe_result(future_tls, "tls", "TLS Encryption", "infrastructure", 10, domain),
             _safe_result(future_rdns, "reverse_dns", "Reverse DNS", "infrastructure", 8, domain),
             _safe_result(future_bimi, "bimi", "BIMI Record", "authentication", 8, domain),

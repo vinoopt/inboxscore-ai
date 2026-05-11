@@ -23,6 +23,8 @@ import os
 import sys
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import checks  # noqa: E402
@@ -202,88 +204,117 @@ class TestBlacklistsUsesSpfSendingIps:
 # --------------------------------------------------------------------
 
 class TestCheckDomainBlacklists:
-    """New domain-based blacklist check (DBL, SURBL, URIBL)."""
+    """Domain-based blacklist check (DBL, SURBL, URIBL).
 
-    def _dnsbl_stub(self, listings: dict):
-        """Build a Resolver stub. listings: {bl_name: [codes]}."""
-        class StubResolver:
-            def __init__(self):
-                self.timeout = 2
-                self.lifetime = 2
-            def resolve(self, query, rtype):
-                # Query shape: "domain.blacklist.com"
-                # Find which blacklist we're hitting
-                for bl in listings:
-                    if query.endswith("." + bl) or query == bl:
-                        codes = listings[bl]
-                        if not codes:
-                            raise Exception("NXDOMAIN")
-                        return [MagicMock(__str__=lambda self, c=c: c) for c in codes]
-                raise Exception("NXDOMAIN")
-        return StubResolver
+    INBOX-229 phase 3 (2026-05-11): switched from inline DBL DNS
+    queries to HetrixTools. Tests now mock `hetrix.check_domain`
+    instead of `dns.resolver`. The error-code / refusal-code tests
+    that lived here are obsolete because HetrixTools' private
+    resolvers don't get those refusals.
+    """
+
+    def _hetrix_stub(self, listings: list[dict] | None = None,
+                     raise_exc: Exception | None = None):
+        """Build a hetrix.check_domain stub.
+
+        listings: list of listing dicts in the hetrix output shape.
+                  Defaults to [] (clean).
+        raise_exc: if set, the stub raises this exception instead of
+                   returning a value (used for the error-path test).
+        """
+        listings = listings or []
+
+        def stub(domain: str) -> dict:
+            if raise_exc is not None:
+                raise raise_exc
+            return {
+                "domain": domain,
+                "blacklisted_count": len(listings),
+                "blacklisted_on": listings,
+                "checked_count": 1000,
+                "error": None,
+            }
+        return stub
 
     def test_clean_domain_returns_pass(self):
-        with patch.object(checks.dns.resolver, "Resolver",
-                          self._dnsbl_stub({})):  # empty = all NXDOMAIN
+        with patch("hetrix.check_domain", side_effect=self._hetrix_stub([])):
             result = checks.check_domain_blacklists("example.com")
 
         assert result.status == "pass"
         assert result.points == 10
         raw = result.raw_data or {}
         assert raw.get("listed") == []
+        assert raw.get("provider") == "hetrix"
 
     def test_listed_on_dbl_returns_fail(self):
-        with patch.object(checks.dns.resolver, "Resolver",
-                          self._dnsbl_stub({"dbl.spamhaus.org": ["127.0.1.2"]})):
+        listing = {
+            "rbl": "Spamhaus DBL", "name": "Spamhaus DBL",
+            "severity": "high", "operator": "Spamhaus",
+            "delist": "https://www.spamhaus.org/dbl/removal/",
+            "codes": ["127.0.1.2"],
+        }
+        with patch("hetrix.check_domain", side_effect=self._hetrix_stub([listing])):
             result = checks.check_domain_blacklists("listed.example")
 
         assert result.status == "fail"
         assert result.points == 0
         assert result.max_points == 10
-        assert "dbl.spamhaus.org" in (result.detail or "")
+        assert "Spamhaus DBL" in (result.detail or "")
         raw = result.raw_data or {}
         assert len(raw.get("listed") or []) == 1
-        # fix_steps must point at delisting flow
+        # fix_steps must still point at delisting flow
         assert result.fix_steps is not None
         assert any("spamhaus.org" in s for s in result.fix_steps)
 
-    def test_error_code_does_not_flip_status(self):
-        # INBOX-39 code range — treat as "couldn't query" not "listed".
-        with patch.object(checks.dns.resolver, "Resolver",
-                          self._dnsbl_stub({"dbl.spamhaus.org": ["127.255.255.254"]})):
-            result = checks.check_domain_blacklists("example.com")
-
-        assert result.status == "pass", (
-            "INBOX-39 applies here too: 127.255.255.254 (public resolver "
-            "block) is NOT a listing. Must not flip status to fail."
-        )
-        assert result.points == 10
-        raw = result.raw_data or {}
-        assert (raw.get("listed") or []) == []
-        assert "dbl.spamhaus.org" in (raw.get("fully_errored_blacklists") or [])
-        assert "could not be queried" in (result.detail or "")
-
-    def test_multiple_dbls_different_outcomes(self):
-        # Listed on DBL, errored on SURBL, clean on URIBL.
-        listings = {
-            "dbl.spamhaus.org": ["127.0.1.2"],         # real listing
-            "multi.surbl.org": ["127.255.255.254"],    # error
-            # URIBL not in map → NXDOMAIN (clean)
-        }
-        with patch.object(checks.dns.resolver, "Resolver",
-                          self._dnsbl_stub(listings)):
+    def test_multiple_listings_aggregate(self):
+        """Listed on DBL + SURBL → 2 listings, status fail."""
+        listings = [
+            {"rbl": "Spamhaus DBL", "name": "Spamhaus DBL", "severity": "high",
+             "operator": "Spamhaus", "delist": "", "codes": []},
+            {"rbl": "SURBL multi", "name": "SURBL multi", "severity": "high",
+             "operator": "SURBL", "delist": "", "codes": []},
+        ]
+        with patch("hetrix.check_domain", side_effect=self._hetrix_stub(listings)):
             result = checks.check_domain_blacklists("bad.example")
 
         assert result.status == "fail"
         raw = result.raw_data or {}
-        assert len(raw.get("listed") or []) == 1
-        assert "multi.surbl.org" in (raw.get("fully_errored_blacklists") or [])
+        assert len(raw.get("listed") or []) == 2
+
+    def test_hetrix_api_error_returns_info(self):
+        """If hetrix raises (network failure, 5xx, etc.), the check must
+        return status='info' with external verification URL — never let
+        an exception bubble up to break the scan."""
+        with patch("hetrix.check_domain",
+                   side_effect=self._hetrix_stub(raise_exc=RuntimeError("boom"))):
+            result = checks.check_domain_blacklists("example.com")
+
+        assert result.status == "info"
+        assert result.max_points == 0
+        raw = result.raw_data or {}
+        assert "hetrixtools.com" in raw.get("external_verification_url", "")
+
+    @pytest.mark.skip(reason=(
+        "INBOX-229 phase 3: HetrixTools' private resolvers don't hit "
+        "the 127.255.255.* public-resolver refusal codes. This failure "
+        "mode is no longer possible."
+    ))
+    def test_error_code_does_not_flip_status(self):
+        pass
 
 
 # --------------------------------------------------------------------
 # INBOX-50 — URIBL 127.0.0.1 "Query Refused" sentinel handling
 # --------------------------------------------------------------------
 
+@pytest.mark.skip(reason=(
+    "INBOX-229 phase 3 (2026-05-11): HetrixTools queries DBLs from "
+    "licensed commercial infrastructure, not public resolvers. The "
+    "URIBL 127.0.0.1 'Query Refused' sentinel that drove INBOX-50 "
+    "doesn't reach us anymore. These tests are kept skip-marked so "
+    "the original fix is documented in case we ever bring inline "
+    "DBL queries back."
+))
 class TestCheckDomainBlacklistsUriblRefusal:
     """URIBL (and SURBL in some configs) return 127.0.0.1 with a TXT record
     to refuse public-resolver queries. We must NOT treat those as listings.

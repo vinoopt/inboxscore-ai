@@ -1,7 +1,15 @@
-"""INBOX-229 phase 2 — tests for the dnsbl/hetrix provider selector.
+"""INBOX-229 phase 3 — tests for the simplified blacklist provider.
 
-Covers the three resolution paths (canary user > global flag > default
-dnsbl) and the freshness gate that protects HetrixTools credits.
+As of phase 3, every caller in the product uses HetrixTools — there's
+no canary list, no global flag flip, no fallback to dnsbl. The provider
+helper survives only as the freshness-gate chokepoint and a future
+routing injection point.
+
+Coverage:
+  - use_hetrix_for_user always returns True (regardless of env or user_id)
+  - get_full_blacklist_check_fn always returns hetrix's function
+  - Freshness gate: skip-when-fresh, run-when-stale, run-when-no-row,
+    run-when-unparseable
 """
 
 from datetime import datetime, timezone, timedelta
@@ -12,88 +20,55 @@ import pytest
 # ─── use_hetrix_for_user ────────────────────────────────────────────
 
 
-def test_default_is_dnsbl(monkeypatch):
-    """No env flags set → fall through to dnsbl."""
+def test_always_returns_true_for_any_user(monkeypatch):
+    """Phase 3: hetrix is the only provider. user_id is irrelevant."""
     monkeypatch.delenv("USE_HETRIX_BL", raising=False)
-    monkeypatch.delenv("HETRIX_CANARY_USER_IDS", raising=False)
-    from blacklist_provider import use_hetrix_for_user
-    assert use_hetrix_for_user("any-user-id") is False
-    assert use_hetrix_for_user(None) is False
-
-
-def test_global_flag_flips_to_hetrix(monkeypatch):
-    monkeypatch.setenv("USE_HETRIX_BL", "true")
     monkeypatch.delenv("HETRIX_CANARY_USER_IDS", raising=False)
     from blacklist_provider import use_hetrix_for_user
     assert use_hetrix_for_user("any-user-id") is True
+    assert use_hetrix_for_user(None) is True
+    assert use_hetrix_for_user("") is True
 
 
-def test_canary_user_gets_hetrix_even_with_flag_off(monkeypatch):
-    """Canary list works regardless of the global flag — that's the
-    whole point (test on Vinoop's account before flipping globally)."""
-    monkeypatch.delenv("USE_HETRIX_BL", raising=False)
-    monkeypatch.setenv("HETRIX_CANARY_USER_IDS", "vinoop-uuid,another-uuid")
+def test_env_vars_are_irrelevant(monkeypatch):
+    """Phase 3 strips env-driven routing. Setting USE_HETRIX_BL=false or
+    deleting it does NOT bring dnsbl back — we always use hetrix."""
+    monkeypatch.setenv("USE_HETRIX_BL", "false")
+    monkeypatch.setenv("HETRIX_CANARY_USER_IDS", "")
     from blacklist_provider import use_hetrix_for_user
-    assert use_hetrix_for_user("vinoop-uuid") is True
-    assert use_hetrix_for_user("another-uuid") is True
-    assert use_hetrix_for_user("not-in-canary") is False
-
-
-def test_truthy_values_for_global_flag(monkeypatch):
-    """Accept multiple common truthy spellings — "1", "true", "yes"."""
-    from blacklist_provider import use_hetrix_for_user
-    for val in ("1", "true", "TRUE", "yes", "on"):
-        monkeypatch.setenv("USE_HETRIX_BL", val)
-        assert use_hetrix_for_user("u") is True, f"failed for {val!r}"
-    for val in ("", "0", "false", "no", "off"):
-        monkeypatch.setenv("USE_HETRIX_BL", val)
-        assert use_hetrix_for_user("u") is False, f"failed for {val!r}"
+    assert use_hetrix_for_user("u") is True
 
 
 # ─── get_full_blacklist_check_fn ────────────────────────────────────
 
 
-def test_selector_returns_dnsbl_by_default(monkeypatch):
+def test_selector_always_returns_hetrix(monkeypatch):
+    """The selector must point at hetrix's full_blacklist_check, no
+    matter the env or user."""
     monkeypatch.delenv("USE_HETRIX_BL", raising=False)
     monkeypatch.delenv("HETRIX_CANARY_USER_IDS", raising=False)
-    from blacklist_provider import get_full_blacklist_check_fn
-    fn = get_full_blacklist_check_fn("user")
-    # Look at the module path — proves we got the right implementation
-    assert "dnsbl" in fn.__module__
-
-
-def test_selector_returns_hetrix_when_flag_on(monkeypatch):
-    monkeypatch.setenv("USE_HETRIX_BL", "true")
     monkeypatch.setenv("HETRIX_API_TOKEN", "test-token")
     from blacklist_provider import get_full_blacklist_check_fn
-    fn = get_full_blacklist_check_fn("user")
-    assert "hetrix" in fn.__module__
+    fn_anon = get_full_blacklist_check_fn(None)
+    fn_user = get_full_blacklist_check_fn("some-user-id")
+    # __module__ tells us which file the function lives in. Both must
+    # resolve to hetrix.
+    assert "hetrix" in fn_anon.__module__
+    assert "hetrix" in fn_user.__module__
 
 
 # ─── Freshness gate ─────────────────────────────────────────────────
 
 
-def test_skip_returns_false_for_dnsbl_path(monkeypatch):
-    """dnsbl never skips — it's free, runs every monitor cycle."""
-    monkeypatch.delenv("USE_HETRIX_BL", raising=False)
-    monkeypatch.delenv("HETRIX_CANARY_USER_IDS", raising=False)
-    from blacklist_provider import should_skip_blacklist_refresh
-    # Even with an extremely fresh timestamp, dnsbl path runs every tick.
-    fresh = datetime.now(timezone.utc).isoformat()
-    assert should_skip_blacklist_refresh("u", "example.com", fresh) is False
-
-
-def test_skip_when_hetrix_and_fresh(monkeypatch):
-    """Hetrix + recently checked → skip the call."""
-    monkeypatch.setenv("USE_HETRIX_BL", "true")
+def test_skip_when_fresh(monkeypatch):
+    """Recent timestamp (within 23h) → skip the API call."""
     from blacklist_provider import should_skip_blacklist_refresh
     just_now = datetime.now(timezone.utc).isoformat()
     assert should_skip_blacklist_refresh("u", "example.com", just_now) is True
 
 
-def test_run_when_hetrix_and_stale(monkeypatch):
-    """Hetrix + last check > 23h ago → run."""
-    monkeypatch.setenv("USE_HETRIX_BL", "true")
+def test_run_when_stale(monkeypatch):
+    """Last check > 23h ago → run."""
     from blacklist_provider import should_skip_blacklist_refresh
     yesterday = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     assert should_skip_blacklist_refresh("u", "example.com", yesterday) is False
@@ -101,7 +76,6 @@ def test_run_when_hetrix_and_stale(monkeypatch):
 
 def test_run_when_no_existing_row(monkeypatch):
     """First-time check (no cached row) → must run."""
-    monkeypatch.setenv("USE_HETRIX_BL", "true")
     from blacklist_provider import should_skip_blacklist_refresh
     assert should_skip_blacklist_refresh("u", "example.com", None) is False
     assert should_skip_blacklist_refresh("u", "example.com", "") is False
@@ -110,18 +84,22 @@ def test_run_when_no_existing_row(monkeypatch):
 def test_run_when_unparseable_timestamp(monkeypatch):
     """Garbage in last_checked_at → fail safe by running (caller still
     has data; just refresh it)."""
-    monkeypatch.setenv("USE_HETRIX_BL", "true")
     from blacklist_provider import should_skip_blacklist_refresh
     assert should_skip_blacklist_refresh("u", "d", "not-a-date") is False
 
 
-def test_canary_user_freshness_gate_applies(monkeypatch):
-    """Canary user gets hetrix → freshness gate applies to them too,
-    even if USE_HETRIX_BL global flag is off."""
-    monkeypatch.delenv("USE_HETRIX_BL", raising=False)
-    monkeypatch.setenv("HETRIX_CANARY_USER_IDS", "canary-u")
+def test_freshness_gate_applies_regardless_of_user(monkeypatch):
+    """Phase 3: freshness gate is universal now (used by the scheduler
+    on every domain it scans, no per-user routing)."""
     from blacklist_provider import should_skip_blacklist_refresh
     fresh = datetime.now(timezone.utc).isoformat()
-    assert should_skip_blacklist_refresh("canary-u", "d", fresh) is True
-    # Non-canary user on dnsbl: no freshness gate.
-    assert should_skip_blacklist_refresh("other-u", "d", fresh) is False
+    assert should_skip_blacklist_refresh("any-user", "d", fresh) is True
+    assert should_skip_blacklist_refresh(None, "d", fresh) is True
+
+
+def test_z_suffix_iso_timestamp_parses(monkeypatch):
+    """ISO timestamps from Supabase often end with 'Z' — make sure
+    we handle that without falling into the unparseable branch."""
+    from blacklist_provider import should_skip_blacklist_refresh
+    fresh_z = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    assert should_skip_blacklist_refresh("u", "d", fresh_z) is True

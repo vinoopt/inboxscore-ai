@@ -195,3 +195,89 @@ def test_http_error_returns_error_shape_not_raises():
     assert res["error"] is not None
     assert res["blacklisted_count"] == 0
     assert res["blacklisted_on"] == []
+
+
+# ─── Parallelization (INBOX-229 phase 3) ──────────────────────────
+
+
+def test_full_blacklist_check_runs_calls_in_parallel():
+    """6 calls (1 domain + 5 IPs) must complete in roughly the time of
+    ONE call, not the sum of all six. Each mocked call sleeps 200ms;
+    sequential would be 1.2s, parallel should be ~0.2-0.4s.
+
+    This is what makes hetrix viable on the user-facing scan path —
+    sequential was 60-120s for a typical scan, parallel is ~20s.
+    """
+    import time
+
+    def slow_get(*_args, **_kwargs):
+        time.sleep(0.2)
+        return _mocked_httpx_response(_CLEAN_RESPONSE)
+
+    with patch("hetrix.httpx.Client") as mock_client:
+        mock_client.return_value.__enter__.return_value.get.side_effect = slow_get
+        from hetrix import full_blacklist_check
+        start = time.time()
+        res = full_blacklist_check(
+            "example.com",
+            ips=["1.2.3.4", "5.6.7.8", "9.10.11.12", "13.14.15.16", "17.18.19.20"],
+        )
+        elapsed = time.time() - start
+
+    # 6 sequential calls × 0.2s = 1.2s. Parallel ceiling: ~0.6s
+    # (accounting for thread startup overhead + GIL contention on
+    # mocked sleeps). Real-world parallelisation is much cleaner
+    # since HetrixTools' httpx calls release the GIL during I/O.
+    assert elapsed < 0.7, f"calls ran sequentially: {elapsed:.2f}s"
+    assert len(res["ip_results"]) == 5
+    # All IPs preserved in sorted order regardless of completion order
+    assert [r["ip"] for r in res["ip_results"]] == sorted([
+        "1.2.3.4", "5.6.7.8", "9.10.11.12", "13.14.15.16", "17.18.19.20",
+    ])
+
+
+def test_full_blacklist_check_handles_individual_ip_failure():
+    """If one IP's hetrix call raises, the rest still complete and the
+    aggregate response includes an error-shaped entry for the failed IP."""
+    import httpx as real_httpx
+    bad_resp = MagicMock()
+    bad_resp.status_code = 500
+    bad_resp.raise_for_status.side_effect = real_httpx.HTTPStatusError(
+        "boom", request=MagicMock(), response=bad_resp
+    )
+    good_resp = _mocked_httpx_response(_CLEAN_RESPONSE)
+
+    call_count = {"n": 0}
+
+    def alternating_get(*_args, **_kwargs):
+        # First call (domain) good, second (1.2.3.4) bad, third (5.6.7.8) good.
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            return bad_resp
+        return good_resp
+
+    with patch("hetrix.httpx.Client") as mock_client:
+        mock_client.return_value.__enter__.return_value.get.side_effect = alternating_get
+        from hetrix import full_blacklist_check
+        res = full_blacklist_check("example.com", ips=["1.2.3.4", "5.6.7.8"])
+
+    # All IPs must be present in ip_results — failures don't drop rows.
+    ips = sorted(r["ip"] for r in res["ip_results"])
+    assert ips == ["1.2.3.4", "5.6.7.8"]
+
+
+def test_user_agent_header_set_on_requests():
+    """HetrixTools' Cloudflare front returns 403 to Python's default UA.
+    Verify we always send a UA header so the scheduler doesn't silently
+    start failing in production."""
+    with patch("hetrix.httpx.Client") as mock_client:
+        mock_client.return_value.__enter__.return_value.get.return_value = \
+            _mocked_httpx_response(_CLEAN_RESPONSE)
+        from hetrix import check_domain
+        check_domain("example.com")
+
+    # httpx.Client was constructed with headers=... including our UA.
+    call_kwargs = mock_client.call_args.kwargs
+    headers = call_kwargs.get("headers", {})
+    assert "User-Agent" in headers
+    assert "InboxScore" in headers["User-Agent"]

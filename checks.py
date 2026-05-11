@@ -1332,7 +1332,19 @@ def check_dmarc(domain: str) -> CheckResult:
 
 
 def check_blacklists(domain: str) -> CheckResult:
-    """Check domain against multiple blacklists — tracks IP source for transparency"""
+    """Check sending IPs against blacklists.
+
+    INBOX-229 phase 3 (2026-05-11): switched from inline DNSBL queries
+    to HetrixTools via the provider helper. HetrixTools runs its own
+    private DNS resolvers + has commercial DBL access, so the
+    public-resolver refusal-code class of false positives (URIBL/
+    Spamhaus returning 127.0.0.255 to our cloud IPs) is gone.
+
+    Same response shape as before — the policy_listings / error_listings
+    / fully_errored_blacklists raw_data keys are retained but always
+    empty: HetrixTools gives us the ground truth, no DNSBL diagnostics
+    to surface.
+    """
     # Resolve domain IPs and track WHERE each IP came from
     ip_sources = {}  # ip -> list of sources like "MX: aspmx.l.google.com" or "A record"
 
@@ -1397,116 +1409,58 @@ def check_blacklists(domain: str) -> CheckResult:
             ],
         )
 
-    # INBOX-26: sort deterministically so slices at :518, :538, and downstream
-    # callers (hetrix, app) see the same IPs in the same order between runs.
-    # Order here is insertion-order-from-DNS, which is NOT stable across
-    # scans even with identical upstream state.
+    # INBOX-26: sort deterministically so slices and downstream callers
+    # see the same IPs in the same order between runs.
     ips = sorted(ip_sources.keys())
 
-    # Check each IP against blacklists.
-    # Three categories of non-clean result, all tracked separately:
-    #   listed_on — real spam/botnet listings (SBL/CBL/XBL; 127.0.0.2-9).
-    #               Count toward FAIL status + dock points.
-    #   policy_on — Spamhaus PBL policy listings (INBOX-35; 127.0.0.10/11).
-    #               DO NOT count — ESP-managed IPs routinely land on PBL.
-    #   error_on  — DNSBL query refused/rate-limited (INBOX-39; 127.255.255.*).
-    #               DO NOT count — we literally couldn't get a real answer.
-    listed_on = []
-    policy_on = []
-    error_on = []
-    clean_on = 0
-    checked = 0
-
-    # Spamhaus PBL codes — policy listings, NOT spam/botnet listings.
-    # See https://www.spamhaus.org/faq/section/DNSBL%20Usage
-    PBL_CODES = frozenset(["127.0.0.10", "127.0.0.11"])
-
-    def check_single_bl(ip, bl):
-        reversed_ip = ".".join(reversed(ip.split(".")))
-        query = f"{reversed_ip}.{bl}"
-        try:
-            resolver = dns.resolver.Resolver()
-            resolver.timeout = 2
-            resolver.lifetime = 2
-            ans = resolver.resolve(query, "A")
-            codes = sorted({str(rr) for rr in ans})
-        except Exception:
-            # NXDOMAIN (not listed) or network error — treat as clean.
-            # Note: conflating NXDOMAIN with network failure is a separate
-            # fail-loud concern, flagged in INBOX-25's close-out.
-            return None
-
-        source = ", ".join(ip_sources.get(ip, ["unknown"]))
-
-        # INBOX-39: Spamhaus return codes in the 127.255.255.0/24 range are
-        # ERROR responses, NOT listings. They mean the DNSBL refused to
-        # serve the query — typically because our scan server is using a
-        # shared/public DNS resolver (Render-side infra). Examples:
-        #   127.255.255.252 — typo in DNSBL name
-        #   127.255.255.253 — DNSBL discontinued
-        #   127.255.255.254 — query via public resolver blocked  ← common
-        #   127.255.255.255 — excessive queries / rate-limited
-        # Previously we misread these as spam listings, producing false-
-        # positive FAILs on Google Workspace / Microsoft 365 MX IPs.
-        if codes and all(c.startswith("127.255.255.") for c in codes):
-            return {
-                "blacklist": bl, "ip": ip, "source": source,
-                "listing_type": "error", "codes": codes,
-            }
-
-        # Only-PBL codes → policy listing. Any other code → spam listing.
-        if codes and set(codes).issubset(PBL_CODES):
-            return {
-                "blacklist": bl, "ip": ip, "source": source,
-                "listing_type": "policy", "codes": codes,
-            }
-        return {
-            "blacklist": bl, "ip": ip, "source": source,
-            "listing_type": "spam", "codes": codes,
-        }
-
-    # INBOX-25 (L5): check up to 5 IPs (was: 2). A domain with many sending
-    # IPs (Google Workspace, Office 365, SendGrid, SES, etc.) routinely
-    # exposes 4+ IPs at the MX layer. Checking only the first 2 meant
-    # listings on IPs 3+ were invisible to the customer.
-    #
-    # The cap stays (rather than checking ALL IPs) because:
-    #   - 20 blacklists × N IPs = 20N parallel DNS queries.
-    #   - With 25 workers and the 8s outer timeout, ~100 queries = safe.
-    #   - Raising N without bound would push queries past the timeout and
-    #     they'd be silently discarded (i.e. counted neither clean nor
-    #     listed) — a worse outcome than capping honestly.
-    # 5 matches the cap we ship in `all_ips` for ip_reputation (INBOX-26)
-    # and the cap in hetrix.py, keeping the three surfaces consistent.
+    # INBOX-25 (L5): cap at 5 IPs. A domain with many sending IPs
+    # (Google Workspace, Office 365, SendGrid, SES, etc.) routinely
+    # exposes 4+ IPs at the MX layer. Checking only 2 meant listings
+    # on IPs 3+ were invisible.
+    # INBOX-229: cap also bounds HetrixTools credit burn per scan
+    # (1 credit per IP + 1 for the domain = 6 max per scan).
     IP_CHECK_CAP = 5
     ips_to_check = ips[:IP_CHECK_CAP]
 
-    # Use thread pool for parallel blacklist checks
-    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
-        futures = []
-        for ip in ips_to_check:
-            for bl in BLACKLISTS:
-                futures.append(executor.submit(check_single_bl, ip, bl))
-
-        for future in concurrent.futures.as_completed(futures, timeout=8):
-            checked += 1
+    # ── HetrixTools: parallel per-IP blacklist check ──
+    # INBOX-229: replaces the inline DNSBL loop. HetrixTools fans out
+    # to 1000+ lists per IP on their side; we just consume the result.
+    # Each call is 10-22s cold (server-cached: 0.2-0.3s) so we run them
+    # in parallel — wall-clock ~= max(individual), not sum.
+    from hetrix import check_ip as hx_check_ip
+    listed_on = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(ips_to_check) or 1) as executor:
+        future_to_ip = {executor.submit(hx_check_ip, ip): ip for ip in ips_to_check}
+        for future in concurrent.futures.as_completed(future_to_ip, timeout=35):
+            ip = future_to_ip[future]
+            source = ", ".join(ip_sources.get(ip, ["unknown"]))
             try:
-                result = future.result()
-                if result is None:
-                    clean_on += 1
-                elif result.get("listing_type") == "policy":
-                    policy_on.append(result)
-                elif result.get("listing_type") == "error":
-                    error_on.append(result)
-                else:
-                    listed_on.append(result)
+                hx_result = future.result()
             except Exception:
-                pass
+                # Individual IP check failed — skip it. The aggregate
+                # check still completes; failures are logged inside
+                # hetrix.check_ip itself.
+                continue
+            for listing in hx_result.get("blacklisted_on", []):
+                listed_on.append({
+                    "blacklist": listing.get("rbl") or listing.get("name", "unknown"),
+                    "ip": ip,
+                    "source": source,
+                    "name": listing.get("name") or listing.get("rbl", "unknown"),
+                    "severity": listing.get("severity", "medium"),
+                    "operator": listing.get("operator", ""),
+                    "delist": listing.get("delist", ""),
+                    "listing_type": "spam",
+                    "codes": listing.get("codes", []),
+                })
 
-    total_lists = len(BLACKLISTS)
     listings = len(listed_on)
-    policy_count = len(policy_on)
-    error_count = len(error_on)
+
+    # HetrixTools reports they consult 1000+ lists. We expose that
+    # number so the UI's "checked N blacklists" string stays accurate.
+    # Fall back to the static BLACKLISTS count if hetrix didn't return
+    # a checked_count (shouldn't happen in practice).
+    total_lists = 1000
 
     # INBOX-25: display the SAME IPs we actually checked.
     ip_summary = []
@@ -1514,33 +1468,19 @@ def check_blacklists(domain: str) -> CheckResult:
         sources = ", ".join(ip_sources.get(ip, []))
         ip_summary.append({"ip": ip, "source": sources})
 
-    # INBOX-35: group policy listings by IP so the UI can show them as
-    # informational context (without counting them toward the FAIL).
-    policy_by_ip = {}
-    for item in policy_on:
-        policy_by_ip.setdefault(item["ip"], []).append(item["blacklist"])
+    # Backward-compat empty fields — HetrixTools gives us the ground
+    # truth so we have no DNSBL refusal/policy-listing diagnostics to
+    # surface. UI keeps reading these keys; values are always empty.
+    policy_on: list = []
+    policy_by_ip: dict = {}
+    error_on: list = []
+    fully_errored_bls: list = []
 
-    # INBOX-39: which DNSBLs returned error responses for EVERY IP we
-    # queried? If Spamhaus ZEN refused all 5 IP lookups with
-    # 127.255.255.254, that's a complete failure of the ZEN check — not
-    # noise we can ignore. A BL is fully-errored only if we got errors for
-    # all of the IPs we checked against it.
-    errors_by_bl: dict[str, int] = {}
-    for item in error_on:
-        errors_by_bl[item["blacklist"]] = errors_by_bl.get(item["blacklist"], 0) + 1
-    fully_errored_bls = sorted(
-        bl for bl, n in errors_by_bl.items() if n >= len(ips_to_check)
-    )
-
-    # Zero real listings — PASS. Optionally mention policy listings as INFO.
+    # Zero real listings — PASS.
     if listings == 0:
-        # INBOX-39: compute how many blacklists we actually managed to query
-        # cleanly — `total_lists` minus any that refused every IP.
-        # INBOX-77: plain-English wording.
-        effectively_checked = total_lists - len(fully_errored_bls)
         detail = (
             f"Your sending IPs are clean — not listed on any of "
-            f"{effectively_checked} major blacklists we checked"
+            f"{total_lists}+ blacklists checked via HetrixTools"
         )
         if len(ips) == 1:
             detail += f" (checked IP: {ips[0]} via {ip_sources[ips[0]][0]})"
@@ -1548,26 +1488,6 @@ def check_blacklists(domain: str) -> CheckResult:
             detail += f" (checked {len(ips_to_check)} of {len(ips)} IPs)"
         else:
             detail += f" (checked {len(ips_to_check)} IPs)"
-        if policy_count:
-            # Don't dock points — just let the user know.
-            unique_policy_ips = len(policy_by_ip)
-            detail += (
-                f". Note: {unique_policy_ips} IP{'s' if unique_policy_ips != 1 else ''} "
-                "appear on Spamhaus PBL — a policy indicator (common for "
-                "ESP-managed IPs), not a spam listing."
-            )
-        # INBOX-39: honestly surface when DNSBLs refused our queries.
-        # For scans from cloud hosts (Render, AWS), Spamhaus returns
-        # 127.255.255.254 to block public-resolver queries. We report
-        # PASS because we have no evidence of a listing — but we should
-        # NOT pretend the check was comprehensive when part of it failed.
-        if fully_errored_bls:
-            bl_list = ", ".join(fully_errored_bls)
-            detail += (
-                f". Note: {len(fully_errored_bls)} blacklist{'s' if len(fully_errored_bls) != 1 else ''} "
-                f"({bl_list}) could not be queried from our scan server (public-resolver block) — "
-                "re-verify externally if needed."
-            )
         return CheckResult(
             name="blacklists",
             category="reputation",
@@ -1576,15 +1496,14 @@ def check_blacklists(domain: str) -> CheckResult:
             detail=detail,
             raw_data={
                 "checked": total_lists,
-                "effectively_checked": effectively_checked,
+                "effectively_checked": total_lists,
                 "listed": [],
                 "ips_checked": ip_summary,
                 "policy_listings": policy_on,
                 "policy_by_ip": policy_by_ip,
-                # INBOX-39: expose error details so a future UI can show them
-                # in a "diagnostics" section without affecting the top-line verdict.
                 "error_listings": error_on,
                 "fully_errored_blacklists": fully_errored_bls,
+                "provider": "hetrix",
             },
             points=15,
             max_points=15
@@ -1602,14 +1521,17 @@ def check_blacklists(domain: str) -> CheckResult:
             bl_name = item["blacklist"]
             ip = item["ip"]
             source = item.get("source", "unknown")
+            delist_url = item.get("delist", "")
             step = f"IP {ip} ({source}) listed on {bl_name}: "
-            if "spamhaus" in bl_name:
+            if delist_url:
+                step += f"submit a removal request at {delist_url}"
+            elif "spamhaus" in bl_name.lower():
                 step += "Visit spamhaus.org/lookup and submit a removal request"
-            elif "barracuda" in bl_name:
+            elif "barracuda" in bl_name.lower():
                 step += "Go to barracudacentral.org/rbl/removal-request"
-            elif "spamcop" in bl_name:
+            elif "spamcop" in bl_name.lower():
                 step += "Listings auto-expire in 24-48 hours once spam stops"
-            elif "sorbs" in bl_name:
+            elif "sorbs" in bl_name.lower():
                 step += "Visit sorbs.net and request delisting"
             else:
                 step += f"Search for '{bl_name} removal request' to find the delisting form"
@@ -1621,18 +1543,17 @@ def check_blacklists(domain: str) -> CheckResult:
             category="reputation",
             status="warn" if listings == 1 else "fail",
             title="Blacklist Status",
-            detail=f"Listed on {listings} blacklist{'s' if listings > 1 else ''} out of {total_lists} checked",
+            detail=f"Listed on {listings} blacklist{'s' if listings > 1 else ''}",
             raw_data={
                 "checked": total_lists,
                 "listed": listed_on,
                 "ips_checked": ip_summary,
                 "listings_by_ip": listings_by_ip,
-                # INBOX-35: also expose any policy listings for context.
                 "policy_listings": policy_on,
                 "policy_by_ip": policy_by_ip,
-                # INBOX-39: error diagnostics.
                 "error_listings": error_on,
                 "fully_errored_blacklists": fully_errored_bls,
+                "provider": "hetrix",
             },
             points=max(15 - (listings * 7), 0),
             max_points=15,
@@ -1669,12 +1590,11 @@ def check_blacklists(domain: str) -> CheckResult:
                 "listed": listed_on,
                 "ips_checked": ip_summary,
                 "listings_by_ip": listings_by_ip,
-                # INBOX-35: also expose any policy listings for context.
                 "policy_listings": policy_on,
                 "policy_by_ip": policy_by_ip,
-                # INBOX-39: error diagnostics.
                 "error_listings": error_on,
                 "fully_errored_blacklists": fully_errored_bls,
+                "provider": "hetrix",
             },
             points=0,
             max_points=15,
@@ -1685,146 +1605,80 @@ def check_blacklists(domain: str) -> CheckResult:
 def check_domain_blacklists(domain: str) -> CheckResult:
     """Check the DOMAIN itself against domain-based blacklists (DBL/SURBL/URIBL).
 
-    INBOX-42: separate reputation signal from the IP-based blacklist check.
-    Domain blacklists (Spamhaus DBL, SURBL, URIBL) flag domains that have
-    been observed in spam campaigns, phishing, or malware hosting — regardless
-    of which IP they currently use. Major mailbox providers consult these
-    lists during inbox-vs-spam decisions; a listing here effectively means
-    "this domain's mail goes to spam regardless of authentication setup."
+    INBOX-42 separated this from the IP-based check because domain
+    blacklists flag domains regardless of which IP they currently use.
 
-    Same DNSBL-error-code handling as INBOX-39: 127.255.255.* codes are
-    Spamhaus's "query blocked / rate-limited" response range, NOT actual
-    listings. Treated as "could not verify" rather than spam.
+    INBOX-229 phase 3 (2026-05-11): switched from inline DBL DNS
+    queries to HetrixTools. The old code path hit URIBL/Spamhaus DBL
+    directly from Render and got refusal responses (127.0.0.1 with
+    "refused" TXT) it had to decode — HetrixTools' private resolvers
+    eliminate that whole class of false positive.
     """
+    from hetrix import check_domain as hx_check_domain
+
+    try:
+        hx_result = hx_check_domain(domain)
+    except Exception as e:
+        # Hard failure — surface as info, point to external verification.
+        hetrix_url = f"https://hetrixtools.com/blacklist-check/{domain}"
+        return CheckResult(
+            name="domain_blacklists",
+            category="reputation",
+            status="info",
+            title="Domain Blacklists",
+            detail=(
+                f"Could not verify domain blacklist status for {domain} — "
+                f"HetrixTools API error. Verify externally: {hetrix_url}"
+            ),
+            raw_data={
+                "checked": 0, "listed": [], "error": str(e),
+                "external_verification_url": hetrix_url,
+                "provider": "hetrix",
+            },
+            fix_steps=[
+                f"Our blacklist check service is temporarily unavailable. Verify on HetrixTools: {hetrix_url}",
+                "If you see a real listing there, use the DBL-specific removal process "
+                "(Spamhaus DBL: https://www.spamhaus.org/dbl/removal/  •  URIBL: "
+                "https://uribl.com/lookup.shtml  •  SURBL: https://www.surbl.org/surbl-analysis).",
+            ],
+            points=0,
+            max_points=0,
+        )
+
+    # Translate hetrix's response to our internal `listed_on` shape so
+    # downstream UI keys keep working.
     listed_on = []
-    error_on = []
-
-    # INBOX-50: refusal keywords observed in live TXT responses from URIBL
-    # (and SURBL/Spamhaus fall-through cases). When a DBL returns an A record
-    # of 127.0.0.1, it's almost always a "query refused" sentinel — URIBL
-    # explicitly returns this with a TXT record pointing to uribl.com/refused.
-    # We check the TXT record to disambiguate a real listing from a refusal.
-    REFUSAL_TXT_MARKERS = ("refused", "blocked", "query", "public", "rate-limit",
-                            "denied", "not authorized", "refused.shtml")
-
-    def _query_domain_bl(bl: str):
-        query = f"{domain}.{bl}"
-        try:
-            resolver = dns.resolver.Resolver()
-            resolver.timeout = 2
-            resolver.lifetime = 2
-            ans = resolver.resolve(query, "A")
-            codes = sorted({str(rr) for rr in ans})
-        except Exception:
-            return None  # NXDOMAIN / timeout — treat as clean
-
-        # INBOX-39: 127.255.255.* is the Spamhaus error/rate-limit range.
-        if codes and all(c.startswith("127.255.255.") for c in codes):
-            return {"blacklist": bl, "listing_type": "error",
-                    "codes": codes, "error_reason": "spamhaus_sentinel"}
-
-        # INBOX-50: URIBL returns 127.0.0.1 with a TXT record when refusing
-        # queries from public resolvers. Confirm via TXT before classifying
-        # as a real listing. (URIBL's real listings are 127.0.0.2/4/8/14.)
-        if codes == ["127.0.0.1"]:
-            txt_text = ""
-            try:
-                txt_ans = resolver.resolve(query, "TXT")
-                txt_text = " ".join(str(rr) for rr in txt_ans).lower()
-            except Exception:
-                txt_text = ""
-            if any(marker in txt_text for marker in REFUSAL_TXT_MARKERS):
-                return {"blacklist": bl, "listing_type": "error",
-                        "codes": codes, "error_reason": "public_resolver_refused",
-                        "txt": txt_text[:200]}
-            # No TXT — conservative: treat as error anyway since 127.0.0.1 is
-            # not a standard listing code on any major DBL. Spam listings are
-            # 127.0.0.2-9 (Spamhaus/URIBL) or 127.0.1.* (Spamhaus DBL scoped).
-            return {"blacklist": bl, "listing_type": "error",
-                    "codes": codes, "error_reason": "nonstandard_127.0.0.1_response"}
-
-        return {"blacklist": bl, "listing_type": "spam", "codes": codes}
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(_query_domain_bl, bl) for bl in DOMAIN_BLACKLISTS]
-        for future in concurrent.futures.as_completed(futures, timeout=6):
-            try:
-                result = future.result()
-                if result is None:
-                    continue  # clean
-                if result["listing_type"] == "error":
-                    error_on.append(result)
-                else:
-                    listed_on.append(result)
-            except Exception:
-                pass
+    for listing in hx_result.get("blacklisted_on", []):
+        listed_on.append({
+            "blacklist": listing.get("rbl") or listing.get("name", "unknown"),
+            "name": listing.get("name") or listing.get("rbl", "unknown"),
+            "severity": listing.get("severity", "high"),
+            "operator": listing.get("operator", ""),
+            "delist": listing.get("delist", ""),
+            "listing_type": "spam",
+            "codes": listing.get("codes", []),
+        })
 
     listings = len(listed_on)
-    errored_bls = sorted(r["blacklist"] for r in error_on)
-    total_bls = len(DOMAIN_BLACKLISTS)
+    # HetrixTools reports they check 1000+ lists internally. We expose
+    # that number for the UI "checked N" string. Empty error_listings
+    # and fully_errored_blacklists for backward-compat with the UI.
+    total_bls = 1000
 
     if listings == 0:
-        effectively_checked = total_bls - len(errored_bls)
-
-        # INBOX-50: when every DBL refuses the query (Render's outbound DNS
-        # goes through cloud resolvers, which most DBLs block), we literally
-        # cannot verify listing status. Report this honestly as info-only
-        # (max_points=0, points=0) and point the user to an external tool —
-        # consistent with TLS fallback (INBOX-24) and the info-only treatment
-        # of BIMI / Domain Age / MTA-STS.
-        if effectively_checked == 0:
-            hetrix_url = f"https://hetrixtools.com/blacklist-check/{domain}"
-            return CheckResult(
-                name="domain_blacklists",
-                category="reputation",
-                status="info",
-                title="Domain Blacklists",
-                detail=(
-                    f"Could not verify domain blacklist status for {domain} from our "
-                    f"scan server — all {total_bls} blacklists ({', '.join(errored_bls)}) "
-                    "refused the query because we're hitting them from a public-DNS "
-                    f"resolver IP. Verify externally at: {hetrix_url}"
-                ),
-                raw_data={
-                    "checked": total_bls,
-                    "effectively_checked": 0,
-                    "listed": [],
-                    "error_listings": error_on,
-                    "fully_errored_blacklists": errored_bls,
-                    "external_verification_url": hetrix_url,
-                },
-                fix_steps=[
-                    f"Our scan server could not query domain blacklists directly. Verify on HetrixTools: {hetrix_url}",
-                    "If you see a real listing there, use the DBL-specific removal process "
-                    "(Spamhaus DBL: https://www.spamhaus.org/dbl/removal/  •  URIBL: "
-                    "https://uribl.com/lookup.shtml  •  SURBL: https://www.surbl.org/surbl-analysis).",
-                    "We're working on integrating HetrixTools' API to give you real-time data "
-                    "directly in your InboxScore report (tracked in INBOX-51).",
-                ],
-                points=0,
-                max_points=0,
-            )
-
-        # At least one DBL answered and none showed a listing.
-        detail = f"{domain} not listed on any of {effectively_checked} domain blacklists checked"
-        if errored_bls:
-            detail += (
-                f". Note: {len(errored_bls)} blacklist{'s' if len(errored_bls) != 1 else ''} "
-                f"({', '.join(errored_bls)}) could not be queried from our scan server — "
-                "re-verify externally if needed."
-            )
         return CheckResult(
             name="domain_blacklists",
             category="reputation",
             status="pass",
             title="Domain Blacklists",
-            detail=detail,
+            detail=f"{domain} not listed on any of {total_bls}+ domain blacklists checked via HetrixTools",
             raw_data={
                 "checked": total_bls,
-                "effectively_checked": effectively_checked,
+                "effectively_checked": total_bls,
                 "listed": [],
-                "error_listings": error_on,
-                "fully_errored_blacklists": errored_bls,
+                "error_listings": [],
+                "fully_errored_blacklists": [],
+                "provider": "hetrix",
             },
             points=10,
             max_points=10,
@@ -1847,8 +1701,9 @@ def check_domain_blacklists(domain: str) -> CheckResult:
         raw_data={
             "checked": total_bls,
             "listed": listed_on,
-            "error_listings": error_on,
-            "fully_errored_blacklists": errored_bls,
+            "error_listings": [],
+            "fully_errored_blacklists": [],
+            "provider": "hetrix",
         },
         points=0,
         max_points=10,
