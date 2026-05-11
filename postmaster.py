@@ -448,16 +448,60 @@ async def ensure_valid_token(user_id: str, connection: dict) -> str:
 
 # ─── BULK FETCH FOR SCHEDULER ───────────────────────────────
 
+def _summarise_compliance(api_response: dict | None) -> dict:
+    """INBOX-226: collapse Google's 8-requirement compliance response into
+    the 3 dashboard rows (auth / spam / encryption). Mirrors the same
+    logic that ``/api/postmaster/compliance-bulk`` used to do live; now
+    runs once per domain during the daily scheduler instead of once per
+    domain per dashboard load. Returns
+    ``{"auth": ..., "spam": ..., "encryption": ...}`` with verdicts
+    ``"COMPLIANT"`` / ``"NEEDS_WORK"`` / ``None``.
+    """
+    if not api_response:
+        return {"auth": None, "spam": None, "encryption": None}
+    comp_data = (api_response.get("subdomainComplianceData")
+                 or api_response.get("complianceData") or {})
+    rows = comp_data.get("rowData") or []
+    verdicts = {}
+    for r in rows:
+        req = r.get("requirement")
+        status = (r.get("status") or {}).get("status")
+        if req and status:
+            verdicts[req] = status
+
+    AUTH_KEYS = ("SPF_AND_DKIM", "DMARC_ALIGNMENT", "DMARC_POLICY", "DNS_RECORDS")
+
+    def _worst(*keys):
+        seen = [verdicts[k] for k in keys if k in verdicts]
+        if not seen:
+            return None
+        if any(v == "NEEDS_WORK" for v in seen):
+            return "NEEDS_WORK"
+        return "COMPLIANT"
+
+    return {
+        "auth":       _worst(*AUTH_KEYS),
+        "spam":       verdicts.get("USER_REPORTED_SPAM_RATE"),
+        "encryption": verdicts.get("ENCRYPTION"),
+    }
+
+
 async def fetch_metrics_for_user(user_id: str, connection: dict, days: int = 7) -> dict:
     """
     Fetch Postmaster metrics for all domains of a user for the last N days.
     Uses v2 date-range query for efficiency (single call per domain instead
     of one call per day).
-    Returns { "domains_synced": int, "metrics_saved": int, "errors": list }
-    """
-    from db import upsert_postmaster_metrics
+    Returns { "domains_synced": int, "metrics_saved": int,
+              "compliance_saved": int, "errors": list }
 
-    result = {"domains_synced": 0, "metrics_saved": 0, "errors": []}
+    INBOX-226: also pulls compliance verdicts and caches them in the
+    postmaster_compliance table so /api/postmaster/compliance-bulk can
+    skip the live Google fan-out on every dashboard load.
+    """
+    from db import upsert_postmaster_metrics, upsert_postmaster_compliance
+
+    result = {"domains_synced": 0, "metrics_saved": 0,
+              "compliance_saved": 0, "errors": []}
 
     try:
         access_token = await ensure_valid_token(user_id, connection)
@@ -527,5 +571,29 @@ async def fetch_metrics_for_user(user_id: str, connection: dict, days: int = 7) 
                     result["errors"].append(f"Token expired for {domain_name}")
             else:
                 result["errors"].append(f"Error fetching {domain_name}: {e}")
+
+        # INBOX-226: pull + cache compliance verdicts in the same loop.
+        # Wrapped in its own try so a compliance fetch failure for one
+        # domain doesn't poison the metrics-saved counter or block other
+        # domains. Failures are non-fatal — the dashboard renders the
+        # "still evaluating" banner if compliance is missing for a
+        # domain.
+        try:
+            comp_raw = await get_compliance_status(access_token, domain_name)
+            summary = _summarise_compliance(comp_raw)
+            upsert_postmaster_compliance(
+                user_id, domain_name,
+                auth_verdict=summary["auth"],
+                spam_verdict=summary["spam"],
+                encryption_verdict=summary["encryption"],
+                raw_data=comp_raw,
+            )
+            result["compliance_saved"] += 1
+        except Exception as e:
+            # Don't append to result["errors"] for compliance failures —
+            # they're independent of metrics health. Log to stdout so
+            # the scheduler heartbeat still picks up issues if every
+            # domain fails.
+            print(f"[postmaster] compliance fetch failed for {domain_name}: {e}")
 
     return result

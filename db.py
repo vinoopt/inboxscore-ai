@@ -1320,6 +1320,112 @@ def get_postmaster_metrics_all_domains(user_id: str, days: int = 7) -> dict:
         return {}
 
 
+# ─── INBOX-226: Postmaster compliance cache ─────────────────────────
+#
+# The Dashboard's /api/postmaster/compliance-bulk used to fan-out to
+# Google's compliance API in real time, once per domain. Per the audit
+# Vinoop requested in INBOX-225, we moved compliance verdicts into the
+# daily scheduler so the dashboard reads from DB instead. These helpers
+# back the new flow.
+
+def upsert_postmaster_compliance(
+    user_id: str, domain: str,
+    auth_verdict: str | None,
+    spam_verdict: str | None,
+    encryption_verdict: str | None,
+    raw_data: dict | None,
+) -> bool:
+    """Write the latest compliance verdicts for one (user, domain).
+
+    Called by postmaster_scheduler.py after fetch_compliance_for_user
+    pulls verdicts from Google. Idempotent — upsert on (user_id, domain).
+    """
+    sb = get_supabase()
+    if not sb:
+        return False
+    has_any = any(v in ("COMPLIANT", "NEEDS_WORK")
+                  for v in (auth_verdict, spam_verdict, encryption_verdict))
+    try:
+        sb.table("postmaster_compliance").upsert({
+            "user_id": user_id,
+            "domain": domain,
+            "auth_verdict": auth_verdict,
+            "spam_verdict": spam_verdict,
+            "encryption_verdict": encryption_verdict,
+            "has_any_verdict": has_any,
+            "raw_data": json.dumps(raw_data) if raw_data else None,
+            "synced_at": datetime.now(timezone.utc).isoformat(),
+        }, on_conflict="user_id,domain").execute()
+        return True
+    except Exception as e:
+        print(f"Error upserting postmaster compliance for {domain}: {e}")
+        return False
+
+
+def get_postmaster_compliance_bulk(user_id: str) -> dict:
+    """Return all cached compliance verdicts for a user.
+
+    Returns ``{ "<domain>": {auth, spam, encryption, has_any_verdict, synced_at} }``.
+    Empty dict if no rows. Powers /api/postmaster/compliance-bulk's
+    fast path (replaces the live Google fan-out).
+    """
+    sb = get_supabase()
+    if not sb:
+        return {}
+    try:
+        result = sb.table("postmaster_compliance").select(
+            "domain,auth_verdict,spam_verdict,encryption_verdict,has_any_verdict,synced_at"
+        ).eq("user_id", user_id).execute()
+        rows = result.data or []
+        out: dict[str, dict] = {}
+        for r in rows:
+            d = r.get("domain")
+            if not d:
+                continue
+            out[d] = {
+                "auth": r.get("auth_verdict"),
+                "spam": r.get("spam_verdict"),
+                "encryption": r.get("encryption_verdict"),
+                "has_any_verdict": bool(r.get("has_any_verdict")),
+                "synced_at": r.get("synced_at"),
+            }
+        return out
+    except Exception as e:
+        print(f"Error getting postmaster compliance bulk: {e}")
+        return {}
+
+
+def get_postmaster_compliance_single(user_id: str, domain: str) -> dict | None:
+    """Return cached compliance for one domain — full raw_data payload.
+
+    Used by /api/postmaster/compliance/<domain> on the Postmaster details
+    page so the 8-row Compliance Status table renders from cache. Returns
+    None if no row exists (caller can decide to fall back to live Google
+    fetch on a miss).
+    """
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("postmaster_compliance").select("raw_data,synced_at").eq(
+            "user_id", user_id
+        ).eq("domain", domain).limit(1).execute()
+        rows = result.data or []
+        if not rows:
+            return None
+        row = rows[0]
+        raw = row.get("raw_data")
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                raw = None
+        return {"compliance": raw, "synced_at": row.get("synced_at")}
+    except Exception as e:
+        print(f"Error getting postmaster compliance for {domain}: {e}")
+        return None
+
+
 def get_user_ip_domain_mappings(user_id: str) -> dict:
     """INBOX-161 (F2): fetch ALL (ip, domain) mappings for the user.
 
