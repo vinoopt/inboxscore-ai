@@ -840,11 +840,28 @@ async def api_user_plan(req: Request):
             except Exception:
                 pass
 
+    # INBOX-215 follow-up: surface domains-used / domains-limit too.
+    # For Pro/Trial users, scan count is uninformative ('Unlimited');
+    # the meaningful constraint is monitored-domain count. The /settings
+    # billing panel branches its display on plan and uses whichever
+    # number actually matters.
+    domains_used = 0
+    domains_limit = PLAN_DOMAIN_LIMITS.get(plan, PLAN_DOMAIN_LIMITS.get("free", 10))
+    try:
+        domains_used = get_user_domains_count(user_id)
+    except Exception:
+        # Don't fail the whole endpoint on a count error — fall back to 0.
+        pass
+
     return {
         "plan": plan,
         "name": profile.get("name") if profile else None,
         "scans_today": scans_today,
         "scans_limit": limit,  # -1 = unlimited
+        # INBOX-215 follow-up: domain usage (the constraint that
+        # matters for Pro/Trial users).
+        "domains_used": domains_used,
+        "domains_limit": domains_limit,  # -1 = unlimited, 0 = stub
         # INBOX-208: trial/subscription state for INBOX-215 banner UI
         "trial_end": trial_end,
         "subscription_status": subscription_status,

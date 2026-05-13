@@ -634,6 +634,9 @@ function renderBillingPanel(data) {
         '<span class="bill-trial-banner-strong">Trial: ' + (daysLeft != null ? daysLeft + ' days left' : 'active') + '</span>' +
         '<span>· Ends ' + escapeHtml(endStr) + ' · Add a card before then to keep Pro features</span>' +
       '</div>' +
+      '<div class="bill-divider"></div>' +
+      '<div class="bill-row"><span class="bill-row-label">Status</span><span class="bill-row-value">' + _bFriendlyStatus(data.subscription_status) + '</span></div>' +
+      _bDomainsRow(data) +
       _bRenderPriceCards(true) +
       '<div class="bill-actions" style="margin-top:16px">' +
         '<button class="bill-cta" onclick="startBillingCheckout(\'pro_monthly_usd\')">Add card — keep Pro monthly</button>' +
@@ -642,8 +645,8 @@ function renderBillingPanel(data) {
   } else if (plan === 'pro') {
     bodyHtml =
       '<div class="bill-divider"></div>' +
-      '<div class="bill-row"><span class="bill-row-label">Status</span><span class="bill-row-value">' + escapeHtml(data.subscription_status || 'active') + '</span></div>' +
-      '<div class="bill-row"><span class="bill-row-label">Scans today</span><span class="bill-row-value">Unlimited</span></div>' +
+      '<div class="bill-row"><span class="bill-row-label">Status</span><span class="bill-row-value">' + _bFriendlyStatus(data.subscription_status) + '</span></div>' +
+      _bDomainsRow(data) +
       '<div class="bill-actions" style="margin-top:16px">' +
         '<button class="bill-cta" onclick="openBillingPortal()">Manage subscription</button>' +
       '</div>' +
@@ -674,12 +677,50 @@ function renderBillingPanel(data) {
       '<div class="bill-header">' +
         '<div>' +
           '<div class="bill-headline">' + escapeHtml(b.headline) + '</div>' +
-          '<div class="bill-meta">Billing is handled by Stripe (Luvia Digital LTD).</div>' +
         '</div>' +
         '<span class="bill-badge ' + b.cls + '">' + b.label + '</span>' +
       '</div>' +
       bodyHtml +
     '</div>';
+}
+
+/* Map a raw Stripe subscription status to a friendly label.
+   Stripe values: trialing, active, past_due, canceled, incomplete,
+                  incomplete_expired, paused, unpaid
+   Plus our local 'stub' extension. Only called from branches where
+   subscription_status is guaranteed truthy; '—' is a defensive
+   fallback that should never appear in practice. */
+function _bFriendlyStatus(rawStatus) {
+  if (!rawStatus) return '—';
+  var map = {
+    'trialing':            'Trial active',
+    'active':              'Active',
+    'past_due':            'Payment overdue (retrying)',
+    'canceled':            'Cancelled',
+    'incomplete':          'Setup incomplete',
+    'incomplete_expired':  'Setup expired',
+    'paused':              'Paused',
+    'unpaid':              'Unpaid',
+    'stub':                'Trial ended',
+  };
+  var s = String(rawStatus).toLowerCase();
+  return escapeHtml(map[s] || (s.charAt(0).toUpperCase() + s.slice(1)));
+}
+
+/* Domains-used row. For Pro/Trial users this is the meaningful
+   constraint; 'Scans: Unlimited' would be uninformative. */
+function _bDomainsRow(data) {
+  var used = data.domains_used != null ? data.domains_used : 0;
+  var lim = data.domains_limit != null ? data.domains_limit : 10;
+  var display;
+  if (lim === -1) {
+    display = String(used) + ' (unlimited)';
+  } else if (lim === 0) {
+    display = String(used) + ' (existing — no new additions)';
+  } else {
+    display = String(used) + ' of ' + String(lim);
+  }
+  return '<div class="bill-row"><span class="bill-row-label">Monitored domains</span><span class="bill-row-value">' + escapeHtml(display) + '</span></div>';
 }
 
 /* Pretty pricing-card pair shown in the trial/stub/free states. */
