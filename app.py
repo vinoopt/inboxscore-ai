@@ -2765,6 +2765,20 @@ async def serve_pricing():
     return RedirectResponse(url="/#pricing", status_code=302)
 
 
+# INBOX-220 (2026-05-13): legal pages required by Stripe customer portal
+# (which links to /terms and /privacy on invoices, receipts, checkout).
+# Operating entity is Luvia Digital LTD UK (VAT-registered). See
+# PAYMENT-PLAN.md §3 and STRIPE-PHASE-0-RUNBOOK.md §5.
+@app.get("/terms")
+async def serve_terms():
+    return _html("terms.html")
+
+
+@app.get("/privacy")
+async def serve_privacy():
+    return _html("privacy.html")
+
+
 @app.get("/signup")
 async def serve_signup():
     return _html("signup.html")
