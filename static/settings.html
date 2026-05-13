@@ -120,6 +120,44 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .set-soon-card p { font-size: 13px; color: var(--text-muted); max-width: 420px; margin: 0 auto; line-height: 1.6; }
 .set-soon-card p strong { color: var(--accent); font-weight: 600; }
 
+/* BILLING panel (INBOX-213) — real plan + subscription management UI */
+.bill-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+.bill-card + .bill-card { margin-top: 16px; }
+.bill-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.bill-headline { font-size: 18px; font-weight: 600; color: var(--text); }
+.bill-meta { color: var(--text-muted); font-size: 13px; margin-top: 4px; line-height: 1.5; }
+.bill-meta strong { color: var(--text); font-weight: 600; }
+.bill-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid transparent; }
+.bill-badge-trial { background: rgba(37,99,235,0.10); color: var(--blue, #2563eb); border-color: rgba(37,99,235,0.25); }
+.bill-badge-pro   { background: rgba(22,163,74,0.10); color: var(--green, #16a34a); border-color: rgba(22,163,74,0.25); }
+.bill-badge-stub  { background: rgba(202,138,4,0.10); color: var(--yellow, #ca8a04); border-color: rgba(202,138,4,0.25); }
+.bill-badge-free  { background: var(--surface-2); color: var(--text-muted); border-color: var(--border); }
+.bill-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.bill-cta { padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--text); background: var(--text); color: var(--surface); transition: all 100ms ease; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+.bill-cta:hover { opacity: 0.9; }
+.bill-cta:disabled { opacity: 0.5; cursor: not-allowed; }
+.bill-cta-secondary { padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); transition: all 100ms ease; font-family: inherit; }
+.bill-cta-secondary:hover { border-color: var(--text); }
+.bill-divider { height: 1px; background: var(--border); margin: 20px -24px; }
+.bill-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; font-size: 13px; }
+.bill-row:not(:last-child) { border-bottom: 1px solid var(--border-weak); }
+.bill-row-label { color: var(--text-muted); }
+.bill-row-value { color: var(--text); font-weight: 500; }
+.bill-loading { padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px; }
+.bill-trial-banner { background: rgba(37,99,235,0.06); border: 1px solid rgba(37,99,235,0.20); border-radius: 10px; padding: 14px 18px; margin-top: 16px; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 12px; }
+.bill-trial-banner-strong { color: var(--blue, #2563eb); font-weight: 600; }
+.bill-stub-banner { background: rgba(202,138,4,0.06); border: 1px solid rgba(202,138,4,0.20); border-radius: 10px; padding: 14px 18px; margin-top: 16px; font-size: 13px; color: var(--text); }
+.bill-prices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.bill-price-card { border: 1px solid var(--border-strong); border-radius: 10px; padding: 14px; cursor: pointer; transition: all 100ms ease; background: var(--surface); }
+.bill-price-card:hover { border-color: var(--text); }
+.bill-price-card.featured { border-color: var(--text); position: relative; }
+.bill-price-card.featured::after { content: 'Save 20%'; position: absolute; top: -8px; right: 12px; background: var(--green, #16a34a); color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.03em; }
+.bill-price-amount { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+.bill-price-period { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+@media (max-width: 480px) {
+  .bill-prices { grid-template-columns: 1fr; }
+}
+
 /* MODAL — generic + SNDS multi-step */
 .set-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; align-items: center; justify-content: center; padding: 20px; }
 .set-modal-overlay.show { display: flex; }
@@ -245,7 +283,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
         <nav class="set-nav">
           <button class="set-nav-item active" data-tab="general" onclick="setSettingsTab('general', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> General</button>
           <button class="set-nav-item" data-tab="connections" onclick="setSettingsTab('connections', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Connected Services</button>
-          <button class="set-nav-item" data-tab="billing" onclick="setSettingsTab('billing', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Plan &amp; Billing<span class="set-soon-pill">Soon</span></button>
+          <button class="set-nav-item" data-tab="billing" onclick="setSettingsTab('billing', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Plan &amp; Billing</button>
           <button class="set-nav-item" data-tab="api" onclick="setSettingsTab('api', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg> API Access<span class="set-soon-pill">Soon</span></button>
           <button class="set-nav-item" data-tab="team" onclick="setSettingsTab('team', this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Team<span class="set-soon-pill">Soon</span></button>
         </nav>
@@ -315,14 +353,16 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
             </div>
           </div>
 
-          <!-- ═══ COMING SOON PANELS ═══ -->
+          <!-- ═══ PLAN & BILLING (INBOX-213) ═══ -->
           <div class="set-panel" id="sp-billing">
             <div class="set-section-title">Plan &amp; Billing</div>
-            <div class="set-section-desc">Manage your subscription, view usage, and update payment details.</div>
-            <div class="set-soon-card">
-              <div class="set-soon-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
-              <h3>Coming Soon</h3>
-              <p>Plan management, billing history, and payment settings will land here. You're currently on the <strong id="billing-plan-name">— plan</strong>.</p>
+            <div class="set-section-desc">Manage your subscription, view payment details, and access invoices.</div>
+
+            <!-- Hydrated by renderBillingPanel() — loading state shown first -->
+            <div id="bill-content">
+              <div class="bill-card">
+                <div class="bill-loading">Loading your plan…</div>
+              </div>
             </div>
           </div>
 
@@ -475,6 +515,191 @@ function setSettingsTab(tab, el) {
   document.querySelectorAll('.set-panel').forEach(function (p) { p.classList.remove('active'); });
   var panel = document.getElementById('sp-' + tab);
   if (panel) panel.classList.add('active');
+
+  /* INBOX-213: lazy-load billing data on tab open. Subsequent opens
+     use cached state until something invalidates it. */
+  if (tab === 'billing' && !window.__billingLoaded) {
+    loadBillingPanel();
+  }
+}
+
+/* ═══════════ BILLING PANEL (INBOX-213) ═══════════ */
+
+/* Format an ISO date as "Mon, May 27, 2026". Returns '' for falsy. */
+function _bFormatDate(iso) {
+  if (!iso) return '';
+  try {
+    var d = new Date(iso);
+    return d.toLocaleDateString('en-GB', {
+      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+    });
+  } catch (e) { return iso; }
+}
+
+/* Days between now and an ISO timestamp. Negative if past. */
+function _bDaysUntil(iso) {
+  if (!iso) return null;
+  var diff = new Date(iso).getTime() - Date.now();
+  return Math.ceil(diff / (24 * 3600 * 1000));
+}
+
+/* Fetch /api/user/plan and render the billing panel.
+   Endpoint returns: { plan, scans_today, scans_limit, trial_end,
+                       subscription_status, features: { ... } } */
+async function loadBillingPanel() {
+  var container = document.getElementById('bill-content');
+  if (!container) return;
+  var token = getToken();
+  if (!token) {
+    container.innerHTML = '<div class="bill-card"><div class="bill-loading">Please log in to view your plan.</div></div>';
+    return;
+  }
+  try {
+    var r = await fetch('/api/user/plan', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var data = await r.json();
+    renderBillingPanel(data);
+    window.__billingLoaded = true;
+  } catch (e) {
+    container.innerHTML = '<div class="bill-card"><div class="bill-loading">' +
+      'Could not load your plan. <button class="bill-cta-secondary" style="margin-left:8px" onclick="loadBillingPanel()">Retry</button>' +
+      '</div></div>';
+  }
+}
+
+function renderBillingPanel(data) {
+  var container = document.getElementById('bill-content');
+  if (!container) return;
+  var plan = (data.plan || 'free').toLowerCase();
+
+  /* Map plan → badge label + class + headline */
+  var b = { label: 'FREE', cls: 'bill-badge-free', headline: 'Free plan' };
+  if (plan === 'trial') { b = { label: 'TRIAL', cls: 'bill-badge-trial', headline: '14-day Pro trial' }; }
+  else if (plan === 'pro') { b = { label: 'PRO', cls: 'bill-badge-pro', headline: 'InboxScore Pro' }; }
+  else if (plan === 'stub') { b = { label: 'TRIAL ENDED', cls: 'bill-badge-stub', headline: 'Stub Free' }; }
+  else if (plan === 'growth' || plan === 'enterprise') { b = { label: plan.toUpperCase(), cls: 'bill-badge-pro', headline: 'InboxScore ' + plan.charAt(0).toUpperCase() + plan.slice(1) }; }
+
+  /* Build state-specific body */
+  var bodyHtml = '';
+  if (plan === 'trial') {
+    var daysLeft = _bDaysUntil(data.trial_end);
+    var endStr = _bFormatDate(data.trial_end);
+    bodyHtml =
+      '<div class="bill-trial-banner">' +
+        '<span class="bill-trial-banner-strong">Trial: ' + (daysLeft != null ? daysLeft + ' days left' : 'active') + '</span>' +
+        '<span>· Ends ' + escapeHtml(endStr) + ' · Add a card before then to keep Pro features</span>' +
+      '</div>' +
+      _bRenderPriceCards(true) +
+      '<div class="bill-actions" style="margin-top:16px">' +
+        '<button class="bill-cta" onclick="startBillingCheckout(\'pro_monthly_usd\')">Add card — keep Pro monthly</button>' +
+        '<button class="bill-cta-secondary" onclick="startBillingCheckout(\'pro_yearly_usd\')">Switch to yearly (save 20%)</button>' +
+      '</div>';
+  } else if (plan === 'pro') {
+    bodyHtml =
+      '<div class="bill-divider"></div>' +
+      '<div class="bill-row"><span class="bill-row-label">Status</span><span class="bill-row-value">' + escapeHtml(data.subscription_status || 'active') + '</span></div>' +
+      '<div class="bill-row"><span class="bill-row-label">Scans today</span><span class="bill-row-value">Unlimited</span></div>' +
+      '<div class="bill-actions" style="margin-top:16px">' +
+        '<button class="bill-cta" onclick="openBillingPortal()">Manage subscription</button>' +
+      '</div>' +
+      '<p class="bill-meta" style="margin-top:12px">Manage payment method, switch monthly ↔ yearly, view invoices, or cancel via the Stripe-hosted portal.</p>';
+  } else if (plan === 'stub') {
+    bodyHtml =
+      '<div class="bill-stub-banner">Your trial has ended. <strong>Stub Free</strong> is limited to 1 scan per 7 days with no monitoring. Reactivate Pro to resume full access.</div>' +
+      _bRenderPriceCards(true) +
+      '<div class="bill-actions" style="margin-top:16px">' +
+        '<button class="bill-cta" onclick="startBillingCheckout(\'pro_monthly_usd\')">Reactivate Pro — monthly</button>' +
+        '<button class="bill-cta-secondary" onclick="startBillingCheckout(\'pro_yearly_usd\')">Reactivate Pro — yearly</button>' +
+      '</div>';
+  } else {
+    /* Legacy free + grandfathered users */
+    bodyHtml =
+      '<div class="bill-divider"></div>' +
+      '<div class="bill-row"><span class="bill-row-label">Scans / day</span><span class="bill-row-value">' + (data.scans_limit === -1 ? 'Unlimited' : escapeHtml(String(data.scans_limit))) + '</span></div>' +
+      '<div class="bill-row"><span class="bill-row-label">Used today</span><span class="bill-row-value">' + escapeHtml(String(data.scans_today)) + '</span></div>' +
+      _bRenderPriceCards(true) +
+      '<div class="bill-actions" style="margin-top:16px">' +
+        '<button class="bill-cta" onclick="startBillingCheckout(\'pro_monthly_usd\')">Upgrade to Pro — monthly</button>' +
+        '<button class="bill-cta-secondary" onclick="startBillingCheckout(\'pro_yearly_usd\')">Upgrade to Pro — yearly</button>' +
+      '</div>';
+  }
+
+  container.innerHTML =
+    '<div class="bill-card">' +
+      '<div class="bill-header">' +
+        '<div>' +
+          '<div class="bill-headline">' + escapeHtml(b.headline) + '</div>' +
+          '<div class="bill-meta">Billing is handled by Stripe (Luvia Digital LTD).</div>' +
+        '</div>' +
+        '<span class="bill-badge ' + b.cls + '">' + b.label + '</span>' +
+      '</div>' +
+      bodyHtml +
+    '</div>';
+}
+
+/* Pretty pricing-card pair shown in the trial/stub/free states. */
+function _bRenderPriceCards(featureYearly) {
+  return '' +
+    '<div class="bill-prices">' +
+      '<div class="bill-price-card">' +
+        '<div class="bill-price-amount">$49</div>' +
+        '<div class="bill-price-period">per month, billed monthly</div>' +
+      '</div>' +
+      '<div class="bill-price-card' + (featureYearly ? ' featured' : '') + '">' +
+        '<div class="bill-price-amount">$470</div>' +
+        '<div class="bill-price-period">per year, billed annually</div>' +
+      '</div>' +
+    '</div>';
+}
+
+/* POST /api/billing/checkout → Stripe Checkout URL → redirect. */
+async function startBillingCheckout(priceLookupKey) {
+  var token = getToken();
+  if (!token) { showToast('Please log in first', 'error'); return; }
+  try {
+    var r = await fetch('/api/billing/checkout', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ price_lookup_key: priceLookupKey }),
+    });
+    if (!r.ok) {
+      var err = await r.json().catch(function () { return {}; });
+      throw new Error(err.detail || ('HTTP ' + r.status));
+    }
+    var data = await r.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      throw new Error('No checkout URL returned');
+    }
+  } catch (e) {
+    showToast('Could not open checkout: ' + e.message, 'error');
+  }
+}
+
+/* POST /api/billing/portal → Stripe Customer Portal URL → redirect. */
+async function openBillingPortal() {
+  var token = getToken();
+  if (!token) { showToast('Please log in first', 'error'); return; }
+  try {
+    var r = await fetch('/api/billing/portal', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (!r.ok) {
+      var err = await r.json().catch(function () { return {}; });
+      throw new Error(err.detail || ('HTTP ' + r.status));
+    }
+    var data = await r.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      throw new Error('No portal URL returned');
+    }
+  } catch (e) {
+    showToast('Could not open billing portal: ' + e.message, 'error');
+  }
 }
 
 /* ═══════════ SETTINGS LOAD (SWR) ═══════════ */
