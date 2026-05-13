@@ -590,6 +590,16 @@ function renderBillingPanel(data) {
   if (!container) return;
   var plan = (data.plan || 'free').toLowerCase();
 
+  /* Critical: does the user have a Stripe relationship?
+     - subscription_status truthy → yes, they've been through Stripe
+       (might be trialing/active/past_due/etc.) → portal works
+     - subscription_status null → no Stripe customer/sub yet (legacy
+       user pre-INBOX-209, or signup before grandfather migration).
+       The "Manage subscription" button would 400 because there's
+       nothing to manage. Show "Set up billing" CTA instead.
+     INBOX-215 follow-up: surface this state cleanly. */
+  var hasStripe = !!data.subscription_status;
+
   /* Map plan → badge label + class + headline */
   var b = { label: 'FREE', cls: 'bill-badge-free', headline: 'Free plan' };
   if (plan === 'trial') { b = { label: 'TRIAL', cls: 'bill-badge-trial', headline: '14-day Pro trial' }; }
@@ -599,7 +609,24 @@ function renderBillingPanel(data) {
 
   /* Build state-specific body */
   var bodyHtml = '';
-  if (plan === 'trial') {
+
+  /* Special case: legacy Pro / Growth / Enterprise user with NO Stripe
+     relationship. They're on a paid plan via profiles.plan but never
+     went through Stripe. Show a 'Set up billing' CTA that initiates a
+     real subscription so portal management works going forward. */
+  if (!hasStripe && (plan === 'pro' || plan === 'growth' || plan === 'enterprise')) {
+    bodyHtml =
+      '<div class="bill-trial-banner">' +
+        '<span class="bill-trial-banner-strong">No payment method on file</span>' +
+        '<span>· You\'re on a legacy ' + escapeHtml(plan) + ' plan with no Stripe billing set up yet. Add one to manage your subscription, view invoices, or change billing details.</span>' +
+      '</div>' +
+      _bRenderPriceCards(true) +
+      '<div class="bill-actions" style="margin-top:16px">' +
+        '<button class="bill-cta" onclick="startBillingCheckout(\'pro_monthly_usd\')">Set up billing — monthly</button>' +
+        '<button class="bill-cta-secondary" onclick="startBillingCheckout(\'pro_yearly_usd\')">Set up billing — yearly</button>' +
+      '</div>' +
+      '<p class="bill-meta" style="margin-top:12px">In Stripe test mode? Use test card <code>4242 4242 4242 4242</code>, any future expiry, any CVC.</p>';
+  } else if (plan === 'trial') {
     var daysLeft = _bDaysUntil(data.trial_end);
     var endStr = _bFormatDate(data.trial_end);
     bodyHtml =
