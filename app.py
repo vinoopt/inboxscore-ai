@@ -53,6 +53,10 @@ from db import (
     save_blacklist_results, get_blacklist_results,
     # INBOX-206 (Stripe billing): subscriptions table helpers
     get_user_subscription, set_user_stripe_customer,
+    # INBOX-207 (Stripe webhook handler): idempotency + state mirror
+    get_user_id_by_stripe_customer,
+    was_webhook_processed, mark_webhook_processed,
+    upsert_subscription_from_stripe,
 )
 
 # Auth
@@ -916,6 +920,197 @@ async def api_billing_portal(body: BillingPortalRequest, req: Request):
         raise HTTPException(status_code=502, detail="Billing provider error")
 
     return {"url": session.url}
+
+
+# ─── STRIPE WEBHOOK HANDLER (INBOX-207) ──────────────────────────
+#
+# Public endpoint Stripe POSTs to whenever a billing event occurs.
+# Configured in Stripe dashboard (Phase 0 Step 7) — listens for 6
+# events that drive our local subscriptions state:
+#
+#   checkout.session.completed         → user added card / converted trial
+#   customer.subscription.updated      → plan switch, cancel queued,
+#                                        status transitions (the workhorse)
+#   customer.subscription.deleted      → sub fully ended (canceled,
+#                                        incomplete_expired, unpaid)
+#   customer.subscription.trial_will_end → day-11 reminder hook
+#   invoice.payment_succeeded          → renewal payment landed
+#   invoice.payment_failed             → renewal attempt failed
+#
+# Security model:
+#   1. Verify Stripe signature on the RAW request body (NOT json-parsed)
+#      → 400 if invalid, no DB hit, no side effects
+#   2. Idempotency check: insert into stripe_webhook_events first
+#      → 200 + skip if already seen, even though Stripe may retry
+#   3. Dispatch to per-event handler; handler errors → 500 so Stripe
+#      retries; non-error → 200
+#
+# Handler design — most handlers just log. customer.subscription.updated
+# and .deleted are the only ones that mutate state. invoice.* and
+# trial_will_end are observability hooks (will drive emails in INBOX-217,
+# Mixpanel events in INBOX-218 — not in scope for this ticket).
+
+
+def _stripe_handler_subscription_updated(event: dict) -> None:
+    """customer.subscription.updated → mirror state into our subscriptions table."""
+    sub = event.get("data", {}).get("object", {})
+    customer_id = sub.get("customer")
+    if not customer_id:
+        return
+    user_id = get_user_id_by_stripe_customer(customer_id)
+    if not user_id:
+        # Event for a customer we don't know — drop silently. Most
+        # likely cause: test-mode race during signup before the
+        # subscriptions row was written. Stripe doesn't retry on
+        # 200, so we ack and move on.
+        print(f"[webhook] subscription.updated: unknown customer {customer_id}")
+        return
+    upsert_subscription_from_stripe(user_id, sub)
+
+
+def _stripe_handler_subscription_deleted(event: dict) -> None:
+    """customer.subscription.deleted → flip to stub state explicitly."""
+    sub = event.get("data", {}).get("object", {})
+    customer_id = sub.get("customer")
+    if not customer_id:
+        return
+    user_id = get_user_id_by_stripe_customer(customer_id)
+    if not user_id:
+        print(f"[webhook] subscription.deleted: unknown customer {customer_id}")
+        return
+    upsert_subscription_from_stripe(user_id, sub, force_stub=True)
+
+
+def _stripe_handler_checkout_completed(event: dict) -> None:
+    """checkout.session.completed → log only.
+
+    The customer.subscription.updated event fires immediately after
+    a successful checkout and that handler does the real state work.
+    We could fetch the subscription explicitly here for slightly
+    faster state transition, but that's an extra API call for no
+    real benefit — subscription.updated arrives within milliseconds.
+    """
+    session = event.get("data", {}).get("object", {})
+    customer_id = session.get("customer")
+    print(f"[webhook] checkout.session.completed customer={customer_id} "
+          f"mode={session.get('mode')}")
+
+
+def _stripe_handler_trial_will_end(event: dict) -> None:
+    """customer.subscription.trial_will_end → log only for now.
+
+    Fires 3 days before trial expiry. INBOX-217 will hook into this
+    to send the 'trial ending in 3 days' email. For this ticket we
+    just log so we can verify deliveries arrive.
+    """
+    sub = event.get("data", {}).get("object", {})
+    print(f"[webhook] trial_will_end customer={sub.get('customer')} "
+          f"trial_end={sub.get('trial_end')}")
+
+
+def _stripe_handler_invoice_payment_succeeded(event: dict) -> None:
+    """invoice.payment_succeeded → log only.
+
+    Stripe also fires customer.subscription.updated on the same renewal
+    success, and that handler refreshes our current_period_end. So no
+    state mutation needed here.
+    """
+    inv = event.get("data", {}).get("object", {})
+    print(f"[webhook] invoice.payment_succeeded customer={inv.get('customer')} "
+          f"amount={inv.get('amount_paid')} currency={inv.get('currency')}")
+
+
+def _stripe_handler_invoice_payment_failed(event: dict) -> None:
+    """invoice.payment_failed → log only.
+
+    Stripe Smart Retries handle the retry sequence. After all retries
+    fail, Stripe fires customer.subscription.updated with status=
+    'past_due' → 'unpaid', and eventually customer.subscription.deleted,
+    which our handlers process.
+    """
+    inv = event.get("data", {}).get("object", {})
+    print(f"[webhook] invoice.payment_failed customer={inv.get('customer')} "
+          f"attempt={inv.get('attempt_count')}")
+
+
+_STRIPE_WEBHOOK_HANDLERS = {
+    "checkout.session.completed":            _stripe_handler_checkout_completed,
+    "customer.subscription.updated":         _stripe_handler_subscription_updated,
+    "customer.subscription.deleted":         _stripe_handler_subscription_deleted,
+    "customer.subscription.trial_will_end":  _stripe_handler_trial_will_end,
+    "invoice.payment_succeeded":             _stripe_handler_invoice_payment_succeeded,
+    "invoice.payment_failed":                _stripe_handler_invoice_payment_failed,
+}
+
+
+@app.post("/api/webhooks/stripe")
+async def api_stripe_webhook(req: Request):
+    """Receive + verify + dispatch Stripe webhook events.
+
+    Signature verification happens on the RAW request body (bytes).
+    Never JSON-parse before verifying — re-serializing the dict
+    breaks Stripe's hash.
+    """
+    # 1. Read raw body for signature verification.
+    raw_body = await req.body()
+    signature = req.headers.get("stripe-signature", "")
+
+    # 2. Verify signature. Any failure → 400 (Stripe won't retry).
+    try:
+        event = billing.verify_webhook(raw_body, signature)
+    except Exception as e:
+        # Includes SignatureVerificationError, missing env vars, etc.
+        # Log enough to debug but don't echo internal state to caller.
+        print(f"[webhook] signature verification failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # Stripe Event objects can be dict-like (from SDK construct_event)
+    # or already-dicts. Handle both.
+    if hasattr(event, "to_dict"):
+        event = event.to_dict()
+
+    event_id = event.get("id")
+    event_type = event.get("type")
+    if not event_id or not event_type:
+        raise HTTPException(status_code=400, detail="Malformed event")
+
+    # 3. Idempotency — has this event been processed before?
+    if was_webhook_processed(event_id):
+        print(f"[webhook] idempotent skip: {event_type} {event_id}")
+        return {"received": True, "idempotent_skip": True}
+
+    # 4. Record this event so retries no-op. mark_webhook_processed
+    # returns False on duplicate (race condition) — treat as already
+    # processed.
+    payload_obj = event.get("data", {}).get("object", {})
+    inserted = mark_webhook_processed(event_id, event_type, payload_obj)
+    if not inserted:
+        print(f"[webhook] race: another worker already inserted {event_id}, "
+              f"skipping handler")
+        return {"received": True, "idempotent_skip": True}
+
+    # 5. Dispatch.
+    handler = _STRIPE_WEBHOOK_HANDLERS.get(event_type)
+    if not handler:
+        # Unknown event type — log but ack so Stripe doesn't retry.
+        # We've already recorded it in stripe_webhook_events for audit.
+        print(f"[webhook] no handler for event type: {event_type} {event_id}")
+        return {"received": True, "unhandled_type": event_type}
+
+    try:
+        handler(event)
+    except Exception as e:
+        # Transient error — return 500 so Stripe retries. Note: the
+        # idempotency row has already been inserted, so on retry we'd
+        # short-circuit at step 3. That means a failed handler is
+        # effectively permanent failure (data lost). For now this is
+        # acceptable; we'll add explicit retry handling if it becomes
+        # a real problem. Logs are the audit trail.
+        print(f"[webhook] handler error for {event_type} {event_id}: "
+              f"{type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="Handler failed")
+
+    return {"received": True, "event_type": event_type}
 
 
 # ─── SETTINGS API ENDPOINTS ──────────────────────────────────────

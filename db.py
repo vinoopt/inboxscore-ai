@@ -522,6 +522,194 @@ def set_user_stripe_customer(user_id: str, stripe_customer_id: str) -> bool:
         return False
 
 
+def get_user_id_by_stripe_customer(stripe_customer_id: str) -> str:
+    """
+    Resolve stripe_customer_id → user_id via the subscriptions table.
+
+    Used by the webhook handler (INBOX-207) to map a Stripe event
+    (which only knows stripe_customer_id) back to our internal user.
+
+    Returns None if no subscription row matches OR migration 015 not
+    applied. Webhook handler interprets None as "event for a customer
+    we don't know about" and silently ignores — safer than 500-ing
+    and letting Stripe retry forever.
+    """
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("subscriptions").select("user_id").eq(
+            "stripe_customer_id", stripe_customer_id
+        ).limit(1).execute()
+        if result.data:
+            return result.data[0]["user_id"]
+        return None
+    except Exception as e:
+        print(f"[subscriptions] get_user_id_by_stripe_customer error: {e}")
+        return None
+
+
+# ─── STRIPE WEBHOOK IDEMPOTENCY (INBOX-207) ───────────────────────
+#
+# Table created by migration 016_stripe_webhook_events.sql. Pattern:
+#   1. INSERT into stripe_webhook_events ON CONFLICT DO NOTHING
+#   2. If insert succeeded → process event
+#   3. If conflict → already processed, return 200 immediately
+#
+# Stripe replays events on failure for up to 3 days. Without
+# idempotency, every retry re-processes the event and double-fires
+# side effects (welcome emails, Mixpanel events, etc.).
+
+def was_webhook_processed(stripe_event_id: str) -> bool:
+    """
+    Has this Stripe event ID already been processed?
+
+    True iff a row with that event_id exists in stripe_webhook_events.
+    Returns False on DB unavailability — better to risk a duplicate
+    process than to drop the event entirely.
+    """
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        result = sb.table("stripe_webhook_events").select(
+            "stripe_event_id"
+        ).eq("stripe_event_id", stripe_event_id).limit(1).execute()
+        return bool(result.data)
+    except Exception as e:
+        print(f"[webhook] was_webhook_processed error: {e}")
+        return False
+
+
+def mark_webhook_processed(
+    stripe_event_id: str, event_type: str, payload: dict
+) -> bool:
+    """
+    Record a webhook event as processed.
+
+    Inserts a row into stripe_webhook_events. The PK on
+    stripe_event_id enforces idempotency at the DB layer — duplicate
+    inserts raise an exception (which we catch and treat as "already
+    processed").
+
+    Returns True on successful insert (this is the first time we've
+    seen this event ID). Returns False on duplicate or any other
+    failure.
+    """
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("stripe_webhook_events").insert({
+            "stripe_event_id": stripe_event_id,
+            "event_type": event_type,
+            "payload": payload,
+        }).execute()
+        return True
+    except Exception as e:
+        # Most likely: duplicate (PK violation). Could also be a
+        # transient DB issue. Either way, the caller's contract is
+        # "False = don't process".
+        print(f"[webhook] mark_webhook_processed insert failed for "
+              f"{stripe_event_id}: {e}")
+        return False
+
+
+# ─── SUBSCRIPTION UPSERT FROM STRIPE EVENT (INBOX-207) ───────────
+
+# Stripe subscription.status → our plan strings. Trial keeps plan='trial'
+# even though feature-gating treats trial like pro — that distinction
+# lets us run "did this user ever pay?" analytics. past_due users keep
+# 'pro' access during Stripe's Smart Retries window; only after the
+# subscription transitions out of past_due do they drop to stub.
+_STRIPE_STATUS_TO_PLAN = {
+    "trialing": "trial",
+    "active": "pro",
+    "past_due": "pro",
+    "canceled": "stub",
+    "unpaid": "stub",
+    "incomplete": "stub",
+    "incomplete_expired": "stub",
+    "paused": "stub",  # we don't support pause in product, but map for safety
+}
+
+
+def _stripe_ts_to_iso(ts):
+    """Convert a Unix timestamp from Stripe → ISO 8601 UTC string."""
+    if not ts:
+        return None
+    from datetime import datetime, timezone
+    return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat()
+
+
+def upsert_subscription_from_stripe(
+    user_id: str, stripe_sub: dict, force_stub: bool = False
+) -> bool:
+    """
+    Write a Stripe subscription object into the local subscriptions
+    table. Used by the webhook handler on subscription.updated and
+    subscription.deleted events.
+
+    Idempotent — calling with the same payload twice produces the
+    same row state. Safe under Stripe webhook replays.
+
+    force_stub=True is used for the deleted event specifically: even
+    though Stripe might still report status='canceled' (which maps to
+    plan='stub' anyway), this is the explicit cleanup signal that the
+    subscription is fully gone.
+
+    Side effect: also updates profiles.plan as a cache (read by the
+    fast-path /api/user/plan endpoint).
+
+    Returns True on success, False on DB error or missing migration.
+    """
+    sb = get_supabase()
+    if not sb:
+        return False
+
+    stripe_status = stripe_sub.get("status", "incomplete")
+    plan = "stub" if force_stub else _STRIPE_STATUS_TO_PLAN.get(stripe_status, "stub")
+    local_status = "stub" if force_stub else stripe_status
+
+    # Extract price_id from the first item (we sell single-item subs
+    # — InboxScore Pro at $49/mo or $470/yr, never multi-item).
+    price_id = None
+    items = stripe_sub.get("items", {}).get("data", [])
+    if items:
+        price_id = items[0].get("price", {}).get("id")
+
+    row = {
+        "user_id": user_id,
+        "stripe_customer_id": stripe_sub.get("customer"),
+        "stripe_subscription_id": stripe_sub.get("id"),
+        "stripe_price_id": price_id,
+        "plan": plan,
+        "status": local_status,
+        "current_period_start": _stripe_ts_to_iso(stripe_sub.get("current_period_start")),
+        "current_period_end":   _stripe_ts_to_iso(stripe_sub.get("current_period_end")),
+        "trial_end":            _stripe_ts_to_iso(stripe_sub.get("trial_end")),
+        "cancel_at_period_end": stripe_sub.get("cancel_at_period_end", False),
+        "canceled_at":          _stripe_ts_to_iso(stripe_sub.get("canceled_at")),
+    }
+    # Strip Nones — Supabase upsert preserves existing values when a
+    # column is missing from the payload, which is what we want.
+    row = {k: v for k, v in row.items() if v is not None}
+
+    try:
+        sb.table("subscriptions").upsert(
+            row, on_conflict="user_id"
+        ).execute()
+        # Keep profiles.plan in sync as a denormalised cache. The
+        # /api/user/plan endpoint reads this for speed; security
+        # gating still resolves through subscriptions.plan.
+        sb.table("profiles").update({"plan": plan}).eq("id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"[subscriptions] upsert_subscription_from_stripe "
+              f"({user_id}) error: {e}")
+        return False
+
+
 def get_user_profile(user_id: str) -> dict:
     """Get user profile including plan info"""
     sb = get_supabase()
