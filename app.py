@@ -865,6 +865,10 @@ async def api_user_plan(req: Request):
         # INBOX-208: trial/subscription state for INBOX-215 banner UI
         "trial_end": trial_end,
         "subscription_status": subscription_status,
+        # INBOX-215 follow-up: 'test' | 'live' | 'unknown'. Frontend
+        # hides the test-card hint when not 'test', so the hint
+        # auto-disappears on live-mode cutover.
+        "stripe_mode": billing.get_stripe_mode(),
         "features": {
             "unlimited_scans": limit == -1,
             # Monitoring: trial users get Pro features for 14 days,

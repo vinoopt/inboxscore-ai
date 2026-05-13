@@ -125,6 +125,26 @@ def get_webhook_secret() -> str:
     return secret
 
 
+def get_stripe_mode() -> str:
+    """
+    Return 'test' or 'live' based on the STRIPE_SECRET_KEY prefix.
+
+    Stripe convention: sk_test_* for sandbox, sk_live_* for production.
+    Used by the frontend (/api/user/plan) to conditionally show test-
+    card hints during the test-mode window, then auto-hide them once
+    we cut over to live keys. No manual UI change needed at cutover.
+
+    Returns 'unknown' if env is misconfigured — caller treats that as
+    'don't show test-mode hints, to be safe'.
+    """
+    key = os.environ.get("STRIPE_SECRET_KEY", "")
+    if key.startswith("sk_test_"):
+        return "test"
+    if key.startswith("sk_live_"):
+        return "live"
+    return "unknown"
+
+
 # ─── Helpers ──────────────────────────────────────────────────────
 
 def lookup_price(lookup_key: str) -> stripe.Price:

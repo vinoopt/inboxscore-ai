@@ -148,12 +148,16 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .bill-trial-banner-strong { color: var(--blue, #2563eb); font-weight: 600; }
 .bill-stub-banner { background: rgba(202,138,4,0.06); border: 1px solid rgba(202,138,4,0.20); border-radius: 10px; padding: 14px 18px; margin-top: 16px; font-size: 13px; color: var(--text); }
 .bill-prices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-.bill-price-card { border: 1px solid var(--border-strong); border-radius: 10px; padding: 14px; cursor: pointer; transition: all 100ms ease; background: var(--surface); }
+.bill-price-card { border: 1px solid var(--border-strong); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all 100ms ease; background: var(--surface); position: relative; user-select: none; }
 .bill-price-card:hover { border-color: var(--text); }
-.bill-price-card.featured { border-color: var(--text); position: relative; }
-.bill-price-card.featured::after { content: 'Save 20%'; position: absolute; top: -8px; right: 12px; background: var(--green, #16a34a); color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.03em; }
+.bill-price-card:focus-visible { outline: 2px solid var(--accent, #7c3aed); outline-offset: 2px; }
+.bill-price-card[aria-pressed="true"] { border-color: var(--text); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--text); }
+.bill-price-card[aria-pressed="true"]::before { content: '✓'; position: absolute; top: 10px; right: 12px; width: 18px; height: 18px; border-radius: 50%; background: var(--text); color: var(--surface); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+.bill-price-tag { position: absolute; top: -9px; right: 12px; background: var(--green, #16a34a); color: #fff; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; letter-spacing: 0.03em; }
 .bill-price-amount { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
 .bill-price-period { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+.bill-test-hint { font-size: 12px; color: var(--text-muted); margin-top: 12px; padding: 10px 14px; background: var(--surface-2); border-radius: 8px; border: 1px dashed var(--border-strong); }
+.bill-test-hint code { background: var(--surface); padding: 1px 6px; border-radius: 4px; font-size: 0.92em; font-family: 'JetBrains Mono', ui-monospace, monospace; }
 @media (max-width: 480px) {
   .bill-prices { grid-template-columns: 1fr; }
 }
@@ -620,12 +624,11 @@ function renderBillingPanel(data) {
         '<span class="bill-trial-banner-strong">No payment method on file</span>' +
         '<span>· You\'re on a legacy ' + escapeHtml(plan) + ' plan with no Stripe billing set up yet. Add one to manage your subscription, view invoices, or change billing details.</span>' +
       '</div>' +
-      _bRenderPriceCards(true) +
+      _bRenderPriceCards() +
       '<div class="bill-actions" style="margin-top:16px">' +
-        '<button class="bill-cta" onclick="startBillingCheckout(\'pro_monthly_usd\')">Set up billing — monthly</button>' +
-        '<button class="bill-cta-secondary" onclick="startBillingCheckout(\'pro_yearly_usd\')">Set up billing — yearly</button>' +
+        '<button class="bill-cta" onclick="startBillingCheckout(_bSelectedPrice())">Set up billing</button>' +
       '</div>' +
-      '<p class="bill-meta" style="margin-top:12px">In Stripe test mode? Use test card <code>4242 4242 4242 4242</code>, any future expiry, any CVC.</p>';
+      _bTestModeHint(data);
   } else if (plan === 'trial') {
     var daysLeft = _bDaysUntil(data.trial_end);
     var endStr = _bFormatDate(data.trial_end);
@@ -637,11 +640,11 @@ function renderBillingPanel(data) {
       '<div class="bill-divider"></div>' +
       '<div class="bill-row"><span class="bill-row-label">Status</span><span class="bill-row-value">' + _bFriendlyStatus(data.subscription_status) + '</span></div>' +
       _bDomainsRow(data) +
-      _bRenderPriceCards(true) +
+      _bRenderPriceCards() +
       '<div class="bill-actions" style="margin-top:16px">' +
-        '<button class="bill-cta" onclick="startBillingCheckout(\'pro_monthly_usd\')">Add card — keep Pro monthly</button>' +
-        '<button class="bill-cta-secondary" onclick="startBillingCheckout(\'pro_yearly_usd\')">Switch to yearly (save 20%)</button>' +
-      '</div>';
+        '<button class="bill-cta" onclick="startBillingCheckout(_bSelectedPrice())">Add card to keep Pro</button>' +
+      '</div>' +
+      _bTestModeHint(data);
   } else if (plan === 'pro') {
     bodyHtml =
       '<div class="bill-divider"></div>' +
@@ -654,22 +657,22 @@ function renderBillingPanel(data) {
   } else if (plan === 'stub') {
     bodyHtml =
       '<div class="bill-stub-banner">Your trial has ended. <strong>Stub Free</strong> is limited to 1 scan per 7 days with no monitoring. Reactivate Pro to resume full access.</div>' +
-      _bRenderPriceCards(true) +
+      _bRenderPriceCards() +
       '<div class="bill-actions" style="margin-top:16px">' +
-        '<button class="bill-cta" onclick="startBillingCheckout(\'pro_monthly_usd\')">Reactivate Pro — monthly</button>' +
-        '<button class="bill-cta-secondary" onclick="startBillingCheckout(\'pro_yearly_usd\')">Reactivate Pro — yearly</button>' +
-      '</div>';
+        '<button class="bill-cta" onclick="startBillingCheckout(_bSelectedPrice())">Reactivate Pro</button>' +
+      '</div>' +
+      _bTestModeHint(data);
   } else {
     /* Legacy free + grandfathered users */
     bodyHtml =
       '<div class="bill-divider"></div>' +
       '<div class="bill-row"><span class="bill-row-label">Scans / day</span><span class="bill-row-value">' + (data.scans_limit === -1 ? 'Unlimited' : escapeHtml(String(data.scans_limit))) + '</span></div>' +
       '<div class="bill-row"><span class="bill-row-label">Used today</span><span class="bill-row-value">' + escapeHtml(String(data.scans_today)) + '</span></div>' +
-      _bRenderPriceCards(true) +
+      _bRenderPriceCards() +
       '<div class="bill-actions" style="margin-top:16px">' +
-        '<button class="bill-cta" onclick="startBillingCheckout(\'pro_monthly_usd\')">Upgrade to Pro — monthly</button>' +
-        '<button class="bill-cta-secondary" onclick="startBillingCheckout(\'pro_yearly_usd\')">Upgrade to Pro — yearly</button>' +
-      '</div>';
+        '<button class="bill-cta" onclick="startBillingCheckout(_bSelectedPrice())">Upgrade to Pro</button>' +
+      '</div>' +
+      _bTestModeHint(data);
   }
 
   container.innerHTML =
@@ -723,18 +726,58 @@ function _bDomainsRow(data) {
   return '<div class="bill-row"><span class="bill-row-label">Monitored domains</span><span class="bill-row-value">' + escapeHtml(display) + '</span></div>';
 }
 
-/* Pretty pricing-card pair shown in the trial/stub/free states. */
-function _bRenderPriceCards(featureYearly) {
+/* Interactive price-card picker. Two cards, click to select. Track
+   selection on data-selected-price on the host container; the CTA
+   button below reads that to know which lookup_key to checkout.
+   Yearly is default-selected (the "Save 20%" featured option). */
+function _bRenderPriceCards() {
   return '' +
-    '<div class="bill-prices">' +
-      '<div class="bill-price-card">' +
+    '<div class="bill-prices" data-selected-price="pro_yearly_usd">' +
+      '<div class="bill-price-card" tabindex="0" role="button" ' +
+           'aria-pressed="false" data-price-key="pro_monthly_usd" ' +
+           'onclick="_bSelectPrice(this)" ' +
+           'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_bSelectPrice(this);}">' +
         '<div class="bill-price-amount">$49</div>' +
         '<div class="bill-price-period">per month, billed monthly</div>' +
       '</div>' +
-      '<div class="bill-price-card' + (featureYearly ? ' featured' : '') + '">' +
+      '<div class="bill-price-card" tabindex="0" role="button" ' +
+           'aria-pressed="true" data-price-key="pro_yearly_usd" ' +
+           'onclick="_bSelectPrice(this)" ' +
+           'onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();_bSelectPrice(this);}">' +
+        '<span class="bill-price-tag">Save 20%</span>' +
         '<div class="bill-price-amount">$470</div>' +
         '<div class="bill-price-period">per year, billed annually</div>' +
       '</div>' +
+    '</div>';
+}
+
+/* Click handler for the price-card picker. Toggles aria-pressed on
+   both siblings and stamps the chosen lookup_key onto the host. */
+function _bSelectPrice(cardEl) {
+  if (!cardEl) return;
+  var host = cardEl.parentElement;
+  if (!host) return;
+  var cards = host.querySelectorAll('.bill-price-card');
+  cards.forEach(function (c) {
+    c.setAttribute('aria-pressed', c === cardEl ? 'true' : 'false');
+  });
+  host.setAttribute('data-selected-price', cardEl.getAttribute('data-price-key') || '');
+}
+
+/* Read the currently-selected price key from the picker. Returns
+   'pro_yearly_usd' as a safe default if the picker isn't present. */
+function _bSelectedPrice() {
+  var host = document.querySelector('.bill-prices[data-selected-price]');
+  return (host && host.getAttribute('data-selected-price')) || 'pro_yearly_usd';
+}
+
+/* Test-mode hint shown ONLY when /api/user/plan reports stripe_mode=test.
+   Auto-disappears on live cutover — no manual UI change needed. */
+function _bTestModeHint(data) {
+  if (!data || data.stripe_mode !== 'test') return '';
+  return '<div class="bill-test-hint">' +
+    '<strong>Test mode:</strong> use card <code>4242 4242 4242 4242</code>, any future expiry, any CVC. ' +
+    'No real charge — Stripe live keys not enabled yet.' +
     '</div>';
 }
 
