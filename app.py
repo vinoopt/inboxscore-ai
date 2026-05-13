@@ -971,8 +971,15 @@ async def api_billing_checkout(body: BillingCheckoutRequest, req: Request):
             user_id=user_id,
             customer_id=customer.id,
             price_lookup_key=body.price_lookup_key,
-            success_url=f"{base_url}/settings/billing?ok=1",
-            cancel_url=f"{base_url}/upgrade?canceled=1",
+            # /settings is the real route. The #billing hash drives the
+            # settings tab router (INBOX-215 hash routing) so users land
+            # on the Plan & Billing panel. Query string lets the page
+            # show a toast if we wire it up later (INBOX-217 lifecycle).
+            # /settings/billing and /upgrade routes don't exist yet —
+            # using them caused 404s when Stripe redirected back
+            # (Vinoop caught the back-arrow 404 2026-05-13).
+            success_url=f"{base_url}/settings?ok=1#billing",
+            cancel_url=f"{base_url}/settings?canceled=1#billing",
         )
     except Exception as e:
         print(f"[billing.checkout] session create failed for {user_id}: "
