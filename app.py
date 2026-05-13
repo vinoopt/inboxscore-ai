@@ -593,7 +593,22 @@ def _validate_password(password: str) -> str | None:
 
 @app.post("/api/auth/signup")
 async def api_signup(request: SignupRequest):
-    """Register a new user"""
+    """Register a new user.
+
+    INBOX-209 (2026-05-13): on successful signup, also creates a 14-day
+    Pro trial subscription in Stripe (no card collected) and mirrors it
+    into our subscriptions table. From that moment, the user has
+    plan='trial' and full Pro feature access for 14 days. Stripe will
+    attempt to charge on day 14; without a card the subscription
+    transitions to 'incomplete_expired' → our webhook handler flips
+    them to plan='stub'.
+
+    The Stripe call is best-effort. If it fails (Stripe outage, env
+    misconfigured, etc.), signup still completes. The user gets
+    implicit stub state via the legacy profiles.plan fallback in
+    get_user_plan(); a manual reconcile script (or a future cron) can
+    catch them up.
+    """
     # Validate email
     email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
     if not re.match(email_regex, request.email):
@@ -605,10 +620,40 @@ async def api_signup(request: SignupRequest):
 
     result = sign_up(request.email, request.password, request.name)
 
-    if result["success"]:
-        return result
-    else:
+    if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
+
+    # INBOX-209: kick off the 14-day Pro trial subscription in Stripe.
+    # Wrapped in try/except — a Stripe failure here cannot block signup.
+    # billing.create_trial_subscription is idempotent via idempotency_key
+    # so retries (e.g. user re-clicks signup before email verification)
+    # don't create duplicate subs.
+    user = result.get("user", {})
+    user_id = user.get("id")
+    user_email = user.get("email")
+    if user_id and user_email:
+        try:
+            stripe_sub = billing.create_trial_subscription(
+                user_id=user_id,
+                email=user_email,
+                name=request.name,
+            )
+            # Stripe SDK objects support dict-like access via .get(),
+            # but to_dict() guarantees we pass a plain dict to the DB
+            # helper (which only expects dict-shape input).
+            sub_dict = stripe_sub.to_dict() if hasattr(stripe_sub, "to_dict") else stripe_sub
+            upsert_subscription_from_stripe(user_id, sub_dict)
+            print(f"[signup] trial sub created for user {user_id} "
+                  f"(stripe_sub={sub_dict.get('id')})")
+        except Exception as e:
+            # Stripe / DB error: don't fail signup. User can still
+            # verify email + log in. Subscriptions row will be created
+            # later when (a) the webhook handler sees an event for
+            # this customer, or (b) a manual reconcile script runs.
+            print(f"[signup] trial sub creation failed for user {user_id}: "
+                  f"{type(e).__name__}: {e}")
+
+    return result
 
 
 @app.post("/api/auth/login")
