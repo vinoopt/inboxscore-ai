@@ -51,6 +51,8 @@ from db import (
     upsert_snds_metrics,
     add_user_ips, get_user_ips, remove_user_ip, set_ip_domains, get_ips_for_domain,
     save_blacklist_results, get_blacklist_results,
+    # INBOX-206 (Stripe billing): subscriptions table helpers
+    get_user_subscription, set_user_stripe_customer,
 )
 
 # Auth
@@ -58,6 +60,9 @@ from auth import (
     is_auth_available, sign_up, sign_in, reset_password,
     get_user_from_token, refresh_session
 )
+
+# INBOX-205 (Stripe billing): SDK wrapper module
+import billing
 
 # PDF report generation
 from pdf_report import generate_pdf_report
@@ -296,6 +301,26 @@ class ForgotPasswordRequest(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
+
+# ─── INBOX-206 (Stripe billing) ────────────────────────────────────
+
+class BillingCheckoutRequest(BaseModel):
+    """Body for POST /api/billing/checkout.
+
+    price_lookup_key must be 'pro_monthly_usd' or 'pro_yearly_usd'
+    (matching the Stripe lookup_keys set up in Phase 0 Step 4).
+    """
+    price_lookup_key: str
+
+
+class BillingPortalRequest(BaseModel):
+    """Body for POST /api/billing/portal.
+
+    return_url is where Stripe redirects after the user finishes
+    managing their subscription. Defaults to /settings/billing.
+    """
+    return_url: Optional[str] = None
 
 
 
@@ -754,6 +779,143 @@ async def api_user_plan(req: Request):
             "white_label": plan == "enterprise",
         }
     }
+
+
+# ─── BILLING API ENDPOINTS (INBOX-206) ───────────────────────────
+#
+# Both endpoints are thin wrappers around the billing.py module
+# (INBOX-205). The actual Stripe SDK calls live there; this layer
+# handles authentication, request validation, and persisting the
+# Stripe customer ID to the subscriptions table when first created.
+#
+# Flow A — Trial→Paid conversion / Stub→Pro reactivation:
+#   browser POST /api/billing/checkout {price_lookup_key}
+#     → endpoint resolves user's stripe_customer_id (create if first time)
+#     → billing.create_checkout_session(...) returns Stripe-hosted URL
+#     → endpoint returns {url} → browser redirects to Stripe
+#     → Stripe → webhook → updates subscriptions row to active
+#
+# Flow B — User manages existing subscription:
+#   browser POST /api/billing/portal {return_url}
+#     → endpoint requires existing stripe_customer_id
+#     → billing.create_portal_session(...) returns Stripe-hosted URL
+#     → endpoint returns {url} → browser redirects to Stripe Portal
+#     → Stripe → webhook → updates subscriptions row per user action
+
+@app.post("/api/billing/checkout")
+async def api_billing_checkout(body: BillingCheckoutRequest, req: Request):
+    """Create a Stripe Checkout Session for trial-to-paid or
+    stub-to-pro reactivation. Returns {url} the browser redirects to."""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+    user_email = user_result["user"].get("email")
+    if not user_email:
+        # Should never happen for authenticated users but guard
+        # because billing.get_or_create_customer requires email.
+        raise HTTPException(status_code=400, detail="Email missing on account")
+
+    # Validate the requested price. We accept only the two configured
+    # lookup keys — any other value is a 400.
+    valid_keys = {billing.LOOKUP_KEY_MONTHLY, billing.LOOKUP_KEY_YEARLY}
+    if body.price_lookup_key not in valid_keys:
+        raise HTTPException(
+            status_code=400,
+            detail=f"price_lookup_key must be one of {sorted(valid_keys)}",
+        )
+
+    profile = get_user_profile(user_id) or {}
+    user_name = profile.get("name")
+
+    # Resolve existing Stripe customer ID from subscriptions table.
+    # First-time billing users won't have one yet → create now.
+    sub = get_user_subscription(user_id)
+    existing_customer_id = sub.get("stripe_customer_id") if sub else None
+
+    try:
+        customer = billing.get_or_create_customer(
+            user_id=user_id,
+            email=user_email,
+            name=user_name,
+            existing_customer_id=existing_customer_id,
+        )
+    except Exception as e:
+        print(f"[billing.checkout] customer create failed for {user_id}: {e}")
+        raise HTTPException(status_code=502, detail="Billing provider error")
+
+    # Persist customer ID on first creation so the next call is faster
+    # AND so the webhook handler can resolve user_id from customer_id
+    # if it ever needs to.
+    if customer.id != existing_customer_id:
+        set_user_stripe_customer(user_id, customer.id)
+
+    base_url = str(req.base_url).rstrip("/")
+    try:
+        session = billing.create_checkout_session(
+            user_id=user_id,
+            customer_id=customer.id,
+            price_lookup_key=body.price_lookup_key,
+            success_url=f"{base_url}/settings/billing?ok=1",
+            cancel_url=f"{base_url}/upgrade?canceled=1",
+        )
+    except Exception as e:
+        print(f"[billing.checkout] session create failed for {user_id}: {e}")
+        raise HTTPException(status_code=502, detail="Billing provider error")
+
+    return {"url": session.url}
+
+
+@app.post("/api/billing/portal")
+async def api_billing_portal(body: BillingPortalRequest, req: Request):
+    """Create a Stripe Customer Portal session. Returns {url} the
+    browser redirects to. Requires the user to already have a Stripe
+    customer relationship (i.e., went through checkout at least once,
+    OR was set up by the auto-trial signup flow once INBOX-209 ships)."""
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = user_result["user"]["id"]
+
+    sub = get_user_subscription(user_id)
+    stripe_customer_id = sub.get("stripe_customer_id") if sub else None
+    if not stripe_customer_id:
+        # User has no billing relationship yet — nothing to manage.
+        # The UI should hide the "Manage subscription" button in this
+        # case; if it leaks through, surface a clear error.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No billing relationship found for this account. "
+                "Start a subscription first via /api/billing/checkout."
+            ),
+        )
+
+    base_url = str(req.base_url).rstrip("/")
+    return_url = body.return_url or f"{base_url}/settings/billing"
+
+    try:
+        session = billing.create_portal_session(
+            customer_id=stripe_customer_id,
+            return_url=return_url,
+        )
+    except Exception as e:
+        print(f"[billing.portal] session create failed for {user_id}: {e}")
+        raise HTTPException(status_code=502, detail="Billing provider error")
+
+    return {"url": session.url}
 
 
 # ─── SETTINGS API ENDPOINTS ──────────────────────────────────────

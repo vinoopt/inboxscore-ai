@@ -7,4 +7,3 @@ apscheduler==3.10.4
 reportlab==4.4.10
 python-whois==0.9.4
 sentry-sdk[fastapi]==2.18.0
-stripe>=10.0.0,<14.0.0

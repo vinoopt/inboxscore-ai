@@ -437,6 +437,91 @@ class PlanDomainLimitExceeded(Exception):
         )
 
 
+# ─── SUBSCRIPTIONS (Stripe billing, INBOX-205/206/207) ────────────
+#
+# Single source of truth for plan + Stripe IDs per user. Mirrors what
+# Stripe knows about the customer's subscription state. The legacy
+# profiles.plan column becomes a denormalised cache (kept in sync by
+# the webhook handler). Security-relevant gating decisions resolve
+# through this table — see effective_plan() rule in PAYMENT-PLAN.md §4.
+#
+# Table created by migration 015_subscriptions.sql. If migration not
+# applied yet, these helpers return None and callers handle gracefully.
+
+def get_user_subscription(user_id: str) -> dict:
+    """
+    Fetch the user's subscription row from the subscriptions table.
+
+    Returns None if:
+      - User has no subscription row yet (pre-INBOX-209 signup, or
+        Stripe customer never created)
+      - Migration 015 hasn't been applied (table doesn't exist)
+      - DB error
+
+    The caller should treat None as "user is in implicit stub state
+    with no Stripe relationship yet" and gracefully handle.
+    """
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("subscriptions").select(
+            "id,user_id,stripe_customer_id,stripe_subscription_id,"
+            "stripe_price_id,plan,status,current_period_start,"
+            "current_period_end,trial_end,cancel_at_period_end,"
+            "canceled_at,created_at,updated_at"
+        ).eq("user_id", user_id).limit(1).execute()
+        if result.data:
+            return result.data[0]
+        return None
+    except Exception as e:
+        # Migration not yet applied OR transient DB error — both
+        # result in None. Log but don't crash.
+        print(f"[subscriptions] get_user_subscription({user_id}) error: {e}")
+        return None
+
+
+def set_user_stripe_customer(user_id: str, stripe_customer_id: str) -> bool:
+    """
+    Persist the user's stripe_customer_id to the subscriptions table.
+
+    Called the FIRST time a user touches a billing flow (checkout or
+    portal) before INBOX-209 has run on their signup. Idempotent —
+    re-running with the same customer ID is a no-op.
+
+    Creates a row in 'stub' state if none exists (so the user has a
+    valid subscription record even before they convert to paid).
+    The webhook handler will upgrade the row to 'trialing' or
+    'active' once Stripe events arrive.
+
+    Returns True on success, False if migration not applied or DB error.
+    """
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        # Try update first (most common: row exists from signup trial)
+        result = sb.table("subscriptions").update({
+            "stripe_customer_id": stripe_customer_id,
+        }).eq("user_id", user_id).execute()
+        if result.data:
+            return True
+        # No row to update — insert a stub row with just the customer
+        # ID populated. plan='stub' and status='stub' are the safe
+        # defaults; the webhook handler will refine when Stripe fires
+        # subscription events.
+        sb.table("subscriptions").insert({
+            "user_id": user_id,
+            "stripe_customer_id": stripe_customer_id,
+            "plan": "stub",
+            "status": "stub",
+        }).execute()
+        return True
+    except Exception as e:
+        print(f"[subscriptions] set_user_stripe_customer({user_id}) error: {e}")
+        return False
+
+
 def get_user_profile(user_id: str) -> dict:
     """Get user profile including plan info"""
     sb = get_supabase()
