@@ -44,7 +44,11 @@ import os
 from typing import Any, Dict, Optional
 
 import stripe
-from stripe.error import StripeError
+# In stripe-python 8.0+, StripeError moved from `stripe.error` (which
+# is now an internal alias to `stripe._error` and not a real submodule
+# you can import from) to the top-level `stripe` package. Importing
+# `from stripe.error import StripeError` raises ModuleNotFoundError.
+from stripe import StripeError
 
 
 logger = logging.getLogger(__name__)
@@ -71,15 +75,29 @@ STRIPE_API_VERSION = "2026-04-22.dahlia"
 
 
 # ─── Initialization ───────────────────────────────────────────────
+#
+# Lazy initialisation pattern (changed 2026-05-13). Original design
+# eager-initialised at module import to fail loud on missing env.
+# That broke CI + tests where no real Stripe keys are set — pytest
+# would crash before any test ran. New approach:
+#   1. Module imports cleanly even without env vars
+#   2. The FIRST time any public function is called, _ensure_initialized
+#      runs the env check + sets stripe.api_key
+#   3. If env missing, RuntimeError is raised at call time with a
+#      clear message — same loud failure, just deferred to use
+#
+# Production behaviour is identical (first request after boot triggers
+# the check, fails loud if misconfigured). Test/CI behaviour is now
+# importable for unit tests that mock the SDK.
 
-def _init_stripe() -> None:
-    """
-    Configure the Stripe SDK from environment variables.
+_initialized = False
 
-    Called once at module import. Fails loud if STRIPE_SECRET_KEY is
-    missing — we'd rather the app crash on boot than silently process
-    requests against an unconfigured client.
-    """
+
+def _ensure_initialized() -> None:
+    """Idempotent Stripe SDK setup. Safe to call repeatedly."""
+    global _initialized
+    if _initialized:
+        return
     key = os.environ.get("STRIPE_SECRET_KEY")
     if not key:
         raise RuntimeError(
@@ -92,6 +110,7 @@ def _init_stripe() -> None:
     # Quiet the underlying Stripe SDK's verbose request logging — we
     # do our own structured logging at the call sites.
     logging.getLogger("stripe").setLevel(logging.WARNING)
+    _initialized = True
 
 
 def get_webhook_secret() -> str:
@@ -104,10 +123,6 @@ def get_webhook_secret() -> str:
             "webhook endpoint detail page (Phase 0 Step 7)."
         )
     return secret
-
-
-# Eager-initialise at import. Misconfiguration = boot-time crash.
-_init_stripe()
 
 
 # ─── Helpers ──────────────────────────────────────────────────────
@@ -123,6 +138,7 @@ def lookup_price(lookup_key: str) -> stripe.Price:
     Used at every checkout/trial path so that price-ID rotation
     in the dashboard never breaks the billing flow.
     """
+    _ensure_initialized()
     prices = stripe.Price.list(
         lookup_keys=[lookup_key],
         active=True,
@@ -168,6 +184,7 @@ def get_or_create_customer(
     Returns:
         stripe.Customer object
     """
+    _ensure_initialized()
     if existing_customer_id:
         try:
             return stripe.Customer.retrieve(existing_customer_id)
@@ -225,6 +242,7 @@ def create_trial_subscription(
     Returns:
         stripe.Subscription object with status='trialing'
     """
+    _ensure_initialized()
     customer = get_or_create_customer(user_id, email, name)
     price = lookup_price(LOOKUP_KEY_MONTHLY)
 
@@ -290,6 +308,7 @@ def create_checkout_session(
     Returns:
         stripe.checkout.Session — caller redirects browser to .url
     """
+    _ensure_initialized()
     price = lookup_price(price_lookup_key)
 
     logger.info(
@@ -354,6 +373,7 @@ def create_portal_session(
     Returns:
         stripe.billing_portal.Session — caller redirects browser to .url
     """
+    _ensure_initialized()
     logger.info(
         "Creating customer portal session for customer=%s",
         customer_id,
@@ -389,6 +409,7 @@ def verify_webhook(payload: bytes, signature_header: str) -> Dict[str, Any]:
         Parsed event dict (the Stripe Event object as a plain dict).
         Caller inspects event['type'] to route to the right handler.
     """
+    _ensure_initialized()
     secret = get_webhook_secret()
     return stripe.Webhook.construct_event(
         payload=payload,
