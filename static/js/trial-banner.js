@@ -60,34 +60,37 @@
 
   function injectStyles() {
     if (document.getElementById('trial-banner-styles')) return;
+    /* Uses the design-system tokens defined on :root in each page:
+       --surface, --surface-2, --text, --text-muted, --border,
+       --yellow, --yellow-soft, --blue, --blue-soft, --accent.
+       This makes the banner inherit light/dark theme automatically
+       and match the rest of the InboxScore UI instead of clashing. */
     var css = ''
-      + '.trial-banner-host{position:sticky;top:0;z-index:100;font-family:inherit;}'
+      + '.trial-banner-host{position:sticky;top:0;z-index:100;font-family:inherit;'
+      + 'background:var(--surface, #fbfbfb);border-bottom:1px solid var(--border, #e8e8e9);}'
       + '.trial-banner{display:flex;align-items:center;justify-content:center;gap:12px;'
-      + 'padding:10px 20px;font-size:13px;line-height:1.5;flex-wrap:wrap;}'
-      + '.trial-banner-low   {background:rgba(37,99,235,0.10);color:#1e3a8a;'
-      + 'border-bottom:1px solid rgba(37,99,235,0.25);}'
-      + '.trial-banner-high  {background:rgba(234,88,12,0.12);color:#7c2d12;'
-      + 'border-bottom:1px solid rgba(234,88,12,0.30);}'
-      + '.trial-banner-stub  {background:rgba(202,138,4,0.12);color:#713f12;'
-      + 'border-bottom:1px solid rgba(202,138,4,0.30);}'
-      + '@media (prefers-color-scheme:dark){'
-      + '  .trial-banner-low   {color:#bfdbfe;}'
-      + '  .trial-banner-high  {color:#fed7aa;}'
-      + '  .trial-banner-stub  {color:#fde68a;}'
-      + '}'
-      + 'html[data-theme="dark"] .trial-banner-low   {color:#bfdbfe;}'
-      + 'html[data-theme="dark"] .trial-banner-high  {color:#fed7aa;}'
-      + 'html[data-theme="dark"] .trial-banner-stub  {color:#fde68a;}'
-      + '.trial-banner-msg{font-weight:500;}'
-      + '.trial-banner-cta{padding:5px 14px;border-radius:6px;border:1px solid currentColor;'
-      + 'background:transparent;color:inherit;font-size:12px;font-weight:600;cursor:pointer;'
-      + 'font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:4px;}'
-      + '.trial-banner-cta:hover{background:rgba(0,0,0,0.05);}'
-      + '.trial-banner-cta-primary{background:currentColor;color:#fff;border-color:currentColor;}'
-      + '.trial-banner-cta-primary span{color:#fff;}'
-      + '.trial-banner-close{background:transparent;border:none;color:inherit;opacity:0.6;'
+      + 'padding:10px 20px;font-size:13px;line-height:1.5;flex-wrap:wrap;color:var(--text, #1c1c1e);}'
+      /* Variants: subtle 3px left-edge accent so banner blends with the page
+         instead of being a coloured slab across the top. */
+      + '.trial-banner-low   {box-shadow:inset 3px 0 0 var(--blue,   #2563eb);}'
+      + '.trial-banner-high  {box-shadow:inset 3px 0 0 var(--yellow, #ca8a04);}'
+      + '.trial-banner-stub  {box-shadow:inset 3px 0 0 var(--yellow, #ca8a04);'
+      + 'background:var(--yellow-soft, rgba(202,138,4,0.06));}'
+      + '.trial-banner-msg{font-weight:500;color:var(--text, #1c1c1e);}'
+      + '.trial-banner-msg strong{color:var(--text-strong, var(--text, #0a0a0b));font-weight:600;}'
+      /* CTA — outlined pill in the accent ink, primary text/surface contrast.
+         Matches the .set-btn-primary look used elsewhere. */
+      + '.trial-banner-cta{padding:5px 14px;border-radius:6px;'
+      + 'border:1px solid var(--text-strong, var(--text, #1c1c1e));'
+      + 'background:var(--text-strong, var(--text, #1c1c1e));'
+      + 'color:var(--surface, #fff);font-size:12px;font-weight:600;cursor:pointer;'
+      + 'font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:4px;'
+      + 'transition:opacity 100ms ease;}'
+      + '.trial-banner-cta:hover{opacity:0.85;}'
+      + '.trial-banner-cta span{color:var(--surface, #fff);}'
+      + '.trial-banner-close{background:transparent;border:none;color:var(--text-muted, #71717a);'
       + 'cursor:pointer;font-size:18px;line-height:1;padding:0 4px;margin-left:4px;}'
-      + '.trial-banner-close:hover{opacity:1;}';
+      + '.trial-banner-close:hover{color:var(--text, #1c1c1e);}';
     var s = document.createElement('style');
     s.id = 'trial-banner-styles';
     s.textContent = css;

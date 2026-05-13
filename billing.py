@@ -340,11 +340,14 @@ def create_checkout_session(
         customer=customer_id,
         line_items=[{"price": price.id, "quantity": 1}],
         mode="subscription",
-        # trial_period_days=0 → start charging immediately. One trial
-        # per customer; this path is conversion or reactivation, not
-        # a fresh trial.
+        # No trial_period_days key here → Stripe charges immediately.
+        # One trial per customer (per Stripe's idempotency). This
+        # checkout path is conversion or reactivation, not a fresh
+        # trial. Passing trial_period_days=0 is REJECTED by Stripe
+        # ('minimum trial period days is 1') — omit the key entirely
+        # to get the 'charge now' behaviour. (Caught by Vinoop test
+        # 2026-05-13.)
         subscription_data={
-            "trial_period_days": 0,
             "metadata": {
                 "user_id": user_id,
                 "source": "checkout",
