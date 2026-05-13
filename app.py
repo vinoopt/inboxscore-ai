@@ -746,8 +746,23 @@ async def api_user_plan(req: Request):
 
     user_id = user_result["user"]["id"]
     profile = get_user_profile(user_id)
-    plan = profile.get("plan", "free") if profile else "free"
+    # INBOX-208 (2026-05-13): resolve plan via get_user_plan() which
+    # now checks the subscriptions table first (source of truth) and
+    # falls back to legacy profiles.plan for grandfathered users.
+    plan = get_user_plan(user_id)
     limit = PLAN_LIMITS.get(plan, 5)
+
+    # INBOX-208: surface trial state for the frontend banner system.
+    # If user is in 'trial' plan, attach the trial_end timestamp so
+    # the UI can render the countdown (the actual banner UI is INBOX-215).
+    trial_end = None
+    subscription_status = None
+    if plan in ("trial", "pro", "stub"):
+        # New billing model — read subscription for richer state
+        sub = get_user_subscription(user_id)
+        if sub:
+            trial_end = sub.get("trial_end")
+            subscription_status = sub.get("status")
 
     # Get today's scan count
     scans_today = 0
@@ -776,10 +791,17 @@ async def api_user_plan(req: Request):
         "name": profile.get("name") if profile else None,
         "scans_today": scans_today,
         "scans_limit": limit,  # -1 = unlimited
+        # INBOX-208: trial/subscription state for INBOX-215 banner UI
+        "trial_end": trial_end,
+        "subscription_status": subscription_status,
         "features": {
             "unlimited_scans": limit == -1,
-            "monitoring": plan in ("pro", "growth", "enterprise"),
-            "api_access": plan in ("growth", "enterprise"),
+            # Monitoring: trial users get Pro features for 14 days,
+            # so include them with paid tiers. Legacy growth/enterprise
+            # also keep monitoring access.
+            "monitoring": plan in ("trial", "pro", "growth", "enterprise"),
+            # API access: trial + pro + legacy paid plans
+            "api_access": plan in ("trial", "pro", "growth", "enterprise"),
             "white_label": plan == "enterprise",
         }
     }

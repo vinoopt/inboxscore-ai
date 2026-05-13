@@ -392,27 +392,53 @@ def save_subscriber(email: str, domain: str = None, score: int = None, source: s
 
 
 # ─── USER PLAN ────────────────────────────────────────────────────
+#
+# Plan strings + limits straddle two eras after INBOX-208 (2026-05-13):
+#
+#   New (post-Stripe billing): trial | pro | stub
+#     - Source of truth: subscriptions table (INBOX-203)
+#     - trial = 14-day Pro trial, full features, no card collected
+#     - pro   = active paid subscription (or past_due during retries)
+#     - stub  = expired trial / cancelled / unpaid — lights-on,
+#               severely limited (1 scan/week, dashboard read-only)
+#
+#   Legacy (pre-Stripe): free | pro | growth | enterprise
+#     - Source of truth: profiles.plan column
+#     - Kept for backward-compat until grandfather migration runs
+#       (separate ticket, see PAYMENT-PLAN.md §4 migration note)
+#     - get_user_plan returns legacy values for users without a
+#       subscriptions row
+#
+# Once INBOX-209 (auto-trial on signup) + grandfather migration ship,
+# every account will have a subscriptions row and the legacy keys can
+# be retired. Until then both keysets coexist.
 
-# Plan limits: scans per day
+# Plan limits: scans per day (-1 = unlimited)
 PLAN_LIMITS = {
-    "free": 5,
-    "pro": -1,        # unlimited
-    "growth": -1,      # unlimited
-    "enterprise": -1,  # unlimited
+    # New model (Stripe billing)
+    "trial": -1,       # full Pro access during trial
+    "pro":   -1,
+    "stub":   1,       # de-facto limit; INBOX-210 will enforce as 1 per 7d
+                       # via last_scan_at — not 1 per day. For now this
+                       # keeps stub users functional without crashing the
+                       # rate-limit dict lookup
+    # Legacy (pre-Stripe, grandfathered)
+    "free":      5,
+    "growth":   -1,
+    "enterprise": -1,
 }
 
-# INBOX-169 (F10, 2026-04-30): max number of MONITORED domains per plan.
-# Distinct from PLAN_LIMITS (which gates scans/day). Without this, a free
-# user could add thousands of domains and exhaust scheduler throughput +
-# GSB API quota meant for paid users.
-#
-# Numbers chosen to give Vinoop dogfooding headroom (he has 5 today) and
-# bound abuse at 10. Will be re-tuned when pricing/Stripe launches
-# (INBOX-149) — actual product caps depend on what we charge.
+# Max number of MONITORED domains per plan. Distinct from PLAN_LIMITS
+# (which gates scans/day). Without this, a free user could add thousands
+# of domains and exhaust scheduler throughput + GSB API quota.
 PLAN_DOMAIN_LIMITS = {
-    "free": 10,
-    "pro": 100,
-    "growth": 500,
+    # New model (matches PAYMENT-PLAN.md §4)
+    "trial": 10,
+    "pro":   10,
+    "stub":   0,       # cannot ADD new domains; existing rows visible/frozen
+    # Legacy (pre-Stripe)
+    "free":      10,
+    "growth":    500,
     "enterprise": -1,  # unlimited
 }
 
@@ -728,7 +754,39 @@ def get_user_profile(user_id: str) -> dict:
 
 
 def get_user_plan(user_id: str) -> str:
-    """Get user's current plan. Returns 'free' if not found."""
+    """
+    Get user's current plan. INBOX-208 (2026-05-13): subscriptions
+    table is the source of truth; falls back to legacy profiles.plan
+    for grandfathered users without a subscriptions row.
+
+    Resolution order:
+      1. Subscriptions row exists AND status in (active, trialing,
+         past_due) AND plan in (trial, pro) → return that plan
+         (the active billing state)
+      2. Subscriptions row exists but in any other state → 'stub'
+         (canceled / expired / incomplete / paused etc.)
+      3. No subscriptions row → fall back to legacy profiles.plan
+         (returns 'free' / 'pro' / 'growth' / 'enterprise' for
+         pre-Stripe users; defaults to 'free' if profile missing)
+
+    Returns one of: trial, pro, stub, free, growth, enterprise.
+
+    Callers gating on plan should accept both legacy and new keys.
+    PLAN_LIMITS + PLAN_DOMAIN_LIMITS define rates for both keysets.
+    """
+    # New model: subscriptions table = source of truth
+    sub = get_user_subscription(user_id)
+    if sub:
+        status = sub.get("status")
+        plan = sub.get("plan")
+        if status in ("active", "trialing", "past_due") and plan in ("trial", "pro"):
+            return plan
+        # Subscription exists but is in stub state (canceled, expired, etc.)
+        return "stub"
+
+    # Legacy path: no subscriptions row yet → use profiles.plan
+    # (this is the path pre-INBOX-209 signups follow; goes away once
+    # grandfather migration completes)
     profile = get_user_profile(user_id)
     if profile:
         return profile.get("plan", "free")
