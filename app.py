@@ -456,10 +456,19 @@ async def _run_scan(request: ScanRequest, req: Request):
             if plan == "anonymous":
                 message = (
                     f"You've used your {limit} free scans today. "
-                    "Create a free account for 5 scans/day, "
+                    "Create a free account to start a 14-day Pro trial, "
                     "or upgrade to Pro for unlimited scans."
                 )
+            elif plan == "stub":
+                # INBOX-210: stub users get 1 scan per 7 days. The
+                # message points them to reactivation rather than upgrade.
+                message = (
+                    "Your trial has ended. Stub Free is limited to "
+                    "1 scan per 7 days. Reactivate Pro for unlimited "
+                    "scans and full monitoring."
+                )
             elif plan == "free":
+                # Legacy free plan (pre-Stripe grandfathered users)
                 message = (
                     f"You've used your {limit} free scans today. "
                     "Upgrade to Pro for unlimited scans and advanced monitoring."

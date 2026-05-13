@@ -281,8 +281,26 @@ def run_monitoring_cycle():
 
         print(f"[Monitor] Starting monitoring cycle: {len(domains)} domains due")
 
+        # INBOX-210 (2026-05-13): Stub Free users don't get scheduled
+        # monitoring — they're either lapsed trials or cancelled subs.
+        # Their domains stay visible in the dashboard (frozen) but the
+        # scheduler doesn't re-scan them. Cache plans per user across
+        # the loop to avoid hammering get_user_plan() for users with
+        # multiple domains.
+        from db import get_user_plan as _get_user_plan
+        plan_cache: dict = {}
+        skipped_stub = 0
+
         for domain_data in domains:
             try:
+                user_id = domain_data.get("user_id")
+                if user_id:
+                    if user_id not in plan_cache:
+                        plan_cache[user_id] = _get_user_plan(user_id)
+                    if plan_cache[user_id] == "stub":
+                        skipped_stub += 1
+                        continue
+
                 monitor_single_domain(domain_data)
                 domains_processed += 1
                 # Small delay between scans to be polite to DNS servers
@@ -295,6 +313,10 @@ def run_monitoring_cycle():
                     "domain_id": domain_data.get("id"),
                 })
                 continue
+
+        if skipped_stub:
+            print(f"[Monitor] Skipped {skipped_stub} domains belonging to "
+                  f"stub-plan users (INBOX-210)")
 
         print(f"[Monitor] Monitoring cycle complete: "
               f"{domains_processed}/{len(domains)} domains processed, {errors_count} errors")

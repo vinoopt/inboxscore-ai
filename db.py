@@ -1299,6 +1299,42 @@ def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -
         if limit == -1:
             # Unlimited — no need to check/track
             return {"allowed": True, "scans_used": 0, "max_scans": -1, "plan": plan}
+
+        # INBOX-210 (2026-05-13): Stub Free plan gets 1 scan per 7 DAYS,
+        # not per day. The rate_limits table is date-keyed (single day),
+        # so we can't express weekly limits there. Instead, special-case
+        # stub here by querying the scans table for the user's last scan.
+        if plan == "stub":
+            try:
+                from datetime import datetime, timedelta, timezone
+                seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+                last_scan = sb.table("scans").select("created_at").eq(
+                    "user_id", user_id
+                ).gte("created_at", seven_days_ago).order(
+                    "created_at", desc=True
+                ).limit(1).execute()
+                if last_scan.data:
+                    # Found a scan in the last 7 days → block
+                    return {
+                        "allowed": False,
+                        "scans_used": 1,
+                        "max_scans": 1,  # nominal "1 per week" cap
+                        "plan": "stub",
+                    }
+                # No scan in last 7 days → allow this one (counted by
+                # the scans-table insert downstream, not rate_limits)
+                return {
+                    "allowed": True,
+                    "scans_used": 0,
+                    "max_scans": 1,
+                    "plan": "stub",
+                }
+            except Exception as e:
+                # On error, fail open to avoid blocking legitimate users
+                # because of a transient DB issue. Logged so we notice.
+                print(f"[rate_limit] stub 7-day check failed for {user_id}: {e}")
+                return {"allowed": True, "scans_used": 0, "max_scans": 1, "plan": "stub"}
+
         max_scans = limit
 
     try:
