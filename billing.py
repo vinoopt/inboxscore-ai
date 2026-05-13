@@ -363,9 +363,10 @@ def create_checkout_session(
         # enter their VAT number → invoice is reverse-charge for EU
         # B2B sales (Stripe Tax handles the math).
         tax_id_collection={"enabled": True},
-        # 30-min session expiry. Stripe's default — sessions are safe
-        # to leave open but invalid after this.
-        expires_at=None,
+        # expires_at intentionally omitted — Stripe defaults to 24h
+        # which is plenty. Passing expires_at=None used to be in here
+        # but Stripe rejected it as an invalid timestamp (Vinoop hit
+        # this 2026-05-13 while testing).
     )
 
 

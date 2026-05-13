@@ -948,8 +948,16 @@ async def api_billing_checkout(body: BillingCheckoutRequest, req: Request):
             existing_customer_id=existing_customer_id,
         )
     except Exception as e:
-        print(f"[billing.checkout] customer create failed for {user_id}: {e}")
-        raise HTTPException(status_code=502, detail="Billing provider error")
+        # Full error always goes to Render logs for debugging.
+        print(f"[billing.checkout] customer create failed for {user_id}: "
+              f"{type(e).__name__}: {e}")
+        # In test mode, surface the error class + message to the client so
+        # the dev/test feedback loop is fast. In live mode, keep generic
+        # to avoid leaking Stripe internals to real users.
+        detail = "Billing provider error"
+        if billing.get_stripe_mode() == "test":
+            detail = f"Billing provider error: {type(e).__name__}: {str(e)[:200]}"
+        raise HTTPException(status_code=502, detail=detail)
 
     # Persist customer ID on first creation so the next call is faster
     # AND so the webhook handler can resolve user_id from customer_id
@@ -967,8 +975,12 @@ async def api_billing_checkout(body: BillingCheckoutRequest, req: Request):
             cancel_url=f"{base_url}/upgrade?canceled=1",
         )
     except Exception as e:
-        print(f"[billing.checkout] session create failed for {user_id}: {e}")
-        raise HTTPException(status_code=502, detail="Billing provider error")
+        print(f"[billing.checkout] session create failed for {user_id}: "
+              f"{type(e).__name__}: {e}")
+        detail = "Billing provider error"
+        if billing.get_stripe_mode() == "test":
+            detail = f"Billing provider error: {type(e).__name__}: {str(e)[:200]}"
+        raise HTTPException(status_code=502, detail=detail)
 
     return {"url": session.url}
 
