@@ -257,7 +257,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
         <div class="app-plan-title" id="plan-name">—</div>
         <div class="app-plan-meta" id="plan-usage-text">—</div>
         <div class="app-plan-bar"><div class="app-plan-bar-fill" id="plan-usage-fill"></div></div>
-        <a href="/settings" class="app-plan-link">Manage plan →</a>
+        <a href="/settings#billing" class="app-plan-link">Manage plan →</a>
       </div>
     </div>
   </aside>
@@ -521,6 +521,24 @@ function setSettingsTab(tab, el) {
   if (tab === 'billing' && !window.__billingLoaded) {
     loadBillingPanel();
   }
+}
+
+/* Hash-based deep linking. /settings#billing → Plan & Billing tab.
+   Called on page load + on hashchange so back/forward + external links
+   land on the right tab. INBOX-215 follow-up — trial banner CTAs +
+   the sidebar 'Manage plan →' link both use #billing. */
+function _settingsApplyHashTab() {
+  var hash = (window.location.hash || '').replace(/^#/, '');
+  if (!hash) return;
+  var validTabs = ['general', 'connections', 'billing', 'api', 'team'];
+  if (validTabs.indexOf(hash) === -1) return;
+  setSettingsTab(hash);
+}
+window.addEventListener('hashchange', _settingsApplyHashTab);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _settingsApplyHashTab);
+} else {
+  _settingsApplyHashTab();
 }
 
 /* ═══════════ BILLING PANEL (INBOX-213) ═══════════ */
