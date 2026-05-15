@@ -878,7 +878,10 @@ function _settingsApplySnapshot(snap) {
   if (snap.profileName) document.getElementById('general-name').textContent = snap.profileName;
   if (snap.company !== undefined) document.getElementById('general-company').textContent = snap.company || '—';
   if (snap.plan) {
-    document.getElementById('plan-name').textContent = snap.plan;
+    // Sidebar's #plan-name is owned by /static/js/sidebar-plan.js
+    // (INBOX-259) — do NOT write to it here. Writing the raw slug
+    // ("pro") caused the multi-state flicker Vinoop screenshotted
+    // 2026-05-15.
     var billingEl = document.getElementById('billing-plan-name');
     if (billingEl) billingEl.textContent = snap.plan.charAt(0).toUpperCase() + snap.plan.slice(1) + ' plan';
   }
@@ -1367,101 +1370,7 @@ window.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-<script>
-/* INBOX-206 (revised): shared plan-card hydrator. Defends against per-page
-   plan loaders that fight for the same DOM nodes by:
-     1. Running last (DOMContentLoaded + 1500ms grace period)
-     2. Re-applying via MutationObserver if anything overwrites #plan-name
-   Also corrects the previous version which assumed /api/user/plan returns
-   domains_used + domains_limit — the live API only returns plan + features,
-   so we count domains via /api/user/domains and use a hardcoded plan→cap
-   table. */
-(function () {
-  var PLAN_DOMAIN_LIMITS = { free: 1, pro: 10, growth: 50, enterprise: -1 };
-
-  function setText(id, text) {
-    var el = document.getElementById(id);
-    if (el && el.textContent !== text) el.textContent = text;
-  }
-  function setHTML(id, html) {
-    var el = document.getElementById(id);
-    if (el && el.innerHTML !== html) el.innerHTML = html;
-  }
-
-  async function hydrate() {
-    var card = document.getElementById('plan-badge');
-    if (!card || !card.classList.contains('app-plan-card')) return;
-    var token = null;
-    try { token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token'); } catch (e) {}
-    if (!token) return;
-
-    try {
-      // INBOX-228: fire plan + domains in parallel — independent endpoints.
-      var headers = { 'Authorization': 'Bearer ' + token };
-      var [planResp, domsResp] = await Promise.all([
-        fetch('/api/user/plan', { headers }),
-        fetch('/api/user/domains?per_page=200', { headers }),
-      ]);
-      if (!planResp.ok || !domsResp.ok) return;
-      var [planData, domsData] = await Promise.all([
-        planResp.json(),
-        domsResp.json(),
-      ]);
-
-      var plan = (planData.plan || 'free').toLowerCase();
-      var cap = (planData.domains_limit != null) ? planData.domains_limit : (PLAN_DOMAIN_LIMITS[plan] != null ? PLAN_DOMAIN_LIMITS[plan] : 1);
-      var used = (planData.domains_used != null)
-        ? planData.domains_used
-        : (typeof domsData.total === 'number' ? domsData.total : (domsData.domains || domsData.items || []).length);
-
-      card.classList.toggle('is-free', plan === 'free');
-      var planLabels = {
-        'trial': 'Trial',
-        'pro': 'Pro plan',
-        'stub': 'Free plan',
-        'free': 'Free plan',
-        'growth': 'Growth plan',
-        'enterprise': 'Enterprise plan'
-      };
-      var planLabel = planLabels[plan] || (plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan');
-      setText('plan-name', planLabel);
-
-      if (cap === -1) {
-        setText('plan-usage-text', 'Unlimited domains');
-        var fillEl0 = document.getElementById('plan-usage-fill');
-        if (fillEl0) fillEl0.style.width = '100%';
-      } else if (used != null && cap) {
-        setHTML('plan-usage-text', '<span class="app-plan-num">' + used + '</span> of <span class="app-plan-num">' + cap + '</span> domain' + (cap === 1 ? '' : 's'));
-        var fillEl = document.getElementById('plan-usage-fill');
-        if (fillEl) fillEl.style.width = Math.min(100, Math.round((used / cap) * 100)) + '%';
-      } else if (cap) {
-        setHTML('plan-usage-text', '<span class="app-plan-num">' + cap + '</span> domain' + (cap === 1 ? '' : 's') + ' included');
-      }
-    } catch (e) {}
-  }
-
-  function start() {
-    hydrate();
-    /* Defend against per-page hydrators that overwrite #plan-name AFTER
-       us. MutationObserver re-applies hydrate() when label is corrupted. */
-    var nameEl = document.getElementById('plan-name');
-    if (!nameEl) return;
-    var mo = new MutationObserver(function () {
-      var t = (nameEl.textContent || '').trim();
-      /* If something rewrote it to bare slug like "pro" or "Pro" without "plan", re-hydrate. */
-      if (t && !/\splan\b/i.test(t) && t.length < 12) hydrate();
-    });
-    mo.observe(nameEl, { childList: true, characterData: true, subtree: true });
-  }
-
-  function schedule() { setTimeout(start, 1500); }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', schedule);
-  } else {
-    schedule();
-  }
-})();
-</script>
+<script src="/static/js/sidebar-plan.js" defer></script>
 <!-- INBOX-215: trial countdown banner (auto-mounts on every authenticated page) -->
 <script src="/static/js/trial-banner.js" defer></script>
 </body>
