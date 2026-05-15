@@ -567,9 +567,18 @@ function renderDomains(domains) {
 // has it until §3 / INBOX-180 ships). Null-safe on every element so we
 // never throw if something's missing.
 function updateUsageFooter(count) {
+  // INBOX-259 final fix: this function originally also wrote
+  //   planBadge.textContent = planName + ' Plan'
+  // which set textContent on the PARENT of the entire plan card,
+  // nuking the title/usage/bar/link children. That's why /domains
+  // showed just "Pro Plan" with no usage row — the moment
+  // loadDomains() finished, this line wiped sidebar-plan.js's output.
+  //
+  // The plan-badge sidebar card is now fully owned by
+  // /static/js/sidebar-plan.js. The legacy #usage-footer below the
+  // domain list is also kept up to date here.
   const footer = document.getElementById('usage-footer');     // may be removed
   const text = document.getElementById('usage-text');         // may be removed
-  const planBadge = document.getElementById('plan-badge');    // legacy sidebar
 
   let planName = 'Free';
   let maxDomains = 3;
@@ -583,7 +592,6 @@ function updateUsageFooter(count) {
       else { planName = 'Free'; maxDomains = 3; }
 
       if (text) text.textContent = count + ' of ' + maxDomains + ' domains used on your ' + planName + ' plan.';
-      if (planBadge) planBadge.textContent = planName + ' Plan';
       if (footer) footer.style.display = 'block';
     }
   }).catch(() => {
