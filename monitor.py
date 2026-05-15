@@ -299,6 +299,26 @@ def run_monitoring_cycle():
                         plan_cache[user_id] = _get_user_plan(user_id)
                     if plan_cache[user_id] == "stub":
                         skipped_stub += 1
+                        # INBOX-258 (2026-05-15): emit a structured WARNING
+                        # so Sentry's LoggingIntegration surfaces the skip.
+                        # Previously the skip was silent (print + counter
+                        # only) — which let Vinoop's account silently miss
+                        # ~44h of scheduled scans when a brand-new
+                        # subscription got stuck in an unknown plan/status
+                        # state between 2026-05-13 and 2026-05-15.
+                        # Cancelled / lapsed subs will trigger this too;
+                        # that's the intended signal. If volume becomes
+                        # noisy once real cancellations show up, downgrade
+                        # to INFO + add a Sentry alert rule keyed to
+                        # monitor.skip_stub for accounts whose plan
+                        # was non-stub in the previous cycle.
+                        logger.warning("monitor.skip_stub", extra={
+                            "domain": domain_data.get("domain"),
+                            "domain_id": domain_data.get("id"),
+                            "user_id_prefix": (user_id[:8] if user_id
+                                               else None),
+                            "resolved_plan": plan_cache[user_id],
+                        })
                         continue
 
                 monitor_single_domain(domain_data)
