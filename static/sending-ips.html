@@ -18,6 +18,8 @@
   } catch (e) {}
 })();
 </script>
+<!-- INBOX-259: SWR cache helper (synchronous so inline scripts can read it) -->
+<script src="/static/cache.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -226,6 +228,19 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
   border-radius: 50%; animation: sip-spin 0.8s linear infinite;
 }
 @keyframes sip-spin { to { transform: rotate(360deg); } }
+
+/* INBOX-259: SWR refreshing pill */
+body.is-refreshing-pill::after {
+  content: '↻ Refreshing…';
+  position: fixed; top: 80px; right: 24px;
+  background: var(--surface-2, var(--surface)); color: var(--text-muted);
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border);
+  z-index: 1000; pointer-events: none;
+  animation: is-pill-fade 0.18s ease-out;
+}
+@keyframes is-pill-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* Toast */
 .sip-toast {
@@ -657,33 +672,69 @@ function toggleDomainExpand(btn) {
 }
 
 /* ════════════════════════ IP LIST ════════════════════════ */
+// INBOX-259: SWR cache. IP changes are user-initiated (Add/Remove)
+// and infrequent — 30 min TTL kills nav-flicker without going stale.
+var IPS_CACHE_KEY = 'ips.list.v1';
+var IPS_CACHE_TTL_MS = 30 * 60 * 1000;
+
+function _renderIpsFromState() {
+  // INBOX-138: restore saved sort + status before render — atomic.
+  try {
+    var savedSort = localStorage.getItem('ips.sort');
+    if (savedSort) {
+      var sortEl = document.getElementById('ip-sort');
+      if (sortEl) sortEl.value = savedSort;
+    }
+    var savedStatus = localStorage.getItem('ips.status');
+    if (savedStatus) {
+      var statusEl = document.getElementById('ip-status');
+      if (statusEl) statusEl.value = savedStatus;
+    }
+  } catch (e) {}
+
+  var filterBar = document.getElementById('ip-filters');
+  if (filterBar) filterBar.style.display = allIps.length > 0 ? 'flex' : 'none';
+
+  applyIpFilters();
+}
+
+function _sipSetRefreshingPill(on) {
+  document.body.classList.toggle('is-refreshing-pill', !!on);
+}
+
 async function loadIps() {
+  /* Step 1: hydrate from cache synchronously. */
+  var hadCache = false;
+  if (window.cacheGet) {
+    var snap = window.cacheGet(IPS_CACHE_KEY, IPS_CACHE_TTL_MS);
+    if (snap && Array.isArray(snap.ips)) {
+      allIps = snap.ips;
+      _renderIpsFromState();
+      hadCache = true;
+    }
+  }
+  if (hadCache) _sipSetRefreshingPill(true);
+
+  /* Step 2: refresh from network. */
   try {
     var res = await fetch('/api/user/ips', { headers });
     if (!res.ok) throw new Error();
     var data = await res.json();
     allIps = data.ips || [];
-
-    // INBOX-138: restore saved sort + status preferences
-    try {
-      var savedSort = localStorage.getItem('ips.sort');
-      if (savedSort) document.getElementById('ip-sort').value = savedSort;
-      var savedStatus = localStorage.getItem('ips.status');
-      if (savedStatus) document.getElementById('ip-status').value = savedStatus;
-    } catch (e) {}
-
-    // Show filter+action bar only when at least one IP is loaded.
-    document.getElementById('ip-filters').style.display = allIps.length > 0 ? 'flex' : 'none';
-
-    applyIpFilters();
+    if (window.cacheSet) window.cacheSet(IPS_CACHE_KEY, { ips: allIps });
+    _renderIpsFromState();
   } catch (e) {
-    document.getElementById('ips-container').innerHTML =
-      '<div class="sip-empty-state">' +
-      '<div class="sip-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
-      '<h3>Could not load IPs</h3>' +
-      '<p>Something went wrong. Please try again.</p>' +
-      '<button class="sip-btn sip-btn-primary" onclick="loadIps()" style="margin-top:16px;">Retry</button>' +
-      '</div>';
+    if (!hadCache) {
+      document.getElementById('ips-container').innerHTML =
+        '<div class="sip-empty-state">' +
+        '<div class="sip-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
+        '<h3>Could not load IPs</h3>' +
+        '<p>Something went wrong. Please try again.</p>' +
+        '<button class="sip-btn sip-btn-primary" onclick="loadIps()" style="margin-top:16px;">Retry</button>' +
+        '</div>';
+    }
+  } finally {
+    _sipSetRefreshingPill(false);
   }
 }
 

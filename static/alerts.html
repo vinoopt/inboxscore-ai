@@ -18,6 +18,8 @@
   } catch (e) {}
 })();
 </script>
+<!-- INBOX-259: SWR cache helper (synchronous so inline scripts below can read it) -->
+<script src="/static/cache.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -232,6 +234,21 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .al-toast.success { background: var(--green-bg); border: 1px solid var(--green); color: var(--green); }
 .al-toast.error { background: var(--red-bg); border: 1px solid var(--red); color: var(--red); }
 @keyframes al-slide-in { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* INBOX-259: SWR refreshing pill — shown while we refetch fresh data
+   in the background after hydrating from cache. Generic class shared
+   across alerts/domains/blacklist/sending-ips pages. */
+body.is-refreshing-pill::after {
+  content: '↻ Refreshing…';
+  position: fixed; top: 80px; right: 24px;
+  background: var(--surface-2, var(--surface)); color: var(--text-muted, var(--text-subtle));
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border);
+  z-index: 1000; pointer-events: none;
+  animation: is-pill-fade 0.18s ease-out;
+}
+@keyframes is-pill-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ══════ RULES + CHANNELS ══════ */
 .al-cfg-section { margin-bottom: 24px; }
@@ -690,31 +707,66 @@ function setFilter(el, sev) {
   renderAlerts();
 }
 
+/* SWR cache (INBOX-259, 2026-05-15): 15 min TTL — alerts arrive
+   constantly from the monitor cycle but UI shouldn't refetch on every
+   page nav. Cache key auto-namespaced per user by /static/cache.js. */
+var ALERTS_CACHE_KEY = 'alerts.feed.v1';
+var ALERTS_CACHE_TTL_MS = 15 * 60 * 1000;
+var THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+function _filterAlertsTo30Days(rawAlerts) {
+  var now = Date.now();
+  return (rawAlerts || []).filter(function (a) {
+    if (!a.created_at) return true;
+    return (now - new Date(a.created_at).getTime()) <= THIRTY_DAYS_MS;
+  });
+}
+
+function _setRefreshingPill(on) {
+  document.body.classList.toggle('is-refreshing-pill', !!on);
+}
+
 async function loadAlerts() {
+  /* Step 1: hydrate from cache synchronously, before any network. */
+  var hadCache = false;
+  if (window.cacheGet) {
+    var snap = window.cacheGet(ALERTS_CACHE_KEY, ALERTS_CACHE_TTL_MS);
+    if (snap && Array.isArray(snap.alerts)) {
+      allAlerts = _filterAlertsTo30Days(snap.alerts);
+      renderDomainDropdown();
+      renderAlerts();
+      hadCache = true;
+    }
+  }
+  if (hadCache) _setRefreshingPill(true);
+
+  /* Step 2: fetch fresh in the background. */
   try {
     var res = await fetch('/api/user/alerts?limit=200', { headers });
     if (!res.ok) throw new Error();
     var data = await res.json();
     var rawAlerts = data.alerts || data || [];
 
-    /* Filter to last 30 days client-side */
-    var THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-    var now = Date.now();
-    allAlerts = rawAlerts.filter(function (a) {
-      if (!a.created_at) return true;
-      return (now - new Date(a.created_at).getTime()) <= THIRTY_DAYS_MS;
-    });
+    allAlerts = _filterAlertsTo30Days(rawAlerts);
+    if (window.cacheSet) window.cacheSet(ALERTS_CACHE_KEY, { alerts: rawAlerts });
 
     renderDomainDropdown();
     renderAlerts();
   } catch (e) {
-    document.getElementById('alerts-container').innerHTML =
-      '<div class="al-empty-state">' +
-      '<div class="al-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
-      '<h3>Could not load alerts</h3>' +
-      '<p>Something went wrong. Please try again.</p>' +
-      '<button class="al-btn al-btn-primary" onclick="loadAlerts()" style="margin-top:16px;">Retry</button>' +
-      '</div>';
+    /* Network error: only show the error state if we had no cached
+       data to show. Otherwise leave the cached view intact — user
+       sees stale-but-useful data, not a scary "Could not load" panel. */
+    if (!hadCache) {
+      document.getElementById('alerts-container').innerHTML =
+        '<div class="al-empty-state">' +
+        '<div class="al-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
+        '<h3>Could not load alerts</h3>' +
+        '<p>Something went wrong. Please try again.</p>' +
+        '<button class="al-btn al-btn-primary" onclick="loadAlerts()" style="margin-top:16px;">Retry</button>' +
+        '</div>';
+    }
+  } finally {
+    _setRefreshingPill(false);
   }
 }
 
@@ -848,30 +900,55 @@ function closeAlert() {
 }
 
 /* ═══════════ PREFERENCES ═══════════ */
+var PREFS_CACHE_KEY = 'alerts.prefs.v1';
+var PREFS_CACHE_TTL_MS = 60 * 60 * 1000;  // 1 hr — prefs change rarely
+
+function _applyPrefsToToggles(prefs) {
+  prefs = prefs || {};
+  document.querySelectorAll('.al-toggle[data-pref]').forEach(function (t) {
+    var key = t.dataset.pref;
+    var defaultOn = (key !== 'weekly_digest');
+    var value = (key in prefs) ? !!prefs[key] : defaultOn;
+    if (value) t.classList.add('on'); else t.classList.remove('on');
+  });
+}
+
+function _applyAccountEmail(email) {
+  if (!email) return;
+  var desc = document.getElementById('channels-email-desc');
+  if (desc) desc.textContent = 'Send alerts to ' + email + '.';
+}
+
 async function loadPrefs() {
+  /* Step 1: hydrate from cache. */
+  if (window.cacheGet) {
+    var snap = window.cacheGet(PREFS_CACHE_KEY, PREFS_CACHE_TTL_MS);
+    if (snap) {
+      _applyPrefsToToggles(snap.prefs);
+      _applyAccountEmail(snap.email);
+      window._prefsLoaded = true;
+    }
+  }
+
+  /* Step 2: refresh from network. */
   try {
     var res = await fetch('/api/user/preferences', { headers });
     if (!res.ok) return;
     var data = await res.json();
     var prefs = data.preferences || data || {};
-    document.querySelectorAll('.al-toggle[data-pref]').forEach(function (t) {
-      var key = t.dataset.pref;
-      var defaultOn = (key !== 'weekly_digest');
-      var value = (key in prefs) ? !!prefs[key] : defaultOn;
-      if (value) t.classList.add('on'); else t.classList.remove('on');
-    });
+    _applyPrefsToToggles(prefs);
     window._prefsLoaded = true;
 
     /* Show real account email */
+    var email = null;
     var meRes = await fetch('/api/auth/me', { headers });
     if (meRes.ok) {
       var me = await meRes.json();
-      var email = me && me.user && me.user.email;
-      if (email) {
-        var desc = document.getElementById('channels-email-desc');
-        if (desc) desc.textContent = 'Send alerts to ' + email + '.';
-      }
+      email = me && me.user && me.user.email;
+      _applyAccountEmail(email);
     }
+
+    if (window.cacheSet) window.cacheSet(PREFS_CACHE_KEY, { prefs: prefs, email: email });
   } catch (e) { console.warn('Could not load preferences', e); }
 }
 

@@ -25,6 +25,8 @@
   } catch (e) {}
 })();
 </script>
+<!-- INBOX-259: SWR cache helper (synchronous so inline scripts can read it) -->
+<script src="/static/cache.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -42,6 +44,19 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .info-hint::after { content:attr(data-hint); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:var(--text); color:var(--surface); border:1px solid var(--text); border-radius:6px; padding:6px 10px; font-size:11px; white-space:nowrap; pointer-events:none; opacity:0; transition:opacity .15s; z-index:99; }
 .info-hint:hover::after { opacity:1; }
 @keyframes snds-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* INBOX-259: SWR refreshing pill */
+body.is-refreshing-pill::after {
+  content: '↻ Refreshing…';
+  position: fixed; top: 80px; right: 24px;
+  background: var(--surface-2, var(--surface)); color: var(--text-muted);
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border);
+  z-index: 1000; pointer-events: none;
+  animation: is-pill-fade 0.18s ease-out;
+}
+@keyframes is-pill-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* Top Nav */
 .topnav { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); z-index: 10; }
@@ -577,8 +592,38 @@ function getBlacklistDomain() {
   return _bl.selectedDomain;
 }
 
+// INBOX-259: SWR cache for the domain dropdown. Without it the
+// dropdown blanks on every page nav while we wait for /api/user/domains
+// to resolve. 30 min TTL matches domains.html.
+const BL_DOMAINS_CACHE_KEY = 'blacklist.domains.v1';
+const BL_DOMAINS_CACHE_TTL_MS = 30 * 60 * 1000;
+
+function _blApplyDomains(domains) {
+  _bl.domains = domains || [];
+  if (_bl.domains.length > 0 && !_bl.domains.find(d => d.domain === _bl.selectedDomain)) {
+    _bl.selectedDomain = _bl.domains[0].domain;
+  }
+  blRenderDomainDropdown();
+}
+
+function _blSetRefreshingPill(on) {
+  document.body.classList.toggle('is-refreshing-pill', !!on);
+}
+
 // Fetch domains from /api/user/domains and populate dropdown
 async function blFetchDomains() {
+  // Step 1: hydrate from localStorage so the dropdown is populated
+  // before the network call returns.
+  let hadCache = false;
+  if (window.cacheGet) {
+    const snap = window.cacheGet(BL_DOMAINS_CACHE_KEY, BL_DOMAINS_CACHE_TTL_MS);
+    if (snap && Array.isArray(snap.domains)) {
+      _blApplyDomains(snap.domains);
+      hadCache = true;
+    }
+  }
+  if (hadCache) _blSetRefreshingPill(true);
+
   try {
     const token = getToken();
     if (!token) return;
@@ -587,13 +632,13 @@ async function blFetchDomains() {
     });
     if (!resp.ok) return;
     const data = await resp.json();
-    _bl.domains = data.domains || [];
-    if (_bl.domains.length > 0 && !_bl.domains.find(d => d.domain === _bl.selectedDomain)) {
-      _bl.selectedDomain = _bl.domains[0].domain;
-    }
-    blRenderDomainDropdown();
+    const domains = data.domains || [];
+    if (window.cacheSet) window.cacheSet(BL_DOMAINS_CACHE_KEY, { domains: domains });
+    _blApplyDomains(domains);
   } catch (e) {
     console.error('blFetchDomains:', e);
+  } finally {
+    _blSetRefreshingPill(false);
   }
 }
 
@@ -634,20 +679,37 @@ function blSelectDomain(domain) {
 // Outside-click + toggle handling are owned by AppDomainSelect; no
 // page-level listeners needed any more.
 
-// Session-level blacklist cache (5 min TTL)
+// INBOX-259: in-memory cache (fast on same page) + localStorage SWR
+// (survives page nav). The in-memory copy was original behaviour; the
+// localStorage layer is new. 5 min TTL on both.
 const _blCache = {};
 const BL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+function _blResultsCacheKey(domain) {
+  return 'blacklist.results.' + domain;
+}
 
 // Called on domain change: show cached blacklist for new domain or load from DB
 async function refreshBlacklistForDomain(domain) {
-  // 1) Check in-memory cache first (fast, avoids API call)
+  // 1) Check in-memory cache first (fast, avoids both localStorage + API).
   const cached = _blCache[domain];
   if (cached && (Date.now() - cached.ts < BL_CACHE_TTL)) {
     renderBlacklistResults(cached.data);
     return;
   }
 
-  // 2) Try loading last saved results from the database
+  // 2) Then check localStorage SWR — survives page nav.
+  let renderedFromCache = false;
+  if (window.cacheGet) {
+    const snap = window.cacheGet(_blResultsCacheKey(domain), BL_CACHE_TTL);
+    if (snap && snap.data) {
+      _blCache[domain] = { data: snap.data, ts: Date.now() };
+      renderBlacklistResults(snap.data);
+      renderedFromCache = true;
+    }
+  }
+  if (renderedFromCache) _blSetRefreshingPill(true);
+
+  // 3) Refresh from DB (also serves as cold-start when no cache).
   const token = getToken();
   if (token) {
     try {
@@ -656,13 +718,19 @@ async function refreshBlacklistForDomain(domain) {
       });
       if (resp.ok) {
         const data = await resp.json();
-        // Cache it in memory too
         _blCache[domain] = { data, ts: Date.now() };
+        if (window.cacheSet) window.cacheSet(_blResultsCacheKey(domain), { data });
         renderBlacklistResults(data);
+        _blSetRefreshingPill(false);
         return;
       }
     } catch (e) { /* no saved results — fall through */ }
   }
+  _blSetRefreshingPill(false);
+
+  // If we already rendered from cache, leave the cached view up rather
+  // than collapsing to empty-state.
+  if (renderedFromCache) return;
 
   // 3) No cached or saved results — collapse all states; user can hit Scan now.
   const resEl   = document.getElementById('bl-results');

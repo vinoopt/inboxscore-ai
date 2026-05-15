@@ -25,6 +25,8 @@
   } catch (e) {}
 })();
 </script>
+<!-- INBOX-259: SWR cache helper (synchronous so inline scripts can read it) -->
+<script src="/static/cache.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -120,6 +122,19 @@ body { font-family: 'Geist', system-ui, -apple-system, BlinkMacSystemFont, sans-
 .toast.success { background: var(--green-bg); border: 1px solid var(--green); color: var(--green); }
 .toast.error { background: var(--red-bg); border: 1px solid var(--red); color: var(--red); }
 @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* INBOX-259: SWR refreshing pill */
+body.is-refreshing-pill::after {
+  content: '↻ Refreshing…';
+  position: fixed; top: 80px; right: 24px;
+  background: var(--surface-2, var(--surface)); color: var(--text-muted);
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border);
+  z-index: 1000; pointer-events: none;
+  animation: is-pill-fade 0.18s ease-out;
+}
+@keyframes is-pill-fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* Modal */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; align-items: center; justify-content: center; }
@@ -363,31 +378,63 @@ document.addEventListener('keydown', function(e) {
 
 let allDomains = [];
 
+// INBOX-259: SWR cache — domain list changes rarely (user-initiated).
+// 30 min TTL is a balance: long enough to kill flicker on page nav,
+// short enough that an Add/Remove on another tab is picked up quickly.
+const DOMAINS_CACHE_KEY = 'domains.list.v1';
+const DOMAINS_CACHE_TTL_MS = 30 * 60 * 1000;
+
+function _renderDomainsFromState() {
+  // INBOX-138: restore saved sort + filter bar visibility together
+  // with the actual list render — keeps repaint atomic.
+  try {
+    const savedSort = localStorage.getItem('domains.sort');
+    if (savedSort) {
+      const sortEl = document.getElementById('domain-sort');
+      if (sortEl) sortEl.value = savedSort;
+    }
+  } catch (e) {}
+
+  const filterBar = document.getElementById('domain-filters');
+  if (filterBar) filterBar.style.display = allDomains.length > 0 ? 'flex' : 'none';
+
+  applyDomainFilters();
+  updateUsageFooter(allDomains.length);
+}
+
+function _setRefreshingPill(on) {
+  document.body.classList.toggle('is-refreshing-pill', !!on);
+}
+
 async function loadDomains() {
+  /* Step 1: hydrate from cache synchronously. */
+  let hadCache = false;
+  if (window.cacheGet) {
+    const snap = window.cacheGet(DOMAINS_CACHE_KEY, DOMAINS_CACHE_TTL_MS);
+    if (snap && Array.isArray(snap.domains)) {
+      allDomains = snap.domains;
+      _renderDomainsFromState();
+      hadCache = true;
+    }
+  }
+  if (hadCache) _setRefreshingPill(true);
+
+  /* Step 2: refresh from network. */
   try {
     const res = await fetch('/api/user/domains', { headers });
     if (!res.ok) throw new Error();
     const data = await res.json();
     allDomains = data.domains || [];
-
-    // INBOX-138: restore the saved sort preference (newest-first
-    // default) before the first render so the user's choice survives
-    // reloads. Same persistence pattern as INBOX-133 table sort.
-    try {
-      const savedSort = localStorage.getItem('domains.sort');
-      if (savedSort) document.getElementById('domain-sort').value = savedSort;
-    } catch (e) {}
-
-    // Show the filter bar only when we have domains to filter — first-
-    // run users (0 domains) see the empty state, no clutter.
-    document.getElementById('domain-filters').style.display =
-      allDomains.length > 0 ? 'flex' : 'none';
-
-    applyDomainFilters();
-    updateUsageFooter(allDomains.length);
+    if (window.cacheSet) window.cacheSet(DOMAINS_CACHE_KEY, { domains: allDomains });
+    _renderDomainsFromState();
   } catch (e) {
-    document.getElementById('domains-container').innerHTML =
-      '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load domains</h3><p>Something went wrong. Please try again.</p><button class="btn btn-primary" onclick="loadDomains()" style="margin-top:12px;">Retry</button></div>';
+    /* Only show error state if we had nothing cached to show. */
+    if (!hadCache) {
+      document.getElementById('domains-container').innerHTML =
+        '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load domains</h3><p>Something went wrong. Please try again.</p><button class="btn btn-primary" onclick="loadDomains()" style="margin-top:12px;">Retry</button></div>';
+    }
+  } finally {
+    _setRefreshingPill(false);
   }
 }
 

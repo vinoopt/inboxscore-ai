@@ -18,6 +18,9 @@
   } catch (e) {}
 })();
 </script>
+<!-- INBOX-259: SWR cache helper. settings.html already calls
+     window.cacheGet/cacheSet but the script was never loaded — fix. -->
+<script src="/static/cache.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
