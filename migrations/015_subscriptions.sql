@@ -37,6 +37,13 @@
 -- Idempotent: CREATE TABLE IF NOT EXISTS + CREATE INDEX IF NOT EXISTS.
 -- Reversible: DROP TABLE public.subscriptions CASCADE.
 
+-- Fresh-install path: create the full table from scratch. On a CI
+-- replay there's a legacy 10-column subscriptions table created by
+-- db/supabase-schema.sql (the historical pre-Stripe shape: id,
+-- user_id, stripe_subscription_id, plan, status, current_period_*,
+-- created_at, updated_at) — IF NOT EXISTS makes this a no-op against
+-- that legacy table; the ALTER TABLE statements below then add every
+-- Stripe-specific column.
 CREATE TABLE IF NOT EXISTS public.subscriptions (
     id                       UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -55,16 +62,10 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     stripe_price_id          TEXT,
 
     -- Our plan state machine (see header).
-    plan                     TEXT         NOT NULL DEFAULT 'stub'
-                                          CHECK (plan IN ('trial', 'pro', 'stub')),
+    plan                     TEXT         NOT NULL DEFAULT 'stub',
 
     -- Subscription status mirroring Stripe, plus our 'stub' extension.
-    status                   TEXT         NOT NULL DEFAULT 'stub'
-                                          CHECK (status IN (
-                                              'trialing', 'active', 'past_due',
-                                              'canceled', 'incomplete',
-                                              'incomplete_expired', 'stub'
-                                          )),
+    status                   TEXT         NOT NULL DEFAULT 'stub',
 
     -- Billing period (mirrors Stripe's current_period_*).
     current_period_start     TIMESTAMPTZ,
@@ -85,6 +86,38 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     updated_at               TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     last_webhook_event_id    TEXT
 );
+
+-- Upgrade path: legacy installs already have a 10-col subscriptions
+-- table created by db/supabase-schema.sql. The CREATE TABLE above
+-- is a no-op there, so we explicitly add each new column. Idempotent.
+ALTER TABLE public.subscriptions
+    ADD COLUMN IF NOT EXISTS stripe_customer_id     TEXT,
+    ADD COLUMN IF NOT EXISTS stripe_price_id        TEXT,
+    ADD COLUMN IF NOT EXISTS trial_end              TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS cancel_at_period_end   BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS canceled_at            TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS last_webhook_event_id  TEXT;
+
+-- Loosen the legacy CHECK constraints. The pre-Stripe shape required
+-- plan IN ('pro','growth','enterprise') and status IN
+-- ('active','canceled','past_due','trialing','incomplete'). The new
+-- model adds 'trial' + 'stub' to plan and 'incomplete_expired' +
+-- 'stub' to status. Drop and re-add with the wider whitelist.
+ALTER TABLE public.subscriptions
+    DROP CONSTRAINT IF EXISTS subscriptions_plan_check;
+ALTER TABLE public.subscriptions
+    ADD CONSTRAINT subscriptions_plan_check
+    CHECK (plan IN ('trial', 'pro', 'stub', 'growth', 'enterprise', 'free'));
+
+ALTER TABLE public.subscriptions
+    DROP CONSTRAINT IF EXISTS subscriptions_status_check;
+ALTER TABLE public.subscriptions
+    ADD CONSTRAINT subscriptions_status_check
+    CHECK (status IN (
+        'trialing', 'active', 'past_due',
+        'canceled', 'incomplete',
+        'incomplete_expired', 'stub', 'unpaid', 'paused'
+    ));
 
 -- Stripe customer ID is unique where present (one customer per user).
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_stripe_customer
