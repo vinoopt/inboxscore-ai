@@ -263,6 +263,36 @@ Any output means duplicate IDs in the same page. Triage each:
 
 ---
 
+### F4. Marketing claims aren't per-call reality — verify provider counts against live UI (INBOX-204)
+
+**The trap (2026-05-11):** When we migrated blacklist checks to HetrixTools (INBOX-229 phase 3), we believed HetrixTools' marketing line that they consult "1000+ blacklists" and put that copy in both the scan response and the loader. Vinoop screenshotted their actual UI on a live check — google.com result page literally says **"1 out of 23 checked blacklists"**. A single API call hits 23 lists for domains, ~122 for IPv4. The "1000+" is their total catalog across all features (uptime, monitors, dashboards), not the per-call reality.
+
+**How to spot:** if a provider gives a number in marketing copy that sounds impressive, **assume it's a catalog total, not a per-call count**. Test by running a real call and either:
+- Looking at the JSON response's `checked_count` field (HetrixTools doesn't expose one — so we couldn't catch this from the API alone)
+- Pulling the provider's own report URL and counting rows
+- Comparing the count against what a known clean target gets
+
+**Going forward:** when we integrate a new third-party check provider, **the first thing the wrapper module does is hardcode `LISTS_CHECKED` from a verified-live count**, not from marketing copy. Add a comment with the verification date + screenshot URL. Re-verify when the provider changes their service or every 6 months, whichever comes first.
+
+**See:** `hetrix.py` constants `LISTS_CHECKED_DOMAIN = 23`, `LISTS_CHECKED_IPV4 = 122` (verified 2026-05-11 against HetrixTools UI). INBOX-204 ship notes have the full screenshot trail.
+
+---
+
+### F5. Anonymous rate limits eat your own deploy-verification budget
+
+**The trap (2026-05-11):** During INBOX-199 + INBOX-204 deploys I polled `/api/scan` every 30s for 5 minutes from the same IP to detect when the new code went live. The anonymous rate limit is **10 scans/day per IP**. By poll #5 I had exhausted my quota and the responses were 429s for the rest of the day. Wasted ~30 minutes debugging "why is the response empty?" before realising my own polling was the cause.
+
+**How to spot:** if a `curl /api/scan` returns an empty / truncated response after a few attempts, check the actual HTTP body. A 429 with `{"detail":{"message":"You've used your 10 free scans today..."}}` is the giveaway.
+
+**Going forward:** for deploy verification, use one of:
+1. **Static-file diff** — `curl https://inboxscore.ai/static/index.html | grep <new-marker>`. Doesn't consume API quota. Works because Render serves the new HTML as soon as the build completes.
+2. **Logged-in token** — use Vinoop's Pro token for verification; no rate limit.
+3. **Add this IP to `RATE_LIMIT_BYPASS_IPS`** Render env var — but only for known dev IPs, never permanently.
+
+**See:** `app.py` lines ~414-449 for the rate-limit logic. INBOX-201's eventual cleanup can include a "dev-mode" header that skips rate limits when a known signing secret is presented.
+
+---
+
 ## How to use this doc
 
 Read on:
@@ -271,6 +301,8 @@ Read on:
 - Designing a new dashboard for a deliverability product
 - When you're about to assume per-client mapping is solvable from public DNS
 - **Before any UI migration that renames a CSS class** (sections F1-F3)
+- **Before integrating a new third-party check provider** (sections F4)
+- **Before polling production for deploy verification** (section F5)
 
 Add to it:
 - When a deliverability-specific incident teaches you something

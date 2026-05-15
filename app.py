@@ -11,6 +11,7 @@ import json
 import time
 import re
 import os
+import logging as _logging
 import httpx
 from datetime import datetime, timezone
 from typing import Optional
@@ -55,9 +56,12 @@ from db import (
     get_user_subscription, set_user_stripe_customer,
     # INBOX-207 (Stripe webhook handler): idempotency + state mirror
     get_user_id_by_stripe_customer,
-    was_webhook_processed, mark_webhook_processed,
+    was_webhook_processed, mark_webhook_received,
+    was_webhook_processed_ok, mark_webhook_completed,
     upsert_subscription_from_stripe,
 )
+# Backwards-compat re-export until callers stop importing the old name.
+mark_webhook_processed = mark_webhook_received
 
 # Auth
 from auth import (
@@ -88,7 +92,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.16.11")
+    _version = os.environ.get("APP_VERSION", "1.16.12")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -134,7 +138,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.16.11")
+app = FastAPI(title="InboxScore API", version="1.16.12")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -949,8 +953,14 @@ async def api_billing_checkout(body: BillingCheckoutRequest, req: Request):
         )
     except Exception as e:
         # Full error always goes to Render logs for debugging.
-        print(f"[billing.checkout] customer create failed for {user_id}: "
-              f"{type(e).__name__}: {e}")
+        _logging.getLogger("inboxscore.billing").exception(
+            "checkout: customer create failed",
+            extra={
+                "user_id": user_id,
+                "existing_customer_id": existing_customer_id,
+                "error_type": type(e).__name__,
+            },
+        )
         # In test mode, surface the error class + message to the client so
         # the dev/test feedback loop is fast. In live mode, keep generic
         # to avoid leaking Stripe internals to real users.
@@ -982,8 +992,15 @@ async def api_billing_checkout(body: BillingCheckoutRequest, req: Request):
             cancel_url=f"{base_url}/settings?canceled=1#billing",
         )
     except Exception as e:
-        print(f"[billing.checkout] session create failed for {user_id}: "
-              f"{type(e).__name__}: {e}")
+        _logging.getLogger("inboxscore.billing").exception(
+            "checkout: session create failed",
+            extra={
+                "user_id": user_id,
+                "customer_id": customer.id,
+                "price_lookup_key": body.price_lookup_key,
+                "error_type": type(e).__name__,
+            },
+        )
         detail = "Billing provider error"
         if billing.get_stripe_mode() == "test":
             detail = f"Billing provider error: {type(e).__name__}: {str(e)[:200]}"
@@ -997,7 +1014,14 @@ async def api_billing_portal(body: BillingPortalRequest, req: Request):
     """Create a Stripe Customer Portal session. Returns {url} the
     browser redirects to. Requires the user to already have a Stripe
     customer relationship (i.e., went through checkout at least once,
-    OR was set up by the auto-trial signup flow once INBOX-209 ships)."""
+    OR was set up by the auto-trial signup flow once INBOX-209 ships).
+
+    Audit H2 (2026-05-15): explicitly gate on subscription status.
+    The portal is appropriate for users with an active billing
+    relationship (trialing / active / past_due / canceled — the last
+    so they can still view past invoices). Users with no Stripe
+    customer at all get a 400 with a clear next-step.
+    """
     auth_header = req.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing authorization")
@@ -1023,8 +1047,24 @@ async def api_billing_portal(body: BillingPortalRequest, req: Request):
             ),
         )
 
+    # Stub users without a Stripe subscription ID have no actionable
+    # state inside the portal — no sub to manage, no payment method
+    # the portal can act on. Redirect them through checkout instead.
+    # (They CAN still have stripe_customer_id from a past trial — but
+    # not stripe_subscription_id if the trial was deleted.)
+    sub_status = sub.get("status") if sub else None
+    sub_id = sub.get("stripe_subscription_id") if sub else None
+    if sub_status == "stub" and not sub_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No active subscription to manage. Start one via "
+                "/api/billing/checkout to reactivate Pro."
+            ),
+        )
+
     base_url = str(req.base_url).rstrip("/")
-    return_url = body.return_url or f"{base_url}/settings/billing"
+    return_url = body.return_url or f"{base_url}/settings?ok=1#billing"
 
     try:
         session = billing.create_portal_session(
@@ -1032,8 +1072,18 @@ async def api_billing_portal(body: BillingPortalRequest, req: Request):
             return_url=return_url,
         )
     except Exception as e:
-        print(f"[billing.portal] session create failed for {user_id}: {e}")
-        raise HTTPException(status_code=502, detail="Billing provider error")
+        _webhook_log.warning(
+            "billing.portal session create failed",
+            extra={
+                "user_id": user_id,
+                "error_type": type(e).__name__,
+                "error": str(e),
+            },
+        )
+        detail = "Billing provider error"
+        if billing.get_stripe_mode() == "test":
+            detail = f"Billing provider error: {type(e).__name__}: {str(e)[:200]}"
+        raise HTTPException(status_code=502, detail=detail)
 
     return {"url": session.url}
 
@@ -1067,6 +1117,33 @@ async def api_billing_portal(body: BillingPortalRequest, req: Request):
 # Mixpanel events in INBOX-218 — not in scope for this ticket).
 
 
+_webhook_log = _logging.getLogger("inboxscore.webhook")
+
+
+def _stripe_handler_subscription_created(event: dict) -> None:
+    """customer.subscription.created → mirror new sub into our table.
+
+    Defense-in-depth (audit C1, 2026-05-15). Stripe fires this for
+    every newly-created subscription, including those created via
+    Checkout. The checkout.session.completed handler also covers that
+    path; this handler covers everything else: subs created via
+    Dashboard, API, or Customer Portal upgrades. The upsert is
+    idempotent so handling both paths is safe.
+    """
+    sub = event.get("data", {}).get("object", {})
+    customer_id = sub.get("customer")
+    if not customer_id:
+        return
+    user_id = get_user_id_by_stripe_customer(customer_id)
+    if not user_id:
+        _webhook_log.info(
+            "subscription.created: unknown customer",
+            extra={"customer_id": customer_id, "event_id": event.get("id")},
+        )
+        return
+    upsert_subscription_from_stripe(user_id, sub, stripe_event_id=event.get("id"))
+
+
 def _stripe_handler_subscription_updated(event: dict) -> None:
     """customer.subscription.updated → mirror state into our subscriptions table."""
     sub = event.get("data", {}).get("object", {})
@@ -1079,9 +1156,12 @@ def _stripe_handler_subscription_updated(event: dict) -> None:
         # likely cause: test-mode race during signup before the
         # subscriptions row was written. Stripe doesn't retry on
         # 200, so we ack and move on.
-        print(f"[webhook] subscription.updated: unknown customer {customer_id}")
+        _webhook_log.info(
+            "subscription.updated: unknown customer",
+            extra={"customer_id": customer_id, "event_id": event.get("id")},
+        )
         return
-    upsert_subscription_from_stripe(user_id, sub)
+    upsert_subscription_from_stripe(user_id, sub, stripe_event_id=event.get("id"))
 
 
 def _stripe_handler_subscription_deleted(event: dict) -> None:
@@ -1092,9 +1172,14 @@ def _stripe_handler_subscription_deleted(event: dict) -> None:
         return
     user_id = get_user_id_by_stripe_customer(customer_id)
     if not user_id:
-        print(f"[webhook] subscription.deleted: unknown customer {customer_id}")
+        _webhook_log.info(
+            "subscription.deleted: unknown customer",
+            extra={"customer_id": customer_id, "event_id": event.get("id")},
+        )
         return
-    upsert_subscription_from_stripe(user_id, sub, force_stub=True)
+    upsert_subscription_from_stripe(
+        user_id, sub, force_stub=True, stripe_event_id=event.get("id")
+    )
 
 
 def _stripe_handler_checkout_completed(event: dict) -> None:
@@ -1109,43 +1194,67 @@ def _stripe_handler_checkout_completed(event: dict) -> None:
     status='stub' forever — even after the customer paid.
 
     Fix: do the upsert here directly. The Checkout session has the
-    subscription ID; we fetch the full Subscription object from Stripe
-    and call upsert_subscription_from_stripe like the .updated handler
-    would have. Idempotent — if .updated also arrives later for the
-    same sub, the upsert produces identical state.
+    subscription ID; we fetch the full Subscription object via the
+    billing module (audit H1 — was bypassing it with a raw stripe
+    import) and call upsert_subscription_from_stripe. Idempotent — if
+    .created/.updated also arrive later for the same sub, the upsert
+    produces identical state.
     """
     session = event.get("data", {}).get("object", {})
     customer_id = session.get("customer")
     subscription_id = session.get("subscription")
     mode = session.get("mode")
-    print(f"[webhook] checkout.session.completed customer={customer_id} "
-          f"mode={mode} sub={subscription_id}")
+    event_id = event.get("id")
+
+    _webhook_log.info(
+        "checkout.session.completed",
+        extra={
+            "event_id": event_id,
+            "customer_id": customer_id,
+            "subscription_id": subscription_id,
+            "mode": mode,
+        },
+    )
 
     if mode != "subscription" or not subscription_id or not customer_id:
         return  # one-off charges or malformed payloads — nothing to upsert
 
     user_id = get_user_id_by_stripe_customer(customer_id)
     if not user_id:
-        print(f"[webhook] checkout.completed: unknown customer {customer_id}")
+        _webhook_log.warning(
+            "checkout.completed: unknown customer",
+            extra={"customer_id": customer_id, "event_id": event_id},
+        )
         return
 
     try:
-        # Fetch the full Subscription from Stripe so we have the real
-        # status, price, period dates etc. The Checkout session payload
-        # only includes the subscription ID, not its full state.
-        billing._ensure_initialized()
-        import stripe as _stripe
-        sub = _stripe.Subscription.retrieve(subscription_id)
-        sub_dict = sub.to_dict() if hasattr(sub, "to_dict") else dict(sub)
-        upsert_subscription_from_stripe(user_id, sub_dict)
-        print(f"[webhook] checkout.completed: upserted sub {subscription_id} "
-              f"for user {user_id} → status={sub_dict.get('status')}")
+        # Route through billing module (audit H1, 2026-05-15) — keeps
+        # all Stripe SDK use behind one wrapper for mocking + API-version
+        # consistency.
+        sub_dict = billing.retrieve_subscription(subscription_id)
+        upsert_subscription_from_stripe(
+            user_id, sub_dict, stripe_event_id=event_id
+        )
+        _webhook_log.info(
+            "checkout.completed: upserted sub",
+            extra={
+                "event_id": event_id,
+                "subscription_id": subscription_id,
+                "user_id": user_id,
+                "stripe_status": sub_dict.get("status"),
+            },
+        )
     except Exception as e:
-        # Log + raise so Stripe retries the webhook. The user's payment
-        # has gone through; if we don't get the row updated, the user
-        # is stuck on stub state — worth a retry.
-        print(f"[webhook] checkout.completed handler error for "
-              f"sub {subscription_id}: {type(e).__name__}: {e}")
+        # Log + raise so Stripe retries the webhook. With the new
+        # two-phase idempotency (C2 fix), the row stays in
+        # processed_at=NULL state on failure and the retry runs again.
+        _webhook_log.exception(
+            "checkout.completed handler error",
+            extra={
+                "event_id": event_id,
+                "subscription_id": subscription_id,
+            },
+        )
         raise
 
 
@@ -1157,8 +1266,14 @@ def _stripe_handler_trial_will_end(event: dict) -> None:
     just log so we can verify deliveries arrive.
     """
     sub = event.get("data", {}).get("object", {})
-    print(f"[webhook] trial_will_end customer={sub.get('customer')} "
-          f"trial_end={sub.get('trial_end')}")
+    _webhook_log.info(
+        "trial_will_end",
+        extra={
+            "event_id": event.get("id"),
+            "customer_id": sub.get("customer"),
+            "trial_end": sub.get("trial_end"),
+        },
+    )
 
 
 def _stripe_handler_invoice_payment_succeeded(event: dict) -> None:
@@ -1169,8 +1284,15 @@ def _stripe_handler_invoice_payment_succeeded(event: dict) -> None:
     state mutation needed here.
     """
     inv = event.get("data", {}).get("object", {})
-    print(f"[webhook] invoice.payment_succeeded customer={inv.get('customer')} "
-          f"amount={inv.get('amount_paid')} currency={inv.get('currency')}")
+    _webhook_log.info(
+        "invoice.payment_succeeded",
+        extra={
+            "event_id": event.get("id"),
+            "customer_id": inv.get("customer"),
+            "amount_paid": inv.get("amount_paid"),
+            "currency": inv.get("currency"),
+        },
+    )
 
 
 def _stripe_handler_invoice_payment_failed(event: dict) -> None:
@@ -1182,17 +1304,95 @@ def _stripe_handler_invoice_payment_failed(event: dict) -> None:
     which our handlers process.
     """
     inv = event.get("data", {}).get("object", {})
-    print(f"[webhook] invoice.payment_failed customer={inv.get('customer')} "
-          f"attempt={inv.get('attempt_count')}")
+    _webhook_log.warning(
+        "invoice.payment_failed",
+        extra={
+            "event_id": event.get("id"),
+            "customer_id": inv.get("customer"),
+            "attempt_count": inv.get("attempt_count"),
+        },
+    )
+
+
+def _stripe_handler_invoice_upcoming(event: dict) -> None:
+    """invoice.upcoming → 7 days before renewal.
+
+    Audit C1 (2026-05-15): subscribed for defense + future lifecycle
+    emails (INBOX-217 'your card is expiring' / 'renewal in 7 days').
+    Just log for now.
+    """
+    inv = event.get("data", {}).get("object", {})
+    _webhook_log.info(
+        "invoice.upcoming",
+        extra={
+            "event_id": event.get("id"),
+            "customer_id": inv.get("customer"),
+            "amount_due": inv.get("amount_due"),
+            "next_payment_attempt": inv.get("next_payment_attempt"),
+        },
+    )
+
+
+def _stripe_handler_charge_refunded(event: dict) -> None:
+    """charge.refunded → log + mirror into subscriptions if applicable.
+
+    Audit C1 (2026-05-15). When you issue a full refund from the Stripe
+    dashboard, the subscription's status may change (e.g., to canceled)
+    and that fires customer.subscription.updated — which we already
+    handle. This handler is mostly observability: ensures a refund
+    leaves a clear audit trail in our logs and webhook events table.
+
+    For partial refunds the subscription stays active and the user
+    keeps Pro access; no state mutation needed.
+    """
+    charge = event.get("data", {}).get("object", {})
+    _webhook_log.warning(
+        "charge.refunded",
+        extra={
+            "event_id": event.get("id"),
+            "customer_id": charge.get("customer"),
+            "charge_id": charge.get("id"),
+            "amount_refunded": charge.get("amount_refunded"),
+            "currency": charge.get("currency"),
+            "fully_refunded": charge.get("refunded"),  # bool
+        },
+    )
+
+
+def _stripe_handler_charge_dispute_created(event: dict) -> None:
+    """charge.dispute.created → flag the user + log loudly.
+
+    Audit C1 (2026-05-15). A chargeback was filed. Stripe also fires
+    customer.subscription.updated with the appropriate status; we let
+    the standard updated handler mirror state. This handler logs at
+    ERROR level so it surfaces in Sentry / alerts so we can investigate
+    promptly. Future: hook into ops alerting (Slack #payments).
+    """
+    dispute = event.get("data", {}).get("object", {})
+    _webhook_log.error(
+        "charge.dispute.created",
+        extra={
+            "event_id": event.get("id"),
+            "charge_id": dispute.get("charge"),
+            "amount": dispute.get("amount"),
+            "currency": dispute.get("currency"),
+            "reason": dispute.get("reason"),
+            "status": dispute.get("status"),
+        },
+    )
 
 
 _STRIPE_WEBHOOK_HANDLERS = {
     "checkout.session.completed":            _stripe_handler_checkout_completed,
+    "customer.subscription.created":         _stripe_handler_subscription_created,
     "customer.subscription.updated":         _stripe_handler_subscription_updated,
     "customer.subscription.deleted":         _stripe_handler_subscription_deleted,
     "customer.subscription.trial_will_end":  _stripe_handler_trial_will_end,
     "invoice.payment_succeeded":             _stripe_handler_invoice_payment_succeeded,
     "invoice.payment_failed":                _stripe_handler_invoice_payment_failed,
+    "invoice.upcoming":                      _stripe_handler_invoice_upcoming,
+    "charge.refunded":                       _stripe_handler_charge_refunded,
+    "charge.dispute.created":                _stripe_handler_charge_dispute_created,
 }
 
 
@@ -1203,6 +1403,14 @@ async def api_stripe_webhook(req: Request):
     Signature verification happens on the RAW request body (bytes).
     Never JSON-parse before verifying — re-serializing the dict
     breaks Stripe's hash.
+
+    Two-phase idempotency (audit C2 fix, 2026-05-15):
+      Phase 1: insert stripe_webhook_events row with processed_at=NULL
+      Phase 2: run handler
+      Phase 3: on success, UPDATE processed_at=NOW(). On failure, leave
+               processed_at=NULL so Stripe's retry can re-run the handler.
+    Previous design recorded processed_at on insert, which caused failed
+    handlers to be permanently masked from retries.
     """
     # 1. Read raw body for signature verification.
     raw_body = await req.body()
@@ -1212,9 +1420,10 @@ async def api_stripe_webhook(req: Request):
     try:
         event = billing.verify_webhook(raw_body, signature)
     except Exception as e:
-        # Includes SignatureVerificationError, missing env vars, etc.
-        # Log enough to debug but don't echo internal state to caller.
-        print(f"[webhook] signature verification failed: {type(e).__name__}: {e}")
+        _webhook_log.warning(
+            "signature verification failed",
+            extra={"error_type": type(e).__name__, "error": str(e)},
+        )
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     # Stripe Event objects can be dict-like (from SDK construct_event)
@@ -1227,42 +1436,62 @@ async def api_stripe_webhook(req: Request):
     if not event_id or not event_type:
         raise HTTPException(status_code=400, detail="Malformed event")
 
-    # 3. Idempotency — has this event been processed before?
-    if was_webhook_processed(event_id):
-        print(f"[webhook] idempotent skip: {event_type} {event_id}")
-        return {"received": True, "idempotent_skip": True}
-
-    # 4. Record this event so retries no-op. mark_webhook_processed
-    # returns False on duplicate (race condition) — treat as already
-    # processed.
+    # 3. Two-phase idempotency.
+    # First, try to insert as RECEIVED (processed_at=NULL).
     payload_obj = event.get("data", {}).get("object", {})
-    inserted = mark_webhook_processed(event_id, event_type, payload_obj)
+    inserted = mark_webhook_received(event_id, event_type, payload_obj)
     if not inserted:
-        print(f"[webhook] race: another worker already inserted {event_id}, "
-              f"skipping handler")
-        return {"received": True, "idempotent_skip": True}
+        # Duplicate insert → row already exists. Was it processed
+        # successfully (processed_at IS NOT NULL) or did it crash mid-flight?
+        if was_webhook_processed_ok(event_id):
+            _webhook_log.info(
+                "idempotent skip — already processed",
+                extra={"event_id": event_id, "event_type": event_type},
+            )
+            return {"received": True, "idempotent_skip": True}
+        # Row exists but processed_at=NULL → previous attempt crashed
+        # or another worker is currently processing. Allow retry to run
+        # the handler. Worst case: two workers run the handler
+        # concurrently — the handler is idempotent (upsert on user_id)
+        # so the worst that happens is a wasted write.
+        _webhook_log.warning(
+            "retrying previously-failed event",
+            extra={"event_id": event_id, "event_type": event_type},
+        )
 
-    # 5. Dispatch.
+    # 4. Dispatch.
     handler = _STRIPE_WEBHOOK_HANDLERS.get(event_type)
     if not handler:
         # Unknown event type — log but ack so Stripe doesn't retry.
-        # We've already recorded it in stripe_webhook_events for audit.
-        print(f"[webhook] no handler for event type: {event_type} {event_id}")
+        # Mark as completed so we don't keep "retrying" an event we
+        # have no handler for. The row in stripe_webhook_events is
+        # still kept for audit.
+        _webhook_log.info(
+            "no handler for event type",
+            extra={"event_id": event_id, "event_type": event_type},
+        )
+        mark_webhook_completed(event_id)
         return {"received": True, "unhandled_type": event_type}
 
     try:
         handler(event)
     except Exception as e:
-        # Transient error — return 500 so Stripe retries. Note: the
-        # idempotency row has already been inserted, so on retry we'd
-        # short-circuit at step 3. That means a failed handler is
-        # effectively permanent failure (data lost). For now this is
-        # acceptable; we'll add explicit retry handling if it becomes
-        # a real problem. Logs are the audit trail.
-        print(f"[webhook] handler error for {event_type} {event_id}: "
-              f"{type(e).__name__}: {e}")
+        # Transient error — return 500 so Stripe retries. The
+        # idempotency row was inserted in step 3 with processed_at=NULL,
+        # so on retry was_webhook_processed_ok returns False and the
+        # handler runs again.
+        _webhook_log.exception(
+            "handler error",
+            extra={
+                "event_id": event_id,
+                "event_type": event_type,
+                "error_type": type(e).__name__,
+            },
+        )
         raise HTTPException(status_code=500, detail="Handler failed")
 
+    # 5. Stamp processed_at=NOW() — completes the two-phase pattern.
+    mark_webhook_completed(event_id)
     return {"received": True, "event_type": event_type}
 
 

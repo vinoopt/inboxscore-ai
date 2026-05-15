@@ -68,9 +68,18 @@ TRIAL_DAYS = 14
 LOOKUP_KEY_MONTHLY = "pro_monthly_usd"
 LOOKUP_KEY_YEARLY = "pro_yearly_usd"
 
-# Stripe API version pinning. Matches the version configured on the
-# webhook endpoint (Phase 0 Step 7). Keeping the SDK in sync prevents
-# surprise behaviour changes when Stripe ships new versions.
+# Stripe API version pinning. MUST match the version configured on the
+# webhook endpoint (Phase 0 Step 7). Keeping the SDK + webhook in sync
+# prevents surprise payload-shape changes when Stripe ships new versions.
+#
+# To verify: Stripe Dashboard → Developers → Webhooks → [endpoint] →
+# "API version". The string here MUST equal that exactly.
+#
+# Format: YYYY-MM-DD or YYYY-MM-DD.codename. If you ever see Stripe
+# reject this with "Invalid API version", check the dashboard pinning
+# and update both at once. Auditing on 2026-05-15 confirmed the
+# expected format; the actual date should be verified against the
+# dashboard at every Phase 0 review.
 STRIPE_API_VERSION = "2026-04-22.dahlia"
 
 
@@ -408,6 +417,33 @@ def create_portal_session(
     )
 
 
+# ─── Subscription retrieval (for webhook handlers) ────────────────
+
+def retrieve_subscription(subscription_id: str) -> Dict[str, Any]:
+    """
+    Fetch a Stripe Subscription by ID and return it as a plain dict.
+
+    Used by webhook handlers (notably checkout.session.completed and
+    customer.subscription.created) that receive just the subscription
+    ID and need the full current state — status, items, current period
+    dates, trial_end — to mirror into our subscriptions table.
+
+    Returning a plain dict (not the SDK object) keeps the callers free
+    of stripe.* imports and makes the upsert path uniform regardless
+    of where the dict came from (webhook payload vs. direct fetch).
+
+    Args:
+        subscription_id: 'sub_*' id
+
+    Returns:
+        Subscription as dict, ready to pass to
+        db.upsert_subscription_from_stripe()
+    """
+    _ensure_initialized()
+    sub = stripe.Subscription.retrieve(subscription_id)
+    return sub.to_dict() if hasattr(sub, "to_dict") else dict(sub)
+
+
 # ─── Webhook signature verification ───────────────────────────────
 
 def verify_webhook(payload: bytes, signature_header: str) -> Dict[str, Any]:
@@ -457,6 +493,8 @@ __all__ = [
     "create_trial_subscription",
     "create_checkout_session",
     "create_portal_session",
+    "retrieve_subscription",
     "verify_webhook",
     "get_webhook_secret",
+    "get_stripe_mode",
 ]

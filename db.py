@@ -413,20 +413,27 @@ def save_subscriber(email: str, domain: str = None, score: int = None, source: s
 # every account will have a subscriptions row and the legacy keys can
 # be retired. Until then both keysets coexist.
 
-# Plan limits: scans per day (-1 = unlimited)
+# Plan limits: scans per day (-1 = unlimited). Note: stub is NOT in
+# this dict — it uses a weekly limit, not a daily one. See
+# STUB_WEEKLY_SCAN_LIMIT below and the special-case in check_rate_limit.
+# Putting stub here with value 1 was misleading (audit H3 2026-05-15):
+# the value was never consulted because check_rate_limit branches on
+# `plan == "stub"` before doing the dict lookup.
 PLAN_LIMITS = {
     # New model (Stripe billing)
     "trial": -1,       # full Pro access during trial
     "pro":   -1,
-    "stub":   1,       # de-facto limit; INBOX-210 will enforce as 1 per 7d
-                       # via last_scan_at — not 1 per day. For now this
-                       # keeps stub users functional without crashing the
-                       # rate-limit dict lookup
     # Legacy (pre-Stripe, grandfathered)
     "free":      5,
     "growth":   -1,
     "enterprise": -1,
 }
+
+# Stub Free: 1 scan per 7 days. Implemented via direct scans-table
+# lookup (not the rate_limits day-keyed table) in check_rate_limit.
+# Bumping this is a product decision — see PAYMENT-PLAN.md §5.
+STUB_WEEKLY_SCAN_LIMIT = 1
+STUB_WEEKLY_WINDOW_DAYS = 7
 
 # Max number of MONITORED domains per plan. Distinct from PLAN_LIMITS
 # (which gates scans/day). Without this, a free user could add thousands
@@ -607,20 +614,32 @@ def was_webhook_processed(stripe_event_id: str) -> bool:
         return False
 
 
-def mark_webhook_processed(
+def mark_webhook_received(
     stripe_event_id: str, event_type: str, payload: dict
 ) -> bool:
     """
-    Record a webhook event as processed.
+    Record a webhook event as RECEIVED but not yet successfully processed.
 
-    Inserts a row into stripe_webhook_events. The PK on
-    stripe_event_id enforces idempotency at the DB layer — duplicate
-    inserts raise an exception (which we catch and treat as "already
-    processed").
+    Two-phase idempotency pattern (fixed 2026-05-15, audit C2):
+      Phase 1 — mark_webhook_received: insert with processed_at=NULL.
+                If PK conflict, caller checks was_webhook_processed_ok
+                to decide whether to retry the handler.
+      Phase 2 — mark_webhook_completed: stamp processed_at=NOW() once
+                the handler returns successfully.
+
+    The previous single-phase design recorded the event before the
+    handler ran. If the handler then threw, Stripe would retry → we'd
+    short-circuit at "already processed" → state never repaired. With
+    two-phase, a row with processed_at=NULL signals "we saw this event
+    but never finished it" — retries are allowed to re-run the handler.
+
+    Inserts a row into stripe_webhook_events with processed_at=NULL.
+    The PK on stripe_event_id enforces idempotency at the DB layer.
 
     Returns True on successful insert (this is the first time we've
     seen this event ID). Returns False on duplicate or any other
-    failure.
+    failure — caller MUST then call was_webhook_processed_ok to
+    distinguish "already-done, skip" from "stuck-pending, allow retry".
     """
     sb = get_supabase()
     if not sb:
@@ -630,13 +649,67 @@ def mark_webhook_processed(
             "stripe_event_id": stripe_event_id,
             "event_type": event_type,
             "payload": payload,
+            "processed_at": None,  # set by mark_webhook_completed
         }).execute()
         return True
     except Exception as e:
         # Most likely: duplicate (PK violation). Could also be a
-        # transient DB issue. Either way, the caller's contract is
-        # "False = don't process".
-        print(f"[webhook] mark_webhook_processed insert failed for "
+        # transient DB issue. Caller distinguishes via was_webhook_processed_ok.
+        print(f"[webhook] mark_webhook_received insert failed for "
+              f"{stripe_event_id}: {e}")
+        return False
+
+
+# Backwards-compat alias. New code should call mark_webhook_received +
+# mark_webhook_completed explicitly.
+mark_webhook_processed = mark_webhook_received
+
+
+def was_webhook_processed_ok(stripe_event_id: str) -> bool:
+    """
+    Has this Stripe event been processed to *completion* (processed_at IS NOT NULL)?
+
+    Used after a duplicate-insert on mark_webhook_received to decide:
+      - True  → handler ran successfully before → safe idempotent skip
+      - False → row exists but processed_at is NULL → previous handler
+                threw or crashed → safe to retry the handler
+
+    Returns False on DB unavailability (fail-open = let the handler run).
+    """
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        result = sb.table("stripe_webhook_events").select(
+            "processed_at"
+        ).eq("stripe_event_id", stripe_event_id).limit(1).execute()
+        if not result.data:
+            return False
+        return result.data[0].get("processed_at") is not None
+    except Exception as e:
+        print(f"[webhook] was_webhook_processed_ok error: {e}")
+        return False
+
+
+def mark_webhook_completed(stripe_event_id: str) -> bool:
+    """
+    Stamp processed_at=NOW() to signal the handler finished successfully.
+
+    Called by /api/webhooks/stripe AFTER the handler returns without
+    raising. If the handler raises, this is NOT called — the row stays
+    in processed_at=NULL state and Stripe's retry can re-attempt.
+    """
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        from datetime import datetime, timezone
+        sb.table("stripe_webhook_events").update({
+            "processed_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("stripe_event_id", stripe_event_id).execute()
+        return True
+    except Exception as e:
+        print(f"[webhook] mark_webhook_completed error for "
               f"{stripe_event_id}: {e}")
         return False
 
@@ -669,12 +742,15 @@ def _stripe_ts_to_iso(ts):
 
 
 def upsert_subscription_from_stripe(
-    user_id: str, stripe_sub: dict, force_stub: bool = False
+    user_id: str,
+    stripe_sub: dict,
+    force_stub: bool = False,
+    stripe_event_id: str = None,
 ) -> bool:
     """
     Write a Stripe subscription object into the local subscriptions
-    table. Used by the webhook handler on subscription.updated and
-    subscription.deleted events.
+    table. Used by the webhook handler on subscription.created/.updated
+    /.deleted events and on checkout.session.completed.
 
     Idempotent — calling with the same payload twice produces the
     same row state. Safe under Stripe webhook replays.
@@ -683,6 +759,11 @@ def upsert_subscription_from_stripe(
     though Stripe might still report status='canceled' (which maps to
     plan='stub' anyway), this is the explicit cleanup signal that the
     subscription is fully gone.
+
+    stripe_event_id (optional, audit fix M1 2026-05-15): the Stripe
+    event ID that triggered this upsert. Recorded in
+    subscriptions.last_webhook_event_id so ops can answer
+    "which webhook last touched this row?". Was a dead column before.
 
     Side effect: also updates profiles.plan as a cache (read by the
     fast-path /api/user/plan endpoint).
@@ -716,6 +797,7 @@ def upsert_subscription_from_stripe(
         "trial_end":            _stripe_ts_to_iso(stripe_sub.get("trial_end")),
         "cancel_at_period_end": stripe_sub.get("cancel_at_period_end", False),
         "canceled_at":          _stripe_ts_to_iso(stripe_sub.get("canceled_at")),
+        "last_webhook_event_id": stripe_event_id,
     }
     # Strip Nones — Supabase upsert preserves existing values when a
     # column is missing from the payload, which is what we want.
@@ -731,8 +813,16 @@ def upsert_subscription_from_stripe(
         sb.table("profiles").update({"plan": plan}).eq("id", user_id).execute()
         return True
     except Exception as e:
-        print(f"[subscriptions] upsert_subscription_from_stripe "
-              f"({user_id}) error: {e}")
+        import logging
+        logging.getLogger("inboxscore.subscriptions").exception(
+            "upsert_subscription_from_stripe error",
+            extra={
+                "user_id": user_id,
+                "stripe_event_id": stripe_event_id,
+                "stripe_status": stripe_status,
+                "error_type": type(e).__name__,
+            },
+        )
         return False
 
 
@@ -1295,30 +1385,29 @@ def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -
     plan = "anonymous"
     if user_id:
         plan = get_user_plan(user_id)
-        limit = PLAN_LIMITS.get(plan, 5)
-        if limit == -1:
-            # Unlimited — no need to check/track
-            return {"allowed": True, "scans_used": 0, "max_scans": -1, "plan": plan}
 
-        # INBOX-210 (2026-05-13): Stub Free plan gets 1 scan per 7 DAYS,
-        # not per day. The rate_limits table is date-keyed (single day),
-        # so we can't express weekly limits there. Instead, special-case
-        # stub here by querying the scans table for the user's last scan.
+        # Stub plan uses a WEEKLY window (1 scan per 7 days), not the
+        # day-keyed rate_limits table. Branch BEFORE the dict lookup —
+        # plan='stub' is intentionally absent from PLAN_LIMITS (audit
+        # H3, 2026-05-15). See STUB_WEEKLY_SCAN_LIMIT for the cap.
         if plan == "stub":
             try:
                 from datetime import datetime, timedelta, timezone
-                seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+                window_start = (
+                    datetime.now(timezone.utc)
+                    - timedelta(days=STUB_WEEKLY_WINDOW_DAYS)
+                ).isoformat()
                 last_scan = sb.table("scans").select("created_at").eq(
                     "user_id", user_id
-                ).gte("created_at", seven_days_ago).order(
+                ).gte("created_at", window_start).order(
                     "created_at", desc=True
                 ).limit(1).execute()
                 if last_scan.data:
                     # Found a scan in the last 7 days → block
                     return {
                         "allowed": False,
-                        "scans_used": 1,
-                        "max_scans": 1,  # nominal "1 per week" cap
+                        "scans_used": STUB_WEEKLY_SCAN_LIMIT,
+                        "max_scans": STUB_WEEKLY_SCAN_LIMIT,
                         "plan": "stub",
                     }
                 # No scan in last 7 days → allow this one (counted by
@@ -1326,14 +1415,24 @@ def check_rate_limit(ip_address: str, max_scans: int = 3, user_id: str = None) -
                 return {
                     "allowed": True,
                     "scans_used": 0,
-                    "max_scans": 1,
+                    "max_scans": STUB_WEEKLY_SCAN_LIMIT,
                     "plan": "stub",
                 }
             except Exception as e:
                 # On error, fail open to avoid blocking legitimate users
                 # because of a transient DB issue. Logged so we notice.
                 print(f"[rate_limit] stub 7-day check failed for {user_id}: {e}")
-                return {"allowed": True, "scans_used": 0, "max_scans": 1, "plan": "stub"}
+                return {
+                    "allowed": True,
+                    "scans_used": 0,
+                    "max_scans": STUB_WEEKLY_SCAN_LIMIT,
+                    "plan": "stub",
+                }
+
+        limit = PLAN_LIMITS.get(plan, 5)
+        if limit == -1:
+            # Unlimited — no need to check/track
+            return {"allowed": True, "scans_used": 0, "max_scans": -1, "plan": plan}
 
         max_scans = limit
 

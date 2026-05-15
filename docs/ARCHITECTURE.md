@@ -397,3 +397,45 @@ If you're new to this codebase (human or AI), do these in order:
 6. **Read the 3 most recent ticket descriptions** in Plane to see what's actively being shipped
 
 You should now be able to make a small, scoped change without breaking things. For anything bigger, also read the relevant subsystem audit (currently only `EMAIL-HEALTH-AUDIT-2026-04-27.md` exists).
+
+Test count: **378 tests** as of 2026-05-12 (12 skip-marked obsolete tests — see INBOX-229 phase 3 ship notes).
+
+---
+
+## 17. Recent significant changes (since 2026-05-09)
+
+This section is appended whenever a change touches the mental model in sections 1-15. If a description here gets long, fold the detail back into the relevant numbered section.
+
+### INBOX-229 phase 3 — HetrixTools is the sole blacklist provider (2026-05-11)
+
+Replaced all direct DNSBL queries (`dnsbl.py`) with HetrixTools API calls (`hetrix.py`) for every blacklist surface in the product — marketing scan, logged-in scan, scheduled monitor, standalone Blacklist Monitor page. Driven by `blacklist_provider.py` which is now a thin always-hetrix chokepoint (kept as injection point for future per-user routing).
+
+Why: Render's outbound DNS goes via Google public resolvers. URIBL/Spamhaus refuse public-resolver queries with `127.0.0.255`, which the old classifier misread as "listed", causing the mailercloud.com false-positive class of bug.
+
+Real coverage (verified live 2026-05-11): **23 domain DBLs**, **~122 IPv4 RBLs**. The earlier "1000+" copy was HetrixTools' marketing claim, not per-call reality — fixed in INBOX-204.
+
+`dnsbl.py` retained as a file (zero callers) per Vinoop's call; cleanup tracked as INBOX-201 after 1 week stable.
+
+Credit budget: 5,000/month. HetrixTools 30-min server-side cache makes repeat scans of same target sub-second. Freshness gate on scheduler caps refresh at once per 23h per (user, domain).
+
+### INBOX-199 — anonymous scans use `depth="public"` (2026-05-11)
+
+`scan_service.run_full_scan(domain, source, depth)` now accepts a depth parameter. Anonymous `/api/scan` passes `depth="public"`, which skips `check_blacklists` (IP-based) and `check_ip_reputation`. Logged-in scans pass `depth="full"` (15 checks as before).
+
+Why: SPF-derived sending IPs for anonymous users are mostly shared ESP space (SendGrid, SES, Google Workspace, Microsoft 365). A blacklist listing on those shared IPs reflects a noisy neighbour, not the user. Showing "your IP is blacklisted" to someone who can't act on it produces misleading data.
+
+Result: anonymous scan time drops from ~30s to ~10s; credit burn drops from 6 to 1 per scan; honest upsell narrative ("sign up to scan your sending IPs").
+
+Response now includes `depth` field so the frontend can render an upsell CTA when `depth == "public"`.
+
+### INBOX-204 — 5-phase loader + honest blacklist counts (2026-05-11)
+
+Replaced the legacy 8-step `.mkt-check-list` / `.check-list` checklist on both the marketing scan (`static/index.html`) and the dashboard scan (`static/dashboard.html`) with a 5-phase loader: auth (~1s) → infra (~2.2s) → reputation (~3.6s) → blacklists (~9.5s, the long one) → finalising (10s).
+
+Adds live progress bar + elapsed counter. Phases map to real scan timing instead of the old 400ms-flat cadence that "parked" on a fake "Calculating Score" step at 3.2s while the API call took 10-30s.
+
+Bundles the count-correction copy fix: production scan results now say "23 domain blacklists" / "~122 IPv4 blacklists" via HetrixTools, not the previous "1000+" exaggeration.
+
+### Phase 1 + 2 of INBOX-229
+
+Phase 1 (2026-05-09) shipped `hetrix.py` as a drop-in replacement for `dnsbl.py`. Phase 2 (2026-05-10) added the `USE_HETRIX_BL` feature flag + 23h freshness gate on the scheduler. Both are subsumed by phase 3.
