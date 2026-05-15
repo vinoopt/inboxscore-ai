@@ -608,7 +608,7 @@ function renderBillingPanel(data) {
   var b = { label: 'FREE', cls: 'bill-badge-free', headline: 'Free plan' };
   if (plan === 'trial') { b = { label: 'TRIAL', cls: 'bill-badge-trial', headline: '14-day Pro trial' }; }
   else if (plan === 'pro') { b = { label: 'PRO', cls: 'bill-badge-pro', headline: 'InboxScore Pro' }; }
-  else if (plan === 'stub') { b = { label: 'TRIAL ENDED', cls: 'bill-badge-stub', headline: 'Stub Free' }; }
+  else if (plan === 'stub') { b = { label: 'TRIAL ENDED', cls: 'bill-badge-stub', headline: 'Free plan' }; }
   else if (plan === 'growth' || plan === 'enterprise') { b = { label: plan.toUpperCase(), cls: 'bill-badge-pro', headline: 'InboxScore ' + plan.charAt(0).toUpperCase() + plan.slice(1) }; }
 
   /* Build state-specific body */
@@ -656,7 +656,7 @@ function renderBillingPanel(data) {
       '<p class="bill-meta" style="margin-top:12px">Manage payment method, switch monthly ↔ yearly, view invoices, or cancel via the Stripe-hosted portal.</p>';
   } else if (plan === 'stub') {
     bodyHtml =
-      '<div class="bill-stub-banner">Your trial has ended. <strong>Stub Free</strong> is limited to 1 scan per 7 days with no monitoring. Reactivate Pro to resume full access.</div>' +
+      '<div class="bill-stub-banner">Your trial has ended. You\'re now on the <strong>Free plan</strong>, limited to 1 scan per 7 days with no monitoring. Reactivate Pro to resume full access.</div>' +
       _bRenderPriceCards() +
       '<div class="bill-actions" style="margin-top:16px">' +
         '<button class="bill-cta" onclick="startBillingCheckout(_bSelectedPrice())">Reactivate Pro</button>' +
@@ -1376,7 +1376,15 @@ window.addEventListener('DOMContentLoaded', function () {
         : (typeof domsData.total === 'number' ? domsData.total : (domsData.domains || domsData.items || []).length);
 
       card.classList.toggle('is-free', plan === 'free');
-      var planLabel = plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
+      var planLabels = {
+        'trial': 'Trial',
+        'pro': 'Pro plan',
+        'stub': 'Free plan',
+        'free': 'Free plan',
+        'growth': 'Growth plan',
+        'enterprise': 'Enterprise plan'
+      };
+      var planLabel = planLabels[plan] || (plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan');
       setText('plan-name', planLabel);
 
       if (cap === -1) {

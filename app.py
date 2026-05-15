@@ -463,7 +463,7 @@ async def _run_scan(request: ScanRequest, req: Request):
                 # INBOX-210: stub users get 1 scan per 7 days. The
                 # message points them to reactivation rather than upgrade.
                 message = (
-                    "Your trial has ended. Stub Free is limited to "
+                    "Your trial has ended. The Free plan is limited to "
                     "1 scan per 7 days. Reactivate Pro for unlimited "
                     "scans and full monitoring."
                 )

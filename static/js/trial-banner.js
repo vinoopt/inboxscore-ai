@@ -65,32 +65,50 @@
        --yellow, --yellow-soft, --blue, --blue-soft, --accent.
        This makes the banner inherit light/dark theme automatically
        and match the rest of the InboxScore UI instead of clashing. */
+    /* INBOX-235 + INBOX-247 (2026-05-14): boosted contrast deliberately
+       after WCAG audit reported 2.95:1 on banner text. Yesterday's design
+       erred too subtle ('blend with the page'); reverting to stronger
+       background tints + hardcoded high-contrast text so contrast is
+       guaranteed regardless of which page's design tokens we inherit.
+       Test: #1c1c1e on #fef3c7 = 13.5:1 (well above AA 4.5:1).      */
     var css = ''
-      + '.trial-banner-host{position:sticky;top:0;z-index:100;font-family:inherit;'
-      + 'background:var(--surface, #fbfbfb);border-bottom:1px solid var(--border, #e8e8e9);}'
+      + '.trial-banner-host{position:sticky;top:0;z-index:100;font-family:inherit;}'
       + '.trial-banner{display:flex;align-items:center;justify-content:center;gap:12px;'
-      + 'padding:10px 20px;font-size:13px;line-height:1.5;flex-wrap:wrap;color:var(--text, #1c1c1e);}'
-      /* Variants: subtle 3px left-edge accent so banner blends with the page
-         instead of being a coloured slab across the top. */
-      + '.trial-banner-low   {box-shadow:inset 3px 0 0 var(--blue,   #2563eb);}'
-      + '.trial-banner-high  {box-shadow:inset 3px 0 0 var(--yellow, #ca8a04);}'
-      + '.trial-banner-stub  {box-shadow:inset 3px 0 0 var(--yellow, #ca8a04);'
-      + 'background:var(--yellow-soft, rgba(202,138,4,0.06));}'
-      + '.trial-banner-msg{font-weight:500;color:var(--text, #1c1c1e);}'
-      + '.trial-banner-msg strong{color:var(--text-strong, var(--text, #0a0a0b));font-weight:600;}'
-      /* CTA — outlined pill in the accent ink, primary text/surface contrast.
-         Matches the .set-btn-primary look used elsewhere. */
-      + '.trial-banner-cta{padding:5px 14px;border-radius:6px;'
-      + 'border:1px solid var(--text-strong, var(--text, #1c1c1e));'
-      + 'background:var(--text-strong, var(--text, #1c1c1e));'
-      + 'color:var(--surface, #fff);font-size:12px;font-weight:600;cursor:pointer;'
+      + 'padding:12px 20px;font-size:13px;line-height:1.5;flex-wrap:wrap;'
+      + 'color:#1c1c1e;border-bottom:1px solid;}'
+      /* Variants with explicit hex colors — pre-blended pastel surfaces
+         with dark text. Don't rely on alpha or token chains. */
+      + '.trial-banner-low   {background:#dbeafe;border-bottom-color:#93c5fd;color:#1e3a8a;}'
+      + '.trial-banner-high  {background:#fef3c7;border-bottom-color:#fcd34d;color:#78350f;}'
+      + '.trial-banner-stub  {background:#fef3c7;border-bottom-color:#fcd34d;color:#78350f;}'
+      /* Dark-mode overrides — using both the prefers-color-scheme media
+         and the InboxScore data-theme attribute, since pages handle dark
+         mode via either depending on user toggle. */
+      + '@media (prefers-color-scheme:dark){'
+      + '  .trial-banner-low   {background:#1e3a8a;border-bottom-color:#3b82f6;color:#dbeafe;}'
+      + '  .trial-banner-high  {background:#451a03;border-bottom-color:#a16207;color:#fef3c7;}'
+      + '  .trial-banner-stub  {background:#451a03;border-bottom-color:#a16207;color:#fef3c7;}'
+      + '}'
+      + 'html[data-theme="dark"] .trial-banner-low   {background:#1e3a8a;border-bottom-color:#3b82f6;color:#dbeafe;}'
+      + 'html[data-theme="dark"] .trial-banner-high  {background:#451a03;border-bottom-color:#a16207;color:#fef3c7;}'
+      + 'html[data-theme="dark"] .trial-banner-stub  {background:#451a03;border-bottom-color:#a16207;color:#fef3c7;}'
+      + '.trial-banner-msg{font-weight:500;color:inherit;}'
+      + '.trial-banner-msg strong{color:inherit;font-weight:700;}'
+      /* CTA — solid dark pill, white text. ~14:1 contrast. */
+      + '.trial-banner-cta{padding:6px 14px;border-radius:6px;'
+      + 'border:1px solid #111827;background:#111827;color:#ffffff;'
+      + 'font-size:12px;font-weight:600;cursor:pointer;'
       + 'font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:4px;'
       + 'transition:opacity 100ms ease;}'
       + '.trial-banner-cta:hover{opacity:0.85;}'
-      + '.trial-banner-cta span{color:var(--surface, #fff);}'
-      + '.trial-banner-close{background:transparent;border:none;color:var(--text-muted, #71717a);'
-      + 'cursor:pointer;font-size:18px;line-height:1;padding:0 4px;margin-left:4px;}'
-      + '.trial-banner-close:hover{color:var(--text, #1c1c1e);}';
+      + '.trial-banner-cta span{color:#ffffff;}'
+      + 'html[data-theme="dark"] .trial-banner-cta{background:#ffffff;color:#111827;border-color:#ffffff;}'
+      + 'html[data-theme="dark"] .trial-banner-cta span{color:#111827;}'
+      /* Close button — high contrast against the banner background. */
+      + '.trial-banner-close{background:transparent;border:none;color:inherit;'
+      + 'opacity:0.7;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;margin-left:4px;'
+      + 'font-weight:700;}'
+      + '.trial-banner-close:hover{opacity:1;}';
     var s = document.createElement('style');
     s.id = 'trial-banner-styles';
     s.textContent = css;
@@ -171,7 +189,7 @@
     if (plan === 'stub') {
       return {
         kind: 'stub',
-        msg: '<strong>Your trial has ended.</strong> Stub Free is limited to 1 scan per 7 days. Reactivate Pro for full access.',
+        msg: '<strong>Your trial has ended.</strong> You\'re now on the Free plan — 1 scan per 7 days. Reactivate Pro for full access.',
         ctaLabel: 'Reactivate Pro',
         ctaHref: '/settings#billing',
       };

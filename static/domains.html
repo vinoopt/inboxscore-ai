@@ -710,7 +710,15 @@ window.addEventListener('DOMContentLoaded', () => {
         : (typeof domsData.total === 'number' ? domsData.total : (domsData.domains || domsData.items || []).length);
 
       card.classList.toggle('is-free', plan === 'free');
-      var planLabel = plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
+      var planLabels = {
+        'trial': 'Trial',
+        'pro': 'Pro plan',
+        'stub': 'Free plan',
+        'free': 'Free plan',
+        'growth': 'Growth plan',
+        'enterprise': 'Enterprise plan'
+      };
+      var planLabel = planLabels[plan] || (plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan');
       setText('plan-name', planLabel);
 
       if (cap === -1) {

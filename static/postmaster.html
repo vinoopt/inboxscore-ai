@@ -2771,6 +2771,16 @@ async function gpmSyncNow(btn) {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      // INBOX-250: 403 = plan restriction, not a sync failure. Surface
+      // it as an upgrade prompt rather than a scary 'Sync failed:' alert.
+      if (res.status === 403) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Sync Now'; }
+        var msg = err.detail || 'Google Postmaster requires a Pro plan.';
+        if (confirm(msg + '\n\nOpen Plan & Billing to upgrade?')) {
+          window.location.href = '/settings#billing';
+        }
+        return;
+      }
       throw new Error(err.detail || 'Sync failed');
     }
     const data = await res.json();

@@ -1607,6 +1607,27 @@ function dashShowView(view) {
   }
 }
 
+/* INBOX-234 + INBOX-256: dashShowRateLimitModal was being called from the
+   429 handler in dashStartScan but never defined — surfaced as a raw JS
+   error 'dashShowRateLimitModal is not defined' on both the Refresh
+   button and any post-trial scan attempt. This implementation renders a
+   friendly inline error using the existing #dash-scan-error pattern,
+   with an upgrade CTA for plans where an upgrade makes sense. */
+function dashShowRateLimitModal(msg, plan) {
+  const errorEl = document.getElementById('dash-scan-error');
+  if (!errorEl) return;
+  let html = escapeHtml(msg || 'Scan limit reached.');
+  if (plan === 'stub' || plan === 'free' || plan === 'anonymous') {
+    var ctaHref = (plan === 'anonymous') ? '/signup' : '/settings#billing';
+    var ctaLabel = (plan === 'anonymous') ? 'Create free account' :
+                   (plan === 'stub') ? 'Reactivate Pro' : 'Upgrade to Pro';
+    html += ' <a href="' + ctaHref + '" style="color: var(--accent, #7c3aed); margin-left: 8px; font-weight: 600; text-decoration: underline;">' + ctaLabel + ' →</a>';
+  }
+  errorEl.innerHTML = html;
+  errorEl.style.display = 'block';
+  try { errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+}
+
 async function dashStartScan() {
   const input = document.getElementById('dash-domain-input');
   const btn = document.getElementById('dash-scan-btn');
@@ -2157,7 +2178,15 @@ async function dashSaveToMonitored(domain) {
         : (typeof domsData.total === 'number' ? domsData.total : (domsData.domains || domsData.items || []).length);
 
       card.classList.toggle('is-free', plan === 'free');
-      var planLabel = plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
+      var planLabels = {
+        'trial': 'Trial',
+        'pro': 'Pro plan',
+        'stub': 'Free plan',
+        'free': 'Free plan',
+        'growth': 'Growth plan',
+        'enterprise': 'Enterprise plan'
+      };
+      var planLabel = planLabels[plan] || (plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan');
       setText('plan-name', planLabel);
 
       if (cap === -1) {
