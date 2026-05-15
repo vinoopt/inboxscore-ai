@@ -72,6 +72,7 @@ def main() -> int:
     healed = 0
     matched = 0
     errored = 0
+    deleted_on_stripe = 0
 
     for row in rows:
         user_id = row["user_id"]
@@ -82,6 +83,40 @@ def main() -> int:
         try:
             stripe_sub = billing.retrieve_subscription(sub_id)
         except Exception as e:
+            # Distinguish "subscription deleted on Stripe" (404) from
+            # other failures. A 404 means the sub is fully gone on
+            # Stripe's side — local row should be forced to stub state.
+            msg = str(e)
+            is_not_found = (
+                "No such subscription" in msg
+                or "404" in msg
+                or "resource_missing" in msg
+            )
+            if is_not_found:
+                print(
+                    f"  [GONE]  {user_id} {sub_id}: deleted on Stripe — "
+                    f"forcing local row to stub"
+                )
+                if not args.dry_run:
+                    # Build a synthetic Stripe-shape payload so the upsert
+                    # produces the right row state. force_stub=True ensures
+                    # plan/status are 'stub' regardless of the synthetic
+                    # status value.
+                    synth = {
+                        "id": sub_id,
+                        "customer": row.get("stripe_customer_id"),
+                        "status": "canceled",
+                    }
+                    if upsert_subscription_from_stripe(
+                        user_id, synth, force_stub=True,
+                        stripe_event_id=f"backfill-2026-05-15-gone",
+                    ):
+                        deleted_on_stripe += 1
+                    else:
+                        errored += 1
+                else:
+                    deleted_on_stripe += 1
+                continue
             print(f"  [ERROR] {user_id} {sub_id}: retrieve failed — {type(e).__name__}: {e}")
             errored += 1
             continue
@@ -115,7 +150,10 @@ def main() -> int:
             errored += 1
 
     print()
-    print(f"Done. matched={matched}  healed={healed}  errored={errored}")
+    print(
+        f"Done. matched={matched}  healed={healed}  "
+        f"deleted_on_stripe={deleted_on_stripe}  errored={errored}"
+    )
     if args.dry_run:
         print("(dry-run — no DB writes)")
     return 0 if errored == 0 else 1

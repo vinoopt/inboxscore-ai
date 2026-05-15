@@ -5,8 +5,17 @@ Handles all database operations via Supabase
 
 import os
 import json
+import logging
 from datetime import datetime, date, timezone, timedelta
 from supabase import create_client, Client
+
+# Webhook-helper logger. Used by mark_webhook_received,
+# mark_webhook_completed, was_webhook_processed_ok,
+# upsert_subscription_from_stripe so their failures surface in
+# structured logs alongside the matching events from app.py
+# (logger inboxscore.webhook).
+_webhook_log = logging.getLogger("inboxscore.webhook.db")
+_billing_log = logging.getLogger("inboxscore.billing.db")
 
 # ─── SUPABASE CLIENT ──────────────────────────────────────────────
 
@@ -510,7 +519,10 @@ def get_user_subscription(user_id: str) -> dict:
     except Exception as e:
         # Migration not yet applied OR transient DB error — both
         # result in None. Log but don't crash.
-        print(f"[subscriptions] get_user_subscription({user_id}) error: {e}")
+        _billing_log.exception(
+            "get_user_subscription error",
+            extra={"user_id": user_id, "error_type": type(e).__name__},
+        )
         return None
 
 
@@ -551,7 +563,14 @@ def set_user_stripe_customer(user_id: str, stripe_customer_id: str) -> bool:
         }).execute()
         return True
     except Exception as e:
-        print(f"[subscriptions] set_user_stripe_customer({user_id}) error: {e}")
+        _billing_log.exception(
+            "set_user_stripe_customer error",
+            extra={
+                "user_id": user_id,
+                "stripe_customer_id": stripe_customer_id,
+                "error_type": type(e).__name__,
+            },
+        )
         return False
 
 
@@ -578,7 +597,13 @@ def get_user_id_by_stripe_customer(stripe_customer_id: str) -> str:
             return result.data[0]["user_id"]
         return None
     except Exception as e:
-        print(f"[subscriptions] get_user_id_by_stripe_customer error: {e}")
+        _billing_log.exception(
+            "get_user_id_by_stripe_customer error",
+            extra={
+                "stripe_customer_id": stripe_customer_id,
+                "error_type": type(e).__name__,
+            },
+        )
         return None
 
 
@@ -610,7 +635,10 @@ def was_webhook_processed(stripe_event_id: str) -> bool:
         ).eq("stripe_event_id", stripe_event_id).limit(1).execute()
         return bool(result.data)
     except Exception as e:
-        print(f"[webhook] was_webhook_processed error: {e}")
+        _webhook_log.exception(
+            "was_webhook_processed error",
+            extra={"stripe_event_id": stripe_event_id, "error_type": type(e).__name__},
+        )
         return False
 
 
@@ -655,8 +683,17 @@ def mark_webhook_received(
     except Exception as e:
         # Most likely: duplicate (PK violation). Could also be a
         # transient DB issue. Caller distinguishes via was_webhook_processed_ok.
-        print(f"[webhook] mark_webhook_received insert failed for "
-              f"{stripe_event_id}: {e}")
+        # Logged at debug because the PK-violation path is the EXPECTED
+        # idempotent case and would otherwise spam logs on every retry.
+        _webhook_log.debug(
+            "mark_webhook_received insert failed (duplicate or transient)",
+            extra={
+                "stripe_event_id": stripe_event_id,
+                "event_type": event_type,
+                "error_type": type(e).__name__,
+                "error": str(e)[:200],
+            },
+        )
         return False
 
 
@@ -687,7 +724,10 @@ def was_webhook_processed_ok(stripe_event_id: str) -> bool:
             return False
         return result.data[0].get("processed_at") is not None
     except Exception as e:
-        print(f"[webhook] was_webhook_processed_ok error: {e}")
+        _webhook_log.exception(
+            "was_webhook_processed_ok error",
+            extra={"stripe_event_id": stripe_event_id, "error_type": type(e).__name__},
+        )
         return False
 
 
@@ -709,8 +749,13 @@ def mark_webhook_completed(stripe_event_id: str) -> bool:
         }).eq("stripe_event_id", stripe_event_id).execute()
         return True
     except Exception as e:
-        print(f"[webhook] mark_webhook_completed error for "
-              f"{stripe_event_id}: {e}")
+        _webhook_log.exception(
+            "mark_webhook_completed error",
+            extra={
+                "stripe_event_id": stripe_event_id,
+                "error_type": type(e).__name__,
+            },
+        )
         return False
 
 
@@ -813,8 +858,7 @@ def upsert_subscription_from_stripe(
         sb.table("profiles").update({"plan": plan}).eq("id", user_id).execute()
         return True
     except Exception as e:
-        import logging
-        logging.getLogger("inboxscore.subscriptions").exception(
+        _billing_log.exception(
             "upsert_subscription_from_stripe error",
             extra={
                 "user_id": user_id,
