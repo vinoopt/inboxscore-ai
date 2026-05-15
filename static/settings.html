@@ -781,10 +781,24 @@ function _bTestModeHint(data) {
     '</div>';
 }
 
-/* POST /api/billing/checkout → Stripe Checkout URL → redirect. */
+/* POST /api/billing/checkout → Stripe Checkout URL → redirect.
+   Visual feedback: disable the calling button and show "Loading…"
+   for the 2-5 seconds while we round-trip Stripe. Without this,
+   the button feels broken to the user (Vinoop hit this 2026-05-15). */
 async function startBillingCheckout(priceLookupKey) {
   var token = getToken();
   if (!token) { showToast('Please log in first', 'error'); return; }
+
+  // Find the calling button and disable + label it
+  var btn = (window.event && window.event.target && window.event.target.closest('button')) || null;
+  var originalText = btn ? btn.innerHTML : null;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = 'Opening checkout…';
+    btn.style.opacity = '0.7';
+    btn.style.cursor = 'wait';
+  }
+
   try {
     var r = await fetch('/api/billing/checkout', {
       method: 'POST',
@@ -797,11 +811,19 @@ async function startBillingCheckout(priceLookupKey) {
     }
     var data = await r.json();
     if (data.url) {
+      // Keep button in loading state — page is about to navigate away.
       window.location.href = data.url;
     } else {
       throw new Error('No checkout URL returned');
     }
   } catch (e) {
+    // Restore button state on error
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+    }
     showToast('Could not open checkout: ' + e.message, 'error');
   }
 }
@@ -810,6 +832,17 @@ async function startBillingCheckout(priceLookupKey) {
 async function openBillingPortal() {
   var token = getToken();
   if (!token) { showToast('Please log in first', 'error'); return; }
+
+  // Same loading-state pattern as startBillingCheckout
+  var btn = (window.event && window.event.target && window.event.target.closest('button')) || null;
+  var originalText = btn ? btn.innerHTML : null;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = 'Opening portal…';
+    btn.style.opacity = '0.7';
+    btn.style.cursor = 'wait';
+  }
+
   try {
     var r = await fetch('/api/billing/portal', {
       method: 'POST',
@@ -827,6 +860,12 @@ async function openBillingPortal() {
       throw new Error('No portal URL returned');
     }
   } catch (e) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+    }
     showToast('Could not open billing portal: ' + e.message, 'error');
   }
 }

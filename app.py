@@ -1098,18 +1098,55 @@ def _stripe_handler_subscription_deleted(event: dict) -> None:
 
 
 def _stripe_handler_checkout_completed(event: dict) -> None:
-    """checkout.session.completed → log only.
+    """checkout.session.completed → fetch the subscription and upsert.
 
-    The customer.subscription.updated event fires immediately after
-    a successful checkout and that handler does the real state work.
-    We could fetch the subscription explicitly here for slightly
-    faster state transition, but that's an extra API call for no
-    real benefit — subscription.updated arrives within milliseconds.
+    CRITICAL BUG FIX (2026-05-15): originally this handler just logged
+    and waited for customer.subscription.updated to do the state work.
+    But Stripe fires customer.subscription.CREATED (not .updated) when
+    a brand-new subscription is created via Checkout. We're only
+    subscribed to .updated in the webhook config, so the .created
+    event never reached us and the subscriptions row stayed at
+    status='stub' forever — even after the customer paid.
+
+    Fix: do the upsert here directly. The Checkout session has the
+    subscription ID; we fetch the full Subscription object from Stripe
+    and call upsert_subscription_from_stripe like the .updated handler
+    would have. Idempotent — if .updated also arrives later for the
+    same sub, the upsert produces identical state.
     """
     session = event.get("data", {}).get("object", {})
     customer_id = session.get("customer")
+    subscription_id = session.get("subscription")
+    mode = session.get("mode")
     print(f"[webhook] checkout.session.completed customer={customer_id} "
-          f"mode={session.get('mode')}")
+          f"mode={mode} sub={subscription_id}")
+
+    if mode != "subscription" or not subscription_id or not customer_id:
+        return  # one-off charges or malformed payloads — nothing to upsert
+
+    user_id = get_user_id_by_stripe_customer(customer_id)
+    if not user_id:
+        print(f"[webhook] checkout.completed: unknown customer {customer_id}")
+        return
+
+    try:
+        # Fetch the full Subscription from Stripe so we have the real
+        # status, price, period dates etc. The Checkout session payload
+        # only includes the subscription ID, not its full state.
+        billing._ensure_initialized()
+        import stripe as _stripe
+        sub = _stripe.Subscription.retrieve(subscription_id)
+        sub_dict = sub.to_dict() if hasattr(sub, "to_dict") else dict(sub)
+        upsert_subscription_from_stripe(user_id, sub_dict)
+        print(f"[webhook] checkout.completed: upserted sub {subscription_id} "
+              f"for user {user_id} → status={sub_dict.get('status')}")
+    except Exception as e:
+        # Log + raise so Stripe retries the webhook. The user's payment
+        # has gone through; if we don't get the row updated, the user
+        # is stuck on stub state — worth a retry.
+        print(f"[webhook] checkout.completed handler error for "
+              f"sub {subscription_id}: {type(e).__name__}: {e}")
+        raise
 
 
 def _stripe_handler_trial_will_end(event: dict) -> None:
