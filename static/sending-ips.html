@@ -913,8 +913,7 @@ window.addEventListener('DOMContentLoaded', function () {
   }).then(function (userData) {
     var name = userData.user.name || userData.user.email.split('@')[0];
     document.getElementById('user-name').textContent = name;
-    var plan = userData.user.plan || 'free';
-    document.getElementById('plan-name').textContent = plan;
+    // INBOX-259: plan-name owned by /static/js/sidebar-plan.js. Skipping write.
   }).catch(function () {
     var refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
     if (refresh) {

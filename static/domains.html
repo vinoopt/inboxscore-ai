@@ -662,8 +662,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }).then(userData => {
     const name = userData.user.name || userData.user.email.split('@')[0];
     document.getElementById('user-name').textContent = name;
-    const plan = userData.user.plan || 'free';
-    document.getElementById('plan-name').textContent = plan;
+    // INBOX-259: plan-name owned by /static/js/sidebar-plan.js. Skipping write.
   }).catch(() => {
     // Try refresh
     const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');

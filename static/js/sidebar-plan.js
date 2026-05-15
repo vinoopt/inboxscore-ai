@@ -155,29 +155,59 @@
     } catch (e) {}
   }
 
-  /* Defence against per-page hydrators that overwrite #plan-name AFTER
-     us (e.g. settings.html line 881 writes the raw plan slug from its
-     own SWR cache). Re-apply our rendering if the label loses the
-     " plan" suffix. To be removed once all offenders are cleaned up. */
+  /* Defence in depth — watch both #plan-name AND #plan-usage-text. Any
+     write that doesn't match our canonical label set is treated as a
+     clobber and we re-apply from cache. INBOX-259 follow-up: the
+     original filter was too lax — "Pro plan" + "10 domains included"
+     (both 12+ chars) slipped through and broke microsoft/postmaster
+     for hours before we caught it. Now we whitelist EXPLICIT known-good
+     strings instead of trying to detect "bad" ones.
+  */
+  var KNOWN_GOOD_NAMES = new Set([
+    'Trial', 'Pro plan', 'Free plan', 'Stub plan',
+    'Growth plan', 'Enterprise plan',
+  ]);
+
   function watchForClobber() {
     var nameEl = document.getElementById('plan-name');
-    if (!nameEl || typeof MutationObserver === 'undefined') return;
+    var usageEl = document.getElementById('plan-usage-text');
+    if (typeof MutationObserver === 'undefined') return;
+
     var lastReapplyAt = 0;
-    var mo = new MutationObserver(function () {
-      var t = (nameEl.textContent || '').trim();
-      // "Pro plan" / "Trial" / "Free plan" / "Unlimited" — anything
-      // longer than 12 chars or containing " plan" is our own write.
-      // Bare "pro", "stub", "Trial" without context = clobber.
-      var looksClobbered = t && !/\splan\b/i.test(t) && t !== 'Trial' && t.length < 12;
-      if (!looksClobbered) return;
-      // Rate-limit reapplies to avoid infinite loops if another script
-      // keeps fighting back.
+    var reapply = function () {
       if (Date.now() - lastReapplyAt < 500) return;
       lastReapplyAt = Date.now();
       var cached = readCache();
       if (cached) render(cached.data.plan, cached.data.used, cached.data.cap);
-    });
-    mo.observe(nameEl, { childList: true, characterData: true, subtree: true });
+    };
+
+    if (nameEl) {
+      var moName = new MutationObserver(function () {
+        var t = (nameEl.textContent || '').trim();
+        // Whitelist canonical labels. Anything else = clobber.
+        if (!t || KNOWN_GOOD_NAMES.has(t)) return;
+        reapply();
+      });
+      moName.observe(nameEl, { childList: true, characterData: true, subtree: true });
+    }
+
+    if (usageEl) {
+      var moUsage = new MutationObserver(function () {
+        var t = (usageEl.textContent || '').trim();
+        // Catch the specific "X domains included" clobber from INBOX-184/185
+        // and any "—" placeholder revert.
+        if (!t || t === '—') { reapply(); return; }
+        // Our canonical formats:
+        //   "Unlimited domains"
+        //   "<num> of <num> domain(s)"  → contains " of "
+        //   "<num> domain(s) included"  → only legitimate when used=null+cap (rare)
+        var isOurs = /^Unlimited domains$/.test(t)
+          || / of /i.test(t)
+          || /^\d+ domain[s]? included$/.test(t);
+        if (!isOurs) reapply();
+      });
+      moUsage.observe(usageEl, { childList: true, characterData: true, subtree: true });
+    }
   }
 
   /* Bootstrap: synchronous cache → DOM (no waiting). Then async net. */

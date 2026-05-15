@@ -1010,7 +1010,9 @@ window.addEventListener('DOMContentLoaded', function () {
   }).then(function (userData) {
     var name = userData.user.name || userData.user.email.split('@')[0];
     document.getElementById('user-name').textContent = name;
-    document.getElementById('plan-name').textContent = userData.user.plan || 'free';
+    // INBOX-259: plan-name is owned by /static/js/sidebar-plan.js. Do NOT
+    // write the raw plan slug here — it clobbers the sidebar module's
+    // "Pro plan" label with bare "pro".
   }).catch(function () {
     var refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
     if (refresh) {

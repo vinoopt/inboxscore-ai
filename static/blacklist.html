@@ -1153,10 +1153,8 @@ window.addEventListener('DOMContentLoaded', () => {
       const userEl = document.getElementById('user-name');
       if (userEl) userEl.textContent = name;
 
-      // Plan card — update plan label
-      const plan = userData.user.plan || 'free';
-      const planNameEl = document.getElementById('plan-name');
-      if (planNameEl) planNameEl.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
+      // INBOX-259: plan-name is owned by /static/js/sidebar-plan.js.
+      // Writing here would clobber its formatted "Pro plan" label.
 
       // Load domains into dropdown, then load initial blacklist results
       blFetchDomains().then(() => {

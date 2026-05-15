@@ -1323,10 +1323,9 @@ function _dhHydrateFromCache() {
     const ne = document.getElementById('user-name');
     if (ne) ne.textContent = snap.name;
   }
-  if (snap.plan) {
-    const pe = document.getElementById('plan-name');
-    if (pe) pe.textContent = snap.plan;
-  }
+  // INBOX-259: plan-name is owned by /static/js/sidebar-plan.js (which
+  // has its own SWR cache keyed on user). Writing the raw plan slug
+  // here clobbers the sidebar module's formatted "Pro plan" label.
   if (snap.alertCount > 0) {
     const badge = document.getElementById('sidebar-badge');
     if (badge) {
@@ -1410,9 +1409,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const name = userData.user.name || userData.user.email.split('@')[0];
     document.getElementById('user-name').textContent = name;
 
-    // Plan badge
-    const plan = userData.user.plan || 'free';
-    document.getElementById('plan-name').textContent = plan;
+    // INBOX-259: plan-name owned by /static/js/sidebar-plan.js. Skipping write here.
 
     // Alert badge
     if (alertCount && alertCount.unread_count > 0) {

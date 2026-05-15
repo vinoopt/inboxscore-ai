@@ -756,27 +756,11 @@ window.addEventListener('DOMContentLoaded', () => {
     .then(userData => {
       const name = userData.user.name || userData.user.email.split('@')[0];
       document.getElementById('user-name').textContent = name;
-      // INBOX-185: V2 plan card — title says "Pro plan" / "Free plan",
-      // meta line shows X-of-Y domains with bar fill.
-      const plan = userData.user.plan || 'free';
-      const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1) + ' plan';
-      document.getElementById('plan-name').textContent = planLabel;
-      const used = userData.user.domains_used || userData.user.domain_count || null;
-      const cap = userData.user.domains_limit || (plan === 'free' ? 1 : (plan === 'pro' ? 10 : null));
-      const usageText = document.getElementById('plan-usage-text');
-      const usageFill = document.getElementById('plan-usage-fill');
-      if (usageText && usageFill) {
-        if (used != null && cap) {
-          usageText.innerHTML = '<span class="snd-num">' + used + '</span> of <span class="snd-num">' + cap + '</span> domains';
-          usageFill.style.width = Math.min(100, Math.round((used / cap) * 100)) + '%';
-        } else if (cap) {
-          usageText.innerHTML = '<span class="snd-num">' + cap + '</span> domain' + (cap === 1 ? '' : 's') + ' included';
-          usageFill.style.width = '0%';
-        } else {
-          usageText.textContent = 'Unlimited domains';
-          usageFill.style.width = '100%';
-        }
-      }
+      // INBOX-259: plan-name, plan-usage-text, plan-usage-fill are owned
+      // by /static/js/sidebar-plan.js. The inline hydrator below used to
+      // compute usage from /api/auth/me — but that endpoint doesn't return
+      // domains_used, so it wrote "10 domains included" (wrong) which
+      // clobbered the sidebar's correct "X of Y domains" output.
     })
     .catch(() => {
       const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
