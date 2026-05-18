@@ -195,6 +195,30 @@ The label `id="gpm-last-sync"` promises the first one. Code was using the third 
 
 ---
 
+### O4a. Scheduler skip branches must log at WARNING+ — counters are invisible to Sentry
+
+**The trap:** 2026-05-13 → 2026-05-15. INBOX-210 added a stub-skip branch to `monitor.run_monitoring_cycle`:
+
+```python
+if plan_cache[user_id] == "stub":
+    skipped_stub += 1
+    continue
+```
+
+When Vinoop completed a Stripe Checkout on 2026-05-13 19:46 UTC, his brand-new subscription got stuck in a partial state (Phase 1's `checkout.session.completed` handler at the time only logged — it didn't fetch + upsert). `get_user_plan()` resolved to `"stub"` and the scheduler silently `continue`d on every one of his domains for every 15-min tick for **44 hours**. The only signal anywhere in the stack was a fragile UX one — the Dashboard Score Trend chart eventually rendered `—` for Thursday 2026-05-14 across all his domains, which is what surfaced the outage. Sentry never saw a thing because the counter and `print()` lines were below LoggingIntegration's WARNING threshold.
+
+**How to apply:**
+
+1. **Every scheduler/cron/worker `continue` (or `return`/`pass`) that hides expected work must emit `logger.warning("event.name", extra={…})`.** Sentry's LoggingIntegration auto-captures WARNING+ stdlib records as events; INFO+counters are invisible by default.
+2. **Include enough structured context for Sentry to be useful** — who (`user_id_prefix`), what (`domain`, `record_id`), and why (the resolved condition: `resolved_plan`, `state_name`, etc.).
+3. **It is OK for the WARNING to fire on the expected case** (legitimately cancelled subscriptions, intentionally paused jobs). The alerting value is correlation over time — a previously-active user suddenly being skipped every cycle becomes visible in Sentry's UI.
+4. **If volume becomes noisy after real customer churn,** downgrade to INFO **and add a Sentry alert rule keyed on state-transitions** — never just delete the log line.
+5. **The Score Trend `—` empty-state did its job here — don't change it.** Empty states are honest UX surfaces for outages; auto-filling them with placeholders would have hidden this entirely.
+
+**See:** INBOX-258 (Plane), commit `0077af0`, tests in `tests/test_monitor_stub_skip_logging.py`. Pairs with the broader feedback rule in auto-memory `feedback_scheduler_silent_skip_warning.md`.
+
+---
+
 ### O4. Symptom-fixing leaves the underlying conceptual bug
 
 **The trap:** Same incident as O3. After I shipped v1.15.9 fixing 2 hardcoded `'just now'` literals, Vinoop reloaded the page within minutes and the bug was still there. The literals were a symptom of a deeper conceptual confusion (three freshness clocks); fixing the symptoms left the cause intact in 5 other sites.
