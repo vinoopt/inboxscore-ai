@@ -282,7 +282,7 @@
               <div class="phase-icon"><span class="phase-pending"></span></div>
               <div class="phase-text">
                 <div class="phase-title">Blacklists + IP reputation</div>
-                <div class="phase-sub">23 domain + ~122 IP lists via HetrixTools</div>
+                <div class="phase-sub">Scanning 23 domain + ~122 IP blacklists</div>
               </div>
             </div>
             <div class="phase" data-phase="4">
@@ -1681,7 +1681,11 @@ async function dashStartScan() {
   const _dashStart = performance.now();
   function _dashTick() {
     const elapsed = performance.now() - _dashStart;
-    const pct = Math.min(100, (elapsed / _DASH_TOTAL_MS) * 100);
+    // INBOX-264 (2026-05-15): cap progress at 95% until finishDashChecklist
+    // runs. Previously the bar hit 100% at 18s and froze if the real /api/scan
+    // took longer — looked stuck to users. Now the bar shows "still scanning"
+    // and the elapsed counter keeps moving past 18s.
+    const pct = Math.min(95, (elapsed / _DASH_TOTAL_MS) * 95);
     for (let i = 0; i < _DASH_PHASES.length; i++) {
       const startMs = i === 0 ? 0 : _DASH_PHASES[i - 1].end;
       const endMs = _DASH_PHASES[i].end;
@@ -1702,11 +1706,9 @@ async function dashStartScan() {
     if (pf) pf.style.width = pct.toFixed(0) + '%';
     if (pn) pn.textContent = pct.toFixed(0) + '%';
     if (pe) pe.textContent = (elapsed / 1000).toFixed(1) + 's';
-    if (elapsed < _DASH_TOTAL_MS) {
-      _dashRafId = requestAnimationFrame(_dashTick);
-    } else {
-      _dashRafId = null;
-    }
+    // Keep ticking forever so the elapsed counter still moves; finish
+    // is driven by the real API completion via finishDashChecklist.
+    _dashRafId = requestAnimationFrame(_dashTick);
   }
   _dashRafId = requestAnimationFrame(_dashTick);
   // Provide a fake `interval` handle so existing clearInterval(interval)

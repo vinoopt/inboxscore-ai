@@ -1407,7 +1407,7 @@ html[data-theme="dark"] .mkt-modal-icon { background: rgba(167,139,250,0.14); co
             <div class="mkt-phase-icon"><span class="mkt-phase-pending"></span></div>
             <div class="mkt-phase-text">
               <div class="mkt-phase-title">Domain blacklists</div>
-              <div class="mkt-phase-sub">Scanning 23 lists via HetrixTools</div>
+              <div class="mkt-phase-sub">Scanning 23 domain blacklists</div>
             </div>
           </div>
           <div class="mkt-phase" data-phase="4">
@@ -2290,7 +2290,7 @@ var _MKT_PHASES = [
   { title: 'Authentication records',     sub: 'SPF, DKIM, DMARC',                  end:  1000 },
   { title: 'Mail server + TLS',          sub: 'MX, reverse DNS, encryption',       end:  2200 },
   { title: 'Domain age + reputation',    sub: 'WHOIS, Google Safe Browsing',       end:  3600 },
-  { title: 'Domain blacklists',          sub: 'Scanning 23 lists via HetrixTools', end:  9500 },
+  { title: 'Domain blacklists',          sub: 'Scanning 23 domain blacklists',     end:  9500 },
   { title: 'Finalising your score',      sub: 'Compiling results',                 end: 10000 }
 ];
 var _MKT_TOTAL_MS = 10000;
@@ -2315,13 +2315,30 @@ function _mktSetPhase(idx, state) {
 
 function _mktTick() {
   var elapsed = performance.now() - _mktAnimStart;
-  var pct = Math.min(100, (elapsed / _MKT_TOTAL_MS) * 100);
+  // INBOX-264 (2026-05-15): cap the animation at 95% until the real
+  // /api/scan response lands, then finishChecklist() snaps to 100%.
+  // Previously the bar hit 100% at 10s and sat there frozen — looked
+  // stuck to users when the API took >10s (common on cold scans).
+  // Same reasoning for the last phase: keep "Finalising your score"
+  // in active/spinning state until finishChecklist runs, so users
+  // see motion rather than a finished checklist sitting idle.
+  var pct = Math.min(95, (elapsed / _MKT_TOTAL_MS) * 95);
+  var lastIdx = _MKT_PHASES.length - 1;
   for (var i = 0; i < _MKT_PHASES.length; i++) {
     var startMs = i === 0 ? 0 : _MKT_PHASES[i - 1].end;
     var endMs = _MKT_PHASES[i].end;
-    if (elapsed >= endMs) _mktSetPhase(i, 'done');
-    else if (elapsed >= startMs) _mktSetPhase(i, 'active');
-    else _mktSetPhase(i, 'pending');
+    if (i === lastIdx) {
+      // Last phase ("Finalising") — never auto-mark done; only the
+      // real API completion via finishChecklist() flips it.
+      if (elapsed >= startMs) _mktSetPhase(i, 'active');
+      else _mktSetPhase(i, 'pending');
+    } else if (elapsed >= endMs) {
+      _mktSetPhase(i, 'done');
+    } else if (elapsed >= startMs) {
+      _mktSetPhase(i, 'active');
+    } else {
+      _mktSetPhase(i, 'pending');
+    }
   }
   var pf = document.getElementById('mkt-progress-fill');
   var pn = document.getElementById('mkt-progress-percent');
@@ -2329,11 +2346,10 @@ function _mktTick() {
   if (pf) pf.style.width = pct.toFixed(0) + '%';
   if (pn) pn.textContent = pct.toFixed(0) + '%';
   if (pe) pe.textContent = (elapsed / 1000).toFixed(1) + 's';
-  if (elapsed < _MKT_TOTAL_MS) {
-    _mktRafId = requestAnimationFrame(_mktTick);
-  } else {
-    _mktRafId = null;
-  }
+  // Keep ticking forever (until finishChecklist cancels) so the
+  // elapsed counter keeps moving past 10s — gives the user a clear
+  // signal that scanning is still in progress, just slow.
+  _mktRafId = requestAnimationFrame(_mktTick);
 }
 
 function startChecklist() {
