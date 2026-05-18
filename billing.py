@@ -347,8 +347,11 @@ def create_checkout_session(
     # network retries, browser back/forward replay. The day suffix lets
     # a user legitimately retry on the next day if their first attempt
     # truly failed. Caller can override idempotency_suffix for testing.
+    # Use timezone-aware UTC (datetime.utcnow is banned by ruff because
+    # it returns a naive datetime; switching to now(timezone.utc) is
+    # the modern equivalent).
     import datetime as _dt
-    day_suffix = idempotency_suffix or _dt.datetime.utcnow().strftime("%Y%m%d")
+    day_suffix = idempotency_suffix or _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%d")
     idempotency_key = f"checkout-{user_id}-{price_lookup_key}-{day_suffix}"
 
     logger.info(
