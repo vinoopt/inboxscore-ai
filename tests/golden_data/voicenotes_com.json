@@ -139,9 +139,9 @@
         "max_points": 0
       },
       "reverse_dns": {
-        "status": "pass",
-        "points": 5,
-        "max_points": 5
+        "status": "info",
+        "points": 0,
+        "max_points": 0
       }
     }
   }
