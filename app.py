@@ -92,7 +92,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.16.17")
+    _version = os.environ.get("APP_VERSION", "1.16.18")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -138,7 +138,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.16.17")
+app = FastAPI(title="InboxScore API", version="1.16.18")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -504,7 +504,17 @@ async def _run_scan(request: ScanRequest, req: Request):
     # from 6 to 1 per scan.
     from scan_service import run_full_scan
     scan_depth = "full" if scan_user_id else "public"
-    response_data = run_full_scan(domain, source="api", depth=scan_depth)
+    # INBOX-266: pass the user's mapped sending IPs so check_reverse_dns
+    # can verify PTR on the right IPs (outbound senders, not inbound MX).
+    # Anonymous scans pass [] which makes the PTR check no-op (Info, 0/0).
+    sending_ips = (
+        get_ips_for_domain(scan_user_id, domain) or []
+        if scan_user_id else []
+    )
+    response_data = run_full_scan(
+        domain, source="api", depth=scan_depth,
+        sending_ips=sending_ips,
+    )
     score = response_data["score"]
 
     # Store scan in database (async-safe, non-blocking to the response)

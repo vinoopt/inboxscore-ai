@@ -2147,14 +2147,226 @@ def _flatten_cert_name(name_tuple):
     return out
 
 
-def check_reverse_dns(domain: str) -> CheckResult:
-    """Check reverse DNS (PTR records) for mail server IPs.
+def check_reverse_dns(domain: str, sending_ips=None) -> CheckResult:
+    """Check reverse DNS (PTR records) for the user's SENDING IPs.
+
+    INBOX-266 (2026-05-18): pivoted from checking MX-server PTR to
+    checking PTR on the user's mapped sending IPs.
+
+    Rationale: PTR on the MX (inbound) IP doesn't affect outbound
+    deliverability — InboxScore's main use case. The PTR that matters
+    is on the IP that CONNECTS to Gmail/Yahoo/etc to deliver mail.
+    That's the user's sending IP, not their MX.
+
+    Behaviour:
+      * No `sending_ips` provided / empty list → Info status, 0/0
+        points (no score impact, prompts user to map their IPs).
+      * 1+ sending IPs → check each one, aggregate result. Per-IP
+        results carried in raw_data.ips for the UI to render.
 
     INBOX-76 + INBOX-77 (2026-04-26): plain-English messaging plus
     recognise major-provider vanity domains (1e100.net, mail.protection
     .outlook.com, pphosted.com, mimecast.com) as full-credit even when
-    the PTR hostname doesn't string-match the MX hostname.
+    the PTR hostname doesn't string-match the sending hostname.
     """
+    # No mapped sending IPs: return Info / 0-of-0 — does NOT subtract
+    # from the score. Prompts the user toward Sending IPs setup.
+    ips_to_check = [ip for ip in (sending_ips or []) if ip]
+    if not ips_to_check:
+        return CheckResult(
+            name="reverse_dns",
+            category="infrastructure",
+            status="info",
+            title="Reverse DNS (PTR)",
+            detail=(
+                "Add your sending IPs in the Sending IPs section to enable "
+                "PTR monitoring. PTR records on the IPs that send your "
+                "mail help receivers — Yahoo especially — verify your "
+                "mail-server identity."
+            ),
+            raw_data={
+                "ips": [],
+                "checked": 0,
+                "passed": 0,
+                "missing": 0,
+                "mismatch": 0,
+                "no_sending_ips": True,
+                "technical_detail": (
+                    "No sending IPs are mapped to this domain. PTR check "
+                    "is skipped (does not affect score). Map IPs in "
+                    "Sending IPs → Map Domains to enable."
+                ),
+            },
+            points=0,
+            max_points=0,  # crucially: no penalty
+            fix_steps=[
+                "Go to Sending IPs and add the IP addresses your ESP uses "
+                "to send mail from this domain.",
+                "Click Map Domains on each IP and tick this domain.",
+                "We'll check PTR on each mapped IP and surface any gaps.",
+            ],
+        )
+
+    # INBOX-76: known major-provider vanity domains. The PTR uses a separate
+    # naming convention from the sender's domain — this is correct config.
+    VANITY_PTR_DOMAINS = {
+        "1e100.net": "Google Workspace",
+        "googleusercontent.com": "Google",
+        "mail.protection.outlook.com": "Microsoft 365",
+        "outbound.protection.outlook.com": "Microsoft 365",
+        "pphosted.com": "Proofpoint",
+        "mimecast.com": "Mimecast",
+        "amazonses.com": "Amazon SES",
+        "sendgrid.net": "SendGrid",
+        "mailgun.org": "Mailgun",
+        "mailgun.net": "Mailgun",
+        "postmarkapp.com": "Postmark",
+        "sparkpostmail.com": "SparkPost",
+        "rsgsv.net": "Mailchimp",
+        "mcsv.net": "Mailchimp",
+        "ncapp02.com": "Netcore Cloud",
+        "netcorecloud.net": "Netcore Cloud",
+    }
+
+    per_ip_results = []  # list of {ip, ptr, status, reason}
+    for ip in ips_to_check:
+        try:
+            rev_name = dns.reversename.from_address(ip)
+            ptr_records = safe_dns_query(str(rev_name), "PTR")
+            if not ptr_records:
+                per_ip_results.append({
+                    "ip": ip, "ptr": None, "status": "missing",
+                    "reason": "No PTR record",
+                })
+                continue
+
+            ptr_host = ptr_records[0].rstrip(".")
+            ptr_lower = ptr_host.lower()
+
+            # Vanity-domain match (e.g. amazonses.com for AWS SES IPs)
+            vanity_match = None
+            for vanity_domain, provider_name in VANITY_PTR_DOMAINS.items():
+                if vanity_domain in ptr_lower:
+                    vanity_match = provider_name
+                    break
+
+            if vanity_match:
+                per_ip_results.append({
+                    "ip": ip, "ptr": ptr_host, "status": "pass",
+                    "reason": f"Vanity PTR ({vanity_match})",
+                })
+                continue
+
+            # Direct match (PTR contains domain or vice versa)
+            if domain.lower() in ptr_lower:
+                per_ip_results.append({
+                    "ip": ip, "ptr": ptr_host, "status": "pass",
+                    "reason": "PTR matches sending domain",
+                })
+                continue
+
+            # PTR exists but doesn't match domain or vanity list — generic.
+            # Still acceptable to most receivers but flag as warning.
+            per_ip_results.append({
+                "ip": ip, "ptr": ptr_host, "status": "generic",
+                "reason": "PTR exists but doesn't match sending domain",
+            })
+        except Exception as e:
+            per_ip_results.append({
+                "ip": ip, "ptr": None, "status": "error",
+                "reason": f"DNS lookup failed: {type(e).__name__}",
+            })
+
+    # Aggregate scoring. Status counts:
+    total = len(per_ip_results)
+    passed = sum(1 for r in per_ip_results if r["status"] == "pass")
+    generic = sum(1 for r in per_ip_results if r["status"] == "generic")
+    missing = sum(1 for r in per_ip_results if r["status"] == "missing")
+    errored = sum(1 for r in per_ip_results if r["status"] == "error")
+
+    # Per-IP credit: pass=1.0, generic=0.6, missing/error=0.0.
+    # Scale to /5. Round to nearest int.
+    credit_per_ip = (passed * 1.0 + generic * 0.6) / total
+    points = round(credit_per_ip * 5)
+    max_points = 5
+
+    # Status: all-pass = pass, any miss = warn (we don't have "fail" tier here).
+    if passed == total:
+        status = "pass"
+    else:
+        status = "warn"
+
+    missing_or_errored_ips = [r["ip"] for r in per_ip_results
+                              if r["status"] in ("missing", "error")]
+    generic_ips = [r["ip"] for r in per_ip_results if r["status"] == "generic"]
+
+    if status == "pass":
+        detail = (
+            f"All {total} of your sending IPs have valid PTR records. "
+            "Receivers can verify your mail-server identity — this helps "
+            "Yahoo, Gmail and other inbox providers trust your mail."
+        )
+        fix_steps = []
+    elif missing == total:
+        detail = (
+            f"None of your {total} sending IPs have reverse DNS (PTR) records. "
+            "Receivers — Yahoo especially — use PTR to verify sender identity. "
+            "Ask your ESP / hosting provider to add PTR for each IP."
+        )
+        fix_steps = [
+            "Contact your ESP or hosting provider and request PTR records for the IPs listed below.",
+            "Most major ESPs (AWS SES, SendGrid, Mailgun, Postmark) handle PTR automatically. If yours doesn't, ask them.",
+            "Without PTR on sending IPs, Yahoo specifically downgrades trust — and your Yahoo spam rate climbs.",
+        ]
+    else:
+        bits = []
+        if missing:
+            bits.append(f"{missing} missing PTR")
+        if generic:
+            bits.append(f"{generic} with generic PTR")
+        if errored:
+            bits.append(f"{errored} unreachable")
+        detail = (
+            f"{passed} of your {total} sending IPs have valid PTR. "
+            f"Issues on {total - passed}: {', '.join(bits)}. "
+            "PTR records on sending IPs help receivers verify your "
+            "mail-server identity."
+        )
+        fix_steps = [
+            "Ask your ESP or hosting provider to add or correct PTR records for the IPs listed below.",
+            "Aim for PTR that includes your sending domain OR your ESP's known hostname (e.g. amazonses.com for AWS SES).",
+        ]
+
+    raw_data = {
+        "ips": per_ip_results,  # full per-IP list for the UI
+        "checked": total,
+        "passed": passed,
+        "generic": generic,
+        "missing": missing,
+        "errored": errored,
+        "missing_ips": missing_or_errored_ips,
+        "generic_ips": generic_ips,
+        "technical_detail": (
+            f"PTR check across {total} mapped sending IPs: "
+            f"{passed} pass, {generic} generic, {missing} missing, {errored} error."
+        ),
+    }
+
+    return CheckResult(
+        name="reverse_dns",
+        category="infrastructure",
+        status=status,
+        title="Reverse DNS (PTR)",
+        detail=detail,
+        raw_data=raw_data,
+        points=points,
+        max_points=max_points,
+        fix_steps=fix_steps,
+    )
+
+
+def _legacy_check_reverse_dns_unused(domain: str) -> CheckResult:
+    """Kept for reference; unused. Old check inspected the MX IP."""
     mx_records = safe_dns_query(domain, "MX")
     if not mx_records:
         return CheckResult(

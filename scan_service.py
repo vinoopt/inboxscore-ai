@@ -126,7 +126,8 @@ _IP_LEVEL_CHECKS = frozenset({"blacklists", "ip_reputation"})
 
 
 def run_full_scan(domain: str, source: str = "api",
-                  depth: str = "full") -> dict:
+                  depth: str = "full",
+                  sending_ips: list = None) -> dict:
     """Run domain deliverability checks for `domain` and return a result dict.
 
     Args:
@@ -138,6 +139,12 @@ def run_full_scan(domain: str, source: str = "api",
                 drops IP-based blacklist + IP reputation). Public is
                 meant for anonymous marketing scans; full for logged-in
                 users + monitor cycles. See INBOX-199.
+        sending_ips: list of IPs (str). INBOX-266: the user's mapped
+                sending IPs for this domain. Drives check_reverse_dns
+                (PTR on sending IPs, not on MX). Defaults to None which
+                check_reverse_dns interprets as "no IPs mapped" — the
+                PTR check skips gracefully (Info, 0/0 points, no
+                score impact).
 
     Returns:
         dict shaped as the existing response contract consumed by
@@ -146,6 +153,7 @@ def run_full_scan(domain: str, source: str = "api",
     """
     start_time = time.time()
     include_ip_checks = (depth == "full")
+    sending_ips = sending_ips or []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
         # Submit all the checks that run regardless of depth.
@@ -155,7 +163,8 @@ def run_full_scan(domain: str, source: str = "api",
         future_dmarc = executor.submit(check_dmarc, domain)
         future_domain_bl = executor.submit(check_domain_blacklists, domain)
         future_tls = executor.submit(check_tls, domain)
-        future_rdns = executor.submit(check_reverse_dns, domain)
+        # INBOX-266: PTR now checks the user's mapped sending IPs, not MX.
+        future_rdns = executor.submit(check_reverse_dns, domain, sending_ips)
         future_bimi = executor.submit(check_bimi, domain)
         future_mta_sts = executor.submit(check_mta_sts, domain)
         future_tls_rpt = executor.submit(check_tls_rpt, domain)

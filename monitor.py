@@ -146,8 +146,13 @@ def monitor_single_domain(domain_data: dict):
     print(f"[Monitor] Scanning {domain} for user {user_id[:8]}...")
 
     try:
-        # Run the scan (unified orchestrator, INBOX-21)
-        scan_result = run_full_scan(domain, source="monitor")
+        # Run the scan (unified orchestrator, INBOX-21).
+        # INBOX-266: pass user-mapped sending IPs so check_reverse_dns
+        # verifies PTR on the actual outbound IPs, not the inbound MX.
+        sending_ips_for_scan = get_ips_for_domain(user_id, domain) or []
+        scan_result = run_full_scan(
+            domain, source="monitor", sending_ips=sending_ips_for_scan,
+        )
         new_score = scan_result["score"]
 
         # Save the scan to database (as a monitoring scan).
