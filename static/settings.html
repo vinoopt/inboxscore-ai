@@ -635,6 +635,12 @@ function renderBillingPanel(data) {
   } else if (plan === 'trial') {
     var daysLeft = _bDaysUntil(data.trial_end);
     var endStr = _bFormatDate(data.trial_end);
+    /* INBOX-267 Layer 1: trial users already have a live (trialing)
+       subscription on Stripe. Route their CTA through Portal — Stripe
+       opens the "Add payment method" flow which attaches a card to
+       the EXISTING trialing sub instead of creating a duplicate.
+       Previously this called startBillingCheckout(), which is what
+       caused the duplicate-sub bug on vinoop@luvia.com (INBOX-267). */
     bodyHtml =
       '<div class="bill-trial-banner">' +
         '<span class="bill-trial-banner-strong">Trial: ' + (daysLeft != null ? daysLeft + ' days left' : 'active') + '</span>' +
@@ -643,10 +649,10 @@ function renderBillingPanel(data) {
       '<div class="bill-divider"></div>' +
       '<div class="bill-row"><span class="bill-row-label">Status</span><span class="bill-row-value">' + _bFriendlyStatus(data.subscription_status) + '</span></div>' +
       _bDomainsRow(data) +
-      _bRenderPriceCards() +
       '<div class="bill-actions" style="margin-top:16px">' +
-        '<button class="bill-cta" onclick="startBillingCheckout(_bSelectedPrice())">Add card to keep Pro</button>' +
+        '<button class="bill-cta" onclick="openBillingPortal()">Add card to keep Pro</button>' +
       '</div>' +
+      '<p class="bill-meta" style="margin-top:12px">You\'ll be redirected to the Stripe-hosted billing portal to add a payment method. Your card will be charged automatically when the trial ends.</p>' +
       _bTestModeHint(data);
   } else if (plan === 'pro') {
     bodyHtml =
@@ -808,6 +814,25 @@ async function startBillingCheckout(priceLookupKey) {
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ price_lookup_key: priceLookupKey }),
     });
+
+    /* INBOX-267 Layer 1: handle 409 (subscription_already_active).
+       The backend (Layer 2 API guard) returns 409 with a portal_url
+       when the user already has a live subscription on Stripe.
+       Instead of failing, redirect them to the Portal where they can
+       manage their existing subscription. This is the safety net for
+       any CTA that hits /checkout when the user is already on a live
+       sub — UI gating handles the common case (trial → Portal directly)
+       but this catches programmatic / race / legacy-state callers. */
+    if (r.status === 409) {
+      var blocked = await r.json().catch(function () { return {}; });
+      if (blocked.portal_url) {
+        showToast('You already have an active subscription — opening the billing portal…', 'info');
+        window.location.href = blocked.portal_url;
+        return;
+      }
+      throw new Error(blocked.detail || 'Subscription already active');
+    }
+
     if (!r.ok) {
       var err = await r.json().catch(function () { return {}; });
       throw new Error(err.detail || ('HTTP ' + r.status));
@@ -1351,6 +1376,13 @@ window.addEventListener('DOMContentLoaded', function () {
     setSettingsTab('connections');
   } else if (params.get('tab') === 'connections' || params.get('tab') === 'connected-services') {
     setSettingsTab('connections');
+  } else if (params.get('from') === 'checkout_blocked') {
+    /* INBOX-267 Layer 1: user came back from Portal after we blocked
+       a duplicate-checkout attempt. Surface a brief explainer toast
+       so they understand why they were redirected. */
+    showToast('You already have an active subscription. Manage it here in the billing portal.', 'info');
+    window.history.replaceState({}, '', '/settings#billing');
+    setSettingsTab('billing');
   }
 
   /* Sidebar badge */

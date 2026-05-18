@@ -312,6 +312,7 @@ def create_checkout_session(
     price_lookup_key: str,
     success_url: str,
     cancel_url: str,
+    idempotency_suffix: Optional[str] = None,
 ) -> stripe.checkout.Session:
     """
     Create a Stripe-hosted Checkout Session.
@@ -340,9 +341,19 @@ def create_checkout_session(
     _ensure_initialized()
     price = lookup_price(price_lookup_key)
 
+    # INBOX-267 Layer 3: idempotency key on Checkout Session create.
+    # Same (user_id, price, day) within Stripe's 24h idempotency window
+    # returns the SAME Session — prevents duplicates from double-clicks,
+    # network retries, browser back/forward replay. The day suffix lets
+    # a user legitimately retry on the next day if their first attempt
+    # truly failed. Caller can override idempotency_suffix for testing.
+    import datetime as _dt
+    day_suffix = idempotency_suffix or _dt.datetime.utcnow().strftime("%Y%m%d")
+    idempotency_key = f"checkout-{user_id}-{price_lookup_key}-{day_suffix}"
+
     logger.info(
-        "Creating checkout session for user_id=%s customer=%s price=%s",
-        user_id, customer_id, price.id,
+        "Creating checkout session for user_id=%s customer=%s price=%s idem=%s",
+        user_id, customer_id, price.id, idempotency_key,
     )
 
     return stripe.checkout.Session.create(
@@ -379,6 +390,7 @@ def create_checkout_session(
         # which is plenty. Passing expires_at=None used to be in here
         # but Stripe rejected it as an invalid timestamp (Vinoop hit
         # this 2026-05-13 while testing).
+        idempotency_key=idempotency_key,
     )
 
 
@@ -444,6 +456,88 @@ def retrieve_subscription(subscription_id: str) -> Dict[str, Any]:
     return sub.to_dict() if hasattr(sub, "to_dict") else dict(sub)
 
 
+# ─── INBOX-267: Single-active-subscription invariant ──────────────
+#
+# Helpers used by Layers 2 (API guard) and 4 (webhook reconciler) of
+# the 5-layer defense-in-depth fix for the duplicate-subscription bug.
+#
+# Stripe doesn't dedupe subscriptions — a single Customer can carry
+# unlimited subscriptions. For InboxScore (one sub per user, ever),
+# we have to enforce the invariant ourselves at multiple layers.
+
+# Statuses we consider "live" for the purpose of duplicate detection.
+# Includes 'past_due' because that's still a billable subscription —
+# Stripe is just retrying after a failed charge. 'unpaid' is also
+# live in the sense that Stripe still owns it.
+LIVE_SUBSCRIPTION_STATUSES = {
+    "active",
+    "trialing",
+    "past_due",
+    "unpaid",
+    "incomplete",
+}
+
+
+def list_active_subscriptions(customer_id: str) -> list:
+    """
+    Return all subscriptions on this customer whose status is in
+    LIVE_SUBSCRIPTION_STATUSES, sorted oldest-first (by created).
+
+    Used by:
+      - Layer 2 (API guard): /api/billing/checkout calls this before
+        creating a new Checkout Session. If the list is non-empty,
+        the request is rejected with 409 and a portal_url is returned.
+      - Layer 4 (webhook reconciler): customer.subscription.created
+        calls this to detect siblings; if >1, cancels the older.
+
+    Args:
+        customer_id: Stripe customer ID
+
+    Returns:
+        list of stripe.Subscription objects (oldest first)
+    """
+    _ensure_initialized()
+    # List up to 100 subs for the customer. We don't paginate — if a
+    # customer somehow has >100 subs, that's a much bigger problem we
+    # want to crash on, not silently truncate.
+    subs = stripe.Subscription.list(customer=customer_id, status="all", limit=100)
+    live = [s for s in subs.auto_paging_iter()
+            if getattr(s, "status", None) in LIVE_SUBSCRIPTION_STATUSES]
+    live.sort(key=lambda s: getattr(s, "created", 0))
+    return live
+
+
+def cancel_subscription(subscription_id: str, reason: str = "duplicate_cleanup") -> Dict[str, Any]:
+    """
+    Cancel a Stripe subscription immediately (not at period end).
+
+    Used by Layer 4 (webhook reconciler) to remove duplicate
+    subscriptions discovered when customer.subscription.created fires
+    and finds a sibling already active on the same customer.
+
+    Args:
+        subscription_id: 'sub_*' id to cancel
+        reason: free-text reason logged in subscription.metadata
+
+    Returns:
+        The cancelled subscription as a dict
+    """
+    _ensure_initialized()
+    logger.warning(
+        "Cancelling subscription %s — reason=%s",
+        subscription_id, reason,
+    )
+    sub = stripe.Subscription.cancel(
+        subscription_id,
+        # cancellation_details lets us tag the reason in Stripe so it
+        # shows up in the dashboard and webhook payload for audit.
+        cancellation_details={
+            "comment": f"InboxScore reconciler: {reason}",
+        },
+    )
+    return sub.to_dict() if hasattr(sub, "to_dict") else dict(sub)
+
+
 # ─── Webhook signature verification ───────────────────────────────
 
 def verify_webhook(payload: bytes, signature_header: str) -> Dict[str, Any]:
@@ -494,6 +588,9 @@ __all__ = [
     "create_checkout_session",
     "create_portal_session",
     "retrieve_subscription",
+    "list_active_subscriptions",
+    "cancel_subscription",
+    "LIVE_SUBSCRIPTION_STATUSES",
     "verify_webhook",
     "get_webhook_secret",
     "get_stripe_mode",

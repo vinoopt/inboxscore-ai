@@ -870,6 +870,53 @@ def upsert_subscription_from_stripe(
         return False
 
 
+def log_orphaned_subscription(
+    orphaned_sub_id: str,
+    stripe_customer_id: str,
+    keeper_sub_id: str = None,
+    user_id: str = None,
+    reason: str = "reconciler_duplicate",
+    triggered_by_event_id: str = None,
+) -> bool:
+    """
+    INBOX-267 Layer 5: record a Stripe subscription that got orphaned.
+
+    Called by the webhook reconciler whenever it cancels a duplicate
+    live subscription on Stripe. Lets ops verify the cancellation
+    actually took effect on the Stripe side and provides an audit
+    trail.
+
+    Safe to call even if migration 018 hasn't been applied — failures
+    are logged but don't break the reconciler. Stripe-side cleanup
+    has already happened by the time we get here; this is just
+    bookkeeping.
+
+    Returns True on success, False on DB error or missing migration.
+    """
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("subscriptions_orphan_audit").insert({
+            "orphaned_sub_id": orphaned_sub_id,
+            "stripe_customer_id": stripe_customer_id,
+            "keeper_sub_id": keeper_sub_id,
+            "user_id": user_id,
+            "reason": reason,
+            "triggered_by_event_id": triggered_by_event_id,
+        }).execute()
+        return True
+    except Exception as e:
+        _billing_log.warning(
+            "log_orphaned_subscription error (migration 018 applied?)",
+            extra={
+                "orphaned_sub_id": orphaned_sub_id,
+                "error_type": type(e).__name__,
+            },
+        )
+        return False
+
+
 def get_user_profile(user_id: str) -> dict:
     """Get user profile including plan info"""
     sb = get_supabase()

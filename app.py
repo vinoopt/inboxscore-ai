@@ -59,6 +59,8 @@ from db import (
     was_webhook_processed, mark_webhook_received,
     was_webhook_processed_ok, mark_webhook_completed,
     upsert_subscription_from_stripe,
+    # INBOX-267 Layer 5: orphaned-sub audit
+    log_orphaned_subscription,
 )
 # Backwards-compat re-export until callers stop importing the old name.
 mark_webhook_processed = mark_webhook_received
@@ -92,7 +94,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.16.21")
+    _version = os.environ.get("APP_VERSION", "1.17.0")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -138,7 +140,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.16.21")
+app = FastAPI(title="InboxScore API", version="1.17.0")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -986,6 +988,65 @@ async def api_billing_checkout(body: BillingCheckoutRequest, req: Request):
         set_user_stripe_customer(user_id, customer.id)
 
     base_url = str(req.base_url).rstrip("/")
+
+    # INBOX-267 Layer 2: API guard against duplicate subscriptions.
+    # Before creating a new Checkout Session, check whether this
+    # customer already has a live subscription on Stripe. If so,
+    # reject with 409 + a portal_url the frontend can redirect to.
+    # This blocks the dup-sub bug at the API choke point — every
+    # path that creates subs goes through this endpoint, so a single
+    # guard here catches all callers (UI, scripts, future automations).
+    try:
+        live_subs = billing.list_active_subscriptions(customer.id)
+    except Exception as e:
+        _logging.getLogger("inboxscore.billing").exception(
+            "checkout: list_active_subscriptions failed",
+            extra={"user_id": user_id, "customer_id": customer.id,
+                   "error_type": type(e).__name__},
+        )
+        # Fail closed — better to block a legitimate checkout than to
+        # silently allow a duplicate when Stripe is in an unknown state.
+        raise HTTPException(
+            status_code=502,
+            detail="Could not verify subscription state. Please retry.",
+        )
+
+    if live_subs:
+        # User already has 1+ live subs. Generate a Portal URL so the
+        # frontend can auto-redirect them to manage the existing sub
+        # instead of creating a duplicate.
+        try:
+            portal_session = billing.create_portal_session(
+                customer_id=customer.id,
+                return_url=f"{base_url}/settings?from=checkout_blocked#billing",
+            )
+            portal_url = portal_session.url
+        except Exception:
+            portal_url = None  # frontend handles null by showing settings
+
+        _logging.getLogger("inboxscore.billing").warning(
+            "checkout: blocked — user already has live subscription",
+            extra={
+                "user_id": user_id,
+                "customer_id": customer.id,
+                "existing_sub_ids": [getattr(s, "id", "?") for s in live_subs],
+                "existing_sub_statuses": [getattr(s, "status", "?") for s in live_subs],
+                "live_sub_count": len(live_subs),
+            },
+        )
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": "subscription_already_active",
+                "detail": (
+                    "You already have an active subscription. "
+                    "Use the billing portal to manage it."
+                ),
+                "portal_url": portal_url,
+                "live_sub_count": len(live_subs),
+            },
+        )
+
     try:
         session = billing.create_checkout_session(
             user_id=user_id,
@@ -1139,6 +1200,12 @@ def _stripe_handler_subscription_created(event: dict) -> None:
     path; this handler covers everything else: subs created via
     Dashboard, API, or Customer Portal upgrades. The upsert is
     idempotent so handling both paths is safe.
+
+    INBOX-267 Layer 4 (2026-05-18): duplicate-subscription reconciler.
+    After upserting, list ALL live subs on this customer. If >1, cancel
+    the older(s) — keep the newest, which is the one Stripe just fired
+    this event for. Catches the race window where two checkout sessions
+    completed in flight before Layer 2 / Layer 3 could block them.
     """
     sub = event.get("data", {}).get("object", {})
     customer_id = sub.get("customer")
@@ -1152,6 +1219,79 @@ def _stripe_handler_subscription_created(event: dict) -> None:
         )
         return
     upsert_subscription_from_stripe(user_id, sub, stripe_event_id=event.get("id"))
+
+    # INBOX-267 Layer 4: reconcile duplicate live subscriptions.
+    # Only run on subs that are themselves live — don't trigger on
+    # subscription.created events for already-cancelled subs (rare but
+    # possible during backfills).
+    new_sub_id = sub.get("id")
+    new_sub_status = sub.get("status")
+    if new_sub_status not in billing.LIVE_SUBSCRIPTION_STATUSES:
+        return
+
+    try:
+        live_subs = billing.list_active_subscriptions(customer_id)
+    except Exception as e:
+        _webhook_log.exception(
+            "subscription.created: reconciler list failed",
+            extra={"customer_id": customer_id, "event_id": event.get("id"),
+                   "error_type": type(e).__name__},
+        )
+        return
+
+    if len(live_subs) <= 1:
+        return  # No duplicates — happy path.
+
+    # Multiple live subs found. Keep the newest (the one this event
+    # is about, which is also the one Stripe most recently created).
+    # Cancel everything older.
+    # list_active_subscriptions returns oldest-first, so the keeper is
+    # the last entry.
+    keeper = live_subs[-1]
+    keeper_id = getattr(keeper, "id", None)
+    to_cancel = [s for s in live_subs if getattr(s, "id", None) != keeper_id]
+
+    _webhook_log.warning(
+        "subscription.created: duplicate live subs detected — reconciling",
+        extra={
+            "customer_id": customer_id,
+            "user_id": user_id,
+            "event_id": event.get("id"),
+            "keeper_sub_id": keeper_id,
+            "cancel_sub_ids": [getattr(s, "id", "?") for s in to_cancel],
+            "total_live_subs": len(live_subs),
+        },
+    )
+
+    for s in to_cancel:
+        orphan_sub_id = getattr(s, "id", None)
+        try:
+            billing.cancel_subscription(
+                orphan_sub_id,
+                reason=f"duplicate_of_{keeper_id}",
+            )
+        except Exception as e:
+            # Cancellation failure is logged but doesn't abort — the
+            # remaining cancellations should still be attempted, and
+            # the next customer.subscription.created event (if any)
+            # will retry the reconcile.
+            _webhook_log.exception(
+                "subscription.created: failed to cancel duplicate sub",
+                extra={"sub_id": orphan_sub_id,
+                       "error_type": type(e).__name__},
+            )
+
+        # Layer 5: log the orphan to audit table regardless of whether
+        # cancel succeeded. If cancel failed, ops can still find the
+        # orphan and clean it up via dashboard.
+        log_orphaned_subscription(
+            orphaned_sub_id=orphan_sub_id,
+            stripe_customer_id=customer_id,
+            keeper_sub_id=keeper_id,
+            user_id=user_id,
+            reason="reconciler_duplicate",
+            triggered_by_event_id=event.get("id"),
+        )
 
 
 def _stripe_handler_subscription_updated(event: dict) -> None:
