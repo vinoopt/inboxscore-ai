@@ -504,9 +504,13 @@ function clearDomainFilters() {
 // "Scan failed" pill exists in the design vocabulary but the data model
 // doesn't track scan failures yet; deferred to a future ticket.
 function statusFromScore(score) {
+  // INBOX-265: align with dashboard's dhBandFromScore.
+  //   90+ → Healthy (green pill)
+  //   60-89 → Warnings (amber pill) — was previously 70+ green
+  //   <60 → Critical (red pill)
   if (score == null) return { cls: 'pending', text: 'Scanning…', scoreCls: 'muted', scoreVal: '—' };
-  if (score >= 70)   return { cls: '',        text: 'Healthy',   scoreCls: '',       scoreVal: String(score) };
-  if (score >= 50)   return { cls: 'warn',    text: 'Warnings',  scoreCls: 'warn',   scoreVal: String(score) };
+  if (score >= 90)   return { cls: '',        text: 'Healthy',   scoreCls: '',       scoreVal: String(score) };
+  if (score >= 60)   return { cls: 'warn',    text: 'Warnings',  scoreCls: 'warn',   scoreVal: String(score) };
   return                     { cls: 'danger', text: 'Critical',  scoreCls: 'danger', scoreVal: String(score) };
 }
 

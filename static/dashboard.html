@@ -360,14 +360,17 @@ function logout() {
 }
 
 function scoreClass(score) {
-  if (score >= 80) return 'dsc-score-good';
-  if (score >= 50) return 'dsc-score-warn';
+  // INBOX-265: 90+ green, 60-89 warn, <60 bad — keeps the deeper-page
+  // score badges consistent with the headline dhBandFromScore() bands.
+  if (score >= 90) return 'dsc-score-good';
+  if (score >= 60) return 'dsc-score-warn';
   return 'dsc-score-bad';
 }
 
 function scoreColor(val) {
-  if (val >= 80) return 'var(--green)';
-  if (val >= 50) return 'var(--yellow)';
+  // INBOX-265: aligned with the 90/60 thresholds in dhBandFromScore.
+  if (val >= 90) return 'var(--green)';
+  if (val >= 60) return 'var(--yellow)';
   return 'var(--red)';
 }
 
@@ -417,19 +420,24 @@ window._dh = {
   selectedDomain: null,
 };
 
+// INBOX-265: 5-band scheme (Option A). 90+ Excellent is the only band
+// that wears the green badge. 75-89 "Good" is amber — honest signal
+// that there's room to improve. Previously 85+ was Excellent green and
+// undersold InboxScore's value ("why pay if I'm already excellent?").
 function dhBandFromScore(score) {
   if (score === null || score === undefined) return { band: 'none', label: '—', verdict: 'No scan data yet.' };
-  if (score >= 85) return { band: 'good', label: 'Excellent', verdict: 'Strong email deliverability. Major checks pass; emails should reliably reach the inbox.' };
-  if (score >= 70) return { band: 'good', label: 'Good', verdict: 'Solid deliverability. A few signals can be tightened to push higher.' };
-  if (score >= 50) return { band: 'moderate', label: 'Needs Work', verdict: 'Several signals are weak. Address the failing checks below to improve placement.' };
-  return { band: 'danger', label: 'At Risk', verdict: 'Critical deliverability issues. Emails are likely landing in spam or bouncing.' };
+  if (score >= 90) return { band: 'good',     label: 'Excellent',  verdict: 'Top-tier email deliverability. Authentication, encryption, and reputation all check out — keep monitoring to maintain it.' };
+  if (score >= 75) return { band: 'moderate', label: 'Good',       verdict: 'Solid deliverability with room to improve. A few signals can be tightened to reach the Excellent band.' };
+  if (score >= 60) return { band: 'moderate', label: 'Fair',       verdict: 'Working but with visible gaps. Multiple signals are weaker than they should be — fix the warnings below to lift inbox placement.' };
+  if (score >= 40) return { band: 'danger',   label: 'Needs Work', verdict: 'Several signals are failing. Address the failing checks below — deliverability is at risk.' };
+  return                     { band: 'danger', label: 'At Risk',    verdict: 'Critical deliverability issues. Emails are likely landing in spam or bouncing. Immediate action recommended.' };
 }
 
 function dhScoreCircleClass(score) {
   if (score === null || score === undefined) return 'none';
-  if (score >= 70) return ''; // default green
-  if (score >= 50) return 'moderate';
-  return 'danger';
+  if (score >= 90) return '';            // green
+  if (score >= 60) return 'moderate';    // amber (Good 75-89 + Fair 60-74)
+  return 'danger';                       // red (Needs Work + At Risk)
 }
 
 function dhFormatScanTime(dateStr) {
@@ -1076,9 +1084,10 @@ function dhRenderSafety(domain) {
 }
 
 /* ─── Recent Scans ─────────────────────────────────────────────── */
+// INBOX-265: aligned with dhBandFromScore — 90+ green, 60-89 amber, <60 red.
 function dhScoreClassFromScore(score) {
-  if (score >= 70) return 'good';
-  if (score >= 50) return 'moderate';
+  if (score >= 90) return 'good';
+  if (score >= 60) return 'moderate';
   return 'danger';
 }
 

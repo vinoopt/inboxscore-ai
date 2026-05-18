@@ -408,14 +408,30 @@ class TestGenerateSummary:
     def _checks(self, statuses):
         return [_cr(f"c{i}", 1, 1, status=s) for i, s in enumerate(statuses)]
 
-    def test_excellent_when_score_gte_85(self):
+    # INBOX-265: 5-band scheme. Only 90+ = Excellent (was 85+).
+    def test_excellent_when_score_gte_90(self):
         out = generate_summary("d", 95, self._checks(["pass"] * 10))
         assert out["verdict"] == "Excellent"
         assert out["color"] == "good"
 
-    def test_critical_when_score_lt_40(self):
+    def test_good_when_score_75_to_89(self):
+        out = generate_summary("d", 85, self._checks(["pass"] * 8 + ["warn"] * 2))
+        assert out["verdict"] == "Good"
+        assert out["color"] == "moderate"
+
+    def test_fair_when_score_60_to_74(self):
+        out = generate_summary("d", 65, self._checks(["pass"] * 6 + ["warn"] * 4))
+        assert out["verdict"] == "Fair"
+        assert out["color"] == "moderate"
+
+    def test_needs_work_when_score_40_to_59(self):
+        out = generate_summary("d", 50, self._checks(["pass"] * 5 + ["fail"] * 5))
+        assert out["verdict"] == "Needs Work"
+        assert out["color"] == "danger"
+
+    def test_at_risk_when_score_lt_40(self):
         out = generate_summary("d", 20, self._checks(["fail"] * 5))
-        assert out["verdict"] == "Critical Issues"
+        assert out["verdict"] == "At Risk"
         assert out["color"] == "danger"
 
     def test_stats_count_correctly(self):

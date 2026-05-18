@@ -92,7 +92,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.16.16")
+    _version = os.environ.get("APP_VERSION", "1.16.17")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -138,7 +138,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.16.16")
+app = FastAPI(title="InboxScore API", version="1.16.17")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -2362,17 +2362,21 @@ async def api_export_scans_csv(req: Request):
         scan_time = results.get("scan_time", "")
         scanned_at = scan.get("created_at", results.get("scanned_at", ""))
 
-        # Determine verdict from score
+        # Determine verdict from score (INBOX-265 5-band scheme).
+        # Kept in lockstep with dashboard.html dhBandFromScore so CSV
+        # exports and on-screen labels match.
         try:
             s = int(score)
-            if s >= 85:
+            if s >= 90:
                 verdict = "Excellent"
-            elif s >= 65:
+            elif s >= 75:
                 verdict = "Good"
+            elif s >= 60:
+                verdict = "Fair"
             elif s >= 40:
                 verdict = "Needs Work"
             else:
-                verdict = "Critical"
+                verdict = "At Risk"
         except (ValueError, TypeError):
             verdict = ""
 

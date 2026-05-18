@@ -2376,13 +2376,29 @@ function finishChecklist() {
 }
 
 function renderResults(data) {
-  /* Maps the /api/scan response onto the v3 results layout. Three
-     verdict tiers based on score: 85+ Excellent, 65-84 Issues, <65
-     Critical. Colour comes from data.summary.color when present;
-     otherwise inferred from score. */
+  /* INBOX-265: aligned with dashboard's 5-band scheme.
+       90+   Excellent     good      "All clear"
+       75-89 Good          moderate  "Room to improve"
+       60-74 Fair          moderate  "Room to improve"
+       40-59 Needs Work    danger    "Action required"
+       0-39  At Risk       danger    "Needs urgent fixes"
+     Colour comes from data.summary.color when the backend provides it;
+     otherwise inferred from score using the same thresholds. */
   var score = Number(data.score) || 0;
-  var color = (data.summary && data.summary.color) || (score >= 85 ? 'good' : score >= 65 ? 'moderate' : 'danger');
-  var verdict = (data.summary && data.summary.verdict) || (score >= 85 ? 'Excellent' : score >= 65 ? 'Has issues' : 'Critical');
+  function _bandColor(s) {
+    if (s >= 90) return 'good';
+    if (s >= 60) return 'moderate';
+    return 'danger';
+  }
+  function _bandVerdict(s) {
+    if (s >= 90) return 'Excellent';
+    if (s >= 75) return 'Good';
+    if (s >= 60) return 'Fair';
+    if (s >= 40) return 'Needs Work';
+    return 'At Risk';
+  }
+  var color = (data.summary && data.summary.color) || _bandColor(score);
+  var verdict = (data.summary && data.summary.verdict) || _bandVerdict(score);
   var summary = (data.summary && data.summary.summary) || '';
   var stats = (data.summary && data.summary.stats) || { passed: 0, warnings: 0, failed: 0, info: 0 };
 

@@ -241,25 +241,39 @@ def generate_summary(domain: str, score: int, checks: list) -> dict:
     warned = [c for c in checks if c.status == "warn"]
     passed = [c for c in checks if c.status == "pass"]
 
-    if score >= 85:
+    # INBOX-265: 5-band scheme. Only 90+ wears Excellent + green.
+    # Previously 85+ was Excellent and 65+ was still "good" color —
+    # both undersold InboxScore's value to buyers ("why pay if I'm
+    # already great?"). Tighter bands force an honest signal.
+    if score >= 90:
         verdict = "Excellent"
         color = "good"
-        summary = "Your domain has strong email deliverability. "
+        summary = "Top-tier email deliverability. "
         if warned:
             summary += f"There {'is' if len(warned) == 1 else 'are'} {len(warned)} minor issue{'s' if len(warned) > 1 else ''} to address, but overall your emails should reliably reach the inbox."
         else:
-            summary += "All major checks passed. Your emails should reliably reach the inbox."
-    elif score >= 65:
+            summary += "All major checks passed. Your emails should reliably reach the inbox — keep monitoring to maintain it."
+    elif score >= 75:
         verdict = "Good"
-        color = "good"
-        summary = "Your email setup is solid but has room for improvement. "
+        color = "moderate"
+        summary = "Solid deliverability with room to improve. "
         if failed:
-            summary += f"Fix the {len(failed)} failed check{'s' if len(failed) > 1 else ''} to improve your score significantly."
+            summary += f"Fix the {len(failed)} failed check{'s' if len(failed) > 1 else ''} to lift your score into the Excellent band."
         elif warned:
             summary += f"Address the {len(warned)} warning{'s' if len(warned) > 1 else ''} to strengthen your deliverability."
-    elif score >= 40:
-        verdict = "Needs Improvement"
+        else:
+            summary += "All checks pass, but a few signals can be tightened to reach Excellent."
+    elif score >= 60:
+        verdict = "Fair"
         color = "moderate"
+        summary = "Working but with visible gaps. "
+        if failed:
+            summary += f"Multiple signals are weaker than they should be — fix the {len(failed)} failing check{'s' if len(failed) > 1 else ''} to lift inbox placement."
+        else:
+            summary += f"Address the {len(warned)} warning{'s' if len(warned) > 1 else ''} below to improve placement."
+    elif score >= 40:
+        verdict = "Needs Work"
+        color = "danger"
         issues = []
         for c in failed:
             if c.name == "blacklists":
@@ -272,15 +286,15 @@ def generate_summary(domain: str, score: int, checks: list) -> dict:
                 issues.append("missing DKIM")
             elif c.name == "ip_reputation":
                 issues.append("poor IP reputation")
-        summary = "Your domain has deliverability issues that are likely causing emails to land in spam. "
+        summary = "Several signals are failing and your emails are at risk of landing in spam. "
         if issues:
             summary += f"The main problems are: {', '.join(issues)}. Fix these to significantly improve inbox placement."
         else:
             summary += f"Address the {len(failed)} failed checks to improve your score."
     else:
-        verdict = "Critical Issues"
+        verdict = "At Risk"
         color = "danger"
-        summary = "Your domain has serious deliverability problems. Most of your emails are likely going to spam or being rejected entirely. Immediate action is needed on the failed checks below."
+        summary = "Critical deliverability issues. Most of your emails are likely going to spam or being rejected entirely. Immediate action is needed on the failed checks below."
 
     return {
         "verdict": verdict,
