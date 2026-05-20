@@ -17,6 +17,16 @@ from supabase import create_client, Client
 _webhook_log = logging.getLogger("inboxscore.webhook.db")
 _billing_log = logging.getLogger("inboxscore.billing.db")
 
+# INBOX-269 (2026-05-20): structured logger for the alerts table operations.
+# Previously each function caught Exception with `print(f"Error ...: {e}")`
+# which writes to stdout — invisible to Sentry's LoggingIntegration. The
+# entire alerts feature was silently broken in prod for months because
+# create_alert() raised on missing `title` + `domain` columns and the
+# print() handler swallowed it. Migration 019 adds the columns;
+# logger.exception() here ensures the next schema/code drift surfaces
+# in Sentry instead of dying in stdout.
+_alerts_log = logging.getLogger("inboxscore.alerts.db")
+
 # ─── SUPABASE CLIENT ──────────────────────────────────────────────
 
 _supabase: Client | None = None
@@ -1123,8 +1133,15 @@ def create_alert(user_id: str, alert_type: str, severity: str, title: str,
 
         result = sb.table("alerts").insert(data).execute()
         return result.data[0] if result.data else None
-    except Exception as e:
-        print(f"Error creating alert: {e}")
+    except Exception:
+        # INBOX-269: replaced `print(f"Error creating alert: {e}")` which
+        # masked the title/domain column-missing bug for months.
+        _alerts_log.exception("alerts.create_failed", extra={
+            "user_id_prefix": user_id[:8] if user_id else None,
+            "domain": domain,
+            "alert_type": alert_type,
+            "severity": severity,
+        })
         return None
 
 
@@ -1168,8 +1185,14 @@ def get_user_alerts(user_id: str, limit: int = 50, severity: str = None,
 
         result = query.execute()
         return result.data if result.data else []
-    except Exception as e:
-        print(f"Error fetching alerts: {e}")
+    except Exception:
+        # INBOX-269: structured logging so silent failures surface in Sentry.
+        _alerts_log.exception("alerts.fetch_failed", extra={
+            "user_id_prefix": user_id[:8] if user_id else None,
+            "severity_filter": severity,
+            "unread_only": unread_only,
+            "page": page,
+        })
         return []
 
 
@@ -1190,8 +1213,13 @@ def get_user_alerts_count(user_id: str, severity: str = None,
             query = query.eq("is_read", False)
         result = query.execute()
         return result.count if result.count is not None else 0
-    except Exception as e:
-        print(f"Error counting alerts: {e}")
+    except Exception:
+        # INBOX-269: structured logging so silent failures surface in Sentry.
+        _alerts_log.exception("alerts.count_failed", extra={
+            "user_id_prefix": user_id[:8] if user_id else None,
+            "severity_filter": severity,
+            "unread_only": unread_only,
+        })
         return 0
 
 
@@ -1205,8 +1233,11 @@ def get_unread_alert_count(user_id: str) -> int:
             "user_id", user_id
         ).eq("is_read", False).execute()
         return result.count if result.count else 0
-    except Exception as e:
-        print(f"Error counting unread alerts: {e}")
+    except Exception:
+        # INBOX-269: structured logging so silent failures surface in Sentry.
+        _alerts_log.exception("alerts.unread_count_failed", extra={
+            "user_id_prefix": user_id[:8] if user_id else None,
+        })
         return 0
 
 
@@ -1220,8 +1251,12 @@ def mark_alert_read(user_id: str, alert_id: str) -> bool:
             "id", alert_id
         ).eq("user_id", user_id).execute()
         return True
-    except Exception as e:
-        print(f"Error marking alert read: {e}")
+    except Exception:
+        # INBOX-269: structured logging so silent failures surface in Sentry.
+        _alerts_log.exception("alerts.mark_read_failed", extra={
+            "user_id_prefix": user_id[:8] if user_id else None,
+            "alert_id": alert_id,
+        })
         return False
 
 
@@ -1235,8 +1270,11 @@ def mark_all_alerts_read(user_id: str) -> bool:
             "user_id", user_id
         ).eq("is_read", False).execute()
         return True
-    except Exception as e:
-        print(f"Error marking all alerts read: {e}")
+    except Exception:
+        # INBOX-269: structured logging so silent failures surface in Sentry.
+        _alerts_log.exception("alerts.mark_all_read_failed", extra={
+            "user_id_prefix": user_id[:8] if user_id else None,
+        })
         return False
 
 
@@ -1250,8 +1288,12 @@ def delete_alert(user_id: str, alert_id: str) -> bool:
             "id", alert_id
         ).eq("user_id", user_id).execute()
         return True
-    except Exception as e:
-        print(f"Error deleting alert: {e}")
+    except Exception:
+        # INBOX-269: structured logging so silent failures surface in Sentry.
+        _alerts_log.exception("alerts.delete_failed", extra={
+            "user_id_prefix": user_id[:8] if user_id else None,
+            "alert_id": alert_id,
+        })
         return False
 
 
