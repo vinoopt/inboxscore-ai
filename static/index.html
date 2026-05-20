@@ -1038,6 +1038,34 @@ html[data-theme="dark"] .mkt-app-provider-icon.m { background: #ffffff; border-c
   margin-top: 56px;
   align-items: stretch;
 }
+/* INBOX-216 (2026-05-18): single-tier centered layout — Free + Enterprise
+   cards dropped; only Pro shown. max-width keeps the lone card from
+   stretching the full grid width on desktop, mirrors Vercel-style
+   product pricing pages. */
+.mkt-pricing-grid-single {
+  grid-template-columns: minmax(0, 460px);
+  justify-content: center;
+}
+.mkt-tier-fineprint {
+  margin: 14px 0 0 0;
+  font-size: 13px;
+  color: var(--text-faint);
+  text-align: center;
+}
+.mkt-pricing-enterprise-link {
+  margin-top: 32px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.mkt-pricing-enterprise-link a {
+  color: var(--text-strong);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-strong);
+  padding-bottom: 1px;
+  margin-left: 6px;
+}
+.mkt-pricing-enterprise-link a:hover { color: var(--accent); border-color: var(--accent); }
 .mkt-tier {
   padding: 32px 28px;
   background: var(--bg);
@@ -1358,7 +1386,7 @@ html[data-theme="dark"] .mkt-modal-icon { background: rgba(167,139,250,0.14); co
         <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
       </button>
       <a href="/login" class="mkt-nav-secondary">Log in</a>
-      <a href="/signup" class="mkt-nav-cta">Sign up free</a>
+      <a href="/signup" class="mkt-nav-cta">Start free trial</a>
     </div>
   </div>
 </nav>
@@ -1963,52 +1991,33 @@ html[data-theme="dark"] .mkt-modal-icon { background: rgba(167,139,250,0.14); co
   </div>
 </section>
 
-<!-- ════════ PRICING ════════ -->
+<!-- ════════ PRICING (INBOX-216 2026-05-18: dropped 3-card grid; single Pro card + trial-first headline) ════════ -->
 <section class="mkt-section" id="pricing">
   <div class="mkt-shell">
     <span class="mkt-section-eyebrow">Pricing</span>
-    <h2 class="mkt-section-title">Simple, sender-friendly pricing.</h2>
-    <p class="mkt-section-sub">Start free. Upgrade when you outgrow it. No surprises.</p>
-    <div class="mkt-pricing-grid">
-      <div class="mkt-tier">
-        <div class="mkt-tier-name">Free</div>
-        <div class="mkt-tier-price">$0<span class="mkt-tier-price-suffix"> / forever</span></div>
-        <p class="mkt-tier-desc">Perfect for small senders or trying us out.</p>
-        <ul class="mkt-tier-features">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>1 domain monitored</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>20+ DNSBL checks</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Email alerts</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Daily scans</li>
-        </ul>
-        <a href="/signup" class="mkt-tier-cta">Start free</a>
-      </div>
+    <h2 class="mkt-section-title">Start 14-day Pro trial — no card required.</h2>
+    <p class="mkt-section-sub">Try every Pro feature for 14 days. Add a card when you're ready. No surprises.</p>
+    <div class="mkt-pricing-grid mkt-pricing-grid-single">
       <div class="mkt-tier featured">
         <div class="mkt-tier-name">Pro</div>
         <div class="mkt-tier-price">$49<span class="mkt-tier-price-suffix"> / month</span></div>
-        <p class="mkt-tier-desc">For teams managing real sending volume.</p>
+        <p class="mkt-tier-desc">Everything you need to keep your sending in the inbox.</p>
         <ul class="mkt-tier-features">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Up to 10 domains</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Google Postmaster + SNDS</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Slack + webhook alerts</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Hourly scans</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Sending IP reputation</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Up to 10 monitored domains</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Google Postmaster + Microsoft SNDS</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Continuous blacklist monitoring</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Email + Slack + webhook alerts</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Sending IP reputation tracking</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Annual billing saves 2 months ($470/yr)</li>
         </ul>
-        <a href="/signup" class="mkt-tier-cta">Start free trial</a>
-      </div>
-      <div class="mkt-tier">
-        <div class="mkt-tier-name">Enterprise</div>
-        <div class="mkt-tier-price">Custom</div>
-        <p class="mkt-tier-desc">For ESPs and high-volume senders.</p>
-        <ul class="mkt-tier-features">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Unlimited domains</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>API access</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>SSO + audit logs</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Dedicated support</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Custom integrations</li>
-        </ul>
-        <a href="mailto:hello@inboxscore.ai" class="mkt-tier-cta">Talk to sales</a>
+        <a href="/signup" class="mkt-tier-cta">Start 14-day trial</a>
+        <p class="mkt-tier-fineprint">No card required during trial. Cancel anytime.</p>
       </div>
     </div>
+    <p class="mkt-pricing-enterprise-link">
+      Need unlimited domains, SSO, or custom integrations?
+      <a href="mailto:hello@inboxscore.ai">Talk to sales →</a>
+    </p>
   </div>
 </section>
 
@@ -2028,7 +2037,7 @@ html[data-theme="dark"] .mkt-modal-icon { background: rgba(167,139,250,0.14); co
       </details>
       <details class="mkt-faq-item">
         <summary class="mkt-faq-q">How fast are blacklist alerts?<span class="mkt-faq-q-icon">+</span></summary>
-        <div class="mkt-faq-a">DNSBL scans run every few hours on free, every hour on Pro. The moment a listing is detected, we fire your configured alert channels. Most users get notified within 60 minutes of being listed.</div>
+        <div class="mkt-faq-a">During your trial and on Pro, monitored domains are re-scanned every few hours. The moment a listing is detected, we fire your configured alert channels (email, Slack, webhook). Most users get notified within 60 minutes of being listed.</div>
       </details>
       <details class="mkt-faq-item">
         <summary class="mkt-faq-q">Do you support transactional and marketing email?<span class="mkt-faq-q-icon">+</span></summary>
@@ -2036,7 +2045,11 @@ html[data-theme="dark"] .mkt-modal-icon { background: rgba(167,139,250,0.14); co
       </details>
       <details class="mkt-faq-item">
         <summary class="mkt-faq-q">Can I monitor multiple domains?<span class="mkt-faq-q-icon">+</span></summary>
-        <div class="mkt-faq-a">Yes. Free plan covers 1 domain, Pro covers up to 10, Enterprise is unlimited. Each domain has its own dashboard, alerts, and history.</div>
+        <div class="mkt-faq-a">Yes. Pro covers up to 10 monitored domains, with continuous re-scans on each. Need more or have an ESP-scale use case? Drop us a line at <a href="mailto:hello@inboxscore.ai" style="color:var(--text-strong);text-decoration:underline;">hello@inboxscore.ai</a> — we tailor plans for high-volume senders.</div>
+      </details>
+      <details class="mkt-faq-item">
+        <summary class="mkt-faq-q">What happens after my 14-day trial ends?<span class="mkt-faq-q-icon">+</span></summary>
+        <div class="mkt-faq-a">If you've added a card during the trial, you'll roll onto Pro at $49/month and keep all Pro features. If you haven't added a card, your account stays open but moves to a free tier limited to 1 scan per 7 days with no monitoring or alerts — you can upgrade any time to reactivate full Pro access.</div>
       </details>
       <details class="mkt-faq-item">
         <summary class="mkt-faq-q">How do I cancel?<span class="mkt-faq-q-icon">+</span></summary>
@@ -2050,8 +2063,8 @@ html[data-theme="dark"] .mkt-modal-icon { background: rgba(167,139,250,0.14); co
 <section class="mkt-section" style="padding: 0;">
   <div class="mkt-final">
     <h2 class="mkt-final-title">Stop guessing about deliverability.</h2>
-    <p class="mkt-final-sub">Set up InboxScore in 2 minutes. Get your first alert before lunch.</p>
-    <a href="/signup" class="mkt-btn-primary">Start free</a>
+    <p class="mkt-final-sub">Set up InboxScore in 2 minutes. Get your first alert before lunch. No card required.</p>
+    <a href="/signup" class="mkt-btn-primary">Start 14-day trial</a>
   </div>
 </section>
 
@@ -2145,7 +2158,7 @@ function toggleTheme() {
   }
 })();
 
-/* If user already has a session, swap "Log in" / "Sign up free" in the
+/* If user already has a session, swap "Log in" / "Start free trial" in the
    topnav for a single "Dashboard" CTA. Avoids the awkward state where a
    logged-in user sees a marketing page asking them to sign up. */
 (function updateNavForSession() {
