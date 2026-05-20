@@ -94,7 +94,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.18.0")
+    _version = os.environ.get("APP_VERSION", "1.18.1")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -140,7 +140,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.18.0")
+app = FastAPI(title="InboxScore API", version="1.18.1")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -1754,20 +1754,28 @@ async def api_change_password(req: Request):
         raise HTTPException(status_code=500, detail="Failed to update password")
 
 
-# INBOX-143 (v1.16.2): the alert-rule + delivery-channel UI now lives
-# on /alerts (Rules + Channels tabs). The old Settings → Notifications
-# panel was write-only, but the new UI hydrates its toggles from saved
-# state, so we need a GET pair for the PUT.
+# INBOX-271 (2026-05-20): preferences schema dramatically simplified.
+# Removed the 5 alert-rule / channel-mute booleans (spam_threshold,
+# auth_drops, blacklist_alerts, scan_alerts, weekly_digest) because:
 #
-# Defaults match how the UI renders an unconfigured user's first visit:
-# every alert rule is ON; weekly_digest is OFF (opt-in to extra email).
+#   (a) The /alerts Rules tab was deleted in favour of just Feed + Channels.
+#   (b) None of those keys were ever consulted by the alert pipeline —
+#       monitor.py, alerts_postmaster.py, alerts_snds.py all create alerts
+#       unconditionally. Pure dead UI.
+#   (c) The Channels tab is now a single 3-mode email picker covering the
+#       only real user decision: how often do you want emails interrupting
+#       you?
+#
+# Migration handling: existing rows in user_preferences with the old keys
+# are harmless. The GET handler filters reads to only keys present in
+# PREFERENCE_DEFAULTS, so stale keys disappear from API responses
+# automatically. No backfill or DB cleanup needed.
 PREFERENCE_DEFAULTS = {
-    "spam_threshold": True,    # Rules: spam rate exceeds 0.1% / 0.3%
-    "auth_drops": True,        # Rules: SPF/DKIM/DMARC pass-rate drops
-    "blacklist_alerts": True,  # Rules: any IP/domain listed
-    "scan_alerts": True,       # Channels: email
-    "weekly_digest": False,    # Channels: Monday 9am summary (opt-in)
+    "email_mode": "critical_rt",   # "all_rt" | "critical_rt" | "off"
 }
+
+# Allowed values for the email_mode pref. PUT validation enforces this.
+EMAIL_MODE_VALUES = {"all_rt", "critical_rt", "off"}
 
 
 @app.get("/api/user/preferences")
@@ -1802,12 +1810,13 @@ async def api_update_preferences(req: Request):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     body = await req.json()
-    # INBOX-143: accept the full key set the /alerts UI emits. Unknown
-    # keys are ignored so a stale client can't corrupt the JSONB blob.
-    prefs = {
-        key: bool(body.get(key, default))
-        for key, default in PREFERENCE_DEFAULTS.items()
-    }
+    # INBOX-271 (2026-05-20): single key now — email_mode. Validate
+    # against the allowed value set; fall back to the default if the
+    # client sent something unexpected (defensive against stale UI).
+    raw_mode = body.get("email_mode", PREFERENCE_DEFAULTS["email_mode"])
+    if raw_mode not in EMAIL_MODE_VALUES:
+        raw_mode = PREFERENCE_DEFAULTS["email_mode"]
+    prefs = {"email_mode": raw_mode}
 
     success = update_user_preferences(user_result["user"]["id"], prefs)
     if not success:

@@ -166,6 +166,9 @@ html:not([data-theme="dark"]) .theme-toggle-btn .icon-moon { display: block; }
 .al-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .al-chip.severity-critical:not(.active) .al-chip-dot { background: var(--red); }
 .al-chip.severity-warning:not(.active) .al-chip-dot { background: var(--yellow); }
+/* INBOX-271: info pill — green dot matches recovery / positive
+   info-severity alerts (score recoveries, blacklist delistings). */
+.al-chip.severity-info:not(.active) .al-chip-dot { background: var(--green); }
 .al-range-anchor {
   display: flex; align-items: center; gap: 8px;
   font-size: 12px; color: var(--text-subtle);
@@ -319,6 +322,78 @@ body.is-refreshing-pill::after {
 .al-cfg-save-btn:hover { opacity: 0.9; }
 .al-cfg-save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* INBOX-271: email delivery mode picker.
+   Three mutually-exclusive options stacked vertically. Radio input is
+   hidden visually but kept for accessibility (keyboard nav + screen
+   readers); the .al-mode-radio circle is the visible click target. */
+.al-mode-picker { display: flex; flex-direction: column; gap: 8px; }
+.al-mode-option {
+  display: flex; gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  background: var(--surface);
+  transition: border-color 100ms ease, background 100ms ease;
+}
+.al-mode-option:hover { border-color: var(--border-strong); }
+.al-mode-option input[type="radio"] {
+  position: absolute; opacity: 0; pointer-events: none;
+}
+.al-mode-radio {
+  flex-shrink: 0;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  position: relative; margin-top: 2px;
+  transition: border-color 100ms ease;
+}
+.al-mode-option:has(input:checked) {
+  border-color: var(--text);
+  background: var(--surface-2);
+}
+.al-mode-option:has(input:checked) .al-mode-radio {
+  border-color: var(--text);
+}
+.al-mode-option:has(input:checked) .al-mode-radio::after {
+  content: ''; position: absolute;
+  top: 3px; left: 3px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--text);
+}
+.al-mode-text { flex: 1; min-width: 0; }
+.al-mode-title {
+  font-size: 14px; font-weight: 500; color: var(--text);
+  margin-bottom: 4px;
+  display: flex; align-items: center; gap: 8px;
+}
+.al-mode-desc {
+  font-size: 13px; color: var(--text-muted); line-height: 1.5;
+}
+.al-mode-recommended {
+  display: inline-block;
+  font-size: 10px; font-weight: 600;
+  padding: 2px 8px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* INBOX-271: footer note clarifying in-app stays on regardless of
+   external channel preferences. */
+.al-cfg-foot {
+  font-size: 13px; color: var(--text-muted);
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 16px;
+}
+.al-cfg-foot a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+
 /* ══════ MODAL ══════ */
 .al-modal-overlay {
   display: none; position: fixed; inset: 0;
@@ -430,7 +505,7 @@ body.is-refreshing-pill::after {
       <div class="page-header">
         <div class="page-header-left">
           <h1 class="page-title">Alerts</h1>
-          <p class="page-subtitle">See what fired, configure rules, and choose where alerts go.</p>
+          <p class="page-subtitle">See what fired and choose where alerts go.</p>
         </div>
         <div class="page-header-actions">
           <span class="user-name" id="user-name"></span>
@@ -463,10 +538,12 @@ body.is-refreshing-pill::after {
         </div>
       </div>
 
-      <!-- Tabs -->
+      <!-- Tabs — INBOX-271 (2026-05-20): Rules tab removed. Feed shows
+           everything we fire (filterable by severity); Channels controls
+           where alerts go externally. Per-rule mute deferred until customer
+           demand (Vinoop's call — simplest UI wins). -->
       <div class="al-tabs" role="tablist">
         <button class="al-tab active" data-tab="feed" onclick="setTab('feed')" role="tab">Feed <span class="al-tab-count" id="feed-count">0</span></button>
-        <button class="al-tab" data-tab="rules" onclick="setTab('rules')" role="tab">Rules</button>
         <button class="al-tab" data-tab="channels" onclick="setTab('channels')" role="tab">Channels</button>
       </div>
 
@@ -476,6 +553,11 @@ body.is-refreshing-pill::after {
           <button class="al-chip active" data-filter="all" onclick="setFilter(this, 'all')">All</button>
           <button class="al-chip severity-critical" data-filter="critical" onclick="setFilter(this, 'critical')"><span class="al-chip-dot"></span>Critical</button>
           <button class="al-chip severity-warning" data-filter="warning" onclick="setFilter(this, 'warning')"><span class="al-chip-dot"></span>Warning</button>
+          <!-- INBOX-271: Info pill added. Phase 1.5 introduced info-severity
+               alerts (score recoveries, blacklist delistings, reputation
+               improvements). Without this pill they're indistinguishable
+               from warnings in the filtered view. -->
+          <button class="al-chip severity-info" data-filter="info" onclick="setFilter(this, 'info')"><span class="al-chip-dot"></span>Info</button>
         </div>
         <div class="al-range-anchor" id="range-anchor" style="display:none;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -487,51 +569,50 @@ body.is-refreshing-pill::after {
         </div>
       </div>
 
-      <!-- ═══ RULES ═══ -->
-      <div class="al-tab-panel" id="tab-rules" role="tabpanel">
-        <div class="al-cfg-section">
-          <div class="al-cfg-h">Trigger when…</div>
-          <div class="al-cfg-card">
-            <div class="al-cfg-row">
-              <div class="al-cfg-row-left">
-                <div class="al-cfg-label">Spam rate threshold</div>
-                <div class="al-cfg-desc">Warn above 0.1%, escalate to critical above 0.3% (Gmail's own block threshold).</div>
-              </div>
-              <div class="al-toggle on" data-pref="spam_threshold" onclick="this.classList.toggle('on')"></div>
-            </div>
-            <div class="al-cfg-row">
-              <div class="al-cfg-row-left">
-                <div class="al-cfg-label">Authentication drops</div>
-                <div class="al-cfg-desc">Warn when SPF, DKIM, or DMARC pass-rate drops below 99%; critical below 95%.</div>
-              </div>
-              <div class="al-toggle on" data-pref="auth_drops" onclick="this.classList.toggle('on')"></div>
-            </div>
-            <div class="al-cfg-row">
-              <div class="al-cfg-row-left">
-                <div class="al-cfg-label">Blacklist detection</div>
-                <div class="al-cfg-desc">Fire when any sending IP or sending domain is listed on a DNSBL.</div>
-              </div>
-              <div class="al-toggle on" data-pref="blacklist_alerts" onclick="this.classList.toggle('on')"></div>
-            </div>
-          </div>
-        </div>
-        <div class="al-cfg-save-row">
-          <span class="al-cfg-saved-msg" id="rules-saved-msg">Saved</span>
-          <button class="al-cfg-save-btn" id="rules-save-btn" onclick="savePrefs('rules')">Save changes</button>
-        </div>
-      </div>
-
-      <!-- ═══ CHANNELS ═══ -->
+      <!-- ═══ CHANNELS ═══
+           INBOX-271 (2026-05-20): Rules tab removed. Channels reworked.
+           Email is now a 3-mode picker (radio) instead of a binary toggle,
+           per the locked Phase 2A spec. Default is critical_rt — every
+           critical alert lands in real time, anything below (warning, info)
+           goes to the in-app feed only. -->
       <div class="al-tab-panel" id="tab-channels" role="tabpanel">
         <div class="al-cfg-section">
           <div class="al-cfg-h">Channels</div>
           <div class="al-cfg-card">
-            <div class="al-cfg-row">
-              <div class="al-cfg-row-left">
+            <div class="al-cfg-row" style="flex-direction: column; align-items: stretch;">
+              <div class="al-cfg-row-left" style="margin-bottom: 16px;">
                 <div class="al-cfg-label">Email</div>
                 <div class="al-cfg-desc" id="channels-email-desc">Send alerts to your account email.</div>
               </div>
-              <div class="al-toggle on" data-pref="scan_alerts" onclick="this.classList.toggle('on')"></div>
+              <div class="al-mode-picker" id="email-mode-picker">
+                <label class="al-mode-option">
+                  <input type="radio" name="email_mode" value="all_rt">
+                  <span class="al-mode-radio"></span>
+                  <div class="al-mode-text">
+                    <div class="al-mode-title">All real-time</div>
+                    <div class="al-mode-desc">Every alert as it happens — critical, warning, and info.</div>
+                  </div>
+                </label>
+                <label class="al-mode-option">
+                  <input type="radio" name="email_mode" value="critical_rt">
+                  <span class="al-mode-radio"></span>
+                  <div class="al-mode-text">
+                    <div class="al-mode-title">
+                      Critical real-time only
+                      <span class="al-mode-recommended">Recommended</span>
+                    </div>
+                    <div class="al-mode-desc">Only critical alerts trigger an email. Warnings and info stay in the in-app feed.</div>
+                  </div>
+                </label>
+                <label class="al-mode-option">
+                  <input type="radio" name="email_mode" value="off">
+                  <span class="al-mode-radio"></span>
+                  <div class="al-mode-text">
+                    <div class="al-mode-title">Off</div>
+                    <div class="al-mode-desc">No email alerts. Open /alerts to see what's going on.</div>
+                  </div>
+                </label>
+              </div>
             </div>
             <div class="al-cfg-row">
               <div class="al-cfg-row-left">
@@ -551,12 +632,22 @@ body.is-refreshing-pill::after {
           <div class="al-cfg-card">
             <div class="al-cfg-row">
               <div class="al-cfg-row-left">
-                <div class="al-cfg-label">Weekly digest</div>
+                <div class="al-cfg-label">
+                  Weekly digest
+                  <span class="al-pro-pill">Coming soon</span>
+                </div>
                 <div class="al-cfg-desc">Email summary every Monday at 9:00 AM with the week's alerts.</div>
               </div>
-              <div class="al-toggle" data-pref="weekly_digest" onclick="this.classList.toggle('on')"></div>
+              <button class="al-setup-btn" disabled>Enable</button>
             </div>
           </div>
+        </div>
+
+        <!-- INBOX-271: clarify that in-app is always on regardless of
+             external channel preferences. Resolves user confusion when
+             they pick "Off" and wonder if alerts stop firing entirely. -->
+        <div class="al-cfg-foot">
+          In-app alerts at <a href="/alerts">/alerts</a> are always on, regardless of these settings.
         </div>
 
         <div class="al-cfg-save-row">
@@ -650,10 +741,13 @@ var currentModalAlert = null;
 
 /* ═══════════ TABS ═══════════ */
 function setTab(tab) {
+  // INBOX-271: only 2 tabs now (feed, channels). If a stale link or
+  // bookmark points at 'rules', silently route to 'feed'.
+  if (tab === 'rules') tab = 'feed';
   document.querySelectorAll('.al-tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === tab); });
   document.querySelectorAll('.al-tab-panel').forEach(function (p) { p.classList.toggle('active', p.id === 'tab-' + tab); });
   try { localStorage.setItem('alerts.tab', tab); } catch (e) {}
-  if ((tab === 'rules' || tab === 'channels') && !window._prefsLoaded) loadPrefs();
+  if (tab === 'channels' && !window._prefsLoaded) loadPrefs();
 }
 
 /* ═══════════ DOMAIN DROPDOWN ═══════════
@@ -904,13 +998,19 @@ var PREFS_CACHE_KEY = 'alerts.prefs.v1';
 var PREFS_CACHE_TTL_MS = 60 * 60 * 1000;  // 1 hr — prefs change rarely
 
 function _applyPrefsToToggles(prefs) {
+  // INBOX-271 (2026-05-20): only one pref key remains — email_mode.
+  // Old keys (spam_threshold / auth_drops / blacklist_alerts /
+  // scan_alerts / weekly_digest) were never consulted by the backend
+  // and have been removed from the UI. Any stale rows in the prefs
+  // table are harmless — they're just ignored on read.
   prefs = prefs || {};
-  document.querySelectorAll('.al-toggle[data-pref]').forEach(function (t) {
-    var key = t.dataset.pref;
-    var defaultOn = (key !== 'weekly_digest');
-    var value = (key in prefs) ? !!prefs[key] : defaultOn;
-    if (value) t.classList.add('on'); else t.classList.remove('on');
-  });
+  var mode = prefs.email_mode;
+  // Default to 'critical_rt' if unset (matches PREFERENCE_DEFAULTS).
+  if (mode !== 'all_rt' && mode !== 'critical_rt' && mode !== 'off') {
+    mode = 'critical_rt';
+  }
+  var radios = document.querySelectorAll('input[name="email_mode"]');
+  radios.forEach(function (r) { r.checked = (r.value === mode); });
 }
 
 function _applyAccountEmail(email) {
@@ -953,24 +1053,32 @@ async function loadPrefs() {
 }
 
 async function savePrefs(which) {
-  var btnId = which + '-save-btn';
-  var msgId = which + '-saved-msg';
+  // INBOX-271 (2026-05-20): saves the single email_mode pref. `which`
+  // arg kept for backward-compat with the existing save button
+  // (channels-save-btn). The function ignores it now — there's only
+  // one config surface to save.
+  var btnId = (which || 'channels') + '-save-btn';
+  var msgId = (which || 'channels') + '-saved-msg';
   var btn = document.getElementById(btnId);
   var msg = document.getElementById(msgId);
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
-    var prefs = {};
-    document.querySelectorAll('.al-toggle[data-pref]').forEach(function (t) {
-      prefs[t.dataset.pref] = t.classList.contains('on');
-    });
+    var selected = document.querySelector('input[name="email_mode"]:checked');
+    var mode = selected ? selected.value : 'critical_rt';
     var res = await fetch('/api/user/preferences', {
       method: 'PUT',
       headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify(prefs)
+      body: JSON.stringify({ email_mode: mode })
     });
     if (!res.ok) {
       var err = await res.json().catch(function () { return {}; });
       throw new Error(err.detail || 'Failed to save');
+    }
+    // Invalidate the prefs cache so the next loadPrefs call re-reads
+    // from the server (and any other tab open to /alerts will refresh
+    // on its next visit).
+    if (window.cacheClear) {
+      try { window.cacheClear('alerts.prefs.v1'); } catch (e) {}
     }
     if (msg) { msg.classList.add('show'); setTimeout(function () { msg.classList.remove('show'); }, 2000); }
   } catch (e) {
@@ -1059,8 +1167,12 @@ window.addEventListener('DOMContentLoaded', function () {
       }
     }).catch(function () {});
 
-  /* Restore tab — URL hash wins over localStorage */
-  var validTabs = ['feed', 'rules', 'channels'];
+  /* Restore tab — URL hash wins over localStorage.
+     INBOX-271: 'rules' is no longer a valid tab. Any stale link / bookmark
+     /alerts#rules is silently coerced to 'feed' by setTab() itself, and
+     the validTabs list here drops 'rules' so localStorage doesn't
+     re-introduce it on subsequent loads. */
+  var validTabs = ['feed', 'channels'];
   var tab = (location.hash || '').replace('#', '');
   if (validTabs.indexOf(tab) === -1) {
     try { tab = localStorage.getItem('alerts.tab') || 'feed'; } catch (e) { tab = 'feed'; }
