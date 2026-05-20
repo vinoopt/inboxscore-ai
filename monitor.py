@@ -27,6 +27,10 @@ from db import (
     # checked_at timestamp before deciding to spend a HetrixTools
     # credit. dnsbl path bypasses the gate (always refreshes).
     get_blacklist_results,
+    # INBOX-270: score trend guard reads past-7d max for the in-band-drop
+    # detection (catches the "boiling frog" pattern where a domain
+    # slowly slides from 89 → 76 without crossing a band threshold).
+    get_recent_scan_scores,
 )
 from blacklist_provider import (
     get_full_blacklist_check_fn,
@@ -40,56 +44,202 @@ from scan_service import run_full_scan
 logger = logging.getLogger(__name__)
 
 
+# ─── INBOX-270 (2026-05-20) score band model ───────────────────────
+# Aligned to the 5-band visual UI established in INBOX-265. Replaces the
+# old 5-point and 15-point single-cycle delta rules (too noisy) and the
+# user-configurable `alert_threshold` field (invisible UX).
+#
+# Customers see these exact bands on the dashboard, so an alert that
+# fires "entered Fair" maps directly to the colour they're looking at.
+#
+# Ordinal goes 0 (best) → 4 (worst). Going from a lower ordinal to a
+# higher ordinal = score got worse = downward crossing.
+
+SCORE_BANDS = [
+    (90, "Excellent"),
+    (75, "Good"),
+    (60, "Fair"),
+    (40, "Needs Work"),
+    (0,  "At Risk"),
+]
+
+
+def score_band(score: int) -> tuple:
+    """Return (ordinal, name) for the band a score falls into.
+
+    Ordinal: 0=Excellent (best) → 4=At Risk (worst).
+    score=89 → (1, "Good"); score=60 → (2, "Fair"); score=39 → (4, "At Risk").
+    """
+    if score is None:
+        return None, None
+    for idx, (threshold, name) in enumerate(SCORE_BANDS):
+        if score >= threshold:
+            return idx, name
+    # 0 floor — shouldn't reach here (last band threshold is 0)
+    return len(SCORE_BANDS) - 1, SCORE_BANDS[-1][1]
+
+
+# Severity assigned when crossing INTO a band (going down). Crossing UP
+# (recovery) is always info — positive reinforcement, not urgency.
+_BAND_DOWN_SEVERITY = {
+    1: "warning",     # Excellent → Good
+    2: "warning",     # Good → Fair (more urgent but same severity tier)
+    3: "critical",    # Fair → Needs Work
+    4: "critical",    # Needs Work → At Risk
+}
+
+# DMARC policy strength (higher = stronger protection). Used to detect
+# when the customer's DMARC config was weakened — distinct from the
+# pass/fail status of the DMARC check itself.
+_DMARC_POLICY_STRENGTH = {"none": 0, "quarantine": 1, "reject": 2}
+
+
+def _extract_dmarc_policy(check: dict) -> str | None:
+    """Pull the DMARC `p=` value out of a check result's raw_data.
+
+    Returns None if not a DMARC check, no raw_data, or no parsed policy.
+    Used by compare_scan_results to detect policy weakening even when
+    the DMARC check itself still passes.
+    """
+    if not check or check.get("name") != "dmarc":
+        return None
+    raw = check.get("raw_data") or {}
+    policy = raw.get("policy")
+    if isinstance(policy, str) and policy.lower() in _DMARC_POLICY_STRENGTH:
+        return policy.lower()
+    return None
+
+
 def compare_scan_results(old_scan: dict, new_result: dict, domain_data: dict) -> list:
     """
     Compare old scan with new scan and detect meaningful changes.
-    Returns a list of change dicts with type, severity, and description.
+    Returns a list of change dicts with type, severity, title, message.
+
+    INBOX-270 (2026-05-20) rewrite:
+      • Score: band crossings (90/75/60/40) replace 5/15-point deltas.
+        Recovery alerts (crossed back UP) fire as info severity.
+        Trend guard: 15+ point cumulative drop over past 7d fires as
+        warning EVEN IF no band was crossed (catches "boiling frog").
+      • DMARC: policy weakening (reject → quarantine → none) fires as
+        critical, even if the DMARC check itself still passes. The
+        existing pass→fail loop covers the harder failure case.
+      • Per-check transitions: unchanged from prior implementation.
     """
     changes = []
+    domain = domain_data["domain"]
+    domain_id = domain_data.get("id")
     old_score = domain_data.get("latest_score")
     new_score = new_result["score"]
-    alert_threshold = domain_data.get("alert_threshold") or 70
 
-    # ── Score drop detection ──
-    if old_score is not None and new_score < old_score:
-        drop = old_score - new_score
-        if drop >= 15:
+    # ── Score band crossings ──────────────────────────────────────
+    band_crossed = False
+    if old_score is not None and new_score is not None:
+        old_ord, old_name = score_band(old_score)
+        new_ord, new_name = score_band(new_score)
+
+        if new_ord > old_ord:
+            # Going DOWN (entered a worse band)
+            band_crossed = True
+            severity = _BAND_DOWN_SEVERITY.get(new_ord, "warning")
             changes.append({
                 "type": "score_drop",
+                "severity": severity,
+                "title": f"Entered {new_name} band",
+                "message": (
+                    f"{domain} score moved from {old_score} ({old_name}) "
+                    f"to {new_score} ({new_name})."
+                ),
+            })
+        elif new_ord < old_ord:
+            # Going UP (recovery) — positive info, never urgent
+            band_crossed = True
+            changes.append({
+                "type": "score_drop",
+                "severity": "info",
+                "title": f"Recovered to {new_name}",
+                "message": (
+                    f"{domain} score improved from {old_score} "
+                    f"({old_name}) to {new_score} ({new_name}). "
+                    f"Whatever you changed is working."
+                ),
+            })
+
+    # ── Trend guard (in-band slow decline) ────────────────────────
+    # Only fires when no band was crossed THIS cycle — otherwise the
+    # customer would get two alerts for one event.
+    if not band_crossed and domain_id and new_score is not None:
+        try:
+            recent = get_recent_scan_scores(domain_id, days=7) or []
+            # Exclude the just-saved new score from the high-water mark
+            # if it's in the list (save_scan runs before compare; depends
+            # on call order in monitor_single_domain — defensive filter).
+            recent_excl_now = [s for s in recent if s != new_score] or recent
+            if recent_excl_now:
+                recent_high = max(recent_excl_now)
+                drop = recent_high - new_score
+                if drop >= 15:
+                    changes.append({
+                        "type": "score_drop",
+                        "severity": "warning",
+                        "title": f"Score dropped {drop} points in 7 days",
+                        "message": (
+                            f"{domain} score fell from {recent_high} "
+                            f"(7-day high) to {new_score} — a {drop}-point "
+                            f"decline. No single cycle crossed a band, but "
+                            f"the trend is worth investigating."
+                        ),
+                    })
+        except Exception:
+            # Trend guard failure must not block the rest of the alert
+            # pipeline. Structured log so Sentry catches it.
+            logger.exception("alerts.trend_guard_failed", extra={
+                "domain": domain,
+                "domain_id": domain_id,
+            })
+
+    # ── DMARC policy weakening (config regression) ────────────────
+    # Fires regardless of the DMARC check's pass/fail status. The
+    # check might still pass on `p=none`, but the customer just lost
+    # their spoofing protection — that's a critical alert.
+    if old_scan and old_scan.get("results"):
+        old_dmarc = None
+        new_dmarc = None
+        for c in old_scan["results"].get("checks", []):
+            if c.get("name") == "dmarc":
+                old_dmarc = c
+                break
+        for c in new_result.get("checks", []):
+            if c.get("name") == "dmarc":
+                new_dmarc = c
+                break
+        old_policy = _extract_dmarc_policy(old_dmarc)
+        new_policy = _extract_dmarc_policy(new_dmarc)
+        if (old_policy and new_policy
+                and _DMARC_POLICY_STRENGTH[new_policy]
+                < _DMARC_POLICY_STRENGTH[old_policy]):
+            changes.append({
+                "type": "dmarc_change",
                 "severity": "critical",
-                "title": f"Score dropped {drop} points",
-                "message": f"{domain_data['domain']} score fell from {old_score} to {new_score} (−{drop} points)."
-            })
-        elif drop >= 5:
-            changes.append({
-                "type": "score_drop",
-                "severity": "warning",
-                "title": f"Score dropped {drop} points",
-                "message": f"{domain_data['domain']} score fell from {old_score} to {new_score} (−{drop} points)."
+                "title": f"DMARC policy weakened: {old_policy} → {new_policy}",
+                "message": (
+                    f"{domain}'s DMARC policy was changed from "
+                    f"p={old_policy} to p={new_policy}. This reduces "
+                    f"protection against domain spoofing. If you didn't "
+                    f"make this change, investigate immediately."
+                ),
             })
 
-    # ── Score below threshold ──
-    if new_score < alert_threshold and (old_score is None or old_score >= alert_threshold):
-        changes.append({
-            "type": "score_drop",
-            "severity": "critical",
-            "title": f"Score below threshold ({alert_threshold})",
-            "message": f"{domain_data['domain']} score is {new_score}, below your alert threshold of {alert_threshold}."
-        })
-
-    # ── Compare individual check statuses if we have old scan data ──
+    # ── Per-check status transitions (unchanged) ──────────────────
     if old_scan and old_scan.get("results"):
         old_results = old_scan["results"]
         old_checks = {}
         new_checks = {}
 
-        # Build lookup by check name
         for c in old_results.get("checks", []):
             old_checks[c["name"]] = c
         for c in new_result.get("checks", []):
             new_checks[c["name"]] = c
 
-        # Detect check status changes
         for name, new_c in new_checks.items():
             old_c = old_checks.get(name)
             if not old_c:
@@ -100,7 +250,6 @@ def compare_scan_results(old_scan: dict, new_result: dict, domain_data: dict) ->
                 change_type = "dns_change"
                 severity = "warning"
 
-                # Determine specific change type
                 if "blacklist" in name.lower():
                     change_type = "blacklist_added"
                     severity = "critical"
@@ -118,7 +267,7 @@ def compare_scan_results(old_scan: dict, new_result: dict, domain_data: dict) ->
                     "type": change_type,
                     "severity": severity,
                     "title": f"{new_c['title']} — now failing",
-                    "message": f"{domain_data['domain']}: {name} changed from {old_c['status']} to fail. {new_c.get('detail', '')[:200]}"
+                    "message": f"{domain}: {name} changed from {old_c['status']} to fail. {new_c.get('detail', '')[:200]}"
                 })
 
             # Blacklist: check went from fail to pass (delisted)
@@ -127,7 +276,7 @@ def compare_scan_results(old_scan: dict, new_result: dict, domain_data: dict) ->
                     "type": "blacklist_removed",
                     "severity": "info",
                     "title": "Removed from blacklists",
-                    "message": f"{domain_data['domain']} is no longer listed on any checked blacklists."
+                    "message": f"{domain} is no longer listed on any checked blacklists."
                 })
 
     return changes

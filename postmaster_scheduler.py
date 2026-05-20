@@ -69,6 +69,28 @@ def sync_all_postmaster_users():
                         sync_started_at=sync_started,
                     )
 
+                    # INBOX-270 (2026-05-20): after fresh metrics land,
+                    # diff yesterday vs today and create alerts for
+                    # spam-rate / reputation / auth-pass-rate transitions.
+                    # Wrapped in its own try so an alert-pipeline failure
+                    # never blocks the sync from being marked successful.
+                    try:
+                        from alerts_postmaster import compare_and_alert_postmaster
+                        from db import get_postmaster_metrics_all_domains
+                        domains = list(
+                            get_postmaster_metrics_all_domains(user_id, days=2).keys()
+                        )
+                        alerts_created = compare_and_alert_postmaster(user_id, domains)
+                        if alerts_created:
+                            logger.info("postmaster_sync.alerts_created", extra={
+                                "user_id_prefix": user_id[:8],
+                                "count": alerts_created,
+                            })
+                    except Exception:
+                        logger.exception("postmaster_sync.alert_hook_failed", extra={
+                            "user_id_prefix": user_id[:8] if user_id else None,
+                        })
+
                     users_processed += 1
                     if status == "partial":
                         users_failed += 1

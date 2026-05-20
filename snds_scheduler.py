@@ -75,6 +75,25 @@ def sync_all_snds_users():
 
                     # Update connection sync status
                     update_snds_sync_status(user_id, ip_count=len(ip_set))
+
+                    # INBOX-270 (2026-05-20): after fresh metrics land,
+                    # diff yesterday vs today per-IP and create alerts
+                    # for SNDS status transitions + new trap hits.
+                    # Wrapped in its own try so an alert-pipeline failure
+                    # never blocks the sync from being marked successful.
+                    try:
+                        from alerts_snds import compare_and_alert_snds
+                        alerts_created = compare_and_alert_snds(user_id, ip_set)
+                        if alerts_created:
+                            logger.info("snds_sync.alerts_created", extra={
+                                "user_id_prefix": user_id[:8],
+                                "count": alerts_created,
+                            })
+                    except Exception:
+                        logger.exception("snds_sync.alert_hook_failed", extra={
+                            "user_id_prefix": user_id[:8] if user_id else None,
+                        })
+
                     users_processed += 1
 
                     print(f"[SNDS Sync] User {user_id[:8]}...: "

@@ -1111,6 +1111,41 @@ def delete_user_data(user_id: str) -> bool:
 
 # ─── ALERT OPERATIONS ────────────────────────────────────────────
 
+def get_recent_scan_scores(domain_id: str, days: int = 7) -> list:
+    """INBOX-270 (2026-05-20): return list of recent score ints for a domain.
+
+    Used by monitor.compare_scan_results() trend guard to catch
+    cumulative score declines that don't cross a band threshold.
+    For example, score walking 89 → 84 → 80 → 76 stays in the "Good"
+    band (75-89) the whole way down — no band crossing fires — but
+    that's a 13-point decline customers want to know about.
+
+    Returns scores ordered newest-first. May be empty if domain has
+    no scan history within the window, or if Supabase is unavailable.
+    """
+    sb = get_supabase()
+    if not sb:
+        return []
+    if not domain_id:
+        return []
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        result = sb.table("scans").select("score, created_at").eq(
+            "domain_id", domain_id
+        ).gte("created_at", cutoff).order("created_at", desc=True).limit(200).execute()
+        return [
+            r["score"]
+            for r in (result.data or [])
+            if r.get("score") is not None
+        ]
+    except Exception:
+        _alerts_log.exception("alerts.recent_scores_failed", extra={
+            "domain_id": domain_id,
+            "days": days,
+        })
+        return []
+
+
 def create_alert(user_id: str, alert_type: str, severity: str, title: str,
                  message: str = None, domain_id: str = None, domain: str = None) -> dict:
     """Create a new alert for a user"""
