@@ -310,17 +310,9 @@ body.is-refreshing-pill::after {
 }
 .al-setup-btn:hover:not(:disabled) { border-color: var(--text); }
 .al-setup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.al-cfg-save-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; }
-.al-cfg-saved-msg { font-size: 12px; color: var(--green); display: none; }
-.al-cfg-saved-msg.show { display: inline; }
-.al-cfg-save-btn {
-  padding: 8px 16px; border-radius: 8px;
-  background: var(--text); color: var(--surface); border: 1px solid var(--text);
-  font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
-  transition: all 100ms ease;
-}
-.al-cfg-save-btn:hover { opacity: 0.9; }
-.al-cfg-save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+/* INBOX-271 follow-up (2026-05-20): .al-cfg-save-row / .al-cfg-saved-msg /
+   .al-cfg-save-btn CSS removed alongside the DOM nodes. Auto-save pattern
+   replaces the manual Save button entirely. */
 
 /* INBOX-271: email delivery mode picker.
    Three mutually-exclusive options stacked vertically. Radio input is
@@ -382,17 +374,8 @@ body.is-refreshing-pill::after {
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 
-/* INBOX-271: footer note clarifying in-app stays on regardless of
-   external channel preferences. */
-.al-cfg-foot {
-  font-size: 13px; color: var(--text-muted);
-  padding: 12px 14px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  margin-top: 16px;
-}
-.al-cfg-foot a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+/* INBOX-271 follow-up (2026-05-20): .al-cfg-foot CSS removed — footer
+   div was deleted (in-app feed is self-evident from the Feed tab). */
 
 /* ══════ MODAL ══════ */
 .al-modal-overlay {
@@ -643,17 +626,12 @@ body.is-refreshing-pill::after {
           </div>
         </div>
 
-        <!-- INBOX-271: clarify that in-app is always on regardless of
-             external channel preferences. Resolves user confusion when
-             they pick "Off" and wonder if alerts stop firing entirely. -->
-        <div class="al-cfg-foot">
-          In-app alerts at <a href="/alerts">/alerts</a> are always on, regardless of these settings.
-        </div>
-
-        <div class="al-cfg-save-row">
-          <span class="al-cfg-saved-msg" id="channels-saved-msg">Saved</span>
-          <button class="al-cfg-save-btn" id="channels-save-btn" onclick="savePrefs('channels')">Save changes</button>
-        </div>
+        <!-- INBOX-271 follow-up (2026-05-20): footer note + Save button
+             both removed. Auto-save on radio change is the pattern now —
+             the Save button was below the fold, creating a silent-failure
+             trap where users picked a mode without realising they had to
+             scroll to save. With auto-save, every radio click immediately
+             persists and a toast confirms. See _onEmailModeChange. -->
       </div>
 
     </div>
@@ -997,6 +975,10 @@ function closeAlert() {
 var PREFS_CACHE_KEY = 'alerts.prefs.v1';
 var PREFS_CACHE_TTL_MS = 60 * 60 * 1000;  // 1 hr — prefs change rarely
 
+// INBOX-271 follow-up (2026-05-20): "last saved" state, used to revert
+// the radio if the auto-save PUT fails so the UI matches server truth.
+var _lastSavedEmailMode = 'critical_rt';
+
 function _applyPrefsToToggles(prefs) {
   // INBOX-271 (2026-05-20): only one pref key remains — email_mode.
   // Old keys (spam_threshold / auth_drops / blacklist_alerts /
@@ -1009,8 +991,59 @@ function _applyPrefsToToggles(prefs) {
   if (mode !== 'all_rt' && mode !== 'critical_rt' && mode !== 'off') {
     mode = 'critical_rt';
   }
+  _lastSavedEmailMode = mode;
   var radios = document.querySelectorAll('input[name="email_mode"]');
-  radios.forEach(function (r) { r.checked = (r.value === mode); });
+  radios.forEach(function (r) {
+    r.checked = (r.value === mode);
+    // Bind change listener exactly once per radio (idempotent on reapply).
+    if (!r.dataset.autoSaveBound) {
+      r.addEventListener('change', _onEmailModeChange);
+      r.dataset.autoSaveBound = '1';
+    }
+  });
+}
+
+// Friendly labels for the toast — matches the picker UI copy.
+var _EMAIL_MODE_LABEL = {
+  all_rt:      'All real-time',
+  critical_rt: 'Critical real-time only',
+  off:         'Off — no email alerts',
+};
+
+function _onEmailModeChange(ev) {
+  var newMode = ev && ev.target && ev.target.value;
+  if (!newMode || newMode === _lastSavedEmailMode) return;
+  // Optimistic UI: the radio already shows newMode (browser native
+  // behaviour). Fire the PUT in the background; revert on failure.
+  _autoSaveEmailMode(newMode);
+}
+
+async function _autoSaveEmailMode(mode) {
+  var prevMode = _lastSavedEmailMode;
+  try {
+    var res = await fetch('/api/user/preferences', {
+      method: 'PUT',
+      headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ email_mode: mode })
+    });
+    if (!res.ok) {
+      var err = await res.json().catch(function () { return {}; });
+      throw new Error(err.detail || 'Could not save');
+    }
+    _lastSavedEmailMode = mode;
+    // Invalidate cache so the next loadPrefs re-reads from server, and
+    // any other open tab sees the fresh value on its next refresh.
+    if (window.cacheClear) {
+      try { window.cacheClear('alerts.prefs.v1'); } catch (e) {}
+    }
+    showToast('Email mode saved · ' + (_EMAIL_MODE_LABEL[mode] || mode));
+  } catch (e) {
+    // Revert the radio to the previous saved state so the UI matches
+    // what the server actually has. Toast tells the user why.
+    var radios = document.querySelectorAll('input[name="email_mode"]');
+    radios.forEach(function (r) { r.checked = (r.value === prevMode); });
+    showToast(e.message || 'Could not save — reverted', 'error');
+  }
 }
 
 function _applyAccountEmail(email) {
@@ -1052,41 +1085,14 @@ async function loadPrefs() {
   } catch (e) { console.warn('Could not load preferences', e); }
 }
 
-async function savePrefs(which) {
-  // INBOX-271 (2026-05-20): saves the single email_mode pref. `which`
-  // arg kept for backward-compat with the existing save button
-  // (channels-save-btn). The function ignores it now — there's only
-  // one config surface to save.
-  var btnId = (which || 'channels') + '-save-btn';
-  var msgId = (which || 'channels') + '-saved-msg';
-  var btn = document.getElementById(btnId);
-  var msg = document.getElementById(msgId);
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
-  try {
-    var selected = document.querySelector('input[name="email_mode"]:checked');
-    var mode = selected ? selected.value : 'critical_rt';
-    var res = await fetch('/api/user/preferences', {
-      method: 'PUT',
-      headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ email_mode: mode })
-    });
-    if (!res.ok) {
-      var err = await res.json().catch(function () { return {}; });
-      throw new Error(err.detail || 'Failed to save');
-    }
-    // Invalidate the prefs cache so the next loadPrefs call re-reads
-    // from the server (and any other tab open to /alerts will refresh
-    // on its next visit).
-    if (window.cacheClear) {
-      try { window.cacheClear('alerts.prefs.v1'); } catch (e) {}
-    }
-    if (msg) { msg.classList.add('show'); setTimeout(function () { msg.classList.remove('show'); }, 2000); }
-  } catch (e) {
-    showToast(e.message || 'Failed to save', 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Save changes'; }
-  }
-}
+// INBOX-271 follow-up (2026-05-20): savePrefs() removed. Replaced with
+// the auto-save pattern in _onEmailModeChange + _autoSaveEmailMode
+// above. Every radio change fires a single PUT with toast feedback.
+// No manual Save button. No silent-failure trap from a below-the-fold
+// button. If we add a Slack webhook URL or weekly-digest day-of-week
+// in Phase 2C/2D, those text inputs will need an explicit save flow
+// (auto-save per keystroke isn't workable for free-form input) — but
+// that pattern can co-exist alongside the auto-saved radio.
 
 /* ═══════════ SIDEBAR BADGE ═══════════ */
 function updateSidebarBadge() {

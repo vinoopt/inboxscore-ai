@@ -94,7 +94,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.18.1")
+    _version = os.environ.get("APP_VERSION", "1.18.2")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -140,7 +140,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.18.1")
+app = FastAPI(title="InboxScore API", version="1.18.2")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
