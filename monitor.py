@@ -141,14 +141,25 @@ def compare_scan_results(old_scan: dict, new_result: dict, domain_data: dict) ->
             # Going DOWN (entered a worse band)
             band_crossed = True
             severity = _BAND_DOWN_SEVERITY.get(new_ord, "warning")
+            # INBOX-144: lead the email with the actual score number per
+            # Vinoop's "drop band terminology" feedback. Title pattern is
+            # "{domain} score dropped to {N}" — keeps in-app + email
+            # using the same words instead of internal band labels.
             changes.append({
                 "type": "score_drop",
                 "severity": severity,
-                "title": f"Entered {new_name} band",
+                "title": f"{domain} score dropped to {new_score}",
                 "message": (
-                    f"{domain} score moved from {old_score} ({old_name}) "
-                    f"to {new_score} ({new_name})."
+                    f"{domain} score dropped from {old_score} to {new_score}."
                 ),
+                "raw_data": {
+                    "old_score": old_score,
+                    "new_score": new_score,
+                    "score_delta": new_score - old_score,
+                    "old_band": old_name,
+                    "new_band": new_name,
+                    "direction": "down",
+                },
             })
         elif new_ord < old_ord:
             # Going UP (recovery) — positive info, never urgent
@@ -156,12 +167,19 @@ def compare_scan_results(old_scan: dict, new_result: dict, domain_data: dict) ->
             changes.append({
                 "type": "score_drop",
                 "severity": "info",
-                "title": f"Recovered to {new_name}",
+                "title": f"{domain} score recovered to {new_score}",
                 "message": (
-                    f"{domain} score improved from {old_score} "
-                    f"({old_name}) to {new_score} ({new_name}). "
+                    f"{domain} score improved from {old_score} to {new_score}. "
                     f"Whatever you changed is working."
                 ),
+                "raw_data": {
+                    "old_score": old_score,
+                    "new_score": new_score,
+                    "score_delta": new_score - old_score,
+                    "old_band": old_name,
+                    "new_band": new_name,
+                    "direction": "up",
+                },
             })
 
     # ── Trend guard (in-band slow decline) ────────────────────────
@@ -227,6 +245,14 @@ def compare_scan_results(old_scan: dict, new_result: dict, domain_data: dict) ->
                     f"protection against domain spoofing. If you didn't "
                     f"make this change, investigate immediately."
                 ),
+                # INBOX-144: structured payload for notifier.py's
+                # _render_dmarc_change — it branches on these fields to
+                # produce the policy-weakening copy variant.
+                "raw_data": {
+                    "old_policy": old_policy,
+                    "new_policy": new_policy,
+                    "weakened": True,
+                },
             })
 
     # ── Per-check status transitions (unchanged) ──────────────────
@@ -263,11 +289,37 @@ def compare_scan_results(old_scan: dict, new_result: dict, domain_data: dict) ->
                     change_type = "cert_expiry"
                     severity = "warning"
 
+                # INBOX-144: enrich with structured raw_data so notifier.py
+                # can render dynamic content. For blacklists specifically,
+                # extract the list of blocklists from the check's raw_data
+                # — notifier uses this to generate per-list delisting URLs.
+                change_raw = {
+                    "check_name": name,
+                    "old_status": old_c["status"],
+                    "new_status": "fail",
+                }
+                if change_type == "blacklist_added":
+                    check_raw = new_c.get("raw_data") or {}
+                    bl_listed = (
+                        check_raw.get("blacklists_listed")
+                        or check_raw.get("listed_on")
+                        or []
+                    )
+                    if bl_listed:
+                        change_raw["blacklists_listed"] = bl_listed
+                        change_raw["blacklists_count"] = len(bl_listed)
+                    change_raw["blacklist_type"] = (
+                        "ip" if "ip" in name.lower() else "domain"
+                    )
+                    if check_raw.get("ip"):
+                        change_raw["ip"] = check_raw["ip"]
+
                 changes.append({
                     "type": change_type,
                     "severity": severity,
                     "title": f"{new_c['title']} — now failing",
-                    "message": f"{domain}: {name} changed from {old_c['status']} to fail. {new_c.get('detail', '')[:200]}"
+                    "message": f"{domain}: {name} changed from {old_c['status']} to fail. {new_c.get('detail', '')[:200]}",
+                    "raw_data": change_raw,
                 })
 
             # Blacklist: check went from fail to pass (delisted)
@@ -339,9 +391,28 @@ def monitor_single_domain(domain_data: dict):
                 message=change["message"],
                 domain_id=domain_id,
                 domain=domain,
+                # INBOX-144: structured payload for notifier.py — carries
+                # the dynamic-content tokens (blacklist names, score
+                # deltas, etc.) the email renderer needs.
+                raw_data=change.get("raw_data"),
             )
             if alert:
                 alerts_created += 1
+                # INBOX-144: fire critical-alert email via notifier.
+                # Wrapped in its own try so an email-pipeline failure
+                # never crashes the monitor cycle — notifier's own
+                # internal try/except already returns structured status
+                # for normal paths; this extra guard is for
+                # truly-unexpected errors.
+                try:
+                    from notifier import send_alert_email
+                    send_alert_email(user_id, alert)
+                except Exception:
+                    logger.exception("monitor.notifier_hook_failed", extra={
+                        "user_id_prefix": user_id[:8] if user_id else None,
+                        "alert_id": alert.get("id"),
+                        "alert_type": change.get("type"),
+                    })
 
         # Update domain record
         if scan_id:

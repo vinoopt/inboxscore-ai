@@ -98,7 +98,10 @@ class TestBandCrossingDown:
         score_changes = [c for c in changes if c["type"] == "score_drop"]
         assert len(score_changes) == 1
         assert score_changes[0]["severity"] == "warning"
-        assert "Good" in score_changes[0]["title"]
+        # INBOX-144: title leads with score number, not band name
+        assert "dropped to 85" in score_changes[0]["title"]
+        assert score_changes[0]["raw_data"]["new_band"] == "Good"
+        assert score_changes[0]["raw_data"]["new_score"] == 85
 
     def test_good_to_fair_fires_warning(self):
         with _mock_trend_guard_empty():
@@ -110,7 +113,8 @@ class TestBandCrossingDown:
         score_changes = [c for c in changes if c["type"] == "score_drop"]
         assert len(score_changes) == 1
         assert score_changes[0]["severity"] == "warning"
-        assert "Fair" in score_changes[0]["title"]
+        assert "dropped to 72" in score_changes[0]["title"]
+        assert score_changes[0]["raw_data"]["new_band"] == "Fair"
 
     def test_fair_to_needs_work_fires_critical(self):
         with _mock_trend_guard_empty():
@@ -122,7 +126,8 @@ class TestBandCrossingDown:
         score_changes = [c for c in changes if c["type"] == "score_drop"]
         assert len(score_changes) == 1
         assert score_changes[0]["severity"] == "critical"
-        assert "Needs Work" in score_changes[0]["title"]
+        assert "dropped to 55" in score_changes[0]["title"]
+        assert score_changes[0]["raw_data"]["new_band"] == "Needs Work"
 
     def test_needs_work_to_at_risk_fires_critical(self):
         with _mock_trend_guard_empty():
@@ -134,7 +139,8 @@ class TestBandCrossingDown:
         score_changes = [c for c in changes if c["type"] == "score_drop"]
         assert len(score_changes) == 1
         assert score_changes[0]["severity"] == "critical"
-        assert "At Risk" in score_changes[0]["title"]
+        assert "dropped to 35" in score_changes[0]["title"]
+        assert score_changes[0]["raw_data"]["new_band"] == "At Risk"
 
     def test_multi_band_drop_fires_single_alert(self):
         """95 → 38 crosses 3 bands. Should fire ONE alert (worst band
@@ -149,7 +155,9 @@ class TestBandCrossingDown:
         assert len(score_changes) == 1
         # Lands in At Risk — should be critical
         assert score_changes[0]["severity"] == "critical"
-        assert "At Risk" in score_changes[0]["title"]
+        assert "dropped to 38" in score_changes[0]["title"]
+        assert score_changes[0]["raw_data"]["new_band"] == "At Risk"
+        assert score_changes[0]["raw_data"]["old_band"] == "Excellent"
 
 
 # ─── Band crossing — UPWARD (recovery) ──────────────────────────────
@@ -174,8 +182,11 @@ class TestBandCrossingUp:
         score_changes = [c for c in changes if c["type"] == "score_drop"]
         assert len(score_changes) == 1
         assert score_changes[0]["severity"] == "info"
-        assert "Recovered" in score_changes[0]["title"]
-        assert expected_band in score_changes[0]["title"]
+        # INBOX-144: title leads with score number
+        assert "recovered to" in score_changes[0]["title"].lower()
+        assert str(new_score) in score_changes[0]["title"]
+        assert score_changes[0]["raw_data"]["new_band"] == expected_band
+        assert score_changes[0]["raw_data"]["direction"] == "up"
 
 
 # ─── Same band, no crossing ─────────────────────────────────────────
@@ -271,9 +282,10 @@ class TestTrendGuard:
         # Should have exactly ONE score_drop alert (the band crossing)
         score_alerts = [c for c in changes if c["type"] == "score_drop"]
         assert len(score_alerts) == 1
-        # And it should be the band-crossing title, not the trend title
+        # And it should be the band-crossing alert, not the trend alert
         assert "7 days" not in score_alerts[0]["title"]
-        assert "Fair" in score_alerts[0]["title"]
+        assert "dropped to 70" in score_alerts[0]["title"]
+        assert score_alerts[0]["raw_data"]["new_band"] == "Fair"
 
 
 # ─── DMARC policy weakening ─────────────────────────────────────────
@@ -484,4 +496,5 @@ class TestOldDeltaRulesAreGone:
         score_changes = [c for c in changes if c["type"] == "score_drop"]
         # Should fire the BAND alert (Fair), regardless of threshold field
         assert len(score_changes) == 1
-        assert "Fair" in score_changes[0]["title"]
+        assert "dropped to 72" in score_changes[0]["title"]
+        assert score_changes[0]["raw_data"]["new_band"] == "Fair"

@@ -340,9 +340,24 @@ def compare_and_alert_postmaster(
                     title=change["title"],
                     message=change["message"],
                     domain=domain,
+                    # INBOX-144: structured payload for notifier.py.
+                    # alerts_postmaster doesn't currently populate this,
+                    # so the email falls back to the generic renderer
+                    # using title/message verbatim — acceptable for v1.
+                    raw_data=change.get("raw_data"),
                 )
                 if alert:
                     total_created += 1
+                    # INBOX-144: fire critical-alert email via notifier.
+                    try:
+                        from notifier import send_alert_email
+                        send_alert_email(user_id, alert)
+                    except Exception:
+                        _log.exception("alerts.postmaster.notifier_hook_failed", extra={
+                            "user_id_prefix": user_id[:8] if user_id else None,
+                            "alert_id": alert.get("id"),
+                            "domain": domain,
+                        })
 
         except Exception:
             _log.exception("alerts.postmaster.compare_failed", extra={

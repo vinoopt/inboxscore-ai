@@ -1147,8 +1147,16 @@ def get_recent_scan_scores(domain_id: str, days: int = 7) -> list:
 
 
 def create_alert(user_id: str, alert_type: str, severity: str, title: str,
-                 message: str = None, domain_id: str = None, domain: str = None) -> dict:
-    """Create a new alert for a user"""
+                 message: str = None, domain_id: str = None, domain: str = None,
+                 raw_data: dict = None) -> dict:
+    """Create a new alert for a user.
+
+    INBOX-144 (2026-05-21): added `raw_data` JSONB payload. Carries
+    structured event data (blacklists_listed, score_delta, etc.) that
+    notifier.py uses to render dynamic email content per alert type.
+    Backward-compatible — callers that don't pass raw_data skip the
+    field; the column has a '{}' default in migration 020.
+    """
     sb = get_supabase()
     if not sb:
         return None
@@ -1165,6 +1173,8 @@ def create_alert(user_id: str, alert_type: str, severity: str, title: str,
             data["domain_id"] = domain_id
         if domain:
             data["domain"] = domain
+        if raw_data:
+            data["raw_data"] = raw_data
 
         result = sb.table("alerts").insert(data).execute()
         return result.data[0] if result.data else None

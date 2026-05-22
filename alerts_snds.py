@@ -161,8 +161,20 @@ def compare_and_alert_snds(
                     # SNDS alerts are per-IP, not per-domain. We don't
                     # have a domain_id to attach; the title carries the
                     # IP context. domain field stays unset.
+                    # INBOX-144: structured payload for notifier.py.
+                    raw_data=change.get("raw_data"),
                 )
                 if alert:
+                    # INBOX-144: fire critical-alert email via notifier.
+                    try:
+                        from notifier import send_alert_email
+                        send_alert_email(user_id, alert)
+                    except Exception:
+                        _log.exception("alerts.snds.notifier_hook_failed", extra={
+                            "user_id_prefix": user_id[:8] if user_id else None,
+                            "alert_id": alert.get("id"),
+                            "ip": ip,
+                        })
                     total_created += 1
 
         except Exception:
