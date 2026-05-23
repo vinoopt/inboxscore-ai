@@ -159,8 +159,9 @@ jobs:
   deploy:
     name: Trigger Render deploy
     needs: [test, schema-drift-check]
-    # Only on push to main (not PRs), and only if tests passed.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Only on push to main OR manual workflow_dispatch (not PRs), and only if tests passed.
+    # workflow_dispatch added 2026-05-23 as fallback after push→check_suite delivery broke.
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
