@@ -94,7 +94,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.19.2")
+    _version = os.environ.get("APP_VERSION", "1.19.3")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -140,7 +140,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.19.2")
+app = FastAPI(title="InboxScore API", version="1.19.3")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -2314,12 +2314,38 @@ async def api_admin_inject_test_scenario(req: Request):
 
     body = await req.json()
     scenario = body.get("scenario", "blacklist_spamhaus_added")
-    test_domain = body.get("test_domain", "test.inboxscore.ai")
+
+    # INBOX-144 follow-up fix: alerts.domain_id is NOT NULL on prod.
+    # Use the user's first monitored domain as the anchor — this also
+    # makes test emails look realistic (real domain name in subject/body
+    # instead of a fake "test.inboxscore.ai" string the user has never
+    # seen). Override via body.domain_id if a specific domain is wanted.
+    requested_domain_id = body.get("domain_id")
+    user_domains = get_user_domains(user_id) or []
+    if not user_domains:
+        raise HTTPException(
+            status_code=400,
+            detail="You need at least one domain on your account to test alerts. Add one in /domains first.",
+        )
+    if requested_domain_id:
+        chosen = next((d for d in user_domains if d["id"] == requested_domain_id), None)
+        if not chosen:
+            raise HTTPException(
+                status_code=400,
+                detail=f"domain_id {requested_domain_id} not found on your account",
+            )
+    else:
+        chosen = user_domains[0]
+    test_domain = chosen["domain"]
+    test_domain_id = chosen["id"]
 
     # Build the synthetic scan pair
     old_scan, new_result, domain_data = _build_scenario_scans(
         scenario, test_domain, user_id,
     )
+    # Inject the real domain_id into domain_data so any downstream
+    # logic (trend guard etc.) that reads it works.
+    domain_data["id"] = test_domain_id
 
     # Step 1 of the pipeline — detection
     from monitor import compare_scan_results
@@ -2335,6 +2361,7 @@ async def api_admin_inject_test_scenario(req: Request):
             severity=change["severity"],
             title=change["title"],
             message=change["message"],
+            domain_id=test_domain_id,
             domain=test_domain,
             raw_data=change.get("raw_data"),
         )
@@ -2352,6 +2379,7 @@ async def api_admin_inject_test_scenario(req: Request):
     return {
         "scenario": scenario,
         "test_domain": test_domain,
+        "test_domain_id": test_domain_id,
         "changes_detected": len(changes),
         "results": results,
     }
@@ -2387,7 +2415,18 @@ async def api_admin_send_test_alert_email(req: Request):
 
     body = await req.json()
     scenario = body.get("scenario", "blacklist_single")
-    domain = body.get("domain", "test.inboxscore.ai")
+
+    # Same fix as inject-test-scenario: alerts.domain_id is NOT NULL.
+    # Use the user's first monitored domain.
+    user_domains = get_user_domains(user_id) or []
+    if not user_domains:
+        raise HTTPException(
+            status_code=400,
+            detail="You need at least one domain on your account to test alerts.",
+        )
+    chosen = user_domains[0]
+    domain = body.get("domain") or chosen["domain"]
+    domain_id = chosen["id"]
 
     payload = _build_test_alert(scenario, domain)
 
@@ -2398,6 +2437,7 @@ async def api_admin_send_test_alert_email(req: Request):
         severity=payload["severity"],
         title=payload["title"],
         message=payload["message"],
+        domain_id=domain_id,
         domain=payload["domain"],
         raw_data=payload["raw_data"],
     )
