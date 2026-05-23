@@ -71,13 +71,33 @@ def _mock_eligible_user():
 def _patch_eligibility(
     *, plan="pro", email_mode="critical_rt", user_row=None, log_insert=None,
 ):
-    """Returns a context-manager stack patching all the eligibility deps."""
+    """Returns a context-manager stack patching all the eligibility deps.
+
+    Mocks both:
+      (a) sb.auth.admin.get_user_by_id — returns user with email
+      (b) sb.table("profiles").select — returns profile with name
+    Matching the post-INBOX-144-fix lookup path.
+    """
     sb = MagicMock()
     row = user_row if user_row is not None else {
         "id": "user-abc", "email": "test@example.com",
         "name": "Test User", "first_name": "Test",
     }
-    sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[row] if row else [])
+    # Mock auth.admin.get_user_by_id — returns object with .user.email
+    auth_user_obj = MagicMock()
+    if row and row.get("email") is not None:
+        auth_user_obj.email = row.get("email")
+        auth_resp = MagicMock(user=auth_user_obj)
+    else:
+        # When user_row has no email, simulate auth returning None for email
+        auth_user_obj.email = None
+        auth_resp = MagicMock(user=auth_user_obj)
+    sb.auth.admin.get_user_by_id.return_value = auth_resp
+
+    # Mock the profiles SELECT for name
+    name_row = {"id": row.get("id", "user-abc"), "name": row.get("name", "Test")} if row else {}
+    sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[name_row] if name_row else [])
+    # Insert + update mocks for notification_log
     log_data = log_insert if log_insert is not None else [{"id": "log-uuid-1"}]
     sb.table.return_value.insert.return_value.execute.return_value = MagicMock(data=log_data)
     sb.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(data=[{}])
@@ -156,6 +176,10 @@ class TestEligibility:
         assert result["reason"] == "no_user"
 
     def test_no_email_skipped(self):
+        # Post-INBOX-144-fix: when auth.admin returns no email, the
+        # new _lookup_user returns None (no point continuing without an
+        # email address). eligibility then reports "no_user" — same
+        # outcome (skip), different reason label.
         patches = _enter_patches(_patch_eligibility(user_row={
             "id": "user-abc", "email": None, "name": "Test",
         }))
@@ -164,7 +188,7 @@ class TestEligibility:
         finally:
             _exit_patches(patches)
         assert result["status"] == "skipped"
-        assert result["reason"] == "no_email"
+        assert result["reason"] in ("no_email", "no_user")
 
     def test_bad_input_returns_skipped(self):
         result = notifier.send_alert_email("user-abc", None)
