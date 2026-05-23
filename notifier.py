@@ -213,16 +213,64 @@ def _check_eligibility(user_id: str, alert: dict) -> dict:
 
 
 def _lookup_user(user_id: str) -> Optional[dict]:
-    """Read the user's profile (email, name). Returns None on failure."""
+    """Read the user's email (from auth.users) + name (from profiles).
+    Returns None on failure.
+
+    INBOX-144 fix: original implementation selected `id, email, name,
+    first_name` from public.profiles which broke for TWO reasons:
+      (a) `email` lives in auth.users, NOT public.profiles
+      (b) `first_name` doesn't exist on profiles either
+    The whole SELECT failed at the Supabase layer → empty result →
+    _lookup_user returned None → eligibility check returned 'no_user'
+    → no email ever sent.
+
+    Fix: use the Supabase auth admin API (sb.auth.admin.get_user_by_id)
+    for email — works because the server initialises with the
+    SUPABASE_SERVICE_KEY which has admin scope. Then a separate SELECT
+    on profiles for the display name.
+    """
     sb = get_supabase()
     if not sb:
         return None
     try:
-        result = sb.table("profiles").select("id, email, name, first_name").eq(
-            "id", user_id
-        ).limit(1).execute()
-        rows = result.data or []
-        return rows[0] if rows else None
+        # ── Email from auth.users via admin API ─────────────────────
+        auth_resp = sb.auth.admin.get_user_by_id(user_id)
+        email = None
+        if auth_resp is not None:
+            # supabase-py returns either an object with .user.email or a
+            # dict-like {'user': {'email': ...}} depending on version
+            user_obj = getattr(auth_resp, "user", None)
+            if user_obj is None and isinstance(auth_resp, dict):
+                user_obj = auth_resp.get("user")
+            if user_obj is not None:
+                email = getattr(user_obj, "email", None)
+                if email is None and isinstance(user_obj, dict):
+                    email = user_obj.get("email")
+        if not email:
+            return None
+
+        # ── Name from profiles (best-effort) ────────────────────────
+        name = None
+        try:
+            prof_result = sb.table("profiles").select("id, name").eq(
+                "id", user_id
+            ).limit(1).execute()
+            rows = prof_result.data or []
+            if rows:
+                name = rows[0].get("name")
+        except Exception:
+            # If profiles lookup fails we still proceed with email-only —
+            # name is just used for the greeting and has a fallback.
+            pass
+
+        return {
+            "id": user_id,
+            "email": email,
+            "name": name,
+            # first_name derived from name (split on first space) so
+            # _check_eligibility's fallback chain still works.
+            "first_name": (name or "").split(" ")[0] if name else None,
+        }
     except Exception:
         _log.exception("notifier.lookup_user_failed", extra={
             "user_id_prefix": user_id[:8] if user_id else None,
