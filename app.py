@@ -94,7 +94,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.19.0")
+    _version = os.environ.get("APP_VERSION", "1.19.1")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -140,7 +140,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.19.0")
+app = FastAPI(title="InboxScore API", version="1.19.1")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -2011,6 +2011,211 @@ async def api_delete_alert(req: Request, alert_id: str):
     if success:
         return {"ok": True}
     raise HTTPException(status_code=500, detail="Failed to delete alert")
+
+
+# ─── ADMIN TEST UTILITIES ─────────────────────────────────────────
+# INBOX-144 follow-up (2026-05-21): admin-only endpoint that lets us
+# trigger any alert email scenario on demand. Useful for QA — verifying
+# template rendering, MailerCloud delivery, brand assets, copy — without
+# waiting for a real critical event to happen on a monitored domain.
+#
+# Auth: Bearer token + email in ADMIN_EMAILS allowlist.
+# Behaviour: creates a REAL alert row in the DB (so the email lands at
+# the alert URL link correctly) + fires the notifier.send_alert_email
+# pipeline exactly as it would for a natural cycle. The alert shows up
+# in /alerts feed afterwards — feel free to delete it.
+
+ADMIN_EMAILS = {
+    "vinoop@mailercloud.com",
+    "vinoop@luvia.com",
+    "vinoop@inboxscore.ai",
+}
+
+
+# Each scenario produces the (alert_type, severity, title, message, domain, raw_data)
+# tuple that goes into create_alert. Designed to exercise every renderer
+# branch in notifier._render_email.
+def _build_test_alert(scenario: str, domain: str) -> dict:
+    """Build the alert payload for a test scenario."""
+    if scenario == "blacklist_single":
+        return {
+            "alert_type": "blacklist_added",
+            "severity": "critical",
+            "title": f"{domain} was listed on Spamhaus ZEN",
+            "message": f"TEST EMAIL: {domain} appeared on Spamhaus ZEN. This is a test alert sent via the admin endpoint.",
+            "domain": domain,
+            "raw_data": {
+                "blacklists_listed": ["Spamhaus ZEN"],
+                "blacklists_count": 1,
+                "blacklist_type": "domain",
+                "_test": True,
+            },
+        }
+    if scenario == "blacklist_multi":
+        return {
+            "alert_type": "blacklist_added",
+            "severity": "critical",
+            "title": f"{domain} was listed on 3 blocklists",
+            "message": f"TEST EMAIL: {domain} appeared on 3 blocklists in one cycle.",
+            "domain": domain,
+            "raw_data": {
+                "blacklists_listed": ["Spamhaus ZEN", "Barracuda", "SURBL"],
+                "blacklists_count": 3,
+                "blacklist_type": "domain",
+                "ip": "192.0.2.10",
+                "_test": True,
+            },
+        }
+    if scenario == "score_drop_60":
+        return {
+            "alert_type": "score_drop",
+            "severity": "critical",
+            "title": f"{domain} score dropped to 58",
+            "message": f"TEST EMAIL: {domain} score dropped from 62 to 58.",
+            "domain": domain,
+            "raw_data": {
+                "old_score": 62, "new_score": 58, "score_delta": -4,
+                "new_band": "Needs Work", "old_band": "Fair",
+                "direction": "down",
+                "failing_checks": ["spf", "gmail_spam_rate"],
+                "_test": True,
+            },
+        }
+    if scenario == "score_drop_40":
+        return {
+            "alert_type": "score_drop",
+            "severity": "critical",
+            "title": f"{domain} score dropped to 35",
+            "message": f"TEST EMAIL: {domain} score dropped from 42 to 35.",
+            "domain": domain,
+            "raw_data": {
+                "old_score": 42, "new_score": 35, "score_delta": -7,
+                "new_band": "At Risk", "old_band": "Needs Work",
+                "direction": "down",
+                "_test": True,
+            },
+        }
+    if scenario == "dmarc_weakened":
+        return {
+            "alert_type": "dmarc_change",
+            "severity": "critical",
+            "title": "DMARC policy weakened: reject → quarantine",
+            "message": f"TEST EMAIL: {domain} DMARC policy changed from reject to quarantine.",
+            "domain": domain,
+            "raw_data": {
+                "old_policy": "reject",
+                "new_policy": "quarantine",
+                "weakened": True,
+                "_test": True,
+            },
+        }
+    if scenario == "spam_rate":
+        return {
+            "alert_type": "reputation_change",
+            "severity": "critical",
+            "title": "Gmail spam rate exceeded 0.3%",
+            "message": f"TEST EMAIL: {domain} Gmail spam rate is now 0.38% (up from 0.05% yesterday). Above Gmail's enforcement threshold.",
+            "domain": domain,
+            "raw_data": {
+                "metric": "spam_rate",
+                "current_value": 0.0038,
+                "previous_value": 0.0005,
+                "threshold_crossed": 0.003,
+                "_test": True,
+            },
+        }
+    if scenario == "reputation_bad":
+        return {
+            "alert_type": "reputation_change",
+            "severity": "critical",
+            "title": "Gmail domain reputation dropped to Bad",
+            "message": f"TEST EMAIL: {domain} domain reputation at Gmail dropped from High to Bad.",
+            "domain": domain,
+            "raw_data": {
+                "metric": "domain_reputation",
+                "old_tier": "HIGH",
+                "new_tier": "BAD",
+                "affected": "domain",
+                "_test": True,
+            },
+        }
+    if scenario == "snds_red":
+        return {
+            "alert_type": "reputation_change",
+            "severity": "critical",
+            "title": "Microsoft SNDS status turned Red — major degradation",
+            "message": "TEST EMAIL: IP 192.0.2.10 SNDS status dropped from Green to Red — two-tier slide.",
+            "domain": domain,
+            "raw_data": {
+                "metric": "snds_status",
+                "old_status": "green",
+                "new_status": "red",
+                "ip": "192.0.2.10",
+                "_test": True,
+            },
+        }
+    raise HTTPException(status_code=400, detail=f"Unknown scenario: {scenario}")
+
+
+@app.post("/api/admin/send-test-alert-email")
+async def api_admin_send_test_alert_email(req: Request):
+    """INBOX-144 follow-up: trigger an alert email of any scenario.
+    Admin-only. Creates a REAL alert row + fires the notifier pipeline.
+
+    Request JSON:
+      {
+        "scenario": "blacklist_single" | "blacklist_multi" |
+                    "score_drop_60" | "score_drop_40" |
+                    "dmarc_weakened" | "spam_rate" |
+                    "reputation_bad" | "snds_red",
+        "domain": "test.example.com" (optional, defaults to test.inboxscore.ai)
+      }
+
+    Response: {alert_id, scenario, send_result: {status, message_id?, reason?}}
+    """
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user_id = user_result["user"]["id"]
+    user_email = (user_result["user"].get("email") or "").lower()
+    if user_email not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    body = await req.json()
+    scenario = body.get("scenario", "blacklist_single")
+    domain = body.get("domain", "test.inboxscore.ai")
+
+    payload = _build_test_alert(scenario, domain)
+
+    # Insert the alert (real DB row — same as monitor would)
+    alert = create_alert(
+        user_id=user_id,
+        alert_type=payload["alert_type"],
+        severity=payload["severity"],
+        title=payload["title"],
+        message=payload["message"],
+        domain=payload["domain"],
+        raw_data=payload["raw_data"],
+    )
+    if not alert:
+        raise HTTPException(status_code=500, detail="Failed to create test alert")
+
+    # Fire notifier — exercises the real pipeline (eligibility check,
+    # notification_log idempotency, template render, MailerCloud API call,
+    # log update).
+    from notifier import send_alert_email
+    send_result = send_alert_email(user_id, alert)
+
+    return {
+        "alert_id": alert["id"],
+        "scenario": scenario,
+        "domain": domain,
+        "send_result": send_result,
+    }
 
 
 # ─── DOMAIN API ENDPOINTS ─────────────────────────────────────────
