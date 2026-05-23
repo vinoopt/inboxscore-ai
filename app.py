@@ -34,7 +34,7 @@ from db import (
     get_user_preferences,
     export_user_data, delete_user_data,
     get_user_alerts, get_unread_alert_count, mark_alert_read,
-    mark_all_alerts_read, delete_alert,
+    mark_all_alerts_read, delete_alert, create_alert,
     # INBOX-162/163 (F3+F4): count helpers used by paginated endpoints
     get_user_alerts_count, get_user_domains_count,
     # INBOX-169 (F10): plan domain-count limit + exception
@@ -94,7 +94,7 @@ if SENTRY_DSN:
     # Release: "inboxscore@1.15.0" or "inboxscore@1.15.0+abc1234" if a git SHA is
     # available. Render auto-injects RENDER_GIT_COMMIT on every deploy; we also
     # honour an explicit APP_GIT_SHA override.
-    _version = os.environ.get("APP_VERSION", "1.19.1")
+    _version = os.environ.get("APP_VERSION", "1.19.2")
     _git_sha = (os.environ.get("APP_GIT_SHA")
                 or os.environ.get("RENDER_GIT_COMMIT", "")
                 or "").strip()
@@ -140,7 +140,7 @@ if SENTRY_DSN:
 else:
     print("[Sentry] SENTRY_DSN not set — error reporting disabled")
 
-app = FastAPI(title="InboxScore API", version="1.19.1")
+app = FastAPI(title="InboxScore API", version="1.19.2")
 
 # CORS — restrict to known origins (set ALLOWED_ORIGINS env var in production)
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
@@ -2155,6 +2155,206 @@ def _build_test_alert(scenario: str, domain: str) -> dict:
             },
         }
     raise HTTPException(status_code=400, detail=f"Unknown scenario: {scenario}")
+
+
+def _build_scenario_scans(scenario: str, domain: str, user_id: str) -> tuple:
+    """INBOX-144 follow-up: build (old_scan, new_result, domain_data)
+    fixtures for the inject-test-scenario endpoint.
+
+    These exercise monitor.compare_scan_results() — the DETECTION step
+    of the alert pipeline — which the simpler send-test-alert-email
+    endpoint skips. Use this when you want to test "given scan state X
+    changed to Y, does the right alert fire?"
+
+    Returns a 3-tuple matching compare_scan_results's signature.
+    domain_data carries latest_score so band-crossing detection works.
+    """
+    def _check(name, status, title, detail="", raw_data=None):
+        c = {"name": name, "status": status, "title": title, "detail": detail}
+        if raw_data is not None:
+            c["raw_data"] = raw_data
+        return c
+
+    def _scan(score, checks):
+        return {"score": score, "checks": checks}
+
+    def _old(results):
+        return {"results": results, "id": "test-old-scan-id"}
+
+    def _dd(latest_score):
+        return {
+            "id": "test-domain-id",
+            "domain": domain,
+            "user_id": user_id,
+            "latest_score": latest_score,
+        }
+
+    # ─── BLACKLIST SCENARIOS ────────────────────────────────────────
+    if scenario == "blacklist_spamhaus_added":
+        old_checks = [
+            _check("blacklist_domain", "pass", "Domain blacklist", "Clean"),
+        ]
+        new_checks = [
+            _check("blacklist_domain", "fail", "Domain blacklist",
+                   "Listed on Spamhaus ZEN",
+                   raw_data={"blacklists_listed": ["Spamhaus ZEN"]}),
+        ]
+        return (_old(_scan(82, old_checks)),
+                _scan(78, new_checks),
+                _dd(82))
+
+    if scenario == "blacklist_phishtank_added":
+        old_checks = [
+            _check("blacklist_domain", "pass", "Domain blacklist", "Clean"),
+        ]
+        new_checks = [
+            _check("blacklist_domain", "fail", "Domain blacklist",
+                   "Listed on PhishTank",
+                   raw_data={"blacklists_listed": ["PhishTank"]}),
+        ]
+        return (_old(_scan(85, old_checks)),
+                _scan(80, new_checks),
+                _dd(85))
+
+    if scenario == "blacklist_multi":
+        old_checks = [
+            _check("blacklist_domain", "pass", "Domain blacklist", "Clean"),
+        ]
+        new_checks = [
+            _check("blacklist_domain", "fail", "Domain blacklist",
+                   "Listed on 3 blocklists",
+                   raw_data={
+                       "blacklists_listed": ["Spamhaus ZEN", "Barracuda", "SURBL"],
+                       "ip": "192.0.2.10",
+                   }),
+        ]
+        return (_old(_scan(80, old_checks)),
+                _scan(70, new_checks),
+                _dd(80))
+
+    # ─── DMARC SCENARIOS ────────────────────────────────────────────
+    if scenario == "dmarc_weakened":
+        old_checks = [
+            _check("dmarc", "pass", "DMARC Policy",
+                   "p=reject", raw_data={"policy": "reject"}),
+        ]
+        new_checks = [
+            _check("dmarc", "pass", "DMARC Policy",
+                   "p=quarantine", raw_data={"policy": "quarantine"}),
+        ]
+        return (_old(_scan(85, old_checks)),
+                _scan(80, new_checks),
+                _dd(85))
+
+    if scenario == "spf_failure":
+        old_checks = [
+            _check("spf", "pass", "SPF Record", "Valid SPF"),
+        ]
+        new_checks = [
+            _check("spf", "fail", "SPF Record", "No SPF record found"),
+        ]
+        return (_old(_scan(80, old_checks)),
+                _scan(70, new_checks),
+                _dd(80))
+
+    # ─── SCORE BAND SCENARIOS ───────────────────────────────────────
+    if scenario == "score_drop_into_needs_work":
+        # Crosses 60 boundary (band Fair → Needs Work) → critical
+        return (None, _scan(55, []), _dd(65))
+
+    if scenario == "score_drop_into_at_risk":
+        # Crosses 40 boundary (Needs Work → At Risk) → critical
+        return (None, _scan(35, []), _dd(45))
+
+    if scenario == "score_recovery":
+        # Recovery — fires info severity (won't email per v1 critical-only rule)
+        return (None, _scan(82, []), _dd(70))
+
+    raise HTTPException(status_code=400, detail=f"Unknown scenario: {scenario}")
+
+
+@app.post("/api/admin/inject-test-scenario")
+async def api_admin_inject_test_scenario(req: Request):
+    """INBOX-144 follow-up: full-sequence test — exercises detection
+    (compare_scan_results) + creation (create_alert) + delivery
+    (notifier.send_alert_email) end-to-end with a synthetic event.
+
+    Unlike send-test-alert-email which skips straight to delivery, this
+    runs the REAL detection logic against a synthetic scan pair so we
+    can verify "given input X, the right alert fires and the right
+    email goes out."
+
+    Request JSON:
+      {
+        "scenario": "blacklist_spamhaus_added" | "blacklist_phishtank_added"
+                    | "blacklist_multi" | "dmarc_weakened" | "spf_failure"
+                    | "score_drop_into_needs_work" | "score_drop_into_at_risk"
+                    | "score_recovery",
+        "test_domain": "test.inboxscore.ai" (optional)
+      }
+
+    Response: {
+      scenario, test_domain, changes_detected,
+      results: [{change_type, severity, title, alert_id, send_result}]
+    }
+
+    Admin-only. Real DB rows created — clean up via /api/alerts/{id} DELETE.
+    """
+    auth_header = req.headers.get("authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = auth_header.replace("Bearer ", "")
+    user_result = get_user_from_token(token)
+    if not user_result["success"]:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user_id = user_result["user"]["id"]
+    user_email = (user_result["user"].get("email") or "").lower()
+    if user_email not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    body = await req.json()
+    scenario = body.get("scenario", "blacklist_spamhaus_added")
+    test_domain = body.get("test_domain", "test.inboxscore.ai")
+
+    # Build the synthetic scan pair
+    old_scan, new_result, domain_data = _build_scenario_scans(
+        scenario, test_domain, user_id,
+    )
+
+    # Step 1 of the pipeline — detection
+    from monitor import compare_scan_results
+    changes = compare_scan_results(old_scan, new_result, domain_data)
+
+    # Step 2 + 3 — creation + delivery for each detected change
+    from notifier import send_alert_email
+    results = []
+    for change in changes:
+        alert = create_alert(
+            user_id=user_id,
+            alert_type=change["type"],
+            severity=change["severity"],
+            title=change["title"],
+            message=change["message"],
+            domain=test_domain,
+            raw_data=change.get("raw_data"),
+        )
+        send_result = None
+        if alert:
+            send_result = send_alert_email(user_id, alert)
+        results.append({
+            "change_type": change["type"],
+            "severity": change["severity"],
+            "title": change["title"],
+            "alert_id": alert["id"] if alert else None,
+            "send_result": send_result,
+        })
+
+    return {
+        "scenario": scenario,
+        "test_domain": test_domain,
+        "changes_detected": len(changes),
+        "results": results,
+    }
 
 
 @app.post("/api/admin/send-test-alert-email")
