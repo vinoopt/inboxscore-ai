@@ -502,7 +502,7 @@ def _render_shell(
           <strong style="color:#18181b;font-weight:600;">InboxScore</strong> &middot; Sent on behalf of Luvia Digital LTD
         </p>
         <p style="margin:0 0 8px;font-size:12px;color:#a1a1aa;line-height:1.6;">
-          Luvia Digital LTD &middot; London, United Kingdom
+          Luvia Digital LTD &middot; 100 Avebury Blvd, Milton Keynes, MK9 1FH, England, United Kingdom
         </p>
         <p style="margin:0;font-size:12px;color:#71717a;line-height:1.6;">
           You're getting this because you're monitoring <strong style="color:#52525b;">{_esc(domain)}</strong> on InboxScore.
@@ -549,7 +549,7 @@ def _build_text(
     out.append("")
     out.append("---")
     out.append("InboxScore — Sent on behalf of Luvia Digital LTD")
-    out.append("Luvia Digital LTD, London, United Kingdom")
+    out.append("Luvia Digital LTD, 100 Avebury Blvd, Milton Keynes, MK9 1FH, England, United Kingdom")
     out.append(f"You're getting this because you're monitoring {domain} on InboxScore.")
     out.append(f"Email settings: {APP_BASE_URL}/alerts")
     return "\n".join(out)
@@ -584,8 +584,12 @@ def _render_blacklist(alert: dict, raw: dict, user_name: str) -> dict:
     cta_url = _alert_url(alert["id"])
 
     if count == 0:
-        # Fallback if raw_data doesn't carry the list
-        subject = f"Critical: {domain} was added to a blocklist"
+        # Fallback if raw_data doesn't carry the list.
+        # INBOX-144 polish: dropped "Critical:" prefix per Vinoop's
+        # "drop the crying-wolf urgency word" call. Severity stays in
+        # body via the red pill. Active voice + "was just" implies
+        # recency, which is what the customer needs to know.
+        subject = f"{domain} was just added to a blocklist"
         preview = alert.get("message", "")[:90]
         title = f"{domain} was added to a blocklist"
         body_paragraphs = [alert.get("message", "")]
@@ -594,7 +598,7 @@ def _render_blacklist(alert: dict, raw: dict, user_name: str) -> dict:
         name = blacklists[0]
         info = get_blocklist_info(name)
         delist_url = render_delisting_url(name, domain, ip)
-        subject = f"Critical: {domain} listed on {name}"
+        subject = f"{domain} was just listed on {name}"
         preview = f"{domain} appeared on {name}. Gmail, Outlook, and Yahoo are blocking your mail."
         title = f"{domain} was listed on {name}"
         body_paragraphs = [
@@ -612,7 +616,7 @@ def _render_blacklist(alert: dict, raw: dict, user_name: str) -> dict:
         names_inline = ", ".join(blacklists[:3])
         if count > 3:
             names_inline += f", and {count - 3} more"
-        subject = f"Critical: {domain} listed on {count} blocklists"
+        subject = f"{domain} was just listed on {count} blocklists"
         preview = f"{names_inline} all flagged {domain} in the same scan cycle."
         title = f"{domain} was listed on {count} blocklists"
         body_paragraphs = [
@@ -653,7 +657,13 @@ def _render_score_drop(alert: dict, raw: dict, user_name: str) -> dict:
     cta_url = _alert_url(alert["id"])
     failing_checks = raw.get("failing_checks") or []
 
-    subject = f"Critical: {domain} score dropped to {new_score}"
+    # INBOX-144 polish: drop "Critical:" prefix. For deep drops (below
+    # 40 = At Risk) append a "needs attention" tail so the subject
+    # still conveys urgency without the spam-trigger word.
+    if new_score is not None and new_score < 40:
+        subject = f"{domain} score dropped to {new_score} — needs attention"
+    else:
+        subject = f"{domain} score dropped to {new_score}"
     title = f"{domain} score dropped to {new_score}"
 
     if old_score is not None:
@@ -730,7 +740,7 @@ def _render_dmarc_change(alert: dict, raw: dict, user_name: str) -> dict:
 
     if old_policy and new_policy and old_policy != new_policy:
         # Policy weakened
-        subject = f"Critical: DMARC policy weakened on {domain}"
+        subject = f"DMARC policy was weakened on {domain}"
         preview = f"DMARC went from p={old_policy} to p={new_policy}. Your spoofing protection just dropped."
         title = f"DMARC policy was weakened"
         subtitle = f"<strong>{old_policy}</strong> &rarr; <strong>{new_policy}</strong> &middot; {domain}"
@@ -745,7 +755,7 @@ def _render_dmarc_change(alert: dict, raw: dict, user_name: str) -> dict:
         ]
     else:
         # DMARC check went from pass to fail
-        subject = f"Critical: DMARC now failing on {domain}"
+        subject = f"DMARC authentication broke on {domain}"
         preview = f"DMARC validation broke. Spoofed messages will now reach inboxes."
         title = f"DMARC is now failing"
         subtitle = f"Was passing yesterday &middot; {domain}"
@@ -778,7 +788,7 @@ def _render_auth_change(alert: dict, raw: dict, user_name: str) -> dict:
     detected_at = _format_detected_at(alert)
     cta_url = _alert_url(alert["id"])
 
-    subject = f"Critical: {auth_label} now failing on {domain}"
+    subject = f"{auth_label} authentication broke on {domain}"
     preview = f"Your {auth_label} record is failing validation. Mail will be rejected at Gmail and Outlook."
     title = f"{auth_label} authentication is now failing"
     subtitle = f"Was passing yesterday &middot; {domain}"
@@ -809,7 +819,7 @@ def _render_cert_expiry(alert: dict, raw: dict, user_name: str) -> dict:
     detected_at = _format_detected_at(alert)
     cta_url = _alert_url(alert["id"])
 
-    subject = f"Critical: TLS cert issue on {domain}"
+    subject = f"TLS certificate broke on {domain}"
     preview = f"Your TLS certificate is failing validation."
     title = f"TLS certificate is failing"
     subtitle = f"Detected on {domain}"
@@ -840,8 +850,8 @@ def _render_reputation_change(alert: dict, raw: dict, user_name: str) -> dict:
     title_text = alert.get("title") or "Reputation change"
     message_text = alert.get("message") or ""
 
-    # Best-effort subject — strip leading provider names from title
-    subject = f"Critical: {title_text} &middot; {domain}" if domain else f"Critical: {title_text}"
+    # Best-effort subject — drop "Critical:" prefix per INBOX-144 polish.
+    subject = f"{title_text} on {domain}" if domain else title_text
     preview = message_text[:90]
     subtitle = f"Detected on {domain}" if domain else ""
 
@@ -867,7 +877,7 @@ def _render_generic(alert: dict, raw: dict, user_name: str) -> dict:
     cta_url = _alert_url(alert["id"])
     title = alert.get("title") or "Critical alert"
     message = alert.get("message") or ""
-    subject = f"Critical: {title}" + (f" &middot; {domain}" if domain else "")
+    subject = f"{title}" + (f" on {domain}" if domain else "")
     preview = message[:90]
     subtitle = f"Detected on {domain}" if domain else "Detected"
     return _format_output(
