@@ -381,6 +381,17 @@ html[data-theme="dark"] .pm-detail-card {
 .pm-pill.pm-pill-empty   { background: var(--surface-2); color: var(--pm-fg-3); }
 .pm-pill.pm-pill-empty   .pm-ind { background: var(--pm-fg-4); }
 
+/* INBOX-273: pm-pill-loading — neutral grey pill with a subtle pulse,
+   used while a v2-API-only row is still being fetched on first paint.
+   Distinct from pm-pill-empty so it reads as a *loading state* (we don't
+   know yet) rather than a *finding* (we asked and got nothing back). */
+.pm-pill.pm-pill-loading { background: var(--surface-2); color: var(--pm-fg-3); opacity: 0.75; animation: pm-pill-pulse 1.4s ease-in-out infinite; }
+.pm-pill.pm-pill-loading .pm-ind { background: var(--pm-fg-4); }
+@keyframes pm-pill-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1.0; }
+}
+
 /* ════════════════════════════════════════════════════════════════════
    STEP 4 — Chart card + Period select + Data card (mockup-match)
    Source: design-mockups/postmaster-v2.html lines 305–348.

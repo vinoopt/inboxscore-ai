@@ -1622,7 +1622,15 @@ async function populateGpmCompliance() {
   // Always paint NOW — with cached compliance if we have it, or with
   // null (metrics-only fallback) if we don't. Either is better than
   // the static "Loading…" placeholder.
-  _renderGpmComplianceTable(metrics, cachedCompliance);
+  //
+  // INBOX-273: pass fetchComplete=false on the first paint when we
+  // don't have cached compliance — that tells the render function to
+  // show a "Checking…" loading pill for v2-API-only rows instead of
+  // a pessimistic "No data — Awaiting v2 API" pill that would later
+  // flip to "Compliant" once the fetch lands. If we DO have cached
+  // compliance, that already includes v2 verdicts, so fetchComplete
+  // is effectively true for rendering purposes.
+  _renderGpmComplianceTable(metrics, cachedCompliance, /*fetchComplete=*/!!cachedCompliance);
 
   // SWR step 2: fetch fresh compliance and repaint silently.
   const token = getToken();
@@ -1647,16 +1655,25 @@ async function populateGpmCompliance() {
 
   // If we already painted from cache and the fresh fetch failed, keep
   // the cached paint. Otherwise repaint with fresh data (or null —
-  // pure render handles the metrics-only fallback).
+  // pure render handles the metrics-only fallback). fetchComplete=true
+  // because the fetch attempt has finished (success or fail) — v2-only
+  // rows that are still null should now show "No data" honestly.
   if (apiCompliance || !cachedCompliance) {
-    _renderGpmComplianceTable(metrics, apiCompliance);
+    _renderGpmComplianceTable(metrics, apiCompliance, /*fetchComplete=*/true);
   }
 }
 
 // Pure render — no network, no async. Takes parsed metrics + (optional)
-// compliance API response and rebuilds the table body. Safe to call
-// multiple times.
-function _renderGpmComplianceTable(metrics, apiCompliance) {
+// compliance API response + a fetchComplete flag, and rebuilds the table
+// body. Safe to call multiple times.
+//
+// INBOX-273: fetchComplete distinguishes "we haven't asked the v2 API yet"
+// (skeleton/loading state for v2-only rows) from "we asked and the API
+// genuinely returned null" (honest "No data" state). Without this flag,
+// the first paint shows a misleading pessimistic state that immediately
+// corrects upward when the fetch lands.
+function _renderGpmComplianceTable(metrics, apiCompliance, fetchComplete) {
+  if (fetchComplete === undefined) fetchComplete = true;  // default = legacy behaviour
   const tbody = document.getElementById('gpm-comp-table-body');
   if (!metrics || metrics.length === 0 || !tbody) return;
   const latest = metrics[metrics.length - 1];
@@ -1693,10 +1710,18 @@ function _renderGpmComplianceTable(metrics, apiCompliance) {
   const tls   = latest.encrypted_traffic_tls != null ? latest.encrypted_traffic_tls * 100 : null;
   const spam  = latest.spam_rate != null ? latest.spam_rate * 100 : null;
 
-  // Helper: resolve status — prefer API, fall back to computed
-  function resolve(apiKey, computedPass, failMsg) {
+  // Helper: resolve status — prefer API, fall back to computed.
+  // INBOX-273: if v2Only=true AND we haven't loaded v2 API yet AND there's
+  // no cached/fresh value, return pass='loading' so the render block shows
+  // a skeleton "Checking…" pill instead of a pessimistic "No data" pill
+  // that would later flip to "Compliant". This kills the trust-eroding
+  // 4-of-8 → 8-of-8 flash on first paint.
+  function resolve(apiKey, computedPass, failMsg, v2Only) {
     if (compMap[apiKey]) {
       return { pass: compMap[apiKey] === 'COMPLIANT', failMsg: failMsg };
+    }
+    if (v2Only && !fetchComplete) {
+      return { pass: 'loading', failMsg: failMsg };
     }
     return { pass: computedPass, failMsg: failMsg };
   }
@@ -1712,10 +1737,13 @@ function _renderGpmComplianceTable(metrics, apiCompliance) {
     // policy. When the v2 compliance API is unavailable we now render these
     // rows as "no data" (null) instead of an unverified green tick. Same
     // honest-data theme as INBOX-93 / INBOX-95.
+    // INBOX-273: v2Only=true → show "Checking…" loading pill on first
+    // paint instead of pessimistic "No data — Awaiting v2 API" that would
+    // immediately flip to "Compliant" once the v2 API fetch lands.
     resolve('DMARC_ALIGNMENT', null,
-      'Awaiting Google verdict — From: header alignment is reported by the v2 compliance API only.'),
+      'Awaiting Google verdict — From: header alignment is reported by the v2 compliance API only.', true),
     resolve('DMARC_POLICY', null,
-      'Awaiting Google verdict — DMARC policy compliance (p=quarantine or stricter for bulk senders) is reported by the v2 compliance API only.'),
+      'Awaiting Google verdict — DMARC policy compliance (p=quarantine or stricter for bulk senders) is reported by the v2 compliance API only.', true),
     resolve('ENCRYPTION', tls != null ? tls >= 95 : null,
       'TLS encryption is ' + (tls != null ? tls.toFixed(1) + '%' : 'N/A') + '. Should be above 95%.'),
     resolve('USER_REPORTED_SPAM_RATE', spam != null ? spam < 0.3 : null,
@@ -1742,7 +1770,8 @@ function _renderGpmComplianceTable(metrics, apiCompliance) {
   };
   const oneClickReason = compData?.oneClickUnsubscribeVerdict?.reason;
   checks.push({
-    pass: oneClickVerdict ? oneClickVerdict === 'COMPLIANT' : null,
+    // INBOX-273: v2-only row — show loading until fetch lands; only show null/"No data" when fetch is done.
+    pass: oneClickVerdict ? (oneClickVerdict === 'COMPLIANT') : (fetchComplete ? null : 'loading'),
     failMsg: oneClickReasons[oneClickReason] || 'Ensure one-click unsubscribe is correctly implemented for your subscription messages.'
   });
   labels.push('One-click unsubscribe');
@@ -1755,7 +1784,8 @@ function _renderGpmComplianceTable(metrics, apiCompliance) {
   };
   const honorReason = compData?.honorUnsubscribeVerdict?.reason;
   checks.push({
-    pass: honorVerdict ? honorVerdict === 'COMPLIANT' : null,
+    // INBOX-273: v2-only row — show loading until fetch lands; only show null/"No data" when fetch is done.
+    pass: honorVerdict ? (honorVerdict === 'COMPLIANT') : (fetchComplete ? null : 'loading'),
     failMsg: honorReasons[honorReason] || 'Ensure unsubscribe requests are honored within 2 days as required by Google.'
   });
   labels.push('Honor unsubscribe');
@@ -1787,12 +1817,19 @@ function _renderGpmComplianceTable(metrics, apiCompliance) {
   const ICON_FAIL  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
   const ICON_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16"/></svg>';
 
-  // Track passes for the section sub-head count.
-  let passCount = 0, totalCount = checks.length;
+  // Track passes (and v2-loading rows) for the section sub-head count.
+  // INBOX-273: loadingCount → render "Checking N of 8…" while v2 fetch in flight.
+  let passCount = 0, loadingCount = 0, totalCount = checks.length;
 
   checks.forEach((check, i) => {
     let iconCls, pillCls, pillText, iconSvg, subText;
-    if (check.pass === null) {
+    if (check.pass === 'loading') {
+      // INBOX-273: skeleton/loading state — neutral grey pulse pill,
+      // generic "Checking…" sub-line. Distinct from null "No data".
+      iconCls = 'pm-icon-empty'; pillCls = 'pm-pill-loading'; pillText = 'Checking…'; iconSvg = ICON_EMPTY;
+      subText = 'Checking with Google…';
+      loadingCount++;
+    } else if (check.pass === null) {
       iconCls = 'pm-icon-empty'; pillCls = 'pm-pill-empty'; pillText = 'No data'; iconSvg = ICON_EMPTY;
       subText = check.failMsg || 'Awaiting Google verdict.';
     } else if (check.pass) {
@@ -1818,12 +1855,20 @@ function _renderGpmComplianceTable(metrics, apiCompliance) {
     tbody.appendChild(row);
   });
 
-  // Update the section sub-line with live count: "N of 8 currently compliant".
+  // Update the section sub-line with live count.
+  // INBOX-273: if any rows are still loading (v2 API fetch in flight on
+  // first paint), show "Checking…" sub-line instead of a count that would
+  // immediately jump up once the fetch lands.
   const summaryEl = document.getElementById('gpm-comp-summary');
   if (summaryEl) {
-    summaryEl.innerHTML = 'Gmail&rsquo;s 2024 sender requirements — every bulk sender must meet these. '
-      + '<strong style="color:var(--text);">' + passCount + ' of ' + totalCount + '</strong>'
-      + (passCount === totalCount ? ' currently compliant for this domain.' : ' currently compliant — see rows below for action items.');
+    if (loadingCount > 0) {
+      summaryEl.innerHTML = 'Gmail&rsquo;s 2024 sender requirements — every bulk sender must meet these. '
+        + '<strong style="color:var(--text);">Checking…</strong>';
+    } else {
+      summaryEl.innerHTML = 'Gmail&rsquo;s 2024 sender requirements — every bulk sender must meet these. '
+        + '<strong style="color:var(--text);">' + passCount + ' of ' + totalCount + '</strong>'
+        + (passCount === totalCount ? ' currently compliant for this domain.' : ' currently compliant — see rows below for action items.');
+    }
   }
 }
 
